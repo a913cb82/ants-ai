@@ -7,13 +7,12 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Lockdown:
+class Clockwork:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
         self.remembered_hills: set[tuple[int, int]] = set()
         self.prev_enemies: list[tuple[int, int]] = []
-        self.turn = 0
 
     # do_setup is run once at the start of the game
     # after the bot has received the game settings
@@ -23,21 +22,18 @@ class Lockdown:
         self.visits = {}
         self.remembered_hills = set()
         self.prev_enemies = []
-        self.turn = 0
 
     # do turn is run once per turn
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Endgame: hold most hills until the turn limit.
-        # Battling as Lockdown. Headings, memory, aggression, walk-off,
-        # and exploration match iteration 15. With fewer than 150 turns
-        # left, spare ants rally to the nearest home hill to hold the
-        # lead, or to the nearest enemy hill with no hills left.
+        # Time: spend the turn budget on deeper search when rich.
+        # Battling as Clockwork. Headings, memory, aggression, walk-off,
+        # and exploration match iteration 15. Each ant's BFS budget
+        # follows the clock (800/250/60), so early ants search deep
+        # while late ants still get orders before time runs out.
         foods = ants.food()
         ants_list = ants.my_ants()
-        self.turn += 1
-        endgame = ants.turns > 0 and (ants.turns - self.turn) < 150
         my_set = set(ants_list)
         for hloc, _ in ants.enemy_hills():
             self.remembered_hills.add(hloc)
@@ -170,10 +166,17 @@ class Lockdown:
         held: list[tuple[int, int]] = []
         for ai, ant_loc in enumerate(ants_list):
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
+            time_left = ants.time_remaining()
+            if time_left > 600:
+                step_budget = 800
+            elif time_left > 250:
+                step_budget = 250
+            else:
+                step_budget = 60
             best = target.get(ai)
             moved = False
             if best is not None:
-                step = first_step(ant_loc, best)
+                step = first_step(ant_loc, best, step_budget)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
                 if not moved:
@@ -184,15 +187,7 @@ class Lockdown:
                 # No food or blocked: guard home first, else hunt.
                 targets = threatened if threatened else hills
                 nearest = min(targets, key=lambda h: ants.distance(ant_loc, h))
-                step = first_step(ant_loc, nearest)
-                if step is not None and try_step(ant_loc, step):
-                    moved = True
-            if not moved and endgame and (my_hills or hills):
-                # Endgame: rally to hold home hills, or all-out attack
-                # on the nearest enemy hill with no hills left.
-                keep = my_hills if my_hills else hills
-                goal = min(keep, key=lambda h: ants.distance(ant_loc, h))
-                step = first_step(ant_loc, goal)
+                step = first_step(ant_loc, nearest, step_budget)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved:
@@ -240,6 +235,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Lockdown())
+        Ants.run(Clockwork())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
