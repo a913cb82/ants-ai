@@ -334,3 +334,15 @@ Use this format.
 - what changed: Battling as Garrison in Garrison.bot + Garrison.py; defenders step to unclaimed food within 4 squares first, posts re-draft next turn.
 - what you learned: Eating defenders swept duels 5-0 and won the 10p with Saturn 2nd, but lost the 4p to Grazer; the family (42.27, 33.99, 37.83) never threatens the champion, so the line is dropped.
 - next: BOLD — new line, research first.
+
+## 27 — seek supported fights inside 8 (2026-09-21)
+- commit: abee17e
+- start: 79bbd16 (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 48.28, sigma 3.58, lb 37.54
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 4-1, FFA ranks 5p:1 7p:1 8p:6
+- what changed: Battling as Lancer in Lancer.bot + Lancer.py; between defense and hill-hunting, ants with an enemy inside 8 close on it, filter as backstop.
+- what you learned: Charges swept the small fields (5p and 7p wins) but lost a duel to Vanguard and ranked 6/8 in a maze 8p behind the whole formation family; seeking fights bleeds in crowds, so lb reached 37.54 against 52.15.
+- next: Supported charges — only close with 2+ friends nearby.

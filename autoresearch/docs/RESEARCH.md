@@ -81,6 +81,12 @@ Use this format.
 - evidence: Wave lines spawn and march toward the enemy hill while momentum keeps ants alive and gathering; our unconditional flood failed at lb 37.87.
 - idea: Parked — retry coordinated pushes only with a numbers gate, after missions land.
 
+## Approach forms fighting lines (2026-09-21)
+- source: /tmp/antsresearch/docs/reference/xathis/postmortem.txt (approaching enemies)
+- claim: Ants near enemies advance on them and form lines, second rank filling gaps.
+- evidence: A* to the closest enemy (free tiles first, then through occupied), so rear ants close through holes in the front line; our ants only ever walk to food, hills, or empty ground and never at the enemy.
+- idea: Seek-enemy branch between defense and hill-hunting, gated by proximity, safety filter as backstop.
+
 ## Corner-post formations around hills (2026-09-21)
 - source: bots/pas11/Pas11.py (this repo, HILL DEFEND section)
 - claim: Defenders hold diagonal corner posts at distance 1 and 2, not the hill itself.
