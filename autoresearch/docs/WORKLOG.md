@@ -166,3 +166,15 @@ Use this format.
 - what changed: Battling as Houdini in Houdini.bot + Houdini.py; the spare-ant fallback ranks safe exits by open space behind them (BFS 8, friends x3, enemies x-3) with visits only breaking ties.
 - what you learned: Space-seeking lost twice to LeftyBot and fell to 4/7 in a weak 7p; ranking space above food-proximity wanders ants away from the economy, so lb collapsed from 44.03 to 20.12.
 - next: Aggressive combat — trade 1-for-1 when 14+ friends near the fight.
+
+## 13 — aggressive combat with 14+ friends near (2026-09-20)
+- commit: 117f54a
+- start: 858bf3b (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 61.04, sigma 3.83, lb 49.55
+- champion lb: 44.03
+- verdict: keep
+- games: 5-0, FFA ranks 5p:1 7p:1 8p:1
+- what changed: Battling as Berserker in Berserker.bot + Berserker.py; equal trades are accepted when 14+ friends stand within 10 steps, outnumbered moves still refused.
+- what you learned: Controlled aggression swept every game including a 7p with five past selves and an 8p head-to-head over the champion; piling in with numbers lifts lb from 44.03 to 49.55.
+- next: Hill-first order — hunt hills before food.
