@@ -20,12 +20,12 @@ The engine runs a match and records a replay.
 
 ## Use
 
-1. Run the engine with a map and two bot commands.
-2. Store the replay outside `tools/`. This keeps `tools/` clean.
+1. Run the engine with a map, two bot commands, and a replay dir outside `tools/`.
+2. Open the replay in the visualizer.
 
 ## Example
 
-Play one game between two copies of the starter bot:
+Record one game between two copies of the starter bot:
 
 ```sh
 python3 tools/playgame.py \
@@ -35,6 +35,16 @@ python3 tools/playgame.py \
   "python3 bots/py3_starter/MyBot.py3"
 ```
 
-Remove --nolaunch to open the replay in the visualizer. The engine writes the replay and opens a browser page.
+Open the replay in the visualizer:
+
+```sh
+python3 tools/playgame.py \
+  --map_file tools/maps/example/tutorial1.map \
+  --turns 100 --log_dir replays \
+  "python3 bots/py3_starter/MyBot.py3" \
+  "python3 bots/py3_starter/MyBot.py3"
+```
+
+The engine writes the replay and opens a browser page.
 
 The engine sets the bot work dir to the bot file dir.
