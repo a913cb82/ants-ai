@@ -1,36 +1,43 @@
 # Methods
 
-Binding numbers for the autoresearch loop. The harness reads these
-defaults. Change them with flags, not with edits.
+These numbers are binding. The harness reads the defaults.
+Change a number with a flag, not with an edit.
 
-## Budget (per candidate commit)
+## Budget
 
-| Games | Count | Maps | Cost |
+One iteration has 23 games for each candidate commit:
+
+| Part | Count | Maps | Time |
 |---|---|---|---|
-| Duels | 16 | 16 distinct random 2p maps | ~5 s each |
-| FFA | 1 per size | one random map for each size 4..10 | 20-90 s each |
-| Total | 23 | all distinct within an iteration | ~5-8 min |
+| Duels | 16 | 16 different 2p maps | about 5 s each |
+| FFA | 7 | one map for each size 4, 5, 6, 7, 8, 9, 10 | 20 to 90 s each |
+| Total | 23 | all different in one iteration | about 5 to 8 min |
 
-- The candidate is a commit. A fresh commit is a fresh bot id.
+- The candidate is a commit. A new commit is a new bot id.
 - A commit cannot play more than this budget. A second run plays nothing.
-- Every game appends to `league/games.jsonl` and updates `ratings.json`.
+- Every game goes to `league/games.jsonl` and updates `ratings.json`.
 
-## Objective
+## Score
 
-`lb = mu - 3 * sigma`, from the shared OpenSkill BradleyTerryFull model.
-Higher is better. `board.py` prints `mu`, `sigma`, and `lb`.
-A seed commit is measured once. Its score is kept for comparison.
+The score is `lb = mu - 3 * sigma`. The model is OpenSkill
+BradleyTerryFull. A high score is good.
+`board.py` shows `mu`, `sigma`, and `lb`.
+The harness measures a commit one time.
+The record keeps the score for a later comparison.
 
 ## Selection
 
-- Duels: candidate forced; opponent has the best information score
-  `predict_draw + 0.02 * sum(sigma)`. The top 3 are eligible.
-  A random pick among the top 3 takes 20% of games.
-- FFA: candidate forced; the other slots are filled the same way.
-- Maps: random and distinct inside one iteration.
-- Slots and both seeds: random and logged.
-- No pairing. Opponent strength is handled by the rating model.
-  Map variety matters more than seed or slot repeats.
+- A duel: the candidate is in the game. The opponent has the best
+  information score. The top 3 opponents are eligible.
+  In 20 percent of duels the harness picks one of the top 3 at random.
+- An FFA game: the candidate is in the field. The harness fills the
+  other slots by the same information score.
+- The information score is `predict_draw + 0.02 * sum(sigma)`.
+- The maps are random and different in one iteration.
+- The slots and both seeds are random. The record keeps the seeds.
+- The harness does not pair games. The rating model corrects for the
+  strength of the opponent. Map variety is more important than a repeat
+  of the seeds or the slots.
 
 ## Engine settings
 
@@ -39,24 +46,25 @@ A seed commit is measured once. Its score is kept for comparison.
 | `--turns` | 1000 |
 | `--turntime` | 1000 ms |
 | `--loadtime` | 3000 ms |
-| `--timeout` | 900 s per game |
+| `--timeout` | 900 s for each game |
 
 ## Commands
 
 ```sh
-# play the rest of the budget and print the score
+# play the rest of the budget and show the score
 python autoresearch/iteration.py --bot autoresearch/bot/main.bot
 
-# show the budget and score, play nothing
+# show the budget and the score. Play no game.
 python autoresearch/iteration.py --bot autoresearch/bot/main.bot --dry-run
 
-# the field
+# show the field
 python league/board.py
 ```
 
 ## Replays
 
 Each game writes `autoresearch/runs/<sha>/<phase>_<n>/0.replay`.
-The store is pruned oldest-first past `--max-replay-gb` (0.5 GB).
-The current candidate's directory is protected. Worktrees are pruned
-the same way past `--max-worktree-gb` (1.0 GB).
+The harness removes the oldest replays when the store is larger than
+`--max-replay-gb` (0.5 GB). It keeps the replays of the current
+candidate. The harness removes the oldest worktrees when the store is
+larger than `--max-worktree-gb` (1.0 GB).

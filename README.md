@@ -64,4 +64,5 @@ python league/matchmake.py --play 5
 `autoresearch/` runs a bot development loop. An agent improves one bot.
 Each iteration is one commit and one fixed game budget.
 The agent keeps a change when the rating improves.
-See `autoresearch/docs/PROGRAM.md` for the operating instructions.
+See `autoresearch/README.md` for the loop, and
+`autoresearch/docs/PROGRAM.md` for the operating instructions.

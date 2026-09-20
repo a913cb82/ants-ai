@@ -1,29 +1,32 @@
 # Autoresearch program
 
-You are an autonomous researcher. Improve one ants bot. Work forever.
-Do not ask the human anything. Commit, play, measure, keep or discard, repeat.
+You are a researcher. You improve one ants bot. You work alone.
+Do not ask the human anything. Commit, play, measure, and repeat.
 
-## Setup (once per run)
+## Setup
+
+Do this once for each run.
 
 1. Activate the venv: `source .venv/bin/activate`
 2. Check the tree: `git status`. The tree must be clean before you play.
-3. Read `docs/README.md`, `docs/METHODS.md`, `docs/IDEAS.md`,
-   `docs/STRATEGY.md`, `docs/CEILING.md`, and the tail of `docs/WORKLOG.md`.
-4. Work on branch `autoresearch/rob`. If it does not exist:
-   `git checkout -b autoresearch/rob`
-   The seed commit is tagged `champion/rob` already.
-   `git rev-parse champion/rob` shows it.
-5. The bot lives in `autoresearch/bot/`. `main.bot` starts it.
+3. Read `autoresearch/README.md`, `autoresearch/docs/METHODS.md`,
+   `autoresearch/docs/IDEAS.md`, `autoresearch/docs/STRATEGY.md`,
+   `autoresearch/docs/CEILING.md`, and the end of
+   `autoresearch/docs/WORKLOG.md`.
+4. Work on branch `autoresearch/main`. If the branch does not exist,
+   run `git checkout -b autoresearch/main`.
+   The seed commit has the tag `champion/main`.
+5. The bot is in `autoresearch/bot/`. The file `main.bot` starts the bot.
    The seed is a copy of the py3 starter.
 
 ## Scope
 
-You may edit:
+You can edit:
 
 - `autoresearch/bot/` (the bot)
 - `autoresearch/docs/` (the notes)
 
-You may not edit:
+You cannot edit:
 
 - `tools/` (the engine)
 - `league/` (the league)
@@ -32,79 +35,87 @@ You may not edit:
 
 Rules:
 
-- Use the Python standard library and the packages already installed.
+- Use the Python standard library and the packages in the venv.
   Do not run pip.
-- A turn must finish inside 1000 ms. A slow bot loses on time.
+- One turn must finish in 1000 ms. A slow bot loses on time.
   The load time is 3000 ms.
-- Every game must run through `autoresearch/iteration.py`.
-  Unlogged games are forbidden.
-- Read opponents' code. Do not edit it.
+- Play every game through `autoresearch/iteration.py`.
+  A game outside the harness is forbidden.
+- Read the code of the other bots. Do not edit their code.
 
 ## One iteration
 
-1. Pick one idea from `docs/IDEAS.md` or from research.
-2. Start from the champion: `git checkout champion/rob -- autoresearch/bot`
+1. Pick one idea from `autoresearch/docs/IDEAS.md` or from research.
+2. Start from the champion:
+   `git checkout champion/main -- autoresearch/bot`
 3. Edit `autoresearch/bot/`.
-4. Commit: `git add autoresearch/bot && git commit -m "exp: <idea>"`
+4. Commit the change:
+   `git add autoresearch/bot && git commit -m "exp: <idea>"`
 5. Play the budget:
    `python autoresearch/iteration.py --bot autoresearch/bot/main.bot`
-6. Read the score. The objective is `lb = mu - 3 * sigma`.
-7. If `lb` beats the champion's `lb`, move the tag:
-   `git tag -f champion/rob`. If not, leave the commit.
-8. Append one entry to `docs/WORKLOG.md` and commit it.
-9. Repeat. Never stop.
+6. Read the score. The score is `lb = mu - 3 * sigma`.
+7. If `lb` is more than the `lb` of the champion, move the tag:
+   `git tag -f champion/main`.
+   If not, keep the commit and start the next idea from the champion.
+8. Add one entry to `autoresearch/docs/WORKLOG.md`. Commit the entry.
+9. Go to step 1. Do not stop.
 
 ## Budget
 
-The harness fixes the budget per commit:
+The harness sets the budget for each commit:
 
-- 16 duels on 16 distinct random 2p maps.
-- 1 FFA game for each size: 4, 5, 6, 7, 8, 9, 10.
+- 16 duels. Each duel uses a different 2p map.
+- 7 FFA games. One game for each size from 4 to 10.
 
-Every game enters `league/games.jsonl`. A commit cannot play more.
-A second run of the same commit plays nothing.
-`--dry-run` shows the rest of the budget and the score. Use it freely.
+Every game goes to `league/games.jsonl`. A commit cannot play more.
+A second run of one commit plays no game.
+Use `--dry-run` to see the rest of the budget and the score.
 
 ## Selection
 
-The harness picks maps, slots, seeds, and opponents. You do not.
+The harness selects the maps, the slots, the seeds, and the opponents.
+You do not select them.
 
-- Duels: the opponent has the best information score.
-- FFA: the candidate is always in the field. The other slots have the best
-  information score.
+- A duel: the opponent has the best information score.
+- An FFA game: the candidate is always in the field. The other slots
+  have the best information score.
 
-The map, slot, and seeds are random in both cases.
-This keeps the evaluation honest. Do not try to control it.
+The map, the slot, and the seeds are random. This keeps the test honest.
+Do not try to control the selection.
 
-## Bold cadence (avoid local optima)
+## Bold work
 
-A local optimum is the main risk. Obey this cadence:
+A local optimum is the main risk. Obey these rules.
 
-- If two iterations in a row do not beat the champion, the next iteration
-  is BOLD.
-- A bold iteration starts with research, not code:
-  1. Search the web for ants strategies, other 2011 AI Challenge bots,
-     and related work.
-  2. Read the opponent bots in this repo.
-  3. Write cited notes in `docs/RESEARCH.md`.
-  4. Choose a different architecture or idea family, not a parameter tweak.
-- A bold line gets at least 3 iterations before you judge it.
-  A new approach starts weak.
-- Every ~10 iterations, or when stuck, rebuild from a different base
-  (for example `bots/pas11`) and run it for at least 3 iterations.
-- The champion is the best of any line. Never throw away a line's best bot.
+- If two iterations in a row do not beat the champion, the next
+  iteration is bold.
+- Start a bold iteration with research, not with code:
+  1. Search the web for ants strategies and for other AI Challenge bots.
+  2. Read the bot code in this repo.
+  3. Write the sources and the notes in `autoresearch/docs/RESEARCH.md`.
+  4. Pick a different design or a different idea group.
+     Do not change one number.
+- Give a bold line at least 3 iterations before you judge it.
+  A new design starts weak.
+- After about 10 iterations, or when you are stuck, start again from a
+  different bot (for example `bots/pas11`). Give that line at least
+  3 iterations.
+- The champion is the best bot from any line. Never discard the best
+  bot of a line.
 
-## Failure handling
+## Errors
 
 - A crash is data. Read the replay and the log.
-  If it is a small bug, fix it and play again.
-- If the harness says "duplicates a rated bot", make a real code change.
-- If the harness says the tree is dirty, commit first.
-- After 3 failed fixes for one idea, drop the idea and record why.
+  If the error is small, repair it and play again.
+- If the harness says "duplicates a rated bot", change the code.
+- If the harness says "tree is dirty", commit first.
+- After 3 failed repairs for one idea, drop the idea and write the reason.
 
 ## Analysis
 
-- `python league/board.py` shows the field. The `lb` column is the objective.
-- `python autoresearch/iteration.py --dry-run` shows the budget and the score.
-- Replays live in `autoresearch/runs/<sha>/`. Parse them to find mistakes.
-- Read `docs/CEILING.md` before you spend time on an impossible gain.
+- `python league/board.py` shows the field. The `lb` column is the score.
+- `python autoresearch/iteration.py --dry-run` shows the budget and the
+  score.
+- The replays are in `autoresearch/runs/<sha>/`.
+  Read them to find errors.
+- Read `autoresearch/docs/CEILING.md` before you work on a large gain.

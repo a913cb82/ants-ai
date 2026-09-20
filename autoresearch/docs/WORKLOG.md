@@ -1,23 +1,23 @@
 # Worklog
 
-Append-only. One entry per iteration. Do not rewrite old entries.
+Add one entry for each iteration. Do not change an old entry.
 
-Use this format:
+Use this format.
 
 ```
-## <iteration> — <idea> (<date>)
+## <number> — <idea> (<date>)
 - commit: <short sha>
-- start: champion/<rob> at <short sha>
-- budget: 16 duels, ffa 4..10
-- score: mu <v> sigma <v> lb <v>
-- champion lb: <v>
+- start: champion/main at <short sha>
+- budget: 16 duels, FFA 4 to 10
+- score: mu <value>, sigma <value>, lb <value>
+- champion lb: <value>
 - verdict: keep | discard | bold
-- games: <duels won>-<duels lost>, ffa ranks <...>
+- games: <duels won>-<duels lost>, FFA ranks <...>
 - what changed: <one sentence>
-- what learned: <one or two sentences>
+- what you learned: <one or two sentences>
 - next: <one idea>
 ```
 
 ## Log
 
-(empty — the first iteration appends here)
+Empty. The first iteration adds the first entry.

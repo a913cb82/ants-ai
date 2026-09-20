@@ -1,18 +1,18 @@
 # Research
 
-Cited notes from the web and from repo reading. One entry per source or
-topic. A bold iteration starts here, not in the code.
+Write notes from the web and from the repo. Give the source for each
+note. Start a bold iteration here, not in the code.
 
-Use this format:
+Use this format.
 
 ```
 ## <topic> (<date>)
 - source: <url or repo path>
 - claim: <one sentence>
 - evidence: <what the source shows>
-- idea: <what it suggests for this bot>
+- idea: <what it suggests for the bot>
 ```
 
 ## Log
 
-(empty — the first bold iteration appends here)
+Empty. The first bold iteration adds the first note.
