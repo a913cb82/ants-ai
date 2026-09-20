@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Wingman:
+class Vanguard:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -31,11 +31,11 @@ class Wingman:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Buddy marches: explorers move in pairs, never alone.
-        # Battling as Wingman. Frontier, headings, memory, aggression,
-        # walk-off, and food match iteration 21. A spare ant joins the
-        # nearest same-turn buddy march within 12 squares, else starts
-        # its own march, so explorers keep a local majority.
+        # Vanguard: only edge ants march, the rest stay home.
+        # Battling as Vanguard. Buddy marches, frontier, headings,
+        # memory, aggression, walk-off, and food match iteration 22.
+        # A spare ant marches only with its nearest frontier within
+        # 15 squares; the rest wander least-visited home ground.
         foods = ants.food()
         ants_list = ants.my_ants()
         for a in ants_list:
@@ -197,25 +197,25 @@ class Wingman:
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved:
-                # No hill move: join a buddy march, else start one.
-                goal = None
+                # No hill move: edge ants march, the rest wander.
+                march = False
                 if self.frontier:
-                    join = None
-                    join_d = 13
-                    for bloc, bgoal in buddies:
-                        dd = ants.distance(ant_loc, bloc)
-                        if dd < join_d:
-                            join_d = dd
-                            join = bgoal
-                    if join is not None:
-                        goal = join
-                    else:
-                        goal = min(
-                            self.frontier,
-                            key=lambda f: ants.distance(ant_loc, f),
-                        )
-                    buddies.append((ant_loc, goal))
-                if goal is not None:
+                    near_f = min(
+                        self.frontier,
+                        key=lambda f: ants.distance(ant_loc, f),
+                    )
+                    if ants.distance(ant_loc, near_f) <= 15:
+                        join = None
+                        join_d = 13
+                        for bloc, bgoal in buddies:
+                            dd = ants.distance(ant_loc, bloc)
+                            if dd < join_d:
+                                join_d = dd
+                                join = bgoal
+                        goal = join if join is not None else near_f
+                        buddies.append((ant_loc, goal))
+                        march = True
+                if march:
                     step = first_step(ant_loc, goal)
                     if step is not None and try_step(ant_loc, step):
                         moved = True
@@ -264,6 +264,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Wingman())
+        Ants.run(Vanguard())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
