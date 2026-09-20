@@ -130,3 +130,15 @@ Use this format.
 - what changed: Battling as Cartographer in Cartographer.py; food and hill moves follow the first step of a BFS shortest path around water instead of a greedy compass step.
 - what you learned: Pathfinding swept all 5 duels including 4 maze maps and won the 4p and 6p FFAs, but ranked 5/10 in a champion-heavy 10p; movement is fixed, positioning needs the bold follow-ups (remembered hills, walk-off, escape space).
 - next: Remembered hills — keep enemy hill targets across turns.
+
+## 10 — remembered hills across turns (2026-09-20)
+- commit: bb19f16
+- start: e18ca85 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 51.20, sigma 3.87, lb 39.60
+- champion lb: 43.82
+- verdict: discard (bold 2 of 3)
+- games: 4-1, FFA ranks 5p:1 7p:1 8p:4
+- what changed: Battling as Elephant in Elephant.py; sighted enemy hills persist until one of my ants stands on them, so attackers march through fog.
+- what you learned: Memory won the 5p and a 7p stacked with four past selves but lost a duel to RandomBot and ranked 4/8 behind the champion; marching on stale hills wastes attackers when the fog hides the real fight.
+- next: Walk off hill — never end a turn on your own hill (plus .bot filename sync).
