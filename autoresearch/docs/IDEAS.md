@@ -27,12 +27,14 @@ Do not stop after the first win.
 ## Backlog
 
 Give each idea one status: `open`, `trying`, `done`, `dropped`, or
-`parked`. Keep the list in order.
+`parked`. Keep the list in order. A refinement of an idea is a new
+row. Leave the old row as it was.
 
 | status | idea |
 |---|---|
 | done | Closest food: each ant moves to the nearest visible food. |
-| done | Collision: two ants do not target the same food. |
+| done | Collision: one ant per food and one ant per destination square. |
+| done | Collision: assign food by global ant-food distance, closest first. |
 | open | Hill attack: attack an enemy hill with a local majority. |
 | open | Hill defense: keep ants near your hills when the enemy is close. |
 | open | Combat: do not move an ant into certain death. |
