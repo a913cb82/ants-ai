@@ -58,3 +58,4 @@ row. Leave the old row as it was.
 | dropped | Frontier marches: idle ants push the unseen edge. |
 | dropped | Buddy marches: explorers move in pairs. |
 | dropped | Vanguard: only edge ants march. |
+| trying | Formation defense: corner posts around threatened hills. |

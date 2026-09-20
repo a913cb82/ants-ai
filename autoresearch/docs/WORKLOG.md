@@ -298,3 +298,15 @@ Use this format.
 - what changed: Battling as Vanguard in Vanguard.bot + Vanguard.py; buddy marches only start with the nearest frontier within 15 squares, the rest wander home ground.
 - what you learned: Gating swept duels 5-0 and beat Wingman twice, but the family still trails badly (33.07, 26.98, 32.15); directed exploration loses to wandering at this strength, so the line is dropped.
 - next: BOLD — new line, research first.
+
+## 24 — formation defense on corner posts (2026-09-21)
+- commit: 376b39f
+- start: 79bbd16 (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 53.46, sigma 3.73, lb 42.27
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 5-0, FFA ranks 4p:1 6p:4 10p:1
+- what changed: Battling as Phalanx in Phalanx.bot + Phalanx.py; threatened home hills post closest spares on passable diagonals, held instead of stacking the hill.
+- what you learned: Posts swept duels 5-0 and won the 4p and a weak-field 10p, but ranked 4/6 in a maze 6p; formations hold big fields yet bicker over small ones, so lb reached 42.27 against 52.15.
+- next: Second ring — double-distance posts when heavily threatened.

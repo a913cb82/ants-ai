@@ -81,6 +81,12 @@ Use this format.
 - evidence: Wave lines spawn and march toward the enemy hill while momentum keeps ants alive and gathering; our unconditional flood failed at lb 37.87.
 - idea: Parked — retry coordinated pushes only with a numbers gate, after missions land.
 
+## Corner-post formations around hills (2026-09-21)
+- source: bots/pas11/Pas11.py (this repo, HILL DEFEND section)
+- claim: Defenders hold diagonal corner posts at distance 1 and 2, not the hill itself.
+- evidence: Four corners assigned to the closest free ants per threatened hill, second ring at double distance when heavily threatened; ants already on posts stay; our guards pile onto the hill square and block spawning.
+- idea: Formation defense — precompute posts, assign closest spares, hold posts.
+
 ## Mission lifecycle: random spawn, closest otherwise, refresh (2026-09-21)
 - source: /tmp/antsresearch/docs/reference/xathis/postmortem.txt (missions section)
 - claim: Idle ants hold persistent border targets that refresh, never re-bid.
