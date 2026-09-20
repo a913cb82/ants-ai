@@ -54,13 +54,13 @@ iteration. The object has these keys:
 | `champion` | the best bot id before this line, or `null` |
 | `budget` | the budget tag (`duels=5,ffa=3,turns=1000`) |
 
-Rows with an older `budget` stay in the file and are ignored for the
-champion.
+Rows with an older `budget` stay in the file. The harness ignores
+them for the champion.
 
 ## Result order
 
 `result` lists the field best first. `result[0]` is rank 1, the winner
-of a duel. A high score wins; status breaks ties (`ok` before `crashed`
+of a duel. A high score wins. Status breaks ties (`ok` before `crashed`
 and `timeout`). In an FFA game the index in `result` is the rank.
 
 ## Selection
@@ -75,7 +75,7 @@ and `timeout`). In an FFA game the index in `result` is the rank.
 - The information score is `predict_draw + 0.02 * sum(sigma)`.
 - The maps are random and different in one iteration.
 - The slots and both seeds are random. The record keeps the seeds.
-- The harness does not pair games. The rating model corrects for the
+- The harness does not pair games. The rating model accounts for the
   strength of the opponent. Map variety is more important than a repeat
   of the seeds or the slots.
 
@@ -99,7 +99,8 @@ iteration.
 The loop pushes its own branch after the log commit:
 `git push origin autoresearch/main`. The loop never pushes `main`
 (which it only merges in) and never pushes tags. A failed push keeps
-the commits in place and is retried at the next log commit.
+the commits in place. The loop retries the push at the next log
+commit.
 
 ## Commands
 

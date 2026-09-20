@@ -13,9 +13,9 @@ Do this once for each run.
    and the end of `autoresearch/docs/WORKLOG.md`.
 2. Work on branch `autoresearch/main`:
    `git checkout autoresearch/main`. The loop merges `main` at step 1.
-   `main` is read-only for you: never commit to it, never push it.
+   Never commit to `main`. Never push `main`.
 3. The bot is in `autoresearch/bot/`. The file `main.bot` starts the bot.
-   `main.bot` is a one-line command; the engine runs it with the bot
+   `main.bot` is a one-line command. The engine runs it with the bot
    directory as the working directory.
 
 ## Scope
@@ -84,15 +84,15 @@ Each iteration must run a fresh bot entry. Change the bot code first.
      this commit: `git tag -f champion/main`.
    - Lower or equal: point the tag at the best row's commit:
      `git tag -f champion/main <sha in the best row's bot id>`.
-   A missing tag is fine; the rule above rebuilds it. The tag is
-   local: never push tags. Keep the commit in all cases. Start the
+   A missing tag is fine. The rule above rebuilds it. The tag is
+   local. Never push tags. Keep the commit in all cases. Start the
    next idea from the champion.
 9. Add one entry to `autoresearch/docs/WORKLOG.md`. Commit the notes
    and the new games:
    `git add autoresearch/docs league/games.jsonl && git commit -m "log: <idea>"`
 10. Push your branch:
     `git push origin autoresearch/main`
-    You own this branch only; never push `main` or tags. A failed
+    You own this branch only. Never push `main` or tags. A failed
     push is not a lost iteration. Keep the commits and push again at
     the next log commit.
 11. Go to step 1. Do not stop.
@@ -106,7 +106,7 @@ The harness sets the budget and the selection. No flag changes them.
   {5, 7, 8}.
 
 Every game goes to `league/games.jsonl`. A commit cannot play more.
-A completed commit plays no game on a second run; a run stopped
+A completed commit plays no game on a second run. A run stopped
 part-way plays the games that remain.
 
 ## Selection
@@ -167,8 +167,9 @@ A local optimum is the main risk. Obey these rules.
   rating can differ from the recorded score.
 - `autoresearch/docs/PROGRESS.jsonl` holds the recorded score for each
   completed iteration. It is the source of truth for keep or discard.
-  It is append-only; the champion is the best row for the current
-  budget. Rows from an older budget stay in the file and are ignored.
+  It is append-only. The champion is the best row for the current
+  budget. Rows from an older budget stay in the file. The harness
+  ignores them.
 - The replays are in `autoresearch/runs/<sha>/`.
   Read them to find errors.
 - Read `autoresearch/docs/CEILING.md` before you work on a large gain.
