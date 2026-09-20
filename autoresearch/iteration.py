@@ -89,7 +89,13 @@ def score(ratings: dict, bid: str) -> tuple[float, float, float]:
 
 
 def result_line(rec: dict) -> str:
-    return " > ".join(Path(b.rsplit("-", 1)[0]).name for b in rec["result"])
+    return " > ".join(short_name(b) for b in rec["result"])
+
+
+def short_name(bid: str) -> str:
+    """Readable label: the dir for main.bot, the manifest stem otherwise."""
+    path = Path(bid.rsplit("-", 1)[0])
+    return path.parent.as_posix() if path.name == "main.bot" else path.stem
 
 
 def play_one(root: Path, field: list[str], map_rel: str, args,
@@ -98,7 +104,10 @@ def play_one(root: Path, field: list[str], map_rel: str, args,
                      args.turns, args.turntime, args.loadtime,
                      rng.randrange(10 ** 9), rng.randrange(10 ** 9),
                      log_dir, timeout=args.timeout, workbase=args.workbase)
-    rec["replay"] = (log_dir.relative_to(root) / "0.replay").as_posix()
+    p = log_dir
+    if p.is_relative_to(root):
+        p = p.relative_to(root)
+    rec["replay"] = (p / "0.replay").as_posix()
     return rec
 
 

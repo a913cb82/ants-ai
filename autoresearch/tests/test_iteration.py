@@ -72,3 +72,10 @@ def test_candidate_id_is_path_plus_sha():
     from iteration import candidate_id, ROOT as AROOT
     bid = candidate_id(AROOT, "autoresearch/bot/main.bot", "HEAD")
     assert bid.startswith("autoresearch/bot/main.bot-")
+
+
+def test_short_name_labels_main_manifests_by_dir():
+    from iteration import short_name
+    assert short_name("autoresearch/bot/main.bot-abc1234") == "autoresearch/bot"
+    assert short_name("tools/sample_bots/python/GreedyBot.bot-abc1234") == \
+        "GreedyBot"

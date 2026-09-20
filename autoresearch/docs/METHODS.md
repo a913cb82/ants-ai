@@ -9,7 +9,7 @@ defaults. Change them with flags, not with edits.
 |---|---|---|---|
 | Duels | 16 | 16 distinct random 2p maps | ~5 s each |
 | FFA | 1 per size | one random map for each size 4..10 | 20-90 s each |
-| Total | 23 | all distinct within an iteration | ~8-12 min |
+| Total | 23 | all distinct within an iteration | ~5-8 min |
 
 - The candidate is a commit. A fresh commit is a fresh bot id.
 - A commit cannot play more than this budget. A second run plays nothing.
