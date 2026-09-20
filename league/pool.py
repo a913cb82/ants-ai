@@ -64,6 +64,12 @@ def short(root: str | Path, rev: str) -> str:
     return _git(root, "rev-parse", "--short", rev).strip()
 
 
+def last_touch(root: str | Path, path: str) -> str:
+    """The newest commit that changed a path. A bot's identity must
+    not move when unrelated commits land after it."""
+    return _git(root, "log", "-1", "--format=%h", "--", path).strip()
+
+
 def all_commits(root: str | Path = ROOT) -> list[str]:
     """Every commit in the repo, oldest first. bots_at filters: a
     commit with no manifest contributes nothing, and content-hash

@@ -140,3 +140,15 @@ def test_prune_replays_protects_paths(tmp_path):
 def test_prune_replays_missing_store_is_zero(tmp_path):
     from pool import prune_replays
     assert prune_replays(tmp_path / "nope", max_bytes=0) == 0
+
+
+def test_last_touch_ignores_later_commits(tmp_path):
+    from pool import last_touch
+    r = make_repo(tmp_path / "r", {"bots/a/main.bot": "python A.py\n",
+                                   "bots/a/A.py": "x\n"})
+    first = subprocess.run(["git", "-C", str(r), "rev-parse", "--short",
+                            "HEAD"], capture_output=True, text=True).stdout.strip()
+    (r / "README.md").write_text("hi\n")
+    subprocess.run(["git", "-C", str(r), "add", "-A"], check=True)
+    subprocess.run(["git", "-C", str(r), "commit", "-qm", "docs"], check=True)
+    assert last_touch(r, "bots/a") == first

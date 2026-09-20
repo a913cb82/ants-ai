@@ -24,8 +24,8 @@ import ratings as R  # noqa: E402
 from matchmake import (MAPS_ROOT, assign_positions, info_score,  # noqa: E402
                        maps_for_players, new_model, propose, read_log)
 from play import play_match  # noqa: E402
-from pool import (WORKBASE, bot_id, is_clean, parse_id, pool as pool_ids,  # noqa: E402
-                  prune_replays, prune_worktrees, short)
+from pool import (WORKBASE, bot_id, is_clean, last_touch, parse_id,  # noqa: E402
+                  pool as pool_ids, prune_replays, prune_worktrees, short)
 
 GAMES_LOG = ROOT / "league" / "games.jsonl"
 RATINGS_PATH = ROOT / "league" / "ratings.json"
@@ -33,14 +33,17 @@ RUNS = ROOT / "autoresearch" / "runs"
 DEFAULT_BOT = "autoresearch/bot/main.bot"
 
 
-def candidate_id(root: str | Path, botfile: str, rev: str) -> str:
-    """The bot id a manifest would have at a revision."""
+def candidate_id(root: str | Path, botfile: str,
+                 rev: str | None = None) -> str:
+    """The bot id a manifest has. Default rev: the newest commit that
+    changed the bot's directory, so later commits cannot shift it."""
     root = Path(root)
     p = Path(botfile)
     if not p.is_absolute():
         p = root / p
-    return bot_id(p.resolve().relative_to(root.resolve()).as_posix(),
-                  short(root, rev))
+    rel = p.resolve().relative_to(root.resolve())
+    sha = short(root, rev) if rev else last_touch(root, rel.parent.as_posix())
+    return bot_id(rel.as_posix(), sha)
 
 
 def counts(records: list[dict], bid: str) -> dict:
@@ -118,7 +121,7 @@ def split_ints(s: str) -> list[int]:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--bot", default=DEFAULT_BOT)
-    ap.add_argument("--rev", default="HEAD")
+    ap.add_argument("--rev", default=None)
     ap.add_argument("--duels", type=int, default=16)
     ap.add_argument("--ffa-sizes", type=split_ints, default=[4, 5, 6, 7, 8, 9, 10])
     ap.add_argument("--turns", type=int, default=1000)

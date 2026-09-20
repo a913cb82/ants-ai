@@ -70,7 +70,7 @@ def test_unseen_bot_scores_at_the_prior():
 
 def test_candidate_id_is_path_plus_sha():
     from iteration import candidate_id, ROOT as AROOT
-    bid = candidate_id(AROOT, "autoresearch/bot/main.bot", "HEAD")
+    bid = candidate_id(AROOT, "autoresearch/bot/main.bot")
     assert bid.startswith("autoresearch/bot/main.bot-")
 
 
