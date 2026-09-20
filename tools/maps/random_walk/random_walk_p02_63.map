@@ -1,8 +1,8 @@
 # map type: blank
 # random seed: -563697416
 # hill distance  78, 35  28, 78
-#        78, 35       0      93
-#        28, 78      93       0
+#        78, 35       0      93 
+#        28, 78      93       0 
 players 2
 rows 100
 cols 86

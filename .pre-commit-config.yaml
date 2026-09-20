@@ -1,5 +1,7 @@
 # Install once: pre-commit install
 # Run every hook on every file: pre-commit run --all-files
+# Game map data is not source. Do not rewrite it.
+exclude: '\.map$'
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
