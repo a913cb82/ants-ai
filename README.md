@@ -20,13 +20,12 @@ The engine runs a match and records a replay.
 
 ## Use
 
-Play one game between two copies of the starter bot:
-
 1. Run the engine with a map and two bot commands.
-2. Store the replay outside `tools/`.
-3. Open the replay in the visualizer.
+2. Store the replay outside `tools/`. This keeps `tools/` clean.
 
-Example:
+## Example
+
+Play one game between two copies of the starter bot:
 
 ```sh
 python3 tools/playgame.py \
@@ -36,21 +35,6 @@ python3 tools/playgame.py \
   "python3 bots/py3_starter/MyBot.py3"
 ```
 
-Play the Pas11 bot against the starter bot:
-
-```sh
-python3 tools/playgame.py \
-  --map_file tools/maps/example/tutorial1.map \
-  --nolaunch --turns 100 --log_dir replays \
-  "python3 bots/pas11/Pas11.py" \
-  "python3 bots/py3_starter/MyBot.py3"
-```
+Remove --nolaunch to open the replay in the visualizer. The engine writes the replay and opens a browser page.
 
 The engine sets the bot work dir to the bot file dir.
-A bot finds its sibling `ants.py` with no extra path setup.
-
-## Source
-
-- `tools/` came from `vendor/tools.tar.bz2`. It was published on 22 Dec 2011.
-- `bots/py3_starter/` came from `vendor/python3_starter_package.zip`. It was published on 29 Nov 2011.
-- `bots/pas11/ants.py` is a copy of the starter `ants.py`.
