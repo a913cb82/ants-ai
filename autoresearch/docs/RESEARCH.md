@@ -62,3 +62,27 @@ Use this format.
 - claim: GreedyBot hunts hills first, then food, then ants, then unseen.
 - evidence: do_turn tries hunt_hills before hunt_food with standing orders; GreedyBot holds the live lb lead on the board.
 - idea: Try hill-first priority order as a later bold variant if BFS movement alone does not pass the champion.
+
+## Standing orders beat re-bidding (2026-09-20)
+- source: tools/sample_bots/python/GreedyBot.py (this repo)
+- claim: Ants keep food and hill targets across turns instead of rebidding every turn.
+- evidence: standing_orders persist [ant, step, dest, type]; each turn only validates the dest still exists, then continues the same mission; our greedy re-sort can swap two ants between equidistant foods every turn.
+- idea: Persistent missions keyed by ant with proximity handoff; kills oscillation churn.
+
+## Capped influence spreads ants (2026-09-20)
+- source: /tmp/antsresearch/src/bots/influence_bot.py (Whitson influence bot, cloned)
+- claim: Each food influences exactly 1 ant, each wave 2, each home hill 4.
+- evidence: number_of_influences caps BFS spread per item; emergent spreading without assignment code; our exclusive claims are the same idea done greedily.
+- idea: Keep exclusivity; the spreading problem is already solved on our line.
+
+## Waves attack at ant thresholds (2026-09-20)
+- source: /tmp/antsresearch/src/bots/influence_bot.py (Whitson influence bot, cloned)
+- claim: At 10+ ants, moving wave influencers herd a cohesive unit at the enemy spawn.
+- evidence: Wave lines spawn and march toward the enemy hill while momentum keeps ants alive and gathering; our unconditional flood failed at lb 37.87.
+- idea: Parked — retry coordinated pushes only with a numbers gate, after missions land.
+
+## Combat fields mark death squares (2026-09-20)
+- source: /tmp/antsresearch/src/bots/influence_bot.py (Whitson influence bot, cloned)
+- claim: Squares the enemy can reach-and-kill get -150, ally-supported ones +100.
+- evidence: combat_map precomputes die_locs from enemy reach + kill radius 2, then offsets squares touching grouped allies; movement just climbs the field.
+- idea: Our per-move majority test is the equivalent logic; no change needed.

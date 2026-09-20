@@ -52,3 +52,4 @@ row. Leave the old row as it was.
 | trying | Escape space: among safe moves pick the most open space. |
 | done | Aggressive combat: trade 1-for-1 when 14+ friends near the fight. |
 | trying | Hill-first order: hunt hills before food. |
+| trying | Standing orders: ants keep targets across turns. |

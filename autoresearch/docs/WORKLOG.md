@@ -226,3 +226,15 @@ Use this format.
 - what changed: Battling as Clockwork in Clockwork.bot + Clockwork.py; each ant's BFS budget follows the clock (800/250/60) so early ants search deep.
 - what you learned: Deeper early search swept duels 5-0 and took two 2nds, but lost the 6p to Crusader and the 10p to Elephant; depth without direction just finds longer walks, so lb fell from 52.15 to 45.45.
 - next: BOLD — two discards in a row, research a different design.
+
+## 18 — standing orders keep targets (2026-09-20)
+- commit: 7edaf62
+- start: 79bbd16 (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 44.42, sigma 3.61, lb 33.58
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 5-0, FFA ranks 4p:1 6p:6 10p:1
+- what changed: Battling as Steward in Steward.bot + Steward.py; ants hold food and hill missions across turns with proximity handoff, only missionless ants bid.
+- what you learned: Missions swept duels and won the 4p and 10p but finished 6/6 behind weak old selves; hill-mission ants march past fresh food, breaking food-first economy, so lb fell from 52.15 to 33.58.
+- next: Mission detour — hill ants grab food within 3 steps without losing missions.
