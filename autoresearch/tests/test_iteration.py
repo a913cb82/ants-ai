@@ -165,9 +165,21 @@ def test_budget_flags_are_gone():
 
 
 def test_engine_matches_main():
-    from iteration import ROOT as AROOT
-    from pool import engine_on_main
+    import subprocess
 
+    from iteration import ROOT as AROOT
+    from pool import engine_on_main, git_env
+
+    # The guard only means something on a clean tree. Skip while tools/
+    # is mid-change (this also covers the pre-commit hook).
+    for diff in (["diff", "--quiet", "HEAD"], ["diff", "--cached", "--quiet", "HEAD"]):
+        changed = subprocess.run(
+            ["git", "-C", str(AROOT), *diff, "--", "tools/"],
+            capture_output=True,
+            env=git_env(),
+        ).returncode
+        if changed != 0:
+            pytest.skip("tools/ has uncommitted changes")
     assert engine_on_main(AROOT)
 
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from ants import *
+from ants import Ants
 
 
 # define a class with a do_turn method

@@ -15,7 +15,7 @@ public class Ants {
 	private Map<Tile, Ilk> antList = new HashMap<Tile, Ilk>();
 	private Set<Tile> foodList = new HashSet<Tile>();
 	private Set<Tile> deadList = new HashSet<Tile>();
-	
+
 	public int turn() {
 		return this.turn;
 	}
@@ -57,7 +57,7 @@ public class Ants {
 			for (String line : data) {
 			    String tokens[] = line.toLowerCase().split(" ");
 			    if (tokens[0].equals("cols")) {
-			    	this.cols = Integer.parseInt(tokens[1]);		    	
+			    	this.cols = Integer.parseInt(tokens[1]);
 			    } else if (tokens[0].equals("rows")) {
 			    	this.rows = Integer.parseInt(tokens[1]);
 			    } else if (tokens[0].equals("turns")) {
@@ -83,7 +83,7 @@ public class Ants {
 			return false;
 		}
 	}
-	
+
 	private boolean update(List<String> data) {
 		// clear ants and food
 		for (Tile ant : this.antList.keySet()) {
@@ -116,12 +116,12 @@ public class Ants {
 			    } else if (tokens[0].equals("d")) {
 			    	this.map[row][col] = Ilk.DEAD;
 			    	this.deadList.add(new Tile(row, col));
-			    }			
+			    }
 			}
 		}
 		return true;
 	}
-	
+
 	public void issueOrder(int row, int col, Aim direction) {
 		System.out.println("o " + row + " " + col + " " + direction.symbol);
 		System.out.flush();
@@ -131,13 +131,13 @@ public class Ants {
 		System.out.println("o " + ant.row() + " " + ant.col() + " " + direction.symbol);
 		System.out.flush();
 	}
-	
+
 	public void finishTurn() {
 		System.out.println("go");
 		System.out.flush();
 		this.turn++;
 	}
-	
+
 	public Set<Tile> myAnts() {
 		Set<Tile> myAnts = new HashSet<Tile>();
 		for (Entry<Tile, Ilk> ant : this.antList.entrySet()) {
@@ -147,7 +147,7 @@ public class Ants {
 		}
 		return myAnts;
 	}
-	
+
 	public Set<Tile> enemyAnts() {
 		Set<Tile> enemyAnts = new HashSet<Tile>();
 		for (Entry<Tile, Ilk> ant : this.antList.entrySet()) {
@@ -157,24 +157,24 @@ public class Ants {
 		}
 		return enemyAnts;
 	}
-	
+
 	public Set<Tile> food() {
 		return new HashSet<Tile>(this.foodList);
 	}
-	
+
 	public int distance (Tile t1, Tile t2) {
 		int dRow = Math.abs(t1.row() - t2.row());
 		int dCol = Math.abs(t1.col() - t2.col());
 
 		dRow = Math.min(dRow, this.rows - dRow);
 		dCol = Math.min(dCol, this.cols - dCol);
-		
+
 		return dRow * dRow + dCol * dCol;
 	}
-	
+
 	public List<Aim> directions (Tile t1, Tile t2) {
 		List<Aim> directions = new ArrayList<Aim>();
-		
+
 		if (t1.row() < t2.row()) {
 			if (t2.row() - t1.row() >= this.rows / 2) {
 				directions.add(Aim.NORTH);
@@ -202,19 +202,19 @@ public class Ants {
 				directions.add(Aim.WEST);
 			}
 		}
-		
+
 		return directions;
 	}
-	
+
 	public Ilk ilk(Tile location, Aim direction) {
 		Tile new_location = this.tile(location, direction);
 		return this.map[new_location.row()][new_location.col()];
 	}
-	
+
 	public Ilk ilk(Tile location) {
 		return this.map[location.row()][location.col()];
 	}
-	
+
 	public Tile tile(Tile location, Aim direction) {
 		int nRow = (location.row() + direction.dRow) % this.rows;
 		if (nRow < 0) {
@@ -263,6 +263,6 @@ public class Ants {
 		    }
 		} catch (Exception e) {
 			e.printStackTrace(System.err);
-		}		
+		}
 	}
 }

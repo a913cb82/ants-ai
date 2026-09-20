@@ -63,7 +63,7 @@ public class MapGenerator {
      */
     public String map2String(int[][] map) {
         int ant = 0;
-        
+
         // This is totaly the wrong place to put this, but it's a quick ahck
         char[][] antss = {
         		// 8 player
@@ -100,7 +100,7 @@ public class MapGenerator {
         case 7:
         case 8:
         	player_count = 2;
-        	break;        	
+        	break;
         }
         StringBuilder sb = new StringBuilder();
         sb.append("players " + Integer.toString(player_count) + "\n");
@@ -241,7 +241,7 @@ public class MapGenerator {
             }
         }
         else if (nbrOfPlayers == 8) {
-            mapPart = overlayMaps(mapPart, mirrorDiagonal(mapPart)); 
+            mapPart = overlayMaps(mapPart, mirrorDiagonal(mapPart));
 
             fullMap = new int[mapPart.length * 2][mapPart[0].length * 2];
             addMapPart(fullMap, mapPart, 0, 0);

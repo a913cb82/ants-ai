@@ -1,9 +1,7 @@
 #!/usr/bin/env python
-from random import choice, randrange
-from ants import *
-import sys
-import logging
-from optparse import OptionParser
+
+from ants import BEHIND, LEFT, RIGHT, Ants
+
 
 class LeftyBot:
     def __init__(self):
@@ -16,18 +14,14 @@ class LeftyBot:
         new_lefty = {}
         for a_row, a_col in ants.my_ants():
             # send new ants in a straight line
-            if (not (a_row, a_col) in self.ants_straight and
-                    not (a_row, a_col) in self.ants_lefty):
+            if (a_row, a_col) not in self.ants_straight and (
+                a_row,
+                a_col,
+            ) not in self.ants_lefty:
                 if a_row % 2 == 0:
-                    if a_col % 2 == 0:
-                        direction = 'n'
-                    else:
-                        direction = 's'
+                    direction = "n" if a_col % 2 == 0 else "s"
                 else:
-                    if a_col % 2 == 0:
-                        direction = 'e'
-                    else:
-                        direction = 'w'
+                    direction = "e" if a_col % 2 == 0 else "w"
                 self.ants_straight[(a_row, a_col)] = direction
 
             # send ants going in a straight line in the same direction
@@ -35,8 +29,10 @@ class LeftyBot:
                 direction = self.ants_straight[(a_row, a_col)]
                 n_row, n_col = ants.destination(a_row, a_col, direction)
                 if ants.passable(n_row, n_col):
-                    if (ants.unoccupied(n_row, n_col) and
-                            not (n_row, n_col) in destinations):
+                    if (
+                        ants.unoccupied(n_row, n_col)
+                        and (n_row, n_col) not in destinations
+                    ):
                         ants.issue_order((a_row, a_col, direction))
                         new_straight[(n_row, n_col)] = direction
                         destinations.append((n_row, n_col))
@@ -51,13 +47,20 @@ class LeftyBot:
             # send ants following a wall, keeping it on their left
             if (a_row, a_col) in self.ants_lefty:
                 direction = self.ants_lefty[(a_row, a_col)]
-                directions = [LEFT[direction], direction, RIGHT[direction], BEHIND[direction]]
+                directions = [
+                    LEFT[direction],
+                    direction,
+                    RIGHT[direction],
+                    BEHIND[direction],
+                ]
                 # try 4 directions in order, attempting to turn left at corners
                 for new_direction in directions:
                     n_row, n_col = ants.destination(a_row, a_col, new_direction)
                     if ants.passable(n_row, n_col):
-                        if (ants.unoccupied(n_row, n_col) and
-                                not (n_row, n_col) in destinations):
+                        if (
+                            ants.unoccupied(n_row, n_col)
+                            and (n_row, n_col) not in destinations
+                        ):
                             ants.issue_order((a_row, a_col, new_direction))
                             new_lefty[(n_row, n_col)] = new_direction
                             destinations.append((n_row, n_col))
@@ -72,14 +75,15 @@ class LeftyBot:
         self.ants_straight = new_straight
         self.ants_lefty = new_lefty
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     try:
         import psyco
+
         psyco.full()
     except ImportError:
         pass
     try:
         Ants.run(LeftyBot())
     except KeyboardInterrupt:
-        print('ctrl-c, leaving ...')
-        
+        print("ctrl-c, leaving ...")

@@ -34,7 +34,7 @@ class Game:
         pass
 
     # returns if the game is over due to a win condition
-    def game_over(self): # returns boolean
+    def game_over(self):  # returns boolean
         pass
 
     # used by engine to get the current game state for the streaming format
@@ -66,7 +66,7 @@ class Game:
     # can be used to determine fairness of game and other stuff for visualizers
     def get_stats(self):
         pass
-    
+
     # used for getting a compact replay of the game
     def get_replay(self):
         pass
