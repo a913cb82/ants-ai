@@ -58,3 +58,15 @@ Use this format.
 - what changed: Ants with no food claim step toward the nearest visible enemy hill before the n-e-s-w fallback.
 - what you learned: Spare-ant hill hunting went 5-0 in duels and won the 7p FFA; unclaimed ants raze hills instead of walking n-e-s-w and lift lb from 28.91 to 33.39.
 - next: Hill defense — keep ants near your hills when the enemy is close.
+
+## 4 — hill defense with spare guards (2026-09-20)
+- commit: 5478c43
+- start: 81771a1 (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 47.08, sigma 4.27, lb 34.28
+- champion lb: 33.39
+- verdict: keep
+- games: 3-2, FFA ranks 4p:1 6p:1 10p:1
+- what changed: Spare ants step toward a home hill with a visible enemy within 10 steps before hunting enemy hills.
+- what you learned: Guards swept all three FFAs 1/4, 1/6, 1/10 but lost 2 maze duels to HoldBot and LeftyBot; holding hills wins crowded games and lifts lb from 33.39 to 34.28.
+- next: Combat — do not move an ant into certain death.
