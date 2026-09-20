@@ -118,3 +118,15 @@ Use this format.
 - what changed: Battling as NoLunchForYou; foods with a visible enemy within 8 steps sort as 4 steps closer so our closest ants hold the contested field.
 - what you learned: Denial won duels 4-1 and the 5p FFA but trailed two past champions in the 7p and 8p; the bonus pulls ants off nearby safe food into blocked 1v1s, so lb fell from 43.82 to 37.99.
 - next: BOLD — two discards in a row, research a different design.
+
+## 9 — bold pathfinding BFS first step (2026-09-20)
+- commit: e18ca85
+- start: e830cd3 (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 50.06, sigma 4.03, lb 37.97
+- champion lb: 43.82
+- verdict: discard (bold 1 of 3)
+- games: 5-0, FFA ranks 4p:1 6p:1 10p:5
+- what changed: Battling as Cartographer in Cartographer.py; food and hill moves follow the first step of a BFS shortest path around water instead of a greedy compass step.
+- what you learned: Pathfinding swept all 5 duels including 4 maze maps and won the 4p and 6p FFAs, but ranked 5/10 in a champion-heavy 10p; movement is fixed, positioning needs the bold follow-ups (remembered hills, walk-off, escape space).
+- next: Remembered hills — keep enemy hill targets across turns.
