@@ -310,3 +310,15 @@ Use this format.
 - what changed: Battling as Phalanx in Phalanx.bot + Phalanx.py; threatened home hills post closest spares on passable diagonals, held instead of stacking the hill.
 - what you learned: Posts swept duels 5-0 and won the 4p and a weak-field 10p, but ranked 4/6 in a maze 6p; formations hold big fields yet bicker over small ones, so lb reached 42.27 against 52.15.
 - next: Second ring — double-distance posts when heavily threatened.
+
+## 25 — second ring posts when heavily hit (2026-09-21)
+- commit: 95ba976
+- start: 376b39f (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 44.66, sigma 3.56, lb 33.99
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 5-0, FFA ranks 5p:1 7p:2 8p:8
+- what changed: Battling as Saturn in Saturn.bot + Saturn.py; hills with 4+ enemies inside 20 post a double-distance second ring from remaining spares.
+- what you learned: Rings swept duels 5-0 and took 2nd in the 7p, but finished 8/8 in a maze 8p won by Elephant; post-holders never eat, so over-garrisoning starves the army, lb fell from 52.15 to 33.99.
+- next: Hungry posts — defenders snack unclaimed food within 4 steps.
