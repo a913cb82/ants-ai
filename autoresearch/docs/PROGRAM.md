@@ -87,7 +87,11 @@ Each iteration must run a fresh bot entry. Change the bot code first.
 9. Add one entry to `autoresearch/docs/WORKLOG.md`. Commit the notes
    and the new games:
    `git add autoresearch/docs league/games.jsonl && git commit -m "log: <idea>"`
-10. Go to step 1. Do not stop.
+10. Push both branches:
+    `git push origin autoresearch/main main`
+    A failed push is not a lost iteration. Keep the commits and push
+    again at the next log commit.
+11. Go to step 1. Do not stop.
 
 ## Budget
 
@@ -98,7 +102,8 @@ The harness sets the budget and the selection. No flag changes them.
   {5, 7, 8}.
 
 Every game goes to `league/games.jsonl`. A commit cannot play more.
-A second run of one commit plays no game.
+A completed commit plays no game on a second run; a run stopped
+part-way plays the games that remain.
 
 ## Selection
 
@@ -146,6 +151,8 @@ A local optimum is the main risk. Obey these rules.
 - If the harness says "tools/ diverges from branch main", the engine
   changed. Restore it with `git checkout main -- tools/`.
   Do not edit the engine.
+- If the push fails (network, or the remote moved), do not reset or
+  rebase. Keep the commits and push again at the next log commit.
 - After 3 failed code changes for one idea, drop the idea and write
   the reason.
 

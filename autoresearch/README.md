@@ -16,7 +16,8 @@ score improves.
 6. Play the budget: 5 duels and 3 FFA games.
 7. The harness records the score in `docs/PROGRESS.jsonl`. Keep the
    commit if the new score beats the champion score.
-8. Log the result. Repeat.
+8. Log the result. Push both branches:
+   `git push origin autoresearch/main main`. Repeat.
 
 The operating instructions are in `docs/PROGRAM.md`. Start there.
 
@@ -51,6 +52,8 @@ recorded score does not move. The champion is the best recorded score.
   opponents. The agent cannot pick easy games.
 - One mutable surface. The agent edits the bot and the notes only.
   The engine must match `main`. The league and the harness stay fixed.
+- Remote sync. The loop pushes `main` and `autoresearch/main` after
+  each log commit, so the remotes carry every recorded score.
 - Bold cadence. Two failures in a row force a different approach.
   A bold line gets at least 3 iterations before judgement.
 
