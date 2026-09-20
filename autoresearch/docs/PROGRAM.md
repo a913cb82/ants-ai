@@ -11,7 +11,8 @@ Do not ask the human anything. Commit, play, measure, keep or discard, repeat.
    `docs/STRATEGY.md`, `docs/CEILING.md`, and the tail of `docs/WORKLOG.md`.
 4. Work on branch `autoresearch/rob`. If it does not exist:
    `git checkout -b autoresearch/rob`
-   `git tag champion/rob`
+   The seed commit is tagged `champion/rob` already.
+   `git rev-parse champion/rob` shows it.
 5. The bot lives in `autoresearch/bot/`. `main.bot` starts it.
    The seed is a copy of the py3 starter.
 
