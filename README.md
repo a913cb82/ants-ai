@@ -7,7 +7,7 @@ The engine runs a match and records a replay.
 
 ## Layout
 
-- `tools/` holds the upstream engine. Treat it as read-only. Never edit files here.
+- `tools/` holds the upstream engine. Do not change its behavior. The engine must match `main`.
 - `bots/` holds one dir per bot. Each bot dir runs stand-alone. The engine runs each bot from its own dir.
 - `vendor/` holds the source archives.
 
@@ -30,6 +30,8 @@ The hooks format and check each commit. Run all hooks on all files with:
 ```sh
 pre-commit run --all-files
 ```
+
+The hooks skip the slow test. Run it with `pytest -m slow`.
 
 ## Use
 
