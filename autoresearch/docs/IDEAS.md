@@ -51,4 +51,4 @@ row. Leave the old row as it was.
 | done | Walk off hill: never end a turn on your own hill. |
 | trying | Escape space: among safe moves pick the most open space. |
 | done | Aggressive combat: trade 1-for-1 when 14+ friends near the fight. |
-| open | Hill-first order: hunt hills before food. |
+| trying | Hill-first order: hunt hills before food. |

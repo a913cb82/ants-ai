@@ -178,3 +178,15 @@ Use this format.
 - what changed: Battling as Berserker in Berserker.bot + Berserker.py; equal trades are accepted when 14+ friends stand within 10 steps, outnumbered moves still refused.
 - what you learned: Controlled aggression swept every game including a 7p with five past selves and an 8p head-to-head over the champion; piling in with numbers lifts lb from 44.03 to 49.55.
 - next: Hill-first order — hunt hills before food.
+
+## 14 — hill-first attackers draft before food (2026-09-20)
+- commit: 190c3db
+- start: 117f54a (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 48.96, sigma 3.85, lb 37.41
+- champion lb: 49.55
+- verdict: discard
+- games: 5-0, FFA ranks 4p:1 6p:5 10p:1
+- what changed: Battling as Crusader in Crusader.bot + Crusader.py; each hill drafts up to 4 closest ants within 20 steps before food, only undrafted ants claim food.
+- what you learned: Drafting swept duels 5-0 and won the 4p and 10p, but ranked 5/6 behind four weak past selves that just ate; hills-first starves the economy, so lb fell from 49.55 to 37.41.
+- next: Opponent model — read the enemy target from the enemy moves.
