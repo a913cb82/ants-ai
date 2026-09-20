@@ -81,6 +81,12 @@ Use this format.
 - evidence: Wave lines spawn and march toward the enemy hill while momentum keeps ants alive and gathering; our unconditional flood failed at lb 37.87.
 - idea: Parked — retry coordinated pushes only with a numbers gate, after missions land.
 
+## Mission lifecycle: random spawn, closest otherwise, refresh (2026-09-21)
+- source: /tmp/antsresearch/docs/reference/xathis/postmortem.txt (missions section)
+- claim: Idle ants hold persistent border targets that refresh, never re-bid.
+- evidence: Fresh-spawn mission target is a random border tile, otherwise the closest; paths recalculated with A*; interrupted ants discard missions; targets re-searched every turn when time allows, at least every 10 turns; areas come from simultaneous BFS (20-step) with borders where areas meet.
+- idea: Frontier missions for idle ants only (food/hill paths untouched); frontier equals unseen neighbors of seen squares, no full-map areas needed.
+
 ## Combat fields mark death squares (2026-09-20)
 - source: /tmp/antsresearch/src/bots/influence_bot.py (Whitson influence bot, cloned)
 - claim: Squares the enemy can reach-and-kill get -150, ally-supported ones +100.

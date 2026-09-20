@@ -262,3 +262,15 @@ Use this format.
 - what changed: Battling as Goldilocks in Goldilocks.bot + Goldilocks.py; no detour, but food missions re-bid when an unclaimed food is 5+ closer.
 - what you learned: Hysteresis went 4-1 but lost to its parent Grazer and placed 4/7 and 4/8; three strikes (33.58, 26.76, 30.03) prove stateful assignment loses to greedy re-bidding at this strength, so the line is dropped.
 - next: BOLD — new line, research first (border missions candidate).
+
+## 21 — frontier marches for idle ants (2026-09-21)
+- commit: 5abaee6
+- start: 79bbd16 (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 44.32, sigma 3.75, lb 33.07
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 5-0, FFA ranks 4p:1 6p:3 10p:7
+- what changed: Battling as Boone in Boone.bot + Boone.py; seen squares grow a frontier of unseen neighbors, and spare ants march the nearest frontier square instead of wandering.
+- what you learned: Marches swept duels 5-0 and the 4p but ranked 7/10 in a Crusader-led 10p; pushing every spare to the edge scatters the army piecemeal, so lb fell from 52.15 to 33.07.
+- next: March in company — frontier ants move in buddy pairs.

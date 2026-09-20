@@ -55,3 +55,4 @@ row. Leave the old row as it was.
 | dropped | Standing orders: ants keep targets across turns. |
 | dropped | Mission detour: hill ants grab food within 3 steps. |
 | dropped | Stale missions: re-bid food when 5+ closer. |
+| trying | Frontier marches: idle ants push the unseen edge. |
