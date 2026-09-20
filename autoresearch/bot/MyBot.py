@@ -8,23 +8,23 @@ from ants import Ants
 class MyBot:
     def __init__(self):
         # define class level variables, will be remembered between turns
-        pass
+        self.visits: dict[tuple[int, int], int] = {}
 
     # do_setup is run once at the start of the game
     # after the bot has received the game settings
     # the ants class is created and setup by the Ants.run method
     def do_setup(self, ants: Ants):
         # initialize data structures after learning the game settings
-        pass
+        self.visits = {}
 
     # do turn is run once per turn
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Combat: do not step into certain death.
-        # Food and hill behavior matches iteration 4. A move is safe
-        # only with a local majority (friends + self > enemies in
-        # attack range). Unsafe directions are skipped.
+        # Exploration: spare ants prefer unvisited squares.
+        # Food, hill, and combat behavior matches iteration 5. The
+        # final fallback orders n, e, s, w by visit count so spare
+        # ants spread to unseen squares instead of looping.
         foods = ants.food()
         ants_list = ants.my_ants()
         pairs: list[tuple[int, int, int]] = []
@@ -71,6 +71,7 @@ class MyBot:
 
         destinations: set[tuple[int, int]] = set()
         for ai, ant_loc in enumerate(ants_list):
+            self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
             best = target.get(ai)
             moved = False
             if best is not None:
@@ -107,8 +108,12 @@ class MyBot:
                         moved = True
                         break
             if not moved:
-                # No hill move: step in order n, e, s, w.
-                for direction in ("n", "e", "s", "w"):
+                # No hill move: explore least-visited squares first.
+                dirs = sorted(
+                    ("n", "e", "s", "w"),
+                    key=lambda d: self.visits.get(ants.destination(ant_loc, d), 0),
+                )
+                for direction in dirs:
                     new_loc = ants.destination(ant_loc, direction)
                     if (
                         new_loc not in destinations
