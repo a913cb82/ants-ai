@@ -42,3 +42,19 @@ python tools/playgame.py \
 ```
 
 The command records the game. It opens the replay in a browser page. Add `--nolaunch` to play without the visualizer.
+
+## League
+
+`league/` ranks bots over logged games. Each game appends one line to `league/games.jsonl`.
+
+Show the board:
+
+```sh
+python league/board.py
+```
+
+Play five logged games:
+
+```sh
+python league/matchmake.py --play 5
+```
