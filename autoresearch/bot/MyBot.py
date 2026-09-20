@@ -5,7 +5,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class MyBot:
+class NoLunchForYou:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -21,16 +21,26 @@ class MyBot:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Flood: all hill attackers converge on one enemy hill.
-        # Food, defense, combat, and exploration match iteration 6.
-        # The flood hill is the enemy hill closest to any of my ants;
-        # every attacker steps toward it for a local majority.
+        # Food denial: contested foods get claimed first.
+        # Battling as NoLunchForYou. Economy, hills, combat, and
+        # exploration match iteration 6. Foods with a visible enemy
+        # within 8 steps sort as 4 steps closer, so our closest ants
+        # hold the contested field instead of walking past it.
         foods = ants.food()
         ants_list = ants.my_ants()
+        enemy_locs = [loc for loc, _ in ants.enemy_ants()]
+        contested = {
+            fi
+            for fi, food_loc in enumerate(foods)
+            if any(ants.distance(food_loc, e) <= 8 for e in enemy_locs)
+        }
         pairs: list[tuple[int, int, int]] = []
         for ai, ant_loc in enumerate(ants_list):
             for fi, food_loc in enumerate(foods):
-                pairs.append((ants.distance(ant_loc, food_loc), ai, fi))
+                dist = ants.distance(ant_loc, food_loc)
+                if fi in contested:
+                    dist -= 4
+                pairs.append((dist, ai, fi))
         pairs.sort()
         target: dict[int, tuple[int, int]] = {}
         claimed_food: set[int] = set()
@@ -39,14 +49,7 @@ class MyBot:
                 target[ai] = foods[fi]
                 claimed_food.add(fi)
         hills = [loc for loc, _ in ants.enemy_hills()]
-        flood_hill = None
-        if hills and ants_list:
-            flood_hill = min(
-                hills,
-                key=lambda h: min(ants.distance(a, h) for a in ants_list),
-            )
         my_hills = ants.my_hills()
-        enemy_locs = [loc for loc, _ in ants.enemy_ants()]
         threatened = [
             h for h in my_hills if any(ants.distance(h, e) <= 10 for e in enemy_locs)
         ]
@@ -97,13 +100,10 @@ class MyBot:
                     # Assigned food is blocked; keep the claim so no other
                     # ant chases the same region this turn.
                     pass
-            if not moved and (threatened or flood_hill is not None):
-                # No food or blocked: guard home first, else flood one hill.
-                if threatened:
-                    nearest = min(threatened, key=lambda h: ants.distance(ant_loc, h))
-                else:
-                    assert flood_hill is not None
-                    nearest = flood_hill
+            if not moved and (threatened or hills):
+                # No food or blocked: guard home first, else hunt.
+                targets = threatened if threatened else hills
+                nearest = min(targets, key=lambda h: ants.distance(ant_loc, h))
                 for direction in ants.direction(ant_loc, nearest):
                     new_loc = ants.destination(ant_loc, direction)
                     if (
@@ -151,6 +151,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(MyBot())
+        Ants.run(NoLunchForYou())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
