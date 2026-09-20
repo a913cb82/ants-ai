@@ -31,6 +31,8 @@ class Point(collections.namedtuple("Point", ["x", "y"])):
 
 
 class Range(collections.namedtuple("Range", ["min", "max"])):
+    value: int
+
     def __contains__(self, what):
         return what >= self.min and what <= self.max
 

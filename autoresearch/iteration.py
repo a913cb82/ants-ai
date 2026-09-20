@@ -7,8 +7,9 @@ the harness appends it to docs/PROGRESS.jsonl. Later games may move a
 bot's live rating; the recorded score never moves.
 
 The budget, maps, seeds, and selection are fixed. No flag changes
-them. A commit cannot play more than one budget. A second run of a
-played commit plays no game and prints the recorded score.
+them. A commit cannot play more than one budget. A completed commit
+plays no game on a second run and prints the recorded score; a run
+stopped part-way plays the games that remain.
 
 Usage:
   python autoresearch/iteration.py --bot autoresearch/bot/main.bot
@@ -20,6 +21,7 @@ import argparse
 import json
 import random
 import sys
+from collections import Counter
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -62,8 +64,8 @@ PROGRESS = ROOT / "autoresearch" / "docs" / "PROGRESS.jsonl"
 DEFAULT_BOT = "autoresearch/bot/main.bot"
 
 # Binding numbers. The harness fixes them; no flag changes them.
-DUELS = 16
-FFA_SIZES = [4, 5, 6, 7, 8, 9, 10]
+DUELS = 5
+FFA_SETS = ((4, 6, 10), (5, 7, 8))
 TURNS = 1000
 TURNTIME = 1000
 LOADTIME = 3000
@@ -83,6 +85,13 @@ def candidate_id(root: str | Path, botfile: str, rev: str | None = None) -> str:
     rel = p.resolve().relative_to(root.resolve())
     sha = short(root, rev) if rev else last_touch(root, rel.parent.as_posix())
     return bot_id(rel.as_posix(), sha)
+
+
+def ffa_sizes_for(bid: str) -> list[int]:
+    """The FFA sizes for this candidate: one of the two fixed sets,
+    chosen by the bot id. Stable across reruns so a partly played
+    budget resumes with the same set."""
+    return list(random.Random(f"{SEED}:{bid}").choice(FFA_SETS))
 
 
 def counts(records: list[dict], bid: str) -> dict:
@@ -142,8 +151,40 @@ def score(ratings: dict, bid: str) -> tuple[float, float, float]:
     return e["mu"], e["sigma"], e["mu"] - 3 * e["sigma"]
 
 
-def result_line(rec: dict) -> str:
-    return " > ".join(short_name(b) for b in rec["result"])
+def result_line(rec: dict, bid: str | None = None) -> str:
+    """The ranked result, best first. A duplicate label gets a short
+    sha suffix; the candidate is marked with an asterisk."""
+    names = [short_name(b) for b in rec["result"]]
+    counts = Counter(names)
+    parts = []
+    for b, name in zip(rec["result"], names, strict=True):
+        if counts[name] > 1:
+            name = f"{name}@{parse_id(b)[1]}"
+        if bid is not None and b == bid:
+            name = f"*{name}"
+        parts.append(name)
+    return " > ".join(parts)
+
+
+def iteration_summary(records: list[dict], bid: str) -> str:
+    """Copy-paste line for the worklog: the duel record and the rank
+    of each FFA game for one candidate."""
+    wins = losses = 0
+    ranks = []
+    for r in records:
+        if bid not in r["field"]:
+            continue
+        rank = r["result"].index(bid) + 1
+        if len(r["field"]) == 2:
+            if rank == 1:
+                wins += 1
+            else:
+                losses += 1
+        else:
+            ranks.append((len(r["field"]), rank))
+    ranks.sort()
+    ffa = " ".join(f"{n}p:{rank}" for n, rank in ranks)
+    return f"games: {wins}-{losses}, FFA ranks {ffa}"
 
 
 def short_name(bid: str) -> str:
@@ -275,17 +316,18 @@ def main(argv=None) -> int:
         print("bot tree is dirty; commit before logged play", file=sys.stderr)
         return 2
     bid = candidate_id(root, args.bot, args.rev)
+    ffa_sizes = ffa_sizes_for(bid)
     records = read_log(GAMES_LOG)
     ratings = R.rebuild(records)
     R.save(RATINGS_PATH, ratings)
     done = counts(records, bid)
     mu, sigma, lb = score(ratings, bid)
     print(f"candidate {bid}", flush=True)
-    ffa = " ".join(f"{n}p {min(done['ffa'].get(n, 0), 1)}/1" for n in FFA_SIZES)
+    ffa = " ".join(f"{n}p {min(done['ffa'].get(n, 0), 1)}/1" for n in ffa_sizes)
     print(f"duels {done['duels']}/{DUELS}  ffa {ffa}", flush=True)
     print(f"mu {mu:.1f}  sigma {sigma:.2f}  lb {lb:.1f}", flush=True)
 
-    duels_left, sizes_left = planned(records, bid, DUELS, FFA_SIZES)
+    duels_left, sizes_left = planned(records, bid, DUELS, ffa_sizes)
 
     pool = pool_ids(root, ratings)
     if bid not in set(pool):
@@ -326,9 +368,11 @@ def main(argv=None) -> int:
                 fh.flush()
                 ratings = R.update(ratings, rec["field"], rec["result"])
                 R.save(RATINGS_PATH, ratings)
+                rank = rec["result"].index(bid) + 1
+                outcome = "WIN" if rank == 1 else "LOSS"
                 print(
                     f"duel {done['duels']}/{DUELS} "
-                    f"{Path(map_rel).name} {result_line(rec)}",
+                    f"{Path(map_rel).name} {result_line(rec, bid)} -> {outcome}",
                     flush=True,
                 )
 
@@ -360,7 +404,12 @@ def main(argv=None) -> int:
             fh.flush()
             ratings = R.update(ratings, rec["field"], rec["result"])
             R.save(RATINGS_PATH, ratings)
-            print(f"ffa {n}p {Path(map_rel).name} {result_line(rec)}", flush=True)
+            rank = rec["result"].index(bid) + 1
+            print(
+                f"ffa {n}p {Path(map_rel).name} {result_line(rec, bid)} "
+                f"-> rank {rank}/{n}",
+                flush=True,
+            )
 
     mu, sigma, lb = score(ratings, bid)
     games = done["duels"] + sum(done["ffa"].values())
@@ -377,6 +426,7 @@ def main(argv=None) -> int:
         print(f"report: beats champion {prior['bot']} lb {prior['lb']:.1f}", flush=True)
     else:
         print(f"report: below champion {prior['bot']} lb {prior['lb']:.1f}", flush=True)
+    print(iteration_summary(read_log(GAMES_LOG), bid), flush=True)
     return 0
 
 

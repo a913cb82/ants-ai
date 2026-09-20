@@ -82,7 +82,8 @@ class HeightMapMap(Map):
                 while True:
                     water_path.append((c_row, c_col))
                     water_map[c_row][c_col] += 1
-                    h = defaultdict(list)  # used to find lowest point around square
+                    # used to find lowest point around square
+                    h: defaultdict[int, list[tuple[int, int]]] = defaultdict(list)
                     for d_row, d_col in ((1, 0), (0, 1), (-1, 0), (0, -1)):
                         h_row = (c_row + d_row) % rows
                         h_col = (c_col + d_col) % cols
@@ -146,7 +147,7 @@ class HeightMapMap(Map):
         height_map = self.generate_rivers(height_map)
 
         # create histogram
-        histo = defaultdict(int)
+        histo: defaultdict[int, int] = defaultdict(int)
         for height_row in height_map:
             for height in height_row:
                 histo[height] += 1

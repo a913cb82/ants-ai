@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import logging
 from random import shuffle
+from typing import Any
 
 from ants import AIM, ANTS, FOOD, HILL, LAND, UNSEEN, Ants
 from logutils import getLogger
@@ -137,11 +138,11 @@ class GreedyBot:
     def do_turn(self, ants):
         global turn_number
         turn_number = turn_number + 1
-        destinations = []
+        destinations: list[tuple[int, int]] = []
         getLogger().debug("Starting Turn")
         # continue standing orders
-        orders = []
-        hunted = []
+        orders: list[list[Any]] = []
+        hunted: list[tuple[int, int]] = []
         for order in self.standing_orders:
             ant_loc, step_loc, dest_loc, order_type = order
             if (

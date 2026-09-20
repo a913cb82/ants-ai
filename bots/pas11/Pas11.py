@@ -1,3 +1,5 @@
+from typing import Any
+
 from ants import Ants
 
 """
@@ -14,7 +16,9 @@ class MyBot:
         came_from = {}
         came_from[loc1] = 0
 
-        g_score = h_score = f_score = {}
+        g_score: dict[Any, int] = {}
+        h_score: dict[Any, int] = {}
+        f_score: list[Any] = []
         g_score[loc1] = 0
         h_score[loc1] = ants.distance(loc1, loc2)
         f_score = [[g_score[loc1] + h_score[loc1], loc1], [1e6, loc1]]
@@ -95,8 +99,8 @@ class MyBot:
 
     def do_turn(self, ants):
         # issue move command if possible and safe (no enemy ants nearby)
-        orders = {}
-        potential_orders = {}
+        orders: dict[tuple[int, int], tuple[int, int] | None] = {}
+        potential_orders: dict[tuple[int, int], tuple[int, int]] = {}
 
         def do_move_direction(loc, direction):
             new_loc = ants.destination(loc, direction)
@@ -152,7 +156,7 @@ class MyBot:
         danger_list = {}
         # key=dangerous location
         # value=ant causing that
-        nearby_ants = {}
+        nearby_ants: dict[tuple[int, int], list[tuple[int, int]]] = {}
         # key=enemy_ant
         # value=my ants near it
         # create danger list (all LAND/DEAD within sqrt(5) of enemy ant)
@@ -197,7 +201,7 @@ class MyBot:
                 break
 
         # GATHER FOOD
-        ant_dist = []
+        ant_dist: list[Any] = []
         for food_loc in ants.food():
             for ant_loc in ants.my_ants():
                 if ant_loc not in orders.values():
@@ -243,7 +247,7 @@ class MyBot:
                             for ant_loc in ants.my_ants():
                                 if ant_loc not in orders.values():
                                     dist = ants.distance(ant_loc, pos)
-                                    ant_dist.append([dist, ant_loc])
+                                    ant_dist.append((dist, ant_loc))
                             ant_dist.sort()
                             if ant_dist and (ant_dist[0][1] not in orders.values()):
                                 do_move_location(ant_dist[0][1], pos)
@@ -274,7 +278,7 @@ class MyBot:
                             for ant_loc in ants.my_ants():
                                 if ant_loc not in orders.values():
                                     dist = ants.distance(ant_loc, pos)
-                                    ant_dist.append([dist, ant_loc])
+                                    ant_dist.append((dist, ant_loc))
                             ant_dist.sort()
                             if ant_dist and (ant_dist[0][1] not in orders.values()):
                                 do_move_location(ant_dist[0][1], pos)

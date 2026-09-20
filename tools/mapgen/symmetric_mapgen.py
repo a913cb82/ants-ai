@@ -39,7 +39,8 @@ class SymmetricMap:
     # map parameters
     no_players = 0
     rows = cols = 0
-    row_t = col_t = 0
+    row_t: float = 0
+    col_t: float = 0
     water_squares = 0
     land_squares = 0
     map_data: list = []

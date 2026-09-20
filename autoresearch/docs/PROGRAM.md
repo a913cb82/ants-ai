@@ -12,8 +12,10 @@ Do this once for each run.
    `autoresearch/docs/CEILING.md`, `autoresearch/docs/PROGRESS.jsonl`,
    and the end of `autoresearch/docs/WORKLOG.md`.
 2. Work on branch `autoresearch/main`:
-   `git checkout autoresearch/main`
+   `git checkout autoresearch/main`. The loop merges `main` at step 1.
 3. The bot is in `autoresearch/bot/`. The file `main.bot` starts the bot.
+   `main.bot` is a one-line command; the engine runs it with the bot
+   directory as the working directory.
 
 ## Scope
 
@@ -53,7 +55,7 @@ Rules:
 The goal is to maximize the iteration score. The score is
 `lb = mu - 3 * sigma`, measured after the fixed budget of games.
 The harness writes it to `autoresearch/docs/PROGRESS.jsonl` when the
-budget ends. Every fresh bot gets the same 23 games, so the
+budget ends. Every fresh bot gets the same 8 games, so the
 comparison is fair. A bot's live rating keeps moving after the
 iteration. The recorded score does not move.
 The champion is the best recorded score.
@@ -76,7 +78,8 @@ Each iteration must run a fresh bot entry. Change the bot code first.
 7. Read the score. The harness prints the score and adds one JSON line
    to `autoresearch/docs/PROGRESS.jsonl`. The champion is the best line.
 8. Compare the new score with the champion score:
-   - No recorded score: this run sets the baseline. Move the tag.
+   - No recorded score: this run sets the baseline. Move the tag:
+    `git tag -f champion/main`.
    - New score is higher: move the tag: `git tag -f champion/main`.
    - New score is lower or equal: do not move the tag.
    Keep the commit in all three cases. Start the next idea from the
@@ -90,8 +93,9 @@ Each iteration must run a fresh bot entry. Change the bot code first.
 
 The harness sets the budget and the selection. No flag changes them.
 
-- 16 duels. Each duel uses a different 2p map.
-- 7 FFA games. One game for each size from 4 to 10.
+- 5 duels. Each duel uses a different 2p map.
+- 3 FFA games. The harness picks one of two size sets: {4, 6, 10} or
+  {5, 7, 8}.
 
 Every game goes to `league/games.jsonl`. A commit cannot play more.
 A second run of one commit plays no game.

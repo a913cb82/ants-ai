@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from collections.abc import Callable
+
 from map import WATER, Map, Point, Terrain
 
 
@@ -13,6 +15,8 @@ class SymmetryException(Exception):
 
 
 class SymmetricMap(Map):
+    symmetry_vector: Callable[[Point], list[Point]]
+
     def __init__(self, **kwargs):
         Map.__init__(self, **kwargs)
 
@@ -51,10 +55,6 @@ class SymmetricMap(Map):
             Map.add_hill(self, player_id, loc)
 
     # vector functions given a Point will return a list of all the points that are symmetric including themselves
-    def symmetry_vector(self, origin):
-        """To be overridden later"""
-        pass
-
     def vector_horizontal(self, origin):
         if len(self.players) != 2:
             raise SymmetryException("2 players")

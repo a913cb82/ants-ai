@@ -28,13 +28,13 @@ BEHIND = {"n": "s", "s": "n", "e": "w", "w": "e"}
 
 class Ants:
     def __init__(self):
-        self.width = None
-        self.height = None
-        self.map = None
-        self.ant_list = {}
-        self.food_list = []
-        self.dead_list = []
-        self.hill_list = {}
+        self.width = 0
+        self.height = 0
+        self.map: list[list[int]] = []
+        self.ant_list: dict[tuple[int, int], int] = {}
+        self.food_list: list[tuple[int, int]] = []
+        self.dead_list: list[tuple[int, int]] = []
+        self.hill_list: dict[tuple[int, int], int] = {}
 
     def setup(self, data):
         "parse initial input and setup starting game state"

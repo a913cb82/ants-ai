@@ -11,7 +11,9 @@ class Map(Terrain):
         Terrain.__init__(self, **kwargs)
 
         # A list of players, each player being a set of hills
-        self.players = [set() for player in range(kwargs["num_players"])]
+        self.players: list[set[Point]] = [
+            set() for player in range(kwargs["num_players"])
+        ]
 
     def add_hill(self, player, location):
         """Adds a hill to the map, and clears the immediate area"""

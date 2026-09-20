@@ -1,7 +1,9 @@
 #!/usr/bin/python
 from collections import defaultdict
+from collections.abc import Iterable
 from math import sqrt
 from random import choice, random, randrange
+from typing import Any
 
 import Image
 import ImageChops
@@ -25,6 +27,10 @@ for i in range(26):
 
 
 class Node:
+    location: list[Any]
+    left_child: "Node | None"
+    right_child: "Node | None"
+
     def all(self):
         yield self.location
         if self.left_child is not None:
@@ -79,6 +85,8 @@ class Point:
 
 
 class Triangle:
+    _center: tuple[float, float] | None
+
     def __init__(self, points):
         self.p1 = points[0]
         self.p2 = points[1]
@@ -130,7 +138,7 @@ def divide_conquer():
     width = 100.0
     height = 100.0
 
-    points = [Point(random() * width, random() * height) for i in range(10)]
+    points: list[Any] = [Point(random() * width, random() * height) for i in range(10)]
     points.sort()
 
     # draw image
@@ -207,7 +215,7 @@ def voronoi(players=4):
     min_dist = width * height / point_count
     print(f"{width}, {height}  {min_dist} {sqrt(min_dist)}")
     px, py = 0, 0
-    points = []
+    points: list[tuple[int, int]] = []
     while min_dist > 100 and len(points) < point_count:
         while min_dist > 100:
             px, py = randrange(width), randrange(height)
@@ -229,7 +237,7 @@ def voronoi(players=4):
             if (p_x, p_y) != (n_x, n_y):
                 dist = distance(p_x, p_y, n_x, n_y, width, height)
                 nearest[dist] = (n_x, n_y)
-        sorted = nearest.keys()
+        sorted: Any = nearest.keys()
         sorted.sort()
         path[(p_x, p_y)] = [nearest[key] for key in sorted[:3]]
         closest[(p_x, p_y)] = sorted[0]
@@ -424,8 +432,8 @@ def make_symmetric(points, size, players):
 
     # pick random grid size
     divs = [i for i in range(1, players + 1) if players % i == 0]
-    row_sym = choice(divs)
-    col_sym = players / row_sym
+    row_sym: float = choice(divs)
+    col_sym: float = players / row_sym
     grid = (row_sym, col_sym)
 
     (size[0] * row_sym, size[1] * col_sym)
@@ -451,7 +459,7 @@ def make_symmetric(points, size, players):
 
 def random_points(count, size, spacing, distance):
     rows, cols = size
-    points = []
+    points: list[tuple[int, int]] = []
     failures = 0
     for _c in range(count):
         while True:
@@ -472,7 +480,7 @@ def random_points_unique(count, size, spacing, distance):
     rows, cols = size
     avail_rows = list(range(rows))
     avail_cols = list(range(cols))
-    points = []
+    points: list[tuple[int, int]] = []
     failures = 0
     for _c in range(count):
         while True:
@@ -514,10 +522,10 @@ def cells(
     for row in range(rows):
         for col in range(cols):
             # TODO: improve speed with nearest neighbor queries
-            distances = {loc: distance((row, col), loc, size) for loc in points}
+            distances: Any = {loc: distance((row, col), loc, size) for loc in points}
             cutoff = min(distances.values()) + 1
             closest = [point for point, d in distances.items() if d <= cutoff]
-            comps = {points[point] for point in closest}
+            comps: Any = {points[point] for point in closest}
             comps_found = len(comps) > 1
             nearest = closest
 
@@ -579,7 +587,7 @@ def cells(
         #                                       points[path[0]][0], points[path[0]][1],
         #                                       points[path[1]][0], points[path[1]][1],
         #                                       m_row, m_col))
-        paths = [path]
+        paths: Iterable[Any] = [path]
         if comps is not None:
             paths = zip(comps[path[0]], comps[path[1]], strict=False)
         for path in paths:
@@ -672,7 +680,7 @@ def ant_map(m):
 
 def file_to_map(filename):
     with open(filename) as f:
-        m = []
+        m: list[list[int]] = []
         for line in f:
             if line.startswith("rows ") or line.startswith("cols "):
                 int(line[5:])

@@ -7,6 +7,7 @@ import subprocess
 import time
 from optparse import OptionParser
 from threading import Thread
+from typing import Any
 
 try:
     from Queue import Empty, Queue
@@ -106,7 +107,7 @@ class Jail:
         )
 
         self._is_alive = False
-        self.command_process = None
+        self.command_process: subprocess.Popen[Any] | None = None
         self.resp_queue = Queue()
         self.stdout_queue = Queue()
         self.stderr_queue = Queue()
@@ -122,6 +123,7 @@ class Jail:
     def is_alive(self):
         """Indicates whether a command is currently running in the sandbox"""
         if self._is_alive:
+            assert self.command_process is not None
             sub_result = self.command_process.poll()
             if sub_result is None:
                 return True
@@ -226,6 +228,8 @@ class Jail:
         suddenly terminated.
 
         """
+        assert self.command_process is not None
+        assert self.command_process.stdin is not None
         try:
             self.command_process.stdin.write("KILL\n")
             self.command_process.stdin.flush()
@@ -252,6 +256,8 @@ class Jail:
 
     def pause(self):
         """Pause the process by sending a SIGSTOP to the child"""
+        assert self.command_process is not None
+        assert self.command_process.stdin is not None
         try:
             self.command_process.stdin.write("STOP\n")
             self.command_process.stdin.flush()
@@ -265,6 +271,8 @@ class Jail:
 
     def resume(self):
         """Resume the process by sending a SIGCONT to the child"""
+        assert self.command_process is not None
+        assert self.command_process.stdin is not None
         try:
             self.command_process.stdin.write("CONT\n")
             self.command_process.stdin.flush()
@@ -289,6 +297,8 @@ class Jail:
         """
         if not self.is_alive:
             return False
+        assert self.command_process is not None
+        assert self.command_process.stdin is not None
         try:
             self.command_process.stdin.write(f"SEND {line}\n")
             self.command_process.stdin.flush()
@@ -363,7 +373,7 @@ class House:
                            be launched.
         """
         self._is_alive = False
-        self.command_process = None
+        self.command_process: subprocess.Popen[Any] | None = None
         self.stdout_queue = Queue()
         self.stderr_queue = Queue()
         self.working_directory = working_directory
@@ -372,6 +382,7 @@ class House:
     def is_alive(self):
         """Indicates whether a command is currently running in the sandbox"""
         if self._is_alive:
+            assert self.command_process is not None
             sub_result = self.command_process.poll()
             if sub_result is None:
                 return True
@@ -419,6 +430,7 @@ class House:
 
         """
         if self.is_alive:
+            assert self.command_process is not None
             with contextlib.suppress(OSError):
                 self.command_process.kill()
             self.command_process.wait()
@@ -451,7 +463,9 @@ class House:
         This method is a no-op on Windows.
         """
         with contextlib.suppress(ValueError, AttributeError, OSError):
-            self.command_process.send_signal(signal.SIGSTOP)
+            process = self.command_process
+            if process is not None:
+                process.send_signal(signal.SIGSTOP)
 
     def resume(self):
         """Resume the process by sending a SIGCONT to the child
@@ -459,10 +473,14 @@ class House:
         This method is a no-op on Windows
         """
         with contextlib.suppress(ValueError, AttributeError, OSError):
-            self.command_process.send_signal(signal.SIGCONT)
+            process = self.command_process
+            if process is not None:
+                process.send_signal(signal.SIGCONT)
 
     def _child_writer(self):
         queue = self.child_queue
+        assert self.command_process is not None
+        assert self.command_process.stdin is not None
         stdin = self.command_process.stdin
         while True:
             ln = queue.get()

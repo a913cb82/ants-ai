@@ -5,18 +5,23 @@ budget, the maps, the seeds, or the selection.
 
 ## Budget
 
-One iteration has 23 games for each candidate commit:
+One iteration has 8 games for each candidate commit:
 
 | Part | Count | Maps | Time |
 |---|---|---|---|
-| Duels | 16 | 16 different 2p maps | about 5 s each |
-| FFA | 7 | one map for each size 4, 5, 6, 7, 8, 9, 10 | 20 to 90 s each |
-| Total | 23 | all different in one iteration | about 5 to 8 min |
+| Duels | 5 | 5 different 2p maps | about 5 s each |
+| FFA | 3 | one map for each size in one set | 20 to 90 s each |
+| Total | 8 | all different in one iteration | about 1 to 4 min |
 
+- The FFA sizes are one of two fixed sets: `{4, 6, 10}` or `{5, 7, 8}`.
+  The harness picks the set from the bot id, so a partly played budget
+  resumes with the same set.
 - The candidate is a fresh bot entry: a new commit with changed bot code.
   A commit that changes the bot directory is a new bot id. A docs-only
   commit keeps the old id.
-- A commit cannot play more than this budget. A second run plays nothing.
+- A commit cannot play more than this budget. A completed commit plays
+  no game on a second run. A run stopped part-way plays the games that
+  remain.
 - Every game goes to `league/games.jsonl` and updates `ratings.json`.
 
 ## Score
@@ -44,6 +49,12 @@ iteration. The object has these keys:
 | `games` | the number of games in the budget |
 | `champion` | the best bot id before this line, or `null` |
 
+## Result order
+
+`result` lists the field best first. `result[0]` is rank 1, the winner
+of a duel. A high score wins; status breaks ties (`ok` before `crashed`
+and `timeout`). In an FFA game the index in `result` is the rank.
+
 ## Selection
 
 - A duel: the candidate is in the game. The opponent has the best
@@ -51,6 +62,8 @@ iteration. The object has these keys:
   In 20 percent of duels the harness picks one of the top 3 at random.
 - An FFA game: the candidate is in the field. The harness fills the
   other slots by the same information score.
+- The FFA sizes come from one fixed set per candidate: `{4, 6, 10}` or
+  `{5, 7, 8}` (see Budget).
 - The information score is `predict_draw + 0.02 * sum(sigma)`.
 - The maps are random and different in one iteration.
 - The slots and both seeds are random. The record keeps the seeds.

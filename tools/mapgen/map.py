@@ -8,6 +8,7 @@ from itertools import product
 from optparse import OptionParser
 from random import choice, randint, seed
 from sys import maxsize as maxint
+from typing import Any, cast
 
 MY_ANT = 0
 ANTS = 0
@@ -34,7 +35,7 @@ class Map:
             options = {}
         super().__init__()
         self.name = options.get("name", "blank")
-        self.map = [[]]
+        self.map: list[list[int]] = [[]]
         self.reports = []
 
         self.report(f"map type: {self.name}")
@@ -142,8 +143,8 @@ class Map:
             rows, cols = len(self.map), len(self.map[0])
         else:
             rows, cols = size
-        visited = {}
-        open_nodes = deque()
+        visited: dict[Any, int | None] = {}
+        open_nodes: deque[tuple[Any, int]] = deque()
         open_nodes.append((start_loc, 0))
         if start_loc in end_locs:
             yield open_nodes[-1]
@@ -172,27 +173,24 @@ class Map:
         "get path from 1 location to another as a list of locations"
 
         # make a node class to calc F, G and H automatically
-        def nodeMaker(distance=self.manhatten_distance, dest=loc2, size=size):
-            class Node:
-                def __init__(self, loc, parent, G):
-                    self.loc = loc
-                    self.parent = parent
-                    self.G = G
-                    self.H = distance(loc, dest, size)
-                    self.F = self.G + self.H
+        distance = self.manhatten_distance
 
-                def __lt__(self, other):
-                    return self.F < other.F
+        class Node:
+            def __init__(self, loc, parent, G):
+                self.loc = loc
+                self.parent: Node | None = parent
+                self.G = G
+                self.H = distance(loc, loc2, size)
+                self.F = self.G + self.H
 
-            return Node
-
-        Node = nodeMaker()
+            def __lt__(self, other: "Node") -> bool:
+                return self.F < other.F
 
         # heap list to help get lowest F cost
-        open_nodes = []
+        open_nodes: list[Node] = []
         # lists indexed by location
-        closed_list = {}
-        open_list = {}
+        closed_list: dict[Any, Node] = {}
+        open_list: dict[Any, Node] = {}
         block_offsets = list(product(range(block), range(block)))
 
         def add_open(node, open_nodes=open_nodes, open_list=open_list):
@@ -335,7 +333,7 @@ class Map:
             area_visited = [[False] * cols for _ in range(rows)]
             area_seen = [[False] * cols for _ in range(rows)]
 
-            squares = deque()
+            squares: deque[tuple[Any, Any]] = deque()
             row, col = find_open_spot()
 
             # seen_area = open_block((row, col))
@@ -470,7 +468,7 @@ class Map:
         """find if map is similar given loc1 aim of 0 and loc2 ant of player
         return a map of translated enemy locations
         """
-        enemy_map = {}
+        enemy_map: dict[int, int] = {}
         rows = len(self.map)
         cols = len(self.map[0])
         size = (rows, cols)
@@ -676,7 +674,7 @@ class Map:
         """Parse the map_text into a more friendly data structure"""
         ant_list = None
         hill_list = []
-        hill_count = defaultdict(int)
+        hill_count: defaultdict[int, int] = defaultdict(int)
         width = height = None
         water = []
         food = []
@@ -746,7 +744,7 @@ class Map:
             if count == 0:
                 raise Exception("map", f"Player {hill} has no starting hills")
 
-        map_data = {
+        map_data: dict[str, Any] = {
             "size": (height, width),
             "num_players": num_players,
             "hills": hills,
@@ -776,7 +774,7 @@ class Map:
         for owner, locs in map_data["hills"].items():
             for loc in locs:
                 self.map[loc[0]][loc[1]] = owner
-        self.players = num_players
+        self.players = cast(int, num_players)
 
 
 def main():

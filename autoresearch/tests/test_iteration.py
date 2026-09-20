@@ -105,16 +105,60 @@ def test_short_name_labels_main_manifests_by_dir():
     assert short_name("tools/sample_bots/python/GreedyBot.bot-abc1234") == "GreedyBot"
 
 
+def test_budget_is_five_duels_and_three_ffa():
+    from iteration import DUELS, FFA_SETS
+
+    assert DUELS == 5
+    assert FFA_SETS == ((4, 6, 10), (5, 7, 8))
+
+
+def test_ffa_sizes_for_is_stable_and_from_the_sets():
+    from iteration import ffa_sizes_for
+
+    bid = "autoresearch/bot/main.bot-abc1234"
+    sizes = ffa_sizes_for(bid)
+    assert sizes == ffa_sizes_for(bid)
+    assert sizes in ([4, 6, 10], [5, 7, 8])
+
+
+def test_result_line_marks_candidate_and_disambiguates():
+    from iteration import result_line
+
+    rec = {
+        "result": [
+            "tools/sample_bots/python/GreedyBot.bot-abc1234",
+            "tools/sample_bots/python/GreedyBot.bot-def5678",
+        ]
+    }
+    assert (
+        result_line(rec, "tools/sample_bots/python/GreedyBot.bot-def5678")
+        == "GreedyBot@abc1234 > *GreedyBot@def5678"
+    )
+    assert result_line(rec) == "GreedyBot@abc1234 > GreedyBot@def5678"
+
+
+def test_iteration_summary_reports_duels_and_ffa_ranks():
+    from iteration import iteration_summary
+
+    recs = [
+        {"field": ["c", "x"], "result": ["c", "x"]},
+        {"field": ["y", "c"], "result": ["y", "c"]},
+        {"field": ["c", "a", "b", "d"], "result": ["c", "a", "b", "d"]},
+        {"field": ["a", "b", "c", "d", "e"], "result": ["a", "b", "c", "d", "e"]},
+    ]
+    assert iteration_summary(recs, "c") == "games: 1-1, FFA ranks 4p:1 5p:3"
+
+
 def test_progress_roundtrip_and_champion(tmp_path):
     from iteration import read_progress, record_report
 
     p = tmp_path / "PROGRESS.jsonl"
-    row, prior, appended = record_report("a-1", 30.0, 3.0, 21.0, 23, path=p)
+    row, prior, appended = record_report("a-1", 30.0, 3.0, 21.0, 8, path=p)
     assert appended and prior is None and row["lb"] == 21.0
-    row, prior, appended = record_report("b-2", 35.0, 4.0, 23.0, 23, path=p)
+    row, prior, appended = record_report("b-2", 35.0, 4.0, 23.0, 8, path=p)
     assert appended and prior is not None
     assert prior["bot"] == "a-1"
-    row, prior, appended = record_report("b-2", 1.0, 1.0, -2.0, 23, path=p)
+    row, prior, appended = record_report("b-2", 1.0, 1.0, -2.0, 8, path=p)
     assert not appended and row["lb"] == 23.0 and prior is not None
     assert prior["bot"] == "b-2"
     rows = read_progress(p)
@@ -133,7 +177,7 @@ def test_progress_skips_bad_lines(tmp_path):
             "mu": 25,
             "sigma": 8.0,
             "lb": 1.0,
-            "games": 23,
+            "games": 8,
             "champion": None,
             "date": "2026-01-01",
         }
@@ -195,7 +239,7 @@ def test_main_plays_records_and_never_replays(tmp_path, monkeypatch):
     import iteration
 
     monkeypatch.setattr(iteration, "DUELS", 1)
-    monkeypatch.setattr(iteration, "FFA_SIZES", [])
+    monkeypatch.setattr(iteration, "ffa_sizes_for", lambda bid: [])
     monkeypatch.setattr(iteration, "GAMES_LOG", tmp_path / "games.jsonl")
     monkeypatch.setattr(iteration, "RATINGS_PATH", tmp_path / "ratings.json")
     monkeypatch.setattr(iteration, "PROGRESS", tmp_path / "PROGRESS.jsonl")

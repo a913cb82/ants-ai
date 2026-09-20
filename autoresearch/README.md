@@ -13,7 +13,7 @@ score improves.
    a new design.
 4. Edit `bot/`.
 5. Commit.
-6. Play the budget: 16 duels and 7 FFA games.
+6. Play the budget: 5 duels and 3 FFA games.
 7. The harness records the score in `docs/PROGRESS.jsonl`. Keep the
    commit if the new score beats the champion score.
 8. Log the result. Repeat.
@@ -22,14 +22,16 @@ The operating instructions are in `docs/PROGRAM.md`. Start there.
 
 ## Budget
 
-One iteration has 23 games:
+One iteration has 8 games:
 
-- 16 duels. Each duel uses a different 2p map.
-- 7 FFA games. One game for each size from 4 to 10.
+- 5 duels. Each duel uses a different 2p map.
+- 3 FFA games. The harness picks one of two size sets: {4, 6, 10}
+  or {5, 7, 8}.
 
 The harness sets the numbers. No flag changes them.
 Every game goes to `league/games.jsonl`. A commit cannot play more.
-A second run of the same commit plays no game.
+A completed commit plays no game on a second run; a run stopped
+part-way plays the games that remain.
 
 ## Score
 
@@ -43,7 +45,7 @@ recorded score does not move. The champion is the best recorded score.
 
 - Fixed budget per commit. Each iteration makes a fresh bot entry.
   The bot cannot gain more games, so the rating cannot be ground up.
-- Recorded scores. The harness compares each bot after the same 23
+- Recorded scores. The harness compares each bot after the same 8
   games, not against a live rating that keeps changing.
 - Honest selection. The harness picks the maps, slots, seeds, and
   opponents. The agent cannot pick easy games.
