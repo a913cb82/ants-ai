@@ -1,1 +1,2 @@
+{"date": "2026-09-20", "bot": "autoresearch/bot/main.bot-d02ec94", "mu": 35.94365337342255, "sigma": 3.4936308491805956, "lb": 25.462760825880764, "games": 23, "champion": null, "budget": "duels=16,ffa=7,turns=1000"}
 {"date": "2026-09-20", "bot": "autoresearch/bot/main.bot-9031b00", "mu": 43.730116603520365, "sigma": 4.941019061138726, "lb": 28.907059420104186, "games": 8, "champion": null, "budget": "duels=5,ffa=3,turns=1000"}
