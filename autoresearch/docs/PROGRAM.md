@@ -7,15 +7,13 @@ Do not ask the human anything. Commit, play, measure, and repeat.
 
 Do this once for each run.
 
-1. Use `.venv/bin/python` for every command. Each command runs in a new
-   shell, so an activated venv does not stay active.
-2. Read `autoresearch/README.md`, `autoresearch/docs/METHODS.md`,
+1. Read `autoresearch/README.md`, `autoresearch/docs/METHODS.md`,
    `autoresearch/docs/IDEAS.md`, `autoresearch/docs/STRATEGY.md`,
    `autoresearch/docs/CEILING.md`, and the end of
    `autoresearch/docs/WORKLOG.md`.
-3. Work on branch `autoresearch/main`:
+2. Work on branch `autoresearch/main`:
    `git checkout autoresearch/main`
-4. The bot is in `autoresearch/bot/`. The file `main.bot` starts the bot.
+3. The bot is in `autoresearch/bot/`. The file `main.bot` starts the bot.
 
 ## Scope
 
@@ -33,9 +31,11 @@ You cannot edit:
 
 Rules:
 
+- Use `.venv/bin/python` for every command. Each command runs in a new
+  shell, so an activated venv does not stay active.
 - Make a fresh bot entry each iteration. Change the bot code and commit it.
   The harness counts games by bot id. An old entry cannot play again.
-- Use the Python standard library and the packages in the venv.
+- Use only the Python standard library and the packages in the venv.
   Do not run pip.
 - One turn must finish in 1000 ms. A slow bot loses on time.
   The load time is 3000 ms.
