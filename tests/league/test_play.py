@@ -8,15 +8,25 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "league"))
 REPLAY = Path(__file__).with_name("replay_fixture.json")
 
 
-def test_bind_maps_python_to_absolute_interpreter():
+def test_bind_maps_python_to_absolute_interpreter(tmp_path):
     from play import bind
-    assert bind("python A.py --x 1", "/abs/py") == "/abs/py A.py --x 1"
-    assert bind("python3 A.py", "/abs/py") == "/abs/py A.py"
+    (tmp_path / "A.py").write_text("x\n")
+    assert bind("python A.py --x 1", "/abs/py", tmp_path) == \
+        f"/abs/py {tmp_path}/A.py --x 1"
+    assert bind("python3 A.py", "/abs/py", tmp_path) == \
+        f"/abs/py {tmp_path}/A.py"
 
 
-def test_bind_leaves_other_runtimes_verbatim():
+def test_bind_leaves_other_runtimes_verbatim(tmp_path):
     from play import bind
-    assert bind("php Bot.php", "/abs/py") == "php Bot.php"
+    assert bind("php Bot.php", "/abs/py", tmp_path) == "php Bot.php"
+
+
+def test_bind_absolutizes_only_files(tmp_path):
+    from play import bind
+    (tmp_path / "A.py").write_text("x\n")
+    assert bind("python A.py --flag", "/abs/py", tmp_path) == \
+        f"/abs/py {tmp_path}/A.py --flag"
 
 
 def test_parse_replay_without_score_is_loud(tmp_path):
@@ -30,9 +40,24 @@ def test_parse_replay_without_score_is_loud(tmp_path):
 
 def test_parse_replay_scores_and_status():
     from play import parse_replay
-    scores, statuses = parse_replay(REPLAY)
+    scores, statuses, length, errors = parse_replay(REPLAY)
     assert scores == [4, 2, 2, 1]
     assert statuses == ["survived", "survived", "eliminated", "crashed"]
+    assert length == 137
+    assert errors == []
+
+
+def test_every_bot_crashed_is_loud():
+    import pytest
+    from play import EngineError, require_playable
+    with pytest.raises(EngineError):
+        require_playable(["crashed", "crashed"], 0)
+
+
+def test_one_survivor_is_playable():
+    from play import require_playable
+    require_playable(["crashed", "survived"], 40)
+    require_playable(["eliminated", "survived"], 40)
 
 
 def test_rank_slots_score_then_status():
