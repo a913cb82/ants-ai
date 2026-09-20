@@ -7,6 +7,7 @@ current HEAD sha so records are exact.
 from __future__ import annotations
 
 import json
+import shlex
 import subprocess
 from pathlib import Path
 
@@ -15,8 +16,24 @@ from pool import ROOT, WORKBASE, DirtyTree, bot_cmd, bot_id, is_clean, parse_id,
 STATUS_ORDER = {"survived": 0, "eliminated": 1, "timeout": 2, "crashed": 3}
 
 
+class EngineError(Exception):
+    """The engine wrote no score, so there is no result to rate."""
+
+
+def bind(cmd: str, python: str) -> str:
+    """Run bots under the league's own interpreter. A leading python
+    token becomes the absolute sys.executable; anything else (php,
+    java, make) passes through verbatim."""
+    parts = shlex.split(cmd)
+    if parts[0] in ("python", "python3"):
+        parts[0] = python
+    return " ".join(parts)
+
+
 def parse_replay(path: str | Path) -> tuple[list, list]:
     d = json.loads(Path(path).read_text())
+    if "score" not in d or "status" not in d:
+        raise EngineError(f"{path} has no score: {d.get('error')}")
     return list(d["score"]), list(d["status"])
 
 
@@ -45,7 +62,7 @@ def play_match(root: str | Path, python: str, field: list[str],
     if not is_clean(root):
         raise DirtyTree("bot tree is dirty; commit or stash before logged play")
     ids = resolve(field, root)
-    cmds = [bot_cmd(root, bid, workbase) for bid in ids]
+    cmds = [bind(bot_cmd(root, bid, workbase), python) for bid in ids]
     log_dir = Path(log_dir)
     log_dir.mkdir(parents=True, exist_ok=True)
     cmd = ([python, str(root / "tools" / "playgame.py"),
