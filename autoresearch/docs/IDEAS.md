@@ -26,16 +26,19 @@ Do not stop after the first win.
 
 ## Backlog
 
-Mark an idea `open`, `trying`, `done`, `dropped`, or `parked`.
+Give each idea one status: `open`, `trying`, `done`, `dropped`, or
+`parked`. Keep the list in order.
 
-- [ ] Closest food: each ant moves to the nearest visible food.
-- [ ] Collision: two ants do not target the same food.
-- [ ] Hill attack: attack an enemy hill with a local majority.
-- [ ] Hill defense: keep ants near your hills when the enemy is close.
-- [ ] Combat: do not move an ant into certain death.
-- [ ] Exploration: send spare ants to unseen squares.
-- [ ] Flood: move a group of ants to one target.
-- [ ] Food denial: hold a contested food field.
-- [ ] Opponent model: read the enemy target from the enemy moves.
-- [ ] Endgame: hold most hills until the turn limit.
-- [ ] Time: use the turn time for search.
+| status | idea |
+|---|---|
+| open | Closest food: each ant moves to the nearest visible food. |
+| open | Collision: two ants do not target the same food. |
+| open | Hill attack: attack an enemy hill with a local majority. |
+| open | Hill defense: keep ants near your hills when the enemy is close. |
+| open | Combat: do not move an ant into certain death. |
+| open | Exploration: send spare ants to unseen squares. |
+| open | Flood: move a group of ants to one target. |
+| open | Food denial: hold a contested food field. |
+| open | Opponent model: read the enemy target from the enemy moves. |
+| open | Endgame: hold most hills until the turn limit. |
+| open | Time: use the turn time for search. |

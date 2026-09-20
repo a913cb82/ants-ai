@@ -1,0 +1,49 @@
+# Install once: pre-commit install
+# Run every hook on every file: pre-commit run --all-files
+# tools/ and vendor/ are upstream; bots/ is reference code.
+exclude: ^(tools|vendor|bots|\.venv)/
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+        exclude: '\.jsonl$'
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-added-large-files
+        args: [--maxkb=512]
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: detect-private-key
+
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: .venv/bin/ruff check --force-exclude --fix
+        language: system
+        types: [python]
+        files: ^(league|autoresearch|tests)/|^conftest\.py$
+      - id: ruff-format
+        name: ruff format
+        entry: .venv/bin/ruff format --force-exclude
+        language: system
+        types: [python]
+        files: ^(league|autoresearch|tests)/|^conftest\.py$
+      - id: mypy
+        name: mypy
+        entry: .venv/bin/mypy
+        language: system
+        types: [python]
+        files: ^(league|autoresearch|tests)/|^conftest\.py$
+        pass_filenames: false
+      - id: pytest
+        name: pytest
+        entry: .venv/bin/python -m pytest -q
+        language: system
+        files: ^(league|autoresearch|tests)/.*\.py$|^conftest\.py$
+        pass_filenames: false

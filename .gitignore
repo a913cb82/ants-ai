@@ -2,6 +2,8 @@ __pycache__/
 *.pyc
 *.egg-info/
 .venv/
+.ruff_cache/
+.mypy_cache/
 league/ratings.json
 game_logs/
 replays/

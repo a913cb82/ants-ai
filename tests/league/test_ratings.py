@@ -1,4 +1,5 @@
 """Ratings: OpenSkill BradleyTerryFull over FFA placements. Pure functions."""
+
 import sys
 from pathlib import Path
 
@@ -31,7 +32,6 @@ def test_loser_first_rank_mapping():
 
 
 def test_8p_first_beats_last():
-    m = R.new_model()
     field = [f"bot{i}" for i in range(8)]
     result = list(reversed(field))
     after = R.update({}, field=field, result=result)
@@ -40,15 +40,17 @@ def test_8p_first_beats_last():
 
 
 def test_tie_shares_rank():
-    m = R.new_model()
     straight = R.update({}, field=["a", "b", "c"], result=["a", "b", "c"])
-    tied = R.update({}, field=["a", "b", "c"], result=["a", "b", "c"],
-                    ranks={"a": 1, "b": 1, "c": 3})
+    tied = R.update(
+        {},
+        field=["a", "b", "c"],
+        result=["a", "b", "c"],
+        ranks={"a": 1, "b": 1, "c": 3},
+    )
     assert tied["b"]["mu"] > straight["b"]["mu"]
 
 
 def test_save_load_roundtrip(tmp_path):
-    m = R.new_model()
     before = R.update({}, field=["a", "b"], result=["a", "b"])
     p = tmp_path / "ratings.json"
     R.save(p, before)
@@ -64,7 +66,7 @@ def test_rebuild_equals_incremental():
         {"field": ["a", "b"], "result": ["a", "b"]},
         {"field": ["a", "b", "c"], "result": ["c", "a", "b"]},
     ]
-    inc = {}
+    inc: dict = {}
     for g in games:
         inc = R.update(inc, field=g["field"], result=g["result"])
     assert R.rebuild(games) == inc

@@ -3,6 +3,7 @@
 ratings: {bot_id: {"mu": float, "sigma": float, "games": int}}
 Unseen bots enter at the model prior. Updates are functional (no mutation).
 """
+
 from __future__ import annotations
 
 import json
@@ -27,8 +28,12 @@ def for_id(ratings: dict, bot_id: str, m: BradleyTerryFull | None = None) -> dic
     return ratings.get(bot_id, prior_dict(m))
 
 
-def update(ratings: dict, field: list[str], result: list[str],
-           ranks: dict[str, int] | None = None) -> dict:
+def update(
+    ratings: dict,
+    field: list[str],
+    result: list[str],
+    ranks: dict[str, int] | None = None,
+) -> dict:
     """One FFA game. field = ids by slot, result = ids best-first.
     Optional ranks maps id -> 1-based rank (ties share)."""
     m = new_model()
@@ -41,7 +46,7 @@ def update(ratings: dict, field: list[str], result: list[str],
         teams.append([m.rating(mu=e["mu"], sigma=e["sigma"])])
     new_teams = m.rate(teams, ranks=[place[bid] for bid in field])
     out = dict(ratings)
-    for bid, (r,) in zip(field, new_teams):
+    for bid, (r,) in zip(field, new_teams, strict=True):
         e = for_id(ratings, bid, m)
         out[bid] = {"mu": r.mu, "sigma": r.sigma, "games": e["games"] + 1}
     return out
@@ -50,8 +55,9 @@ def update(ratings: dict, field: list[str], result: list[str],
 def rebuild(games: list[dict]) -> dict:
     ratings: dict = {}
     for g in games:
-        ratings = update(ratings, field=g["field"], result=g["result"],
-                         ranks=g.get("ranks"))
+        ratings = update(
+            ratings, field=g["field"], result=g["result"], ranks=g.get("ranks")
+        )
     return ratings
 
 

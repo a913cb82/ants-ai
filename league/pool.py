@@ -5,9 +5,11 @@ content is the startup command. Historical bots play from git worktrees;
 the engine always stays at the workspace tip, so only bot code
 time-travels, never the rules.
 """
+
 from __future__ import annotations
 
 import hashlib
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -15,10 +17,31 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 WORKBASE = Path("/tmp/antwork")
 
+_GIT_VARS = (
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_INDEX_FILE",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+)
+
+
+def git_env() -> dict[str, str]:
+    """A git hook exports GIT_* variables. A nested git call must not
+    inherit them, or it writes to the outer repository's index."""
+    env = dict(os.environ)
+    for key in _GIT_VARS:
+        env.pop(key, None)
+    return env
+
 
 class DirtyTree(Exception):
     """bots/ has uncommitted changes. Records pin committed shas, so
     logged play refuses dirty code: commit or stash first."""
+
+
+class EngineDiverged(Exception):
+    """tools/ differs from branch main. The engine must not change."""
 
 
 def bot_dirs(root: str | Path = ROOT, commit: str = "HEAD") -> set[str]:
@@ -30,9 +53,13 @@ def is_clean(root: str | Path = ROOT) -> bool:
     """Logged play needs committed code. Dirty = a manifest changed,
     anything changed inside a bot dir, or a new untracked manifest
     (an invisible bot). Everything else never blocks."""
-    out = subprocess.run(["git", "-C", str(root), "status",
-                          "--porcelain", "--untracked-files=all"],
-                         capture_output=True, text=True, check=True)
+    out = subprocess.run(
+        ["git", "-C", str(root), "status", "--porcelain", "--untracked-files=all"],
+        capture_output=True,
+        text=True,
+        check=True,
+        env=git_env(),
+    )
     dirs = bot_dirs(root)
     for line in out.stdout.splitlines():
         if not line.strip():
@@ -45,6 +72,35 @@ def is_clean(root: str | Path = ROOT) -> bool:
     return True
 
 
+def engine_on_main(root: str | Path = ROOT) -> bool:
+    """The engine that runs must match branch main. A dirty or
+    committed change under tools/ stops play until it is restored."""
+    diff = subprocess.run(
+        ["git", "-C", str(root), "diff", "--quiet", "main", "--", "tools/"],
+        capture_output=True,
+        env=git_env(),
+    )
+    if diff.returncode != 0:
+        return False
+    others = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(root),
+            "ls-files",
+            "--others",
+            "--exclude-standard",
+            "--",
+            "tools/",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+        env=git_env(),
+    )
+    return not others.stdout.strip()
+
+
 def bot_id(path: str, sha: str) -> str:
     return f"{path}-{sha}"
 
@@ -55,8 +111,13 @@ def parse_id(bid: str) -> tuple[str, str]:
 
 
 def _git(root: str | Path, *args: str) -> str:
-    out = subprocess.run(["git", "-C", str(root), *args],
-                         capture_output=True, text=True, check=True)
+    out = subprocess.run(
+        ["git", "-C", str(root), *args],
+        capture_output=True,
+        text=True,
+        check=True,
+        env=git_env(),
+    )
     return out.stdout
 
 
@@ -76,8 +137,7 @@ def all_commits(root: str | Path = ROOT) -> list[str]:
     dedup collapses commits that leave bot code unchanged."""
     seen: set[str] = set()
     commits = []
-    for sha in _git(root, "log", "--all", "--format=%h", "--reverse"
-                    ).split():
+    for sha in _git(root, "log", "--all", "--format=%h", "--reverse").split():
         if sha not in seen:
             seen.add(sha)
             commits.append(sha)
@@ -91,7 +151,7 @@ def bots_at(root: str | Path, commit: str) -> list[str]:
         out = _git(root, "ls-tree", "-r", "--name-only", commit)
     except subprocess.CalledProcessError:
         return []
-    return sorted(l for l in out.splitlines() if l.endswith(".bot"))
+    return sorted(line for line in out.splitlines() if line.endswith(".bot"))
 
 
 def manifest_text(root: str | Path, commit: str, botfile: str) -> str:
@@ -104,19 +164,18 @@ def content_hash(root: str | Path, commit: str, botfile: str) -> str:
     different command (or code) re-hashes; moved copies still dedupe."""
     d = str(Path(botfile).parent)
     out = _git(root, "ls-tree", "-r", commit, "--", f"{d}/")
-    blobs = sorted(l.split()[2] for l in out.splitlines() if l.strip())
+    blobs = sorted(line.split()[2] for line in out.splitlines() if line.strip())
     body = manifest_text(root, commit, botfile)
-    return hashlib.sha1(("\0".join(blobs) + "\0" + body).encode()
-                        ).hexdigest()[:10]
+    return hashlib.sha1(("\0".join(blobs) + "\0" + body).encode()).hexdigest()[:10]
 
 
-def choose_canonical(specs: list[tuple[str, str]],
-                     games_of: dict[tuple[str, str], int],
-                     order: dict[str, int]) -> tuple[str, str]:
+def choose_canonical(
+    specs: list[tuple[str, str]],
+    games_of: dict[tuple[str, str], int],
+    order: dict[str, int],
+) -> tuple[str, str]:
     """Rated entry wins (most games); ties go to the oldest commit."""
-    return sorted(specs,
-                  key=lambda bs: (-games_of.get(bs, 0),
-                                  order[bs[1]]))[0]
+    return sorted(specs, key=lambda bs: (-games_of.get(bs, 0), order[bs[1]]))[0]
 
 
 def pool(root: str | Path = ROOT, ratings: dict | None = None) -> list[str]:
@@ -136,24 +195,30 @@ def pool(root: str | Path = ROOT, ratings: dict | None = None) -> list[str]:
     for b, sha in pairs:
         h = content_hash(root, sha, b)
         by_hash.setdefault(h, []).append((b, sha))
-    return sorted(bot_id(*choose_canonical(specs, games_of, order))
-                  for specs in by_hash.values())
+    return sorted(
+        bot_id(*choose_canonical(specs, games_of, order)) for specs in by_hash.values()
+    )
 
 
-def worktree(root: str | Path, sha: str,
-             workbase: str | Path = WORKBASE) -> Path:
+def worktree(root: str | Path, sha: str, workbase: str | Path = WORKBASE) -> Path:
     d = Path(workbase) / f"antwork_{sha}"
     if not (d / ".git").exists():
-        subprocess.run(["git", "-C", str(root), "worktree", "add",
-                        "--detach", str(d), sha],
-                       check=True, capture_output=True)
-    subprocess.run(["git", "-C", str(d), "rev-parse", "--verify",
-                    "HEAD"], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "-C", str(root), "worktree", "add", "--detach", str(d), sha],
+            check=True,
+            capture_output=True,
+            env=git_env(),
+        )
+    subprocess.run(
+        ["git", "-C", str(d), "rev-parse", "--verify", "HEAD"],
+        check=True,
+        capture_output=True,
+        env=git_env(),
+    )
     return d
 
 
-def bot_cmd(root: str | Path, bid: str,
-            workbase: str | Path = WORKBASE) -> str:
+def bot_cmd(root: str | Path, bid: str, workbase: str | Path = WORKBASE) -> str:
     """The manifest's command, verbatim. Empty manifest is an error."""
     path, sha = parse_id(bid)
     cmd = (worktree(root, sha, workbase) / path).read_text().strip()
@@ -162,17 +227,20 @@ def bot_cmd(root: str | Path, bid: str,
     return cmd
 
 
-def prune_worktrees(workbase: str | Path = WORKBASE,
-                    max_bytes: int = 1_000_000_000) -> int:
+def prune_worktrees(
+    workbase: str | Path = WORKBASE, max_bytes: int = 1_000_000_000
+) -> int:
     """Evict oldest worktrees while the cache exceeds max_bytes.
     Returns bytes freed. Stale admin entries are pruned too."""
     base = Path(workbase)
     if not base.is_dir():
         return 0
-    dirs = sorted([d for d in base.iterdir() if d.is_dir()],
-                  key=lambda d: d.stat().st_mtime)
-    sizes = {d: sum(p.stat().st_size for p in d.rglob("*") if p.is_file())
-             for d in dirs}
+    dirs = sorted(
+        [d for d in base.iterdir() if d.is_dir()], key=lambda d: d.stat().st_mtime
+    )
+    sizes = {
+        d: sum(p.stat().st_size for p in d.rglob("*") if p.is_file()) for d in dirs
+    }
     total = sum(sizes.values())
     freed = 0
     for d in dirs:
@@ -181,13 +249,18 @@ def prune_worktrees(workbase: str | Path = WORKBASE,
         shutil.rmtree(d)
         freed += sizes[d]
         total -= sizes[d]
-    subprocess.run(["git", "-C", str(ROOT), "worktree", "prune"],
-                   check=True, capture_output=True)
+    subprocess.run(
+        ["git", "-C", str(ROOT), "worktree", "prune"],
+        check=True,
+        capture_output=True,
+        env=git_env(),
+    )
     return freed
 
 
-def prune_replays(base: str | Path, max_bytes: int,
-                  protect: set[str] | None = None) -> int:
+def prune_replays(
+    base: str | Path, max_bytes: int, protect: set[str] | None = None
+) -> int:
     """Evict oldest entries under a replay store while it exceeds
     max_bytes. Entries are the store's direct children (files or dirs),
     aged by the newest file inside. Paths in protect are never evicted.
@@ -198,12 +271,18 @@ def prune_replays(base: str | Path, max_bytes: int,
     keep = {str(Path(p)) for p in (protect or set())}
 
     def size(e: Path) -> int:
-        return (sum(f.stat().st_size for f in e.rglob("*") if f.is_file())
-                if e.is_dir() else e.stat().st_size)
+        return (
+            sum(f.stat().st_size for f in e.rglob("*") if f.is_file())
+            if e.is_dir()
+            else e.stat().st_size
+        )
 
     def age(e: Path) -> float:
-        return (max(f.stat().st_mtime for f in e.rglob("*") if f.is_file())
-                if e.is_dir() else e.stat().st_mtime)
+        return (
+            max(f.stat().st_mtime for f in e.rglob("*") if f.is_file())
+            if e.is_dir()
+            else e.stat().st_mtime
+        )
 
     entries = list(base.iterdir())
     sizes = {e: size(e) for e in entries}

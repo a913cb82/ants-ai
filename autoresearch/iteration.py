@@ -1,40 +1,78 @@
 """One autoresearch iteration: play the fixed duel + FFA budget, score it.
 
-Every game enters league/games.jsonl; ratings rebuild from that log.
-The budget is per candidate commit, and a fresh commit is a fresh bot
-id, so a candidate can never be ground past its budget: a second run
-finds nothing left to play and only prints the score.
+Every game enters league/games.jsonl. The harness rebuilds the ratings
+from that log at the start, so the log is the single source of truth.
+The score is the snapshot mu - 3 * sigma at the end of the budget, and
+the harness appends it to docs/PROGRESS.jsonl. Later games may move a
+bot's live rating; the recorded score never moves.
+
+The budget, maps, seeds, and selection are fixed. No flag changes
+them. A commit cannot play more than one budget. A second run of a
+played commit plays no game and prints the recorded score.
 
 Usage:
   python autoresearch/iteration.py --bot autoresearch/bot/main.bot
-  python autoresearch/iteration.py --bot autoresearch/bot/main.bot --dry-run
 """
+
 from __future__ import annotations
 
 import argparse
 import json
 import random
 import sys
+from datetime import date
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "league"))
 
 import ratings as R  # noqa: E402
-from matchmake import (MAPS_ROOT, assign_positions, info_score,  # noqa: E402
-                       maps_for_players, new_model, propose, read_log)
+from matchmake import (  # noqa: E402
+    MAPS_ROOT,
+    assign_positions,
+    info_score,
+    maps_for_players,
+    new_model,
+    propose,
+    read_log,
+)
 from play import play_match  # noqa: E402
-from pool import (WORKBASE, bot_id, is_clean, last_touch, parse_id,  # noqa: E402
-                  pool as pool_ids, prune_replays, prune_worktrees, short)
+from pool import (  # noqa: E402
+    WORKBASE,
+    bot_id,
+    content_hash,
+    engine_on_main,
+    is_clean,
+    last_touch,
+    parse_id,
+    prune_replays,
+    prune_worktrees,
+    short,
+)
+from pool import (  # noqa: E402
+    pool as pool_ids,
+)
 
 GAMES_LOG = ROOT / "league" / "games.jsonl"
 RATINGS_PATH = ROOT / "league" / "ratings.json"
 RUNS = ROOT / "autoresearch" / "runs"
+PROGRESS = ROOT / "autoresearch" / "docs" / "PROGRESS.jsonl"
 DEFAULT_BOT = "autoresearch/bot/main.bot"
 
+# Binding numbers. The harness fixes them; no flag changes them.
+DUELS = 16
+FFA_SIZES = [4, 5, 6, 7, 8, 9, 10]
+TURNS = 1000
+TURNTIME = 1000
+LOADTIME = 3000
+SEED = 0
+EPSILON = 0.2
+BREADTH = 3
+SIGMA_WEIGHT = 0.02
 
-def candidate_id(root: str | Path, botfile: str,
-                 rev: str | None = None) -> str:
+
+def candidate_id(root: str | Path, botfile: str, rev: str | None = None) -> str:
     """The bot id a manifest has. Default rev: the newest commit that
     changed the bot's directory, so later commits cannot shift it."""
     root = Path(root)
@@ -48,7 +86,7 @@ def candidate_id(root: str | Path, botfile: str,
 
 def counts(records: list[dict], bid: str) -> dict:
     """Games already played by a candidate: duels (2p) and FFA per size."""
-    out = {"duels": 0, "ffa": {}}
+    out: dict[str, Any] = {"duels": 0, "ffa": {}}
     for r in records:
         if bid not in r["field"]:
             continue
@@ -60,21 +98,33 @@ def counts(records: list[dict], bid: str) -> dict:
     return out
 
 
-def planned(records: list[dict], bid: str, duels: int,
-            ffa_sizes: list[int]) -> tuple[int, list[int]]:
+def planned(
+    records: list[dict], bid: str, duels: int, ffa_sizes: list[int]
+) -> tuple[int, list[int]]:
     """Budget left: duels remaining and sizes without a game yet."""
     done = counts(records, bid)
-    return (max(0, duels - done["duels"]),
-            [n for n in ffa_sizes if done["ffa"].get(n, 0) < 1])
+    return (
+        max(0, duels - done["duels"]),
+        [n for n in ffa_sizes if done["ffa"].get(n, 0) < 1],
+    )
 
 
-def duel_opponent(model, bid: str, cands: list[str], ratings: dict,
-                  rng: random.Random, eps: float,
-                  breadth: int) -> str:
+def duel_opponent(
+    model,
+    bid: str,
+    cands: list[str],
+    ratings: dict,
+    rng: random.Random,
+    eps: float,
+    breadth: int,
+    sigma_weight: float = SIGMA_WEIGHT,
+) -> str:
     """Opponent with the best information score, epsilon-random among
     the top breadth."""
-    scored = sorted(cands, key=lambda k: -info_score(model, [bid, k], ratings))
-    top = scored[:max(1, min(breadth, len(scored)))]
+    scored = sorted(
+        cands, key=lambda k: -info_score(model, [bid, k], ratings, sigma_weight)
+    )
+    top = scored[: max(1, min(breadth, len(scored)))]
     return rng.choice(top) if rng.random() < eps else top[0]
 
 
@@ -101,12 +151,101 @@ def short_name(bid: str) -> str:
     return path.parent.as_posix() if path.name == "main.bot" else path.stem
 
 
-def play_one(root: Path, field: list[str], map_rel: str, args,
-             log_dir: Path, rng: random.Random) -> dict:
-    rec = play_match(root, sys.executable, field, map_rel,
-                     args.turns, args.turntime, args.loadtime,
-                     rng.randrange(10 ** 9), rng.randrange(10 ** 9),
-                     log_dir, timeout=args.timeout, workbase=args.workbase)
+def read_progress(path: str | Path | None = None) -> list[dict]:
+    """Recorded iteration scores, one JSON object per line. A bad
+    line is skipped, so an edit cannot corrupt the record."""
+    p = Path(path) if path is not None else PROGRESS
+    if not p.exists():
+        return []
+    rows = []
+    for line in p.read_text().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            row = json.loads(line)
+            rows.append(
+                {
+                    "date": row["date"],
+                    "bot": row["bot"],
+                    "mu": float(row["mu"]),
+                    "sigma": float(row["sigma"]),
+                    "lb": float(row["lb"]),
+                    "games": int(row["games"]),
+                    "champion": row["champion"],
+                }
+            )
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+            continue
+    return rows
+
+
+def record_report(
+    bid: str,
+    mu: float,
+    sigma: float,
+    lb: float,
+    games: int,
+    path: str | Path | None = None,
+) -> tuple[dict, dict | None, bool]:
+    """Append one score row, once. Returns (row, prior champion, appended).
+    The prior champion is the best recorded score before this run."""
+    p = Path(path) if path is not None else PROGRESS
+    rows = read_progress(p)
+    prior = max(rows, key=lambda r: r["lb"]) if rows else None
+    for r in rows:
+        if r["bot"] == bid:
+            return r, prior, False
+    row = {
+        "date": date.today().isoformat(),
+        "bot": bid,
+        "mu": mu,
+        "sigma": sigma,
+        "lb": lb,
+        "games": games,
+        "champion": prior["bot"] if prior else None,
+    }
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with open(p, "a") as fh:
+        fh.write(json.dumps(row) + "\n")
+    return row, prior, True
+
+
+def canonical_duplicate(
+    root: str | Path, bid: str, candidates: list[str]
+) -> str | None:
+    """The candidate id that shares this code, if any. The bot pool
+    keeps one id per content hash, so a duplicate hides the older id."""
+    path, sha = parse_id(bid)
+    wanted = content_hash(root, sha, path)
+    for c in candidates:
+        cpath, csha = parse_id(c)
+        if content_hash(root, csha, cpath) == wanted:
+            return c
+    return None
+
+
+def play_one(
+    root: Path,
+    field: list[str],
+    map_rel: str,
+    log_dir: Path,
+    rng: random.Random,
+    workbase: str | Path,
+) -> dict:
+    rec = play_match(
+        root,
+        sys.executable,
+        field,
+        map_rel,
+        TURNS,
+        TURNTIME,
+        LOADTIME,
+        rng.randrange(10**9),
+        rng.randrange(10**9),
+        log_dir,
+        workbase=workbase,
+    )
     p = log_dir
     if p.is_relative_to(root):
         p = p.relative_to(root)
@@ -114,89 +253,80 @@ def play_one(root: Path, field: list[str], map_rel: str, args,
     return rec
 
 
-def split_ints(s: str) -> list[int]:
-    return [int(x) for x in s.split(",")]
-
-
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--bot", default=DEFAULT_BOT)
     ap.add_argument("--rev", default=None)
-    ap.add_argument("--duels", type=int, default=16)
-    ap.add_argument("--ffa-sizes", type=split_ints, default=[4, 5, 6, 7, 8, 9, 10])
-    ap.add_argument("--turns", type=int, default=1000)
-    ap.add_argument("--turntime", type=int, default=1000)
-    ap.add_argument("--loadtime", type=int, default=3000)
-    ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--games", default=str(GAMES_LOG))
-    ap.add_argument("--ratings", default=str(RATINGS_PATH))
     ap.add_argument("--runs", default=str(RUNS))
-    ap.add_argument("--epsilon", type=float, default=0.2)
-    ap.add_argument("--breadth", type=int, default=3)
-    ap.add_argument("--sigma-weight", type=float, default=0.02)
     ap.add_argument("--workbase", default=str(WORKBASE))
     ap.add_argument("--max-worktree-gb", type=float, default=1.0)
     ap.add_argument("--max-replay-gb", type=float, default=0.5)
-    ap.add_argument("--timeout", type=int, default=900)
-    ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args(argv)
 
     root = ROOT
+    if not engine_on_main(root):
+        print("tools/ diverges from branch main; the engine is fixed", file=sys.stderr)
+        return 3
     if not is_clean(root):
         print("bot tree is dirty; commit before logged play", file=sys.stderr)
         return 2
     bid = candidate_id(root, args.bot, args.rev)
-    records = read_log(args.games)
+    records = read_log(GAMES_LOG)
+    ratings = R.rebuild(records)
+    R.save(RATINGS_PATH, ratings)
     done = counts(records, bid)
-    ratings = R.load(args.ratings)
     mu, sigma, lb = score(ratings, bid)
     print(f"candidate {bid}", flush=True)
-    print("duels %d/%d  ffa %s" % (
-        done["duels"], args.duels,
-        " ".join(f"{n}p {min(done['ffa'].get(n, 0), 1)}/1"
-                 for n in args.ffa_sizes)), flush=True)
+    ffa = " ".join(f"{n}p {min(done['ffa'].get(n, 0), 1)}/1" for n in FFA_SIZES)
+    print(f"duels {done['duels']}/{DUELS}  ffa {ffa}", flush=True)
     print(f"mu {mu:.1f}  sigma {sigma:.2f}  lb {lb:.1f}", flush=True)
 
-    duels_left, sizes_left = planned(records, bid, args.duels, args.ffa_sizes)
-    if args.dry_run:
-        print(f"planned: {duels_left} duels, ffa {sizes_left}", flush=True)
-        return 0
+    duels_left, sizes_left = planned(records, bid, DUELS, FFA_SIZES)
 
-    if bid not in set(pool_ids(root, ratings)):
-        print(f"{bid} duplicates a rated bot; make a real change",
-              file=sys.stderr)
-        return 1
+    pool = pool_ids(root, ratings)
+    if bid not in set(pool):
+        dup = canonical_duplicate(root, bid, pool)
+        games = R.for_id(ratings, dup)["games"] if dup else 0
+        if games:
+            print(
+                f"{bid} duplicates rated bot {dup} ({games} games); make a real change",
+                file=sys.stderr,
+            )
+            return 1
 
     runs = Path(args.runs)
     sha = parse_id(bid)[1]
     prune_worktrees(args.workbase, int(args.max_worktree_gb * 1e9))
-    prune_replays(runs, int(args.max_replay_gb * 1e9),
-                  protect={str(runs / sha)})
-    rng = random.Random(f"{args.seed}:{bid}:{done['duels']}:"
-                        f"{sum(done['ffa'].values())}")
+    prune_replays(runs, int(args.max_replay_gb * 1e9), protect={str(runs / sha)})
+    rng = random.Random(f"{SEED}:{bid}:{done['duels']}:{sum(done['ffa'].values())}")
     model = new_model()
     used = {r["map"] for r in records if bid in r["field"]}
 
-    with open(args.games, "a") as fh:
+    with open(GAMES_LOG, "a") as fh:
         if duels_left:
             maps = [f"tools/maps/{m}" for m in maps_for_players(MAPS_ROOT, 2)]
             maps = [m for m in maps if m not in used]
             if len(maps) < duels_left:
                 raise ValueError(f"only {len(maps)} unused 2p maps")
             for map_rel in pick_maps(rng, maps, duels_left):
+                used.add(map_rel)
                 cands = [c for c in pool_ids(root, ratings) if c != bid]
-                opp = duel_opponent(model, bid, cands, ratings, rng,
-                                    args.epsilon, args.breadth)
+                opp = duel_opponent(
+                    model, bid, cands, ratings, rng, EPSILON, BREADTH, SIGMA_WEIGHT
+                )
                 field = [bid, opp] if rng.random() < 0.5 else [opp, bid]
                 done["duels"] += 1
                 log_dir = runs / sha / f"duel_{done['duels']:02d}"
-                rec = play_one(root, field, map_rel, args, log_dir, rng)
-                ratings = R.update(ratings, rec["field"], rec["result"])
-                R.save(args.ratings, ratings)
+                rec = play_one(root, field, map_rel, log_dir, rng, args.workbase)
                 fh.write(json.dumps(rec) + "\n")
                 fh.flush()
-                print(f"duel {done['duels']}/{args.duels} "
-                      f"{Path(map_rel).name} {result_line(rec)}", flush=True)
+                ratings = R.update(ratings, rec["field"], rec["result"])
+                R.save(RATINGS_PATH, ratings)
+                print(
+                    f"duel {done['duels']}/{DUELS} "
+                    f"{Path(map_rel).name} {result_line(rec)}",
+                    flush=True,
+                )
 
         for n in sizes_left:
             maps = [f"tools/maps/{m}" for m in maps_for_players(MAPS_ROOT, n)]
@@ -204,24 +334,45 @@ def main(argv=None) -> int:
             if not maps:
                 raise ValueError(f"no unused {n}p map")
             map_rel = rng.choice(maps)
-            field = propose(model, pool_ids(root, ratings), ratings, n,
-                            rng, eps=args.epsilon, breadth=args.breadth,
-                            seed_bot=bid)
+            used.add(map_rel)
+            field = propose(
+                model,
+                pool_ids(root, ratings),
+                ratings,
+                n,
+                rng,
+                eps=EPSILON,
+                breadth=BREADTH,
+                sigma_weight=SIGMA_WEIGHT,
+                seed_bot=bid,
+            )
             if len(field) != n:
                 raise ValueError(f"pool too small: wanted {n}, got {len(field)}")
             field = assign_positions(field, rng)
             done["ffa"][n] = done["ffa"].get(n, 0) + 1
             log_dir = runs / sha / f"ffa_{n:02d}"
-            rec = play_one(root, field, map_rel, args, log_dir, rng)
-            ratings = R.update(ratings, rec["field"], rec["result"])
-            R.save(args.ratings, ratings)
+            rec = play_one(root, field, map_rel, log_dir, rng, args.workbase)
             fh.write(json.dumps(rec) + "\n")
             fh.flush()
-            print(f"ffa {n}p {Path(map_rel).name} {result_line(rec)}",
-                  flush=True)
+            ratings = R.update(ratings, rec["field"], rec["result"])
+            R.save(RATINGS_PATH, ratings)
+            print(f"ffa {n}p {Path(map_rel).name} {result_line(rec)}", flush=True)
 
     mu, sigma, lb = score(ratings, bid)
-    print(f"mu {mu:.1f}  sigma {sigma:.2f}  lb {lb:.1f}", flush=True)
+    games = done["duels"] + sum(done["ffa"].values())
+    row, prior, appended = record_report(bid, mu, sigma, lb, games)
+    print(f"score {bid}  mu {mu:.1f}  sigma {sigma:.2f}  lb {lb:.1f}", flush=True)
+    if not appended:
+        best = prior or row
+        print(
+            f"recorded earlier; best is {best['bot']} lb {best['lb']:.1f}", flush=True
+        )
+    elif prior is None:
+        print("report: first recorded score (baseline)", flush=True)
+    elif lb > prior["lb"]:
+        print(f"report: beats champion {prior['bot']} lb {prior['lb']:.1f}", flush=True)
+    else:
+        print(f"report: below champion {prior['bot']} lb {prior['lb']:.1f}", flush=True)
     return 0
 
 

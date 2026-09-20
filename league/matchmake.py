@@ -4,6 +4,7 @@ Information = close skill (high predict_draw) + high uncertainty (sigma).
 Usage: python league/matchmake.py [--players N] [--play M]
   (proposal only by default; --play runs games and logs them)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -13,12 +14,11 @@ import re
 import sys
 from pathlib import Path
 
-from openskill.models import BradleyTerryFull
-
-from pool import (ROOT, WORKBASE, is_clean, pool as pool_ids,
-                  prune_worktrees)
-from play import play_match
 import ratings as R
+from openskill.models import BradleyTerryFull
+from play import play_match
+from pool import ROOT, WORKBASE, is_clean, prune_worktrees
+from pool import pool as pool_ids
 
 MAPS_ROOT = ROOT / "tools" / "maps"
 GAMES_LOG = ROOT / "league" / "games.jsonl"
@@ -43,9 +43,9 @@ def players_of(path: Path) -> int | None:
 def maps_for_players(maps_root: str | Path, n: int) -> list[Path]:
     """Map paths (relative to maps_root) supporting exactly n players."""
     maps_root = Path(maps_root)
-    return sorted(p.relative_to(maps_root)
-                  for p in maps_root.rglob("*.map")
-                  if players_of(p) == n)
+    return sorted(
+        p.relative_to(maps_root) for p in maps_root.rglob("*.map") if players_of(p) == n
+    )
 
 
 def available_counts(maps_root: str | Path) -> list[int]:
@@ -57,14 +57,16 @@ def available_counts(maps_root: str | Path) -> list[int]:
     return sorted(counts)
 
 
-def pick_map(rng: random.Random, maps_root: str | Path,
-             n: int | None = None) -> tuple[int, Path]:
+def pick_map(
+    rng: random.Random, maps_root: str | Path, n: int | None = None
+) -> tuple[int, Path]:
     n = n if n is not None else rng.choice(available_counts(maps_root))
     return n, rng.choice(maps_for_players(maps_root, n))
 
 
-def info_score(model: BradleyTerryFull, combo: list[str], ratings: dict,
-               sigma_weight: float = 0.02) -> float:
+def info_score(
+    model: BradleyTerryFull, combo: list[str], ratings: dict, sigma_weight: float = 0.02
+) -> float:
     teams, sig = [], 0.0
     for bid in combo:
         e = R.for_id(ratings, bid)
@@ -73,21 +75,34 @@ def info_score(model: BradleyTerryFull, combo: list[str], ratings: dict,
     return model.predict_draw(teams) + sigma_weight * sig
 
 
-def propose(model: BradleyTerryFull, candidates: list[str], ratings: dict,
-            n: int, rng: random.Random, eps: float = 0.2,
-            breadth: int = 3, seed_bot: str | None = None) -> list[str]:
+def propose(
+    model: BradleyTerryFull,
+    candidates: list[str],
+    ratings: dict,
+    n: int,
+    rng: random.Random,
+    eps: float = 0.2,
+    breadth: int = 3,
+    seed_bot: str | None = None,
+    sigma_weight: float = 0.02,
+) -> list[str]:
     """Field of n bots: seed_bot (or highest sigma) plus greedy picks
     by information score, epsilon-random among the top breadth."""
-    cands = sorted(candidates,
-                   key=lambda k: (-R.for_id(ratings, k)["sigma"], rng.random()))
+    cands = sorted(
+        candidates, key=lambda k: (-R.for_id(ratings, k)["sigma"], rng.random())
+    )
     seed = seed_bot if seed_bot is not None else cands[0]
     field = [seed]
     rest = [c for c in cands if c != seed]
     while len(field) < n and rest:
-        scored = sorted(rest, key=lambda k: -info_score(model, field + [k],
-                                                        ratings))
-        pick = (rng.choice(scored[:min(breadth, len(scored))])
-                if rng.random() < eps else scored[0])
+        scored = sorted(
+            rest, key=lambda k: -info_score(model, field + [k], ratings, sigma_weight)
+        )
+        pick = (
+            rng.choice(scored[: min(breadth, len(scored))])
+            if rng.random() < eps
+            else scored[0]
+        )
         field.append(pick)
         rest = [c for c in rest if c != pick]
     return field
@@ -101,7 +116,7 @@ def read_log(path: str | Path) -> list[dict]:
     p = Path(path)
     if not p.exists():
         return []
-    return [json.loads(l) for l in p.read_text().splitlines() if l.strip()]
+    return [json.loads(line) for line in p.read_text().splitlines() if line.strip()]
 
 
 def main(argv=None) -> int:
@@ -129,33 +144,61 @@ def main(argv=None) -> int:
     if not args.play:
         n, m = pick_map(rng, MAPS_ROOT, args.players)
         field = assign_positions(
-            propose(model, cands, ratings, n, rng,
-                    eps=args.epsilon, breadth=args.breadth), rng)
+            propose(
+                model,
+                cands,
+                ratings,
+                n,
+                rng,
+                eps=args.epsilon,
+                breadth=args.breadth,
+                sigma_weight=args.sigma_weight,
+            ),
+            rng,
+        )
         print(f"proposed {n}p on {m}: {' '.join(field)}", flush=True)
         return 0
     if not is_clean(ROOT):
-        print("bot tree is dirty; commit or stash before logged play",
-              file=sys.stderr)
+        print("bot tree is dirty; commit or stash before logged play", file=sys.stderr)
         return 2
     prune_worktrees(args.workbase, int(args.max_worktree_gb * 1_000_000_000))
     for i in range(args.play):
         n, m = pick_map(rng, MAPS_ROOT, args.players)
         field = assign_positions(
-            propose(model, cands, ratings, n, rng,
-                    eps=args.epsilon, breadth=args.breadth), rng)
-        pseed, eseed = rng.randrange(10 ** 9), rng.randrange(10 ** 9)
-        rec = play_match(ROOT, sys.executable, field,
-                         f"tools/maps/{m}", args.turns, args.turntime,
-                         args.loadtime, pseed, eseed, args.log_dir,
-                         workbase=args.workbase)
+            propose(
+                model,
+                cands,
+                ratings,
+                n,
+                rng,
+                eps=args.epsilon,
+                breadth=args.breadth,
+                sigma_weight=args.sigma_weight,
+            ),
+            rng,
+        )
+        pseed, eseed = rng.randrange(10**9), rng.randrange(10**9)
+        rec = play_match(
+            ROOT,
+            sys.executable,
+            field,
+            f"tools/maps/{m}",
+            args.turns,
+            args.turntime,
+            args.loadtime,
+            pseed,
+            eseed,
+            args.log_dir,
+            workbase=args.workbase,
+        )
         ratings = R.update(ratings, rec["field"], rec["result"])
         R.save(args.ratings, ratings)
         with open(args.games, "a") as fh:
             fh.write(json.dumps(rec) + "\n")
-        order = sorted(range(len(rec["field"])),
-                       key=lambda s: rec["result"].index(rec["field"][s]))
-        print(f"game {i + 1}: " + " ".join(rec["field"][s] for s in order),
-              flush=True)
+        order = sorted(
+            range(len(rec["field"])), key=lambda s: rec["result"].index(rec["field"][s])
+        )
+        print(f"game {i + 1}: " + " ".join(rec["field"][s] for s in order), flush=True)
     print("ratings saved")
     return 0
 

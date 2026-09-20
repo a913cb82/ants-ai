@@ -1,7 +1,7 @@
 # Methods
 
-These numbers are binding. The harness reads the defaults.
-Change a number with a flag, not with an edit.
+These numbers are binding. The harness sets them. No flag changes the
+budget, the maps, the seeds, or the selection.
 
 ## Budget
 
@@ -14,17 +14,35 @@ One iteration has 23 games for each candidate commit:
 | Total | 23 | all different in one iteration | about 5 to 8 min |
 
 - The candidate is a fresh bot entry: a new commit with changed bot code.
-  A new commit is a new bot id.
+  A commit that changes the bot directory is a new bot id. A docs-only
+  commit keeps the old id.
 - A commit cannot play more than this budget. A second run plays nothing.
 - Every game goes to `league/games.jsonl` and updates `ratings.json`.
 
 ## Score
 
-The score is `lb = mu - 3 * sigma`. The model is OpenSkill
-BradleyTerryFull. A high score is good.
-`board.py` shows `mu`, `sigma`, and `lb`.
-The harness measures a commit one time.
-The record keeps the score for a later comparison.
+The score is the snapshot `lb = mu - 3 * sigma` at the end of the
+budget. The model is OpenSkill BradleyTerryFull. A high score is good.
+The harness appends the score to `autoresearch/docs/PROGRESS.jsonl` and
+never changes that line. The champion is the best recorded score.
+
+A bot keeps playing after its iteration, so its live rating moves.
+Compare recorded scores, not live ratings.
+
+## Progress file
+
+`autoresearch/docs/PROGRESS.jsonl` holds one JSON object per completed
+iteration. The object has these keys:
+
+| Key | Value |
+|---|---|
+| `date` | the day of the run |
+| `bot` | the bot id (`path-sha`) |
+| `mu` | the rating mean |
+| `sigma` | the rating deviation |
+| `lb` | `mu - 3 * sigma` |
+| `games` | the number of games in the budget |
+| `champion` | the best bot id before this line, or `null` |
 
 ## Selection
 
@@ -47,18 +65,17 @@ The record keeps the score for a later comparison.
 | `--turns` | 1000 |
 | `--turntime` | 1000 ms |
 | `--loadtime` | 3000 ms |
-| `--timeout` | 900 s for each game |
+
+The engine under `tools/` must match branch `main`. The iteration
+fails when it does not.
 
 ## Commands
 
 ```sh
-# play the rest of the budget and show the score
+# play the budget and show the score
 .venv/bin/python autoresearch/iteration.py --bot autoresearch/bot/main.bot
 
-# show the budget and the score. Play no game.
-.venv/bin/python autoresearch/iteration.py --bot autoresearch/bot/main.bot --dry-run
-
-# show the field
+# show the field (live ratings)
 .venv/bin/python league/board.py
 ```
 

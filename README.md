@@ -16,12 +16,19 @@ The engine runs a match and records a replay.
 - The engine needs Python 3. Use the repo venv for all commands.
 - Run all commands from the repo root.
 
-Set up the venv once:
+Set up the venv and the hooks once:
 
 ```sh
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e .
+pip install -e '.[dev]'
+pre-commit install
+```
+
+The hooks format and check each commit. Run all hooks on all files with:
+
+```sh
+pre-commit run --all-files
 ```
 
 ## Use
@@ -63,6 +70,6 @@ python league/matchmake.py --play 5
 
 `autoresearch/` runs a bot development loop. An agent improves one bot.
 Each iteration is one commit and one fixed game budget.
-The agent keeps a change when the rating improves.
+The agent keeps a change when the recorded score improves.
 See `autoresearch/README.md` for the loop, and
 `autoresearch/docs/PROGRAM.md` for the operating instructions.
