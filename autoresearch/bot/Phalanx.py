@@ -7,14 +7,12 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Vanguard:
+class Phalanx:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
         self.remembered_hills: set[tuple[int, int]] = set()
         self.prev_enemies: list[tuple[int, int]] = []
-        self.seen: set[tuple[int, int]] = set()
-        self.frontier: set[tuple[int, int]] = set()
 
     # do_setup is run once at the start of the game
     # after the bot has received the game settings
@@ -24,28 +22,18 @@ class Vanguard:
         self.visits = {}
         self.remembered_hills = set()
         self.prev_enemies = []
-        self.seen = set()
-        self.frontier = set()
 
     # do turn is run once per turn
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Vanguard: only edge ants march, the rest stay home.
-        # Battling as Vanguard. Buddy marches, frontier, headings,
-        # memory, aggression, walk-off, and food match iteration 22.
-        # A spare ant marches only with its nearest frontier within
-        # 15 squares; the rest wander least-visited home ground.
+        # Formation defense: corner posts, not piles.
+        # Battling as Phalanx. Headings, memory, aggression, walk-off,
+        # food, and exploration match iteration 15. Threatened home
+        # hills post defenders on passable diagonals; ants hold their
+        # posts instead of stacking onto the hill square.
         foods = ants.food()
         ants_list = ants.my_ants()
-        for a in ants_list:
-            if a not in self.seen:
-                self.seen.add(a)
-                for d in ("n", "e", "s", "w"):
-                    n = ants.destination(a, d)
-                    if n not in self.seen and ants.passable(n):
-                        self.frontier.add(n)
-        self.frontier -= self.seen
         my_set = set(ants_list)
         for hloc, _ in ants.enemy_hills():
             self.remembered_hills.add(hloc)
@@ -99,6 +87,30 @@ class Vanguard:
                 for e in enemy_locs
             )
         ]
+        # Formation defense: each threatened hill posts its passable
+        # diagonals, held by the closest spare ants.
+        defender_post: dict[int, tuple[int, int]] = {}
+        if threatened:
+            spares = [ai for ai in range(len(ants_list)) if ai not in target]
+            taken_post: set[tuple[int, int]] = set()
+            for hill in threatened:
+                hr, hc = hill
+                for dr, dc in ((-1, -1), (-1, 1), (1, -1), (1, 1)):
+                    post = ((hr + dr) % ants.rows, (hc + dc) % ants.cols)
+                    if post in taken_post or not ants.passable(post):
+                        continue
+                    if not spares:
+                        break
+                    pick = spares[0]
+                    pick_d = ants.distance(ants_list[pick], post)
+                    for i in spares[1:]:
+                        d = ants.distance(ants_list[i], post)
+                        if d < pick_d:
+                            pick_d = d
+                            pick = i
+                    spares.remove(pick)
+                    defender_post[pick] = post
+                    taken_post.add(post)
         attack_r2 = ants.attackradius2 or 5
         rows, cols = ants.rows, ants.cols
 
@@ -176,7 +188,6 @@ class Vanguard:
 
         destinations: set[tuple[int, int]] = set()
         held: list[tuple[int, int]] = []
-        buddies: list[tuple[tuple[int, int], tuple[int, int]]] = []
         for ai, ant_loc in enumerate(ants_list):
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
             best = target.get(ai)
@@ -189,6 +200,15 @@ class Vanguard:
                     # Assigned food is blocked; keep the claim so no other
                     # ant chases the same region this turn.
                     pass
+            if not moved and ai in defender_post:
+                # Hold the post or march to it.
+                post = defender_post[ai]
+                if ant_loc == post:
+                    moved = True
+                else:
+                    step = first_step(ant_loc, post)
+                    if step is not None and try_step(ant_loc, step):
+                        moved = True
             if not moved and (threatened or hills):
                 # No food or blocked: guard home first, else hunt.
                 targets = threatened if threatened else hills
@@ -197,30 +217,7 @@ class Vanguard:
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved:
-                # No hill move: edge ants march, the rest wander.
-                march = False
-                if self.frontier:
-                    near_f = min(
-                        self.frontier,
-                        key=lambda f: ants.distance(ant_loc, f),
-                    )
-                    if ants.distance(ant_loc, near_f) <= 15:
-                        join = None
-                        join_d = 13
-                        for bloc, bgoal in buddies:
-                            dd = ants.distance(ant_loc, bloc)
-                            if dd < join_d:
-                                join_d = dd
-                                join = bgoal
-                        goal = join if join is not None else near_f
-                        buddies.append((ant_loc, goal))
-                        march = True
-                if march:
-                    step = first_step(ant_loc, goal)
-                    if step is not None and try_step(ant_loc, step):
-                        moved = True
-            if not moved:
-                # No march: explore least-visited squares first.
+                # No hill move: explore least-visited squares first.
                 dirs = sorted(
                     ("n", "e", "s", "w"),
                     key=lambda d: self.visits.get(ants.destination(ant_loc, d), 0),
@@ -264,6 +261,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Vanguard())
+        Ants.run(Phalanx())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
