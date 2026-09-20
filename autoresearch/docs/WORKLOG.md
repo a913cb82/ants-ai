@@ -106,3 +106,15 @@ Use this format.
 - what changed: All hill attackers converge on the single enemy hill closest to any of my ants instead of each ant hunting its own nearest hill.
 - what you learned: Flooding won the 5p and 7p FFAs but ranked 4/8 in the 8p and lost a duel to HunterBot; piling every attacker onto one hill leaves other hills and food open, so lb fell from 43.82 to 37.87.
 - next: Food denial — hold a contested food field.
+
+## 8 — food denial claim contested fields first (2026-09-20)
+- commit: 4a8afa1
+- start: e830cd3 (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 49.36, sigma 3.79, lb 37.99
+- champion lb: 43.82
+- verdict: discard
+- games: 4-1, FFA ranks 5p:1 7p:3 8p:4
+- what changed: Battling as NoLunchForYou; foods with a visible enemy within 8 steps sort as 4 steps closer so our closest ants hold the contested field.
+- what you learned: Denial won duels 4-1 and the 5p FFA but trailed two past champions in the 7p and 8p; the bonus pulls ants off nearby safe food into blocked 1v1s, so lb fell from 43.82 to 37.99.
+- next: BOLD — two discards in a row, research a different design.

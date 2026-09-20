@@ -42,7 +42,7 @@ row. Leave the old row as it was.
 | done | Combat: skip any step without a local majority in attack range. |
 | done | Exploration: order the fallback by least-visited square first. |
 | trying | Flood: move a group of ants to one target. |
-| open | Food denial: hold a contested food field. |
+| trying | Food denial: hold a contested food field. |
 | open | Opponent model: read the enemy target from the enemy moves. |
 | open | Endgame: hold most hills until the turn limit. |
 | open | Time: use the turn time for search. |
