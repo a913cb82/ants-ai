@@ -322,3 +322,15 @@ Use this format.
 - what changed: Battling as Saturn in Saturn.bot + Saturn.py; hills with 4+ enemies inside 20 post a double-distance second ring from remaining spares.
 - what you learned: Rings swept duels 5-0 and took 2nd in the 7p, but finished 8/8 in a maze 8p won by Elephant; post-holders never eat, so over-garrisoning starves the army, lb fell from 52.15 to 33.99.
 - next: Hungry posts — defenders snack unclaimed food within 4 steps.
+
+## 26 — hungry posts snack within 4 (2026-09-21)
+- commit: 00fbdbb
+- start: 95ba976 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 49.22, sigma 3.80, lb 37.83
+- champion lb: 52.15
+- verdict: drop the formation line (bold 3 of 3)
+- games: 5-0, FFA ranks 4p:3 6p:2 10p:1
+- what changed: Battling as Garrison in Garrison.bot + Garrison.py; defenders step to unclaimed food within 4 squares first, posts re-draft next turn.
+- what you learned: Eating defenders swept duels 5-0 and won the 10p with Saturn 2nd, but lost the 4p to Grazer; the family (42.27, 33.99, 37.83) never threatens the champion, so the line is dropped.
+- next: BOLD — new line, research first.

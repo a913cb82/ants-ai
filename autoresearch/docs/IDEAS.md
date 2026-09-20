@@ -58,5 +58,6 @@ row. Leave the old row as it was.
 | dropped | Frontier marches: idle ants push the unseen edge. |
 | dropped | Buddy marches: explorers move in pairs. |
 | dropped | Vanguard: only edge ants march. |
-| trying | Formation defense: corner posts around threatened hills. |
-| trying | Second ring: double-distance posts when heavily hit. |
+| dropped | Formation defense: corner posts around threatened hills. |
+| dropped | Second ring: double-distance posts when heavily hit. |
+| dropped | Hungry posts: defenders snack within 4. |
