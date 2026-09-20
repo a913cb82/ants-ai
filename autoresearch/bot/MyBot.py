@@ -21,21 +21,26 @@ class MyBot:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Closest food: each ant moves to its nearest visible food.
-        # One ant claims one food so two ants do not target the same food.
+        # Collision: assign food to ants by global distance.
+        # Sort every ant-food pair and claim greedily so no two ants
+        # chase the same food region; closest pairs win regardless of
+        # ant order. Movement and fallback match iteration 1.
         foods = ants.food()
-        claimed: set[tuple[int, int]] = set()
+        ants_list = ants.my_ants()
+        pairs: list[tuple[int, int, int]] = []
+        for ai, ant_loc in enumerate(ants_list):
+            for fi, food_loc in enumerate(foods):
+                pairs.append((ants.distance(ant_loc, food_loc), ai, fi))
+        pairs.sort()
+        target: dict[int, tuple[int, int]] = {}
+        claimed_food: set[int] = set()
+        for _, ai, fi in pairs:
+            if ai not in target and fi not in claimed_food:
+                target[ai] = foods[fi]
+                claimed_food.add(fi)
         destinations: set[tuple[int, int]] = set()
-        for ant_loc in ants.my_ants():
-            best = None
-            best_dist = 0
-            for food_loc in foods:
-                if food_loc in claimed:
-                    continue
-                dist = ants.distance(ant_loc, food_loc)
-                if best is None or dist < best_dist:
-                    best = food_loc
-                    best_dist = dist
+        for ai, ant_loc in enumerate(ants_list):
+            best = target.get(ai)
             moved = False
             if best is not None:
                 for direction in ants.direction(ant_loc, best):
@@ -47,11 +52,11 @@ class MyBot:
                     ):
                         ants.issue_order((ant_loc, direction))
                         destinations.add(new_loc)
-                        claimed.add(best)
                         moved = True
                         break
                 if not moved:
-                    # Nearest food is blocked; free it for another ant.
+                    # Assigned food is blocked; keep the claim so no other
+                    # ant chases the same region this turn.
                     pass
             if not moved:
                 # No food or blocked: step in order n, e, s, w.
