@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Berserker:
+class Crusader:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -25,11 +25,11 @@ class Berserker:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Aggressive combat: pile in when 14+ friends are near.
-        # Battling as Berserker. Memory, movement, walk-off, and
-        # exploration match iteration 11. Moves still need a local
-        # majority, except equal trades are accepted when 14 or more
-        # friends stand within 10 steps of the destination.
+        # Hill-first: attackers draft before food.
+        # Battling as Crusader. Memory, movement, aggression, walk-off,
+        # and exploration match iteration 13. Each hill drafts up to 4
+        # closest ants within 20 steps first; only undrafted ants claim
+        # food, so hills outrank the economy.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -38,8 +38,32 @@ class Berserker:
         for hloc in list(self.remembered_hills):
             if hloc in my_set:
                 self.remembered_hills.discard(hloc)
+        hills = sorted(self.remembered_hills)
+        my_hills = ants.my_hills()
+        enemy_locs = [loc for loc, _ in ants.enemy_ants()]
+        threatened = [
+            h for h in my_hills if any(ants.distance(h, e) <= 10 for e in enemy_locs)
+        ]
+        # Hill-first: each hill drafts up to 4 closest ants within 20
+        # steps before food. Threatened home hills draft first.
+        hill_order = threatened + [h for h in hills if h not in threatened]
+        attackers: dict[int, tuple[int, int]] = {}
+        drafted: set[int] = set()
+        for hill in hill_order:
+            crew = sorted(
+                (ants.distance(a, hill), ai)
+                for ai, a in enumerate(ants_list)
+                if ai not in drafted
+            )
+            for seats, (dist, ai) in enumerate(crew):
+                if dist > 20 or seats >= 4:
+                    break
+                attackers[ai] = hill
+                drafted.add(ai)
         pairs: list[tuple[int, int, int]] = []
         for ai, ant_loc in enumerate(ants_list):
+            if ai in attackers:
+                continue
             for fi, food_loc in enumerate(foods):
                 pairs.append((ants.distance(ant_loc, food_loc), ai, fi))
         pairs.sort()
@@ -49,12 +73,6 @@ class Berserker:
             if ai not in target and fi not in claimed_food:
                 target[ai] = foods[fi]
                 claimed_food.add(fi)
-        hills = sorted(self.remembered_hills)
-        my_hills = ants.my_hills()
-        enemy_locs = [loc for loc, _ in ants.enemy_ants()]
-        threatened = [
-            h for h in my_hills if any(ants.distance(h, e) <= 10 for e in enemy_locs)
-        ]
         attack_r2 = ants.attackradius2 or 5
         rows, cols = ants.rows, ants.cols
 
@@ -134,9 +152,13 @@ class Berserker:
         held: list[tuple[int, int]] = []
         for ai, ant_loc in enumerate(ants_list):
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
-            best = target.get(ai)
             moved = False
-            if best is not None:
+            if ai in attackers:
+                step = first_step(ant_loc, attackers[ai])
+                if step is not None and try_step(ant_loc, step):
+                    moved = True
+            best = target.get(ai)
+            if not moved and best is not None:
                 step = first_step(ant_loc, best)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
@@ -196,6 +218,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Berserker())
+        Ants.run(Crusader())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
