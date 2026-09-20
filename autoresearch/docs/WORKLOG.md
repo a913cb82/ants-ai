@@ -286,3 +286,15 @@ Use this format.
 - what changed: Battling as Wingman in Wingman.bot + Wingman.py; spare ants join a same-turn buddy march within 12 squares or start their own.
 - what you learned: Pairs swept duels 5-0 and a weak 8p but finished 7/7 behind Boone itself; clumping covers less ground and still starves, so lb fell from 52.15 to 26.98.
 - next: Vanguard — only edge ants march, the rest stay home.
+
+## 23 — vanguard only edge ants march (2026-09-21)
+- commit: 9c2ea2c
+- start: bb88a63 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 43.19, sigma 3.68, lb 32.15
+- champion lb: 52.15
+- verdict: drop the frontier line (bold 3 of 3)
+- games: 5-0, FFA ranks 5p:2 7p:5 8p:3
+- what changed: Battling as Vanguard in Vanguard.bot + Vanguard.py; buddy marches only start with the nearest frontier within 15 squares, the rest wander home ground.
+- what you learned: Gating swept duels 5-0 and beat Wingman twice, but the family still trails badly (33.07, 26.98, 32.15); directed exploration loses to wandering at this strength, so the line is dropped.
+- next: BOLD — new line, research first.
