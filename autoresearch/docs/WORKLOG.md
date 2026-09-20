@@ -34,3 +34,15 @@ Use this format.
 - what changed: Each ant moves to its nearest visible food with one-food-per-ant claiming and destination dedup, else steps n-e-s-w.
 - what you learned: Food seeking beats the starter and sets lb 25.46 as champion; early losses to older autoresearch bots show movement still wastes turns on blocked paths.
 - next: Collision — assign food to ants by global distance so no two ants chase the same region.
+
+## 2 — collision via global food assignment (2026-09-20)
+- commit: 9031b00
+- start: d02ec94 (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 43.73, sigma 4.94, lb 28.91
+- champion lb: none (baseline)
+- verdict: keep
+- games: 5-0, FFA ranks 4p:1 6p:2 10p:3
+- what changed: Sort all ant-food pairs by distance and claim greedily so the closest pairs win regardless of ant order.
+- what you learned: Global assignment went 5-0 in duels and ranked 1/4, 2/6, 3/10 in FFA; exclusive claims beat per-ant greedy order on the new 5+3 budget and set lb 28.91 as baseline.
+- next: Hill attack — attack an enemy hill with a local majority.

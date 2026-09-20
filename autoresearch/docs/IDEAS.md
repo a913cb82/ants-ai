@@ -32,7 +32,7 @@ Give each idea one status: `open`, `trying`, `done`, `dropped`, or
 | status | idea |
 |---|---|
 | done | Closest food: each ant moves to the nearest visible food. |
-| open | Collision: two ants do not target the same food. |
+| done | Collision: two ants do not target the same food. |
 | open | Hill attack: attack an enemy hill with a local majority. |
 | open | Hill defense: keep ants near your hills when the enemy is close. |
 | open | Combat: do not move an ant into certain death. |

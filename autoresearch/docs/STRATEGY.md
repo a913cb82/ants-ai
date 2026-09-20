@@ -5,11 +5,7 @@ Update this file when the behavior of the bot changes.
 
 ## Current bot
 
-Iteration 1 (d02ec94) seeks the closest food. Each ant picks its nearest
-visible food, one ant claims one food, and no two ants enter the same
-destination square. When the target is blocked or no food is visible,
-the ant steps in the order `n`, `e`, `s`, `w`. It ignores hills and
-the enemy. Recorded score: mu 35.94, sigma 3.49, lb 25.46 (baseline).
+Iteration 2 (9031b00) assigns food by global distance. Every ant-food pair is sorted and claimed greedily, so the closest pairs win regardless of ant order and no two ants chase the same food region. Movement and fallback match iteration 1: step toward the assigned food with destination dedup, else step n-e-s-w. It ignores hills and the enemy. Recorded score: mu 43.73, sigma 4.94, lb 28.91 (baseline, 5 duels + 3 FFA).
 
 ## Good play
 
