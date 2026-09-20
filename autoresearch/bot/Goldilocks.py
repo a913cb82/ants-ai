@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Grazer:
+class Goldilocks:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -29,11 +29,11 @@ class Grazer:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Mission detour: hill ants grab nearby food en route.
-        # Battling as Grazer. Missions, headings, memory, aggression,
-        # walk-off, and exploration match iteration 18. A hill-mission
-        # ant steps to unclaimed food within 3 squares without losing
-        # its mission, so marches never walk past food.
+        # Stale missions: sticky on ties, hungry on big gains.
+        # Battling as Goldilocks. Missions, headings, memory, aggression,
+        # walk-off, and exploration match iteration 18, minus the
+        # detour. A food mission re-bids only when an unclaimed food
+        # is 5+ closer, so ties stay stable and windfalls get hunted.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -133,6 +133,28 @@ class Grazer:
                 nearest = min(targets, key=lambda h: ants.distance(ant_loc, h))
                 mission[ai] = ("hill", nearest)
                 kept[ant_loc] = ("hill", nearest)
+        # Stale missions: re-bid food when an unclaimed food is 5+
+        # closer. The gap is hysteresis against oscillation.
+        for ai, ant_loc in enumerate(ants_list):
+            m = mission.get(ai)
+            if m is None or m[0] != "food":
+                continue
+            old = m[1]
+            old_d = ants.distance(ant_loc, old)
+            alt = None
+            alt_d = 0
+            for f in foods:
+                if f in taken_food:
+                    continue
+                d = ants.distance(ant_loc, f)
+                if d + 5 <= old_d and (alt is None or d < alt_d):
+                    alt = f
+                    alt_d = d
+            if alt is not None:
+                taken_food.discard(old)
+                taken_food.add(alt)
+                mission[ai] = ("food", alt)
+                kept[ant_loc] = ("food", alt)
         self.missions = kept
         attack_r2 = ants.attackradius2 or 5
         rows, cols = ants.rows, ants.cols
@@ -220,21 +242,6 @@ class Grazer:
                 if step is not None and try_step(ant_loc, step):
                     moved = True
                 # else keep the mission; the claim persists.
-            if not moved and kind_loc is not None and kind_loc[0] == "hill":
-                # Detour: unclaimed food within 3 squares, mission kept.
-                snack = None
-                snack_d = 4
-                for f in foods:
-                    if f in taken_food:
-                        continue
-                    d = ants.distance(ant_loc, f)
-                    if d < snack_d:
-                        snack_d = d
-                        snack = f
-                if snack is not None:
-                    step = first_step(ant_loc, snack)
-                    if step is not None and try_step(ant_loc, step):
-                        moved = True
             if not moved:
                 hill_goal = None
                 if kind_loc is not None and kind_loc[0] == "hill":
@@ -292,6 +299,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Grazer())
+        Ants.run(Goldilocks())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
