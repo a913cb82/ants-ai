@@ -5,4 +5,5 @@ __pycache__/
 league/ratings.json
 game_logs/
 replays/
+autoresearch/runs/
 *.replay

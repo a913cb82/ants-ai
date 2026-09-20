@@ -110,3 +110,33 @@ def test_unknown_sha_is_loud_tmp(tmp_path):
                                    "bots/a/A.py": "x\n"})
     with pytest.raises(subprocess.CalledProcessError):
         bot_cmd(r, "bots/a/main.bot-deadbee")
+
+
+def test_prune_replays_evicts_oldest_over_cap(tmp_path):
+    import os
+    from pool import prune_replays
+    base = tmp_path / "replays"
+    (base / "old").mkdir(parents=True)
+    (base / "old" / "0.replay").write_text("x" * 100)
+    (base / "new").mkdir()
+    (base / "new" / "0.replay").write_text("x" * 100)
+    os.utime(base / "old" / "0.replay", (1, 1))
+    os.utime(base / "new" / "0.replay", (2, 2))
+    freed = prune_replays(base, max_bytes=150)
+    assert freed == 100
+    assert not (base / "old").exists()
+    assert (base / "new").exists()
+
+
+def test_prune_replays_protects_paths(tmp_path):
+    from pool import prune_replays
+    base = tmp_path / "replays"
+    (base / "old").mkdir(parents=True)
+    (base / "old" / "0.replay").write_text("x" * 100)
+    freed = prune_replays(base, max_bytes=0, protect={str(base / "old")})
+    assert freed == 0 and (base / "old").exists()
+
+
+def test_prune_replays_missing_store_is_zero(tmp_path):
+    from pool import prune_replays
+    assert prune_replays(tmp_path / "nope", max_bytes=0) == 0

@@ -15,3 +15,6 @@ dev = ["pytest"]
 [tool.setuptools]
 # No distributable packages. Engine and bots run as scripts.
 packages = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "autoresearch/tests"]

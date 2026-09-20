@@ -65,10 +65,13 @@ def short(root: str | Path, rev: str) -> str:
 
 
 def all_commits(root: str | Path = ROOT) -> list[str]:
+    """Every commit in the repo, oldest first. bots_at filters: a
+    commit with no manifest contributes nothing, and content-hash
+    dedup collapses commits that leave bot code unchanged."""
     seen: set[str] = set()
     commits = []
-    for sha in _git(root, "log", "--all", "--format=%h", "--reverse",
-                    "--", "*.bot").split():
+    for sha in _git(root, "log", "--all", "--format=%h", "--reverse"
+                    ).split():
         if sha not in seen:
             seen.add(sha)
             commits.append(sha)
@@ -174,4 +177,41 @@ def prune_worktrees(workbase: str | Path = WORKBASE,
         total -= sizes[d]
     subprocess.run(["git", "-C", str(ROOT), "worktree", "prune"],
                    check=True, capture_output=True)
+    return freed
+
+
+def prune_replays(base: str | Path, max_bytes: int,
+                  protect: set[str] | None = None) -> int:
+    """Evict oldest entries under a replay store while it exceeds
+    max_bytes. Entries are the store's direct children (files or dirs),
+    aged by the newest file inside. Paths in protect are never evicted.
+    Returns bytes freed."""
+    base = Path(base)
+    if not base.is_dir():
+        return 0
+    keep = {str(Path(p)) for p in (protect or set())}
+
+    def size(e: Path) -> int:
+        return (sum(f.stat().st_size for f in e.rglob("*") if f.is_file())
+                if e.is_dir() else e.stat().st_size)
+
+    def age(e: Path) -> float:
+        return (max(f.stat().st_mtime for f in e.rglob("*") if f.is_file())
+                if e.is_dir() else e.stat().st_mtime)
+
+    entries = list(base.iterdir())
+    sizes = {e: size(e) for e in entries}
+    total = sum(sizes.values())
+    freed = 0
+    for e in sorted(entries, key=age):
+        if total <= max_bytes:
+            break
+        if str(e) in keep:
+            continue
+        if e.is_dir():
+            shutil.rmtree(e)
+        else:
+            e.unlink()
+        freed += sizes[e]
+        total -= sizes[e]
     return freed

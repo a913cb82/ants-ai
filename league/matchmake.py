@@ -75,11 +75,14 @@ def info_score(model: BradleyTerryFull, combo: list[str], ratings: dict,
 
 def propose(model: BradleyTerryFull, candidates: list[str], ratings: dict,
             n: int, rng: random.Random, eps: float = 0.2,
-            breadth: int = 3) -> list[str]:
+            breadth: int = 3, seed_bot: str | None = None) -> list[str]:
+    """Field of n bots: seed_bot (or highest sigma) plus greedy picks
+    by information score, epsilon-random among the top breadth."""
     cands = sorted(candidates,
                    key=lambda k: (-R.for_id(ratings, k)["sigma"], rng.random()))
-    field = [cands[0]]
-    rest = [c for c in cands if c != field[0]]
+    seed = seed_bot if seed_bot is not None else cands[0]
+    field = [seed]
+    rest = [c for c in cands if c != seed]
     while len(field) < n and rest:
         scored = sorted(rest, key=lambda k: -info_score(model, field + [k],
                                                         ratings))
