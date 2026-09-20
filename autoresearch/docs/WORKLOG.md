@@ -274,3 +274,15 @@ Use this format.
 - what changed: Battling as Boone in Boone.bot + Boone.py; seen squares grow a frontier of unseen neighbors, and spare ants march the nearest frontier square instead of wandering.
 - what you learned: Marches swept duels 5-0 and the 4p but ranked 7/10 in a Crusader-led 10p; pushing every spare to the edge scatters the army piecemeal, so lb fell from 52.15 to 33.07.
 - next: March in company — frontier ants move in buddy pairs.
+
+## 22 — buddy-pair frontier marches (2026-09-21)
+- commit: bb88a63
+- start: 5abaee6 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 37.84, sigma 3.62, lb 26.98
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 5-0, FFA ranks 5p:3 7p:7 8p:1
+- what changed: Battling as Wingman in Wingman.bot + Wingman.py; spare ants join a same-turn buddy march within 12 squares or start their own.
+- what you learned: Pairs swept duels 5-0 and a weak 8p but finished 7/7 behind Boone itself; clumping covers less ground and still starves, so lb fell from 52.15 to 26.98.
+- next: Vanguard — only edge ants march, the rest stay home.
