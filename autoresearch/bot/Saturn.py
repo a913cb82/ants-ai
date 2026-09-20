@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Phalanx:
+class Saturn:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Phalanx:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Formation defense: corner posts, not piles.
-        # Battling as Phalanx. Headings, memory, aggression, walk-off,
-        # food, and exploration match iteration 15. Threatened home
-        # hills post defenders on passable diagonals; ants hold their
-        # posts instead of stacking onto the hill square.
+        # Second ring: heavily threatened hills get outer posts.
+        # Battling as Saturn. Formation defense, headings, memory,
+        # aggression, walk-off, food, and exploration match iteration
+        # 24. Hills with 4+ enemies inside 20 steps post a second
+        # ring at double-diagonal distance from remaining spares.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -88,19 +88,24 @@ class Phalanx:
             )
         ]
         # Formation defense: each threatened hill posts its passable
-        # diagonals, held by the closest spare ants.
+        # diagonals, held by the closest spare ants. Heavily hit
+        # hills (4+ enemies inside 20) post a second ring at double
+        # distance from the remaining spares.
         defender_post: dict[int, tuple[int, int]] = {}
         if threatened:
             spares = [ai for ai in range(len(ants_list)) if ai not in target]
             taken_post: set[tuple[int, int]] = set()
-            for hill in threatened:
-                hr, hc = hill
+
+            def man_ring(hr: int, hc: int, ring: int) -> None:
                 for dr, dc in ((-1, -1), (-1, 1), (1, -1), (1, 1)):
-                    post = ((hr + dr) % ants.rows, (hc + dc) % ants.cols)
+                    post = (
+                        (hr + dr * ring) % ants.rows,
+                        (hc + dc * ring) % ants.cols,
+                    )
                     if post in taken_post or not ants.passable(post):
                         continue
                     if not spares:
-                        break
+                        return
                     pick = spares[0]
                     pick_d = ants.distance(ants_list[pick], post)
                     for i in spares[1:]:
@@ -111,6 +116,13 @@ class Phalanx:
                     spares.remove(pick)
                     defender_post[pick] = post
                     taken_post.add(post)
+
+            for hill in threatened:
+                man_ring(hill[0], hill[1], 1)
+            for hill in threatened:
+                foes = sum(1 for e in enemy_locs if ants.distance(e, hill) <= 20)
+                if foes >= 4:
+                    man_ring(hill[0], hill[1], 2)
         attack_r2 = ants.attackradius2 or 5
         rows, cols = ants.rows, ants.cols
 
@@ -261,6 +273,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Phalanx())
+        Ants.run(Saturn())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
