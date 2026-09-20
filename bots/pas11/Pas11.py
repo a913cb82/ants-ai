@@ -292,7 +292,7 @@ class MyBot:
 		for hill_loc in ants.my_hills():
 			if hill_loc in ants.my_ants() and hill_loc not in orders.values():
 				for direction in ('s','e','w','n'):
-				   if do_move_direction(hill_loc, direction):
+					if do_move_direction(hill_loc, direction):
 						break
 				
 		#issue orders

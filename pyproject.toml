@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=61"]
+
+[project]
+name = "ants-ai"
+version = "0.1.0"
+description = "Ants game from the 2011 AI Challenge: game engine and bots"
+readme = "README.md"
+requires-python = ">=3.10"
+
+[tool.setuptools]
+# No distributable packages. Engine and bots run as scripts.
+packages = []

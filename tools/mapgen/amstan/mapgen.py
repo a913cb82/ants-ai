@@ -10,13 +10,13 @@ def mapgen(mapsizex, mapsizey, carver, symmetry, players, hills, seed):
     map=Cavemap(size=Point(mapsizex, mapsizey),num_players=players,symmetry=symmetry)
     
     #Decide where to place the hills
-    for hillid in xrange(hills):
+    for hillid in range(hills):
         player0hill=map.size.random_upto()
         map.add_hill(player0hill)
     
     map.generate()
 
-    print map
+    print(map)
 
 if __name__=="__main__":
     import optparse, sys

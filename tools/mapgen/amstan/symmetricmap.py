@@ -104,7 +104,7 @@ class SymmetricMap(Map):
     
     def vector_translational(self,origin):
         return [(origin+self.translation*playerid).normalize(self.size)
-                for playerid in xrange(len(self.players))]
+                for playerid in range(len(self.players))]
     
 #Generate symmetry types based on the function names
 symmetry_types=set(function[len("vector_"):] for function in dir(SymmetricMap) if function.startswith("vector_"))
@@ -112,8 +112,8 @@ symmetry_types=set(function[len("vector_"):] for function in dir(SymmetricMap) i
 if __name__=="__main__":
     for symmetry in symmetry_types:
         #title
-        print symmetry
-        print "="*len(symmetry)
+        print(symmetry)
+        print("="*len(symmetry))
         
         try:
             map=SymmetricMap(size=Point(20,20),num_players=4,symmetry=symmetry)
@@ -124,9 +124,9 @@ if __name__=="__main__":
             #add player hills
             map.add_hill(Point(2,6))
             
-            print map
+            print(map)
         except SymmetryException as e:
-            print e
+            print(e)
         
         #newline
-        print
+        print()

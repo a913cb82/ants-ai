@@ -6,8 +6,8 @@ import random
 class Point(collections.namedtuple('Point', ['x', 'y'])):
     def upto(self):
         """Iterates over all points from origin to Point"""
-        for y in xrange(self.y):
-            for x in xrange(self.x):
+        for y in range(self.y):
+            for x in range(self.x):
                 yield Point(x,y)
     
     def normalize(self,size):

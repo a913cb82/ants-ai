@@ -27,15 +27,15 @@ class Cavemap(SymmetricMap):
                 self[location]=LAND
                 squares_water+=symmetric_locations
             
-            location+=random.choice(directions.values())
+            location+=random.choice(list(directions.values()))
     
     def smooth(self, times=1):
         """Apply a cellular automaton to smoothen the walls"""
-        for time in xrange(times):
+        for time in range(times):
             oldmap=self.copy()
             
             for point in self.size.upto():
-                neighbour_water=[d for d in diag_directions.values() if oldmap[point+d]==WATER]
+                neighbour_water=[d for d in list(diag_directions.values()) if oldmap[point+d]==WATER]
                 
                 if len(neighbour_water)<4:
                     self[point]=LAND
@@ -61,4 +61,4 @@ if __name__=="__main__":
     map.add_hill(playerone)
     map.generate()
     
-    print map
+    print(map)

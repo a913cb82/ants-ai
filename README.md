@@ -29,8 +29,8 @@ Play one game between two copies of the starter bot with this command:
 python3 tools/playgame.py \
   --map_file tools/maps/example/tutorial1.map \
   --turns 100 --log_dir replays \
-  "python3 bots/py3_starter/MyBot.py3" \
-  "python3 bots/py3_starter/MyBot.py3"
+  "python3 bots/py3_starter/MyBot.py" \
+  "python3 bots/py3_starter/MyBot.py"
 ```
 
 The command records the game. It opens the replay in a browser page. Add `--nolaunch` to play without the visualizer.

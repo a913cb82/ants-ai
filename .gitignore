@@ -1,5 +1,7 @@
 __pycache__/
 *.pyc
+*.egg-info/
+.venv/
 game_logs/
 replays/
 *.replay

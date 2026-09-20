@@ -21,7 +21,7 @@ class Terrain(object):
             defaultterrain=kwargs["defaultterrain"]
         except KeyError:
             defaultterrain=LAND
-        self.terrain=[[defaultterrain for x in xrange(self.size.x)] for y in xrange(self.size.y)]
+        self.terrain=[[defaultterrain for x in range(self.size.x)] for y in range(self.size.y)]
         
     def __getitem__(self,point):
         """Gets a point in the terrain"""
@@ -44,9 +44,9 @@ class Terrain(object):
         string ="rows %s\n" % self.size.y
         string+="cols %s\n" % self.size.x
         
-        for y in xrange(self.size.y):
+        for y in range(self.size.y):
             string+="m "
-            for x in xrange(self.size.x):
+            for x in range(self.size.x):
                 string+=self[Point(x,y)]
             string+="\n"
         
@@ -58,4 +58,4 @@ class Terrain(object):
 if __name__=="__main__":
     terrain=Terrain(size=Point(10,10))
     terrain[Point(-1,-1)]=WATER
-    print terrain
+    print(terrain)

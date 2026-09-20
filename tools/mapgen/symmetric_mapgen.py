@@ -54,11 +54,11 @@ class SymmetricMap():
 
     #outputs the map
     def print_map(self):
-        print "rows", self.rows
-        print "cols", self.cols
-        print "players", self.no_players
+        print("rows", self.rows)
+        print("cols", self.cols)
+        print("players", self.no_players)
         for row in self.map_data:
-            print 'm', ''.join(row)
+            print('m', ''.join(row))
 
     #picks the dimensions of the map
     def pick_dimensions(self):
@@ -125,7 +125,7 @@ class SymmetricMap():
     #return the neighbors of the given location
     def get_neighbors(self, loc):
         n = []
-        for d in self.directions.values():
+        for d in list(self.directions.values()):
             n.append(((loc[0]+d[0])%self.rows, (loc[1]+d[1])%self.cols))
         return n
 
@@ -207,7 +207,7 @@ class SymmetricMap():
                             self.land_squares += self.no_players
                             self.fill_squares(check_sq, '.')
 
-        print >>sys.stderr, "Land per:", self.land_squares / float(self.rows * self.cols)
+        print("Land per:", self.land_squares / float(self.rows * self.cols), file=sys.stderr)
 
 if __name__ == '__main__':
     example_map = SymmetricMap()
