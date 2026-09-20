@@ -13,29 +13,58 @@ class MyBot:
     # do_setup is run once at the start of the game
     # after the bot has received the game settings
     # the ants class is created and setup by the Ants.run method
-    def do_setup(self, ants):
+    def do_setup(self, ants: Ants):
         # initialize data structures after learning the game settings
         pass
 
     # do turn is run once per turn
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
-    def do_turn(self, ants):
-        # loop through all my ants and try to give them orders
-        # the ant_loc is an ant location tuple in (row, col) form
+    def do_turn(self, ants: Ants):
+        # Closest food: each ant moves to its nearest visible food.
+        # One ant claims one food so two ants do not target the same food.
+        foods = ants.food()
+        claimed: set[tuple[int, int]] = set()
+        destinations: set[tuple[int, int]] = set()
         for ant_loc in ants.my_ants():
-            # try all directions in given order
-            directions = ("n", "e", "s", "w")
-            for direction in directions:
-                # the destination method will wrap around the map properly
-                # and give us a new (row, col) tuple
-                new_loc = ants.destination(ant_loc, direction)
-                # passable returns true if the location is land
-                if ants.passable(new_loc):
-                    # an order is the location of a current ant and a direction
-                    ants.issue_order((ant_loc, direction))
-                    # stop now, don't give 1 ant multiple orders
-                    break
+            best = None
+            best_dist = 0
+            for food_loc in foods:
+                if food_loc in claimed:
+                    continue
+                dist = ants.distance(ant_loc, food_loc)
+                if best is None or dist < best_dist:
+                    best = food_loc
+                    best_dist = dist
+            moved = False
+            if best is not None:
+                for direction in ants.direction(ant_loc, best):
+                    new_loc = ants.destination(ant_loc, direction)
+                    if (
+                        new_loc not in destinations
+                        and ants.passable(new_loc)
+                        and ants.unoccupied(new_loc)
+                    ):
+                        ants.issue_order((ant_loc, direction))
+                        destinations.add(new_loc)
+                        claimed.add(best)
+                        moved = True
+                        break
+                if not moved:
+                    # Nearest food is blocked; free it for another ant.
+                    pass
+            if not moved:
+                # No food or blocked: step in order n, e, s, w.
+                for direction in ("n", "e", "s", "w"):
+                    new_loc = ants.destination(ant_loc, direction)
+                    if (
+                        new_loc not in destinations
+                        and ants.passable(new_loc)
+                        and ants.unoccupied(new_loc)
+                    ):
+                        ants.issue_order((ant_loc, direction))
+                        destinations.add(new_loc)
+                        break
             # check if we still have time left to calculate more orders
             if ants.time_remaining() < 10:
                 break
