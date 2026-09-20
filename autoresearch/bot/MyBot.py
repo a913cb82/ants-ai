@@ -21,10 +21,11 @@ class MyBot:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Hill attack: spare ants hunt visible enemy hills.
-        # Food assignment matches iteration 2 (global closest-first
+        # Hill defense: spare ants guard a threatened home hill first.
+        # Food assignment matches iteration 3 (global closest-first
         # claims). Ants with no food claim step toward the nearest
-        # visible enemy hill, else step n, e, s, w.
+        # threatened home hill, else the nearest visible enemy hill,
+        # else step n, e, s, w.
         foods = ants.food()
         ants_list = ants.my_ants()
         pairs: list[tuple[int, int, int]] = []
@@ -39,6 +40,11 @@ class MyBot:
                 target[ai] = foods[fi]
                 claimed_food.add(fi)
         hills = [loc for loc, _ in ants.enemy_hills()]
+        my_hills = ants.my_hills()
+        enemy_locs = [loc for loc, _ in ants.enemy_ants()]
+        threatened = [
+            h for h in my_hills if any(ants.distance(h, e) <= 10 for e in enemy_locs)
+        ]
         destinations: set[tuple[int, int]] = set()
         for ai, ant_loc in enumerate(ants_list):
             best = target.get(ai)
@@ -59,9 +65,10 @@ class MyBot:
                     # Assigned food is blocked; keep the claim so no other
                     # ant chases the same region this turn.
                     pass
-            if not moved and hills:
-                # No food or blocked: hunt the nearest enemy hill first.
-                nearest = min(hills, key=lambda h: ants.distance(ant_loc, h))
+            if not moved and (threatened or hills):
+                # No food or blocked: guard home first, else hunt.
+                targets = threatened if threatened else hills
+                nearest = min(targets, key=lambda h: ants.distance(ant_loc, h))
                 for direction in ants.direction(ant_loc, nearest):
                     new_loc = ants.destination(ant_loc, direction)
                     if (
