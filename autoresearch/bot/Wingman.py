@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Boone:
+class Wingman:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -15,7 +15,6 @@ class Boone:
         self.prev_enemies: list[tuple[int, int]] = []
         self.seen: set[tuple[int, int]] = set()
         self.frontier: set[tuple[int, int]] = set()
-        self.march: dict[tuple[int, int], tuple[int, int]] = {}
 
     # do_setup is run once at the start of the game
     # after the bot has received the game settings
@@ -27,17 +26,16 @@ class Boone:
         self.prev_enemies = []
         self.seen = set()
         self.frontier = set()
-        self.march = {}
 
     # do turn is run once per turn
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Frontier marches: idle ants push the unseen edge.
-        # Battling as Boone. Headings, memory, aggression, walk-off,
-        # and food match iteration 15. Seen squares grow the frontier
-        # of unseen passable neighbors; spare ants march the nearest
-        # frontier square instead of wandering least-visited ground.
+        # Buddy marches: explorers move in pairs, never alone.
+        # Battling as Wingman. Frontier, headings, memory, aggression,
+        # walk-off, and food match iteration 21. A spare ant joins the
+        # nearest same-turn buddy march within 12 squares, else starts
+        # its own march, so explorers keep a local majority.
         foods = ants.food()
         ants_list = ants.my_ants()
         for a in ants_list:
@@ -178,7 +176,7 @@ class Boone:
 
         destinations: set[tuple[int, int]] = set()
         held: list[tuple[int, int]] = []
-        march_kept: dict[tuple[int, int], tuple[int, int]] = {}
+        buddies: list[tuple[tuple[int, int], tuple[int, int]]] = []
         for ai, ant_loc in enumerate(ants_list):
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
             best = target.get(ai)
@@ -199,25 +197,24 @@ class Boone:
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved:
-                # No hill move: march the nearest frontier square.
+                # No hill move: join a buddy march, else start one.
                 goal = None
                 if self.frontier:
-                    keep = None
-                    keep_d = 3
-                    for h in list(self.march.keys()):
-                        dd = ants.distance(ant_loc, h)
-                        if dd < keep_d:
-                            keep_d = dd
-                            keep = h
-                    cand = self.march.pop(keep, None) if keep is not None else None
-                    if cand is not None and cand in self.frontier:
-                        goal = cand
+                    join = None
+                    join_d = 13
+                    for bloc, bgoal in buddies:
+                        dd = ants.distance(ant_loc, bloc)
+                        if dd < join_d:
+                            join_d = dd
+                            join = bgoal
+                    if join is not None:
+                        goal = join
                     else:
                         goal = min(
                             self.frontier,
                             key=lambda f: ants.distance(ant_loc, f),
                         )
-                    march_kept[ant_loc] = goal
+                    buddies.append((ant_loc, goal))
                 if goal is not None:
                     step = first_step(ant_loc, goal)
                     if step is not None and try_step(ant_loc, step):
@@ -245,7 +242,6 @@ class Boone:
             # check if we still have time left to calculate more orders
             if ants.time_remaining() < 10:
                 break
-        self.march = march_kept
         # Walk off hill: a held ant on a home hill must step off.
         hill_set = set(my_hills)
         for ant_loc in held:
@@ -268,6 +264,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Boone())
+        Ants.run(Wingman())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
