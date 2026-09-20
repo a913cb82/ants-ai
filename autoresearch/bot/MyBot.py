@@ -21,10 +21,10 @@ class MyBot:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Exploration: spare ants prefer unvisited squares.
-        # Food, hill, and combat behavior matches iteration 5. The
-        # final fallback orders n, e, s, w by visit count so spare
-        # ants spread to unseen squares instead of looping.
+        # Flood: all hill attackers converge on one enemy hill.
+        # Food, defense, combat, and exploration match iteration 6.
+        # The flood hill is the enemy hill closest to any of my ants;
+        # every attacker steps toward it for a local majority.
         foods = ants.food()
         ants_list = ants.my_ants()
         pairs: list[tuple[int, int, int]] = []
@@ -39,6 +39,12 @@ class MyBot:
                 target[ai] = foods[fi]
                 claimed_food.add(fi)
         hills = [loc for loc, _ in ants.enemy_hills()]
+        flood_hill = None
+        if hills and ants_list:
+            flood_hill = min(
+                hills,
+                key=lambda h: min(ants.distance(a, h) for a in ants_list),
+            )
         my_hills = ants.my_hills()
         enemy_locs = [loc for loc, _ in ants.enemy_ants()]
         threatened = [
@@ -91,10 +97,13 @@ class MyBot:
                     # Assigned food is blocked; keep the claim so no other
                     # ant chases the same region this turn.
                     pass
-            if not moved and (threatened or hills):
-                # No food or blocked: guard home first, else hunt.
-                targets = threatened if threatened else hills
-                nearest = min(targets, key=lambda h: ants.distance(ant_loc, h))
+            if not moved and (threatened or flood_hill is not None):
+                # No food or blocked: guard home first, else flood one hill.
+                if threatened:
+                    nearest = min(threatened, key=lambda h: ants.distance(ant_loc, h))
+                else:
+                    assert flood_hill is not None
+                    nearest = flood_hill
                 for direction in ants.direction(ant_loc, nearest):
                     new_loc = ants.destination(ant_loc, direction)
                     if (
