@@ -41,7 +41,7 @@ row. Leave the old row as it was.
 | open | Hill defense: keep ants near your hills when the enemy is close. |
 | done | Combat: skip any step without a local majority in attack range. |
 | done | Exploration: order the fallback by least-visited square first. |
-| open | Flood: move a group of ants to one target. |
+| trying | Flood: move a group of ants to one target. |
 | open | Food denial: hold a contested food field. |
 | open | Opponent model: read the enemy target from the enemy moves. |
 | open | Endgame: hold most hills until the turn limit. |

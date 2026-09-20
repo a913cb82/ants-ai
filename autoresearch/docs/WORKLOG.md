@@ -94,3 +94,15 @@ Use this format.
 - what changed: The bot counts visits per square and orders the n-e-s-w fallback by least-visited first.
 - what you learned: Spreading went 5-0 in duels and beat two past champions in the 6p FFA; unvisited-first fallback finds food and hills faster and lifts lb from 40.66 to 43.82.
 - next: Flood — move a group of ants to one target.
+
+## 7 — flood one enemy hill with attackers (2026-09-20)
+- commit: a16039f
+- start: e830cd3 (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 49.64, sigma 3.92, lb 37.87
+- champion lb: 43.82
+- verdict: discard
+- games: 4-1, FFA ranks 5p:1 7p:1 8p:4
+- what changed: All hill attackers converge on the single enemy hill closest to any of my ants instead of each ant hunting its own nearest hill.
+- what you learned: Flooding won the 5p and 7p FFAs but ranked 4/8 in the 8p and lost a duel to HunterBot; piling every attacker onto one hill leaves other hills and food open, so lb fell from 43.82 to 37.87.
+- next: Food denial — hold a contested food field.
