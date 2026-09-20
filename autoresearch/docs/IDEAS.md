@@ -46,3 +46,9 @@ row. Leave the old row as it was.
 | open | Opponent model: read the enemy target from the enemy moves. |
 | open | Endgame: hold most hills until the turn limit. |
 | open | Time: use the turn time for search. |
+| trying | Bold pathfinding: BFS first step around water instead of greedy steps. |
+| open | Remembered hills: keep enemy hill targets across turns. |
+| open | Walk off hill: never end a turn on your own hill. |
+| open | Escape space: among safe moves pick the most open space. |
+| open | Aggressive combat: trade 1-for-1 when 14+ friends near the fight. |
+| open | Hill-first order: hunt hills before food. |
