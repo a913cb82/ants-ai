@@ -1,7 +1,7 @@
 """Smart matchmaking: random maps, most-informative fields.
 
 Information = close skill (high predict_draw) + high uncertainty (sigma).
-Usage: python league/matchmake.py [--n ...] [--play M] [--turns T]
+Usage: python league/matchmake.py [--players N] [--play M]
   (proposal only by default; --play runs games and logs them)
 """
 from __future__ import annotations
@@ -15,7 +15,8 @@ from pathlib import Path
 
 from openskill.models import BradleyTerryFull
 
-from pool import ROOT, DirtyTree, is_clean, pool as pool_ids
+from pool import (ROOT, WORKBASE, is_clean, pool as pool_ids,
+                  prune_worktrees)
 from play import play_match
 import ratings as R
 
@@ -62,22 +63,19 @@ def pick_map(rng: random.Random, maps_root: str | Path,
     return n, rng.choice(maps_for_players(maps_root, n))
 
 
-def info_score(model: BradleyTerryFull, combo: list[str],
-               ratings: dict) -> float:
+def info_score(model: BradleyTerryFull, combo: list[str], ratings: dict,
+               sigma_weight: float = 0.02) -> float:
     teams, sig = [], 0.0
     for bid in combo:
         e = R.for_id(ratings, bid)
         teams.append([model.rating(mu=e["mu"], sigma=e["sigma"])])
         sig += e["sigma"]
-    try:
-        draw = model.predict_draw(teams)
-    except Exception:
-        draw = 0.2
-    return draw + 0.02 * sig
+    return model.predict_draw(teams) + sigma_weight * sig
 
 
 def propose(model: BradleyTerryFull, candidates: list[str], ratings: dict,
-            n: int, rng: random.Random) -> list[str]:
+            n: int, rng: random.Random, eps: float = 0.2,
+            breadth: int = 3) -> list[str]:
     cands = sorted(candidates,
                    key=lambda k: (-R.for_id(ratings, k)["sigma"], rng.random()))
     field = [cands[0]]
@@ -85,8 +83,8 @@ def propose(model: BradleyTerryFull, candidates: list[str], ratings: dict,
     while len(field) < n and rest:
         scored = sorted(rest, key=lambda k: -info_score(model, field + [k],
                                                         ratings))
-        pick = (scored[0] if rng.random() < 0.8
-                else rng.choice(scored[:min(3, len(scored))]))
+        pick = (rng.choice(scored[:min(breadth, len(scored))])
+                if rng.random() < eps else scored[0])
         field.append(pick)
         rest = [c for c in rest if c != pick]
     return field
@@ -106,11 +104,19 @@ def read_log(path: str | Path) -> list[dict]:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--play", type=int, default=0)
-    ap.add_argument("--turns", type=int, default=100)
+    ap.add_argument("--turns", type=int, default=1000)
+    ap.add_argument("--turntime", type=int, default=1000)
+    ap.add_argument("--loadtime", type=int, default=3000)
     ap.add_argument("--players", type=int, default=None)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--games", default=str(GAMES_LOG))
     ap.add_argument("--ratings", default=str(RATINGS_PATH))
+    ap.add_argument("--log-dir", default=str(ROOT / "league" / "replays"))
+    ap.add_argument("--epsilon", type=float, default=0.2)
+    ap.add_argument("--breadth", type=int, default=3)
+    ap.add_argument("--sigma-weight", type=float, default=0.02)
+    ap.add_argument("--workbase", default=str(WORKBASE))
+    ap.add_argument("--max-worktree-gb", type=float, default=1.0)
     args = ap.parse_args(argv)
     model = new_model()
     ratings = R.load(args.ratings)
@@ -119,26 +125,26 @@ def main(argv=None) -> int:
     rng = random.Random(args.seed)
     if not args.play:
         n, m = pick_map(rng, MAPS_ROOT, args.players)
-        field = assign_positions(propose(model, cands, ratings, n, rng), rng)
+        field = assign_positions(
+            propose(model, cands, ratings, n, rng,
+                    eps=args.epsilon, breadth=args.breadth), rng)
         print(f"proposed {n}p on {m}: {' '.join(field)}", flush=True)
         return 0
-    import sys as _sys
     if not is_clean(ROOT):
-        print("bots/ is dirty; commit or stash before logged play",
-              file=_sys.stderr)
+        print("bot tree is dirty; commit or stash before logged play",
+              file=sys.stderr)
         return 2
-    last: tuple | None = None
+    prune_worktrees(args.workbase, int(args.max_worktree_gb * 1_000_000_000))
     for i in range(args.play):
         n, m = pick_map(rng, MAPS_ROOT, args.players)
-        field = propose(model, cands, ratings, n, rng)
-        if tuple(sorted(field)) == last:
-            field = propose(model, cands, ratings, n, rng)
-        last = tuple(sorted(field))
-        field = assign_positions(field, rng)
+        field = assign_positions(
+            propose(model, cands, ratings, n, rng,
+                    eps=args.epsilon, breadth=args.breadth), rng)
         pseed, eseed = rng.randrange(10 ** 9), rng.randrange(10 ** 9)
-        rec = play_match(ROOT, _sys.executable, field,
-                         f"tools/maps/{m}", args.turns, 1000, 3000,
-                         pseed, eseed, Path(args.games).parent / "replays")
+        rec = play_match(ROOT, sys.executable, field,
+                         f"tools/maps/{m}", args.turns, args.turntime,
+                         args.loadtime, pseed, eseed, args.log_dir,
+                         workbase=args.workbase)
         ratings = R.update(ratings, rec["field"], rec["result"])
         R.save(args.ratings, ratings)
         with open(args.games, "a") as fh:

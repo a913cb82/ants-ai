@@ -1,11 +1,14 @@
-"""Bot pool: <path>-<sha> identity, content-hash dedup, worktrees.
+"""Bot pool: *.bot manifest identity, directory-code dedup, worktrees.
 
-Historical bots play from git worktrees; the engine always stays at the
-workspace tip, so only bot code time-travels, never the rules.
+A bot is a manifest file: any *.bot file under bots/ is a bot, and its
+content is the startup command. Historical bots play from git worktrees;
+the engine always stays at the workspace tip, so only bot code
+time-travels, never the rules.
 """
 from __future__ import annotations
 
 import hashlib
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -18,11 +21,28 @@ class DirtyTree(Exception):
     logged play refuses dirty code: commit or stash first."""
 
 
+def bot_dirs(root: str | Path = ROOT, commit: str = "HEAD") -> set[str]:
+    """Directories holding a manifest at a commit."""
+    return {str(Path(b).parent) for b in bots_at(root, commit)}
+
+
 def is_clean(root: str | Path = ROOT) -> bool:
+    """Logged play needs committed code. Dirty = a manifest changed,
+    anything changed inside a bot dir, or a new untracked manifest
+    (an invisible bot). Everything else never blocks."""
     out = subprocess.run(["git", "-C", str(root), "status",
-                          "--porcelain", "--", "bots/"],
+                          "--porcelain", "--untracked-files=all"],
                          capture_output=True, text=True, check=True)
-    return out.stdout.strip() == ""
+    dirs = bot_dirs(root)
+    for line in out.stdout.splitlines():
+        if not line.strip():
+            continue
+        path = line[3:].split(" -> ")[-1]
+        if path.endswith(".bot"):
+            return False
+        if any(path == d or path.startswith(d + "/") for d in dirs):
+            return False
+    return True
 
 
 def bot_id(path: str, sha: str) -> str:
@@ -48,7 +68,7 @@ def all_commits(root: str | Path = ROOT) -> list[str]:
     seen: set[str] = set()
     commits = []
     for sha in _git(root, "log", "--all", "--format=%h", "--reverse",
-                    "--", "bots/").split():
+                    "--", "*.bot").split():
         if sha not in seen:
             seen.add(sha)
             commits.append(sha)
@@ -56,39 +76,29 @@ def all_commits(root: str | Path = ROOT) -> list[str]:
 
 
 def bots_at(root: str | Path, commit: str) -> list[str]:
-    """Bot dirs at a commit: dirs directly under bots/ holding .py files."""
+    """Every manifest in the repo at a commit. No manifest = not a bot,
+    wherever it would live."""
     try:
-        out = _git(root, "ls-tree", "-r", "--name-only", commit, "--", "bots/")
+        out = _git(root, "ls-tree", "-r", "--name-only", commit)
     except subprocess.CalledProcessError:
         return []
-    names = set()
-    for line in out.splitlines():
-        parts = line.split("/")
-        if len(parts) == 3 and (parts[2].endswith(".py")
-                                or parts[2].endswith(".py3")):
-            names.add(f"{parts[0]}/{parts[1]}")
-    return sorted(names)
+    return sorted(l for l in out.splitlines() if l.endswith(".bot"))
 
 
-def entry_file(root: str | Path, commit: str, botdir: str) -> Path:
-    """The runnable file: the single top-level .py that is not ants.py.
-    Resolved from the worktree checkout (same bytes git would list,
-    without a racy post-add ls-tree in the main repo)."""
-    wt = worktree(root, short(root, commit))
-    cands = sorted(p.name for p in (wt / botdir).glob("*.py*")
-                   if p.is_file() and p.suffix in (".py", ".py3")
-                   and p.name != "ants.py")
-    if len(cands) != 1:
-        raise ValueError(f"{botdir}@{commit}: want 1 entry, see {cands}")
-    return Path(botdir) / cands[0]
+def manifest_text(root: str | Path, commit: str, botfile: str) -> str:
+    return _git(root, "show", f"{commit}:{botfile}")
 
 
-def content_hash(root: str | Path, commit: str, botdir: str) -> str:
-    """sha1 over the bot dir's git blob shas. Identical code = one entry,
-    wherever it lived in history."""
-    out = _git(root, "ls-tree", "-r", commit, "--", f"{botdir}/")
+def content_hash(root: str | Path, commit: str, botfile: str) -> str:
+    """sha1 over every blob in the manifest's directory, plus the
+    manifest's own text. Same dir + same command = one entry; a
+    different command (or code) re-hashes; moved copies still dedupe."""
+    d = str(Path(botfile).parent)
+    out = _git(root, "ls-tree", "-r", commit, "--", f"{d}/")
     blobs = sorted(l.split()[2] for l in out.splitlines() if l.strip())
-    return hashlib.sha1("".join(blobs).encode()).hexdigest()[:10]
+    body = manifest_text(root, commit, botfile)
+    return hashlib.sha1(("\0".join(blobs) + "\0" + body).encode()
+                        ).hexdigest()[:10]
 
 
 def choose_canonical(specs: list[tuple[str, str]],
@@ -97,7 +107,7 @@ def choose_canonical(specs: list[tuple[str, str]],
     """Rated entry wins (most games); ties go to the oldest commit."""
     return sorted(specs,
                   key=lambda bs: (-games_of.get(bs, 0),
-                                  order.get(bs[1], 10 ** 9)))[0]
+                                  order[bs[1]]))[0]
 
 
 def pool(root: str | Path = ROOT, ratings: dict | None = None) -> list[str]:
@@ -110,37 +120,58 @@ def pool(root: str | Path = ROOT, ratings: dict | None = None) -> list[str]:
     for b in bots_at(root, "HEAD"):
         pairs.append((b, head))
     order = {sha: i for i, sha in enumerate(commits + [head])}
-    games_of = {(b.rsplit("-", 1)[0], b.rsplit("-", 1)[1]): e.get("games", 0)
-                for b, e in (ratings or {}).items()
-                if "-" in b}
+    games_of = {}
+    for bid, e in (ratings or {}).items():
+        games_of[parse_id(bid)] = e["games"]
     by_hash: dict[str, list[tuple[str, str]]] = {}
     for b, sha in pairs:
-        try:
-            h = content_hash(root, sha, b)
-        except subprocess.CalledProcessError:
-            continue
-        by_hash.setdefault(f"{b}@{h}", []).append((b, sha))
+        h = content_hash(root, sha, b)
+        by_hash.setdefault(h, []).append((b, sha))
     return sorted(bot_id(*choose_canonical(specs, games_of, order))
                   for specs in by_hash.values())
 
 
-def worktree(root: str | Path, sha: str) -> Path:
-    d = WORKBASE / f"antwork_{sha}"
-    if not (d / "bots").is_dir():
+def worktree(root: str | Path, sha: str,
+             workbase: str | Path = WORKBASE) -> Path:
+    d = Path(workbase) / f"antwork_{sha}"
+    if not (d / ".git").exists():
         subprocess.run(["git", "-C", str(root), "worktree", "add",
                         "--detach", str(d), sha],
                        check=True, capture_output=True)
-    # Validate the new admin dir before use (and warm up later reads).
     subprocess.run(["git", "-C", str(d), "rev-parse", "--verify",
                     "HEAD"], check=True, capture_output=True)
     return d
 
 
-def bot_cmd(root: str | Path, bid: str, python: str) -> tuple[str, str]:
-    """(interpreter, entry) as absolute paths. Absolute: the engine runs
-    each bot from its own dir, where relative paths do not resolve."""
-    from pathlib import Path as _P
+def bot_cmd(root: str | Path, bid: str,
+            workbase: str | Path = WORKBASE) -> str:
+    """The manifest's command, verbatim. Empty manifest is an error."""
     path, sha = parse_id(bid)
-    wt = worktree(root, sha)
-    entry = wt / entry_file(root, sha, path)
-    return (str(_P(python).resolve()), str(entry.resolve()))
+    cmd = (worktree(root, sha, workbase) / path).read_text().strip()
+    if not cmd:
+        raise ValueError(f"{bid}: empty command manifest")
+    return cmd
+
+
+def prune_worktrees(workbase: str | Path = WORKBASE,
+                    max_bytes: int = 1_000_000_000) -> int:
+    """Evict oldest worktrees while the cache exceeds max_bytes.
+    Returns bytes freed. Stale admin entries are pruned too."""
+    base = Path(workbase)
+    if not base.is_dir():
+        return 0
+    dirs = sorted([d for d in base.iterdir() if d.is_dir()],
+                  key=lambda d: d.stat().st_mtime)
+    sizes = {d: sum(p.stat().st_size for p in d.rglob("*") if p.is_file())
+             for d in dirs}
+    total = sum(sizes.values())
+    freed = 0
+    for d in dirs:
+        if total <= max_bytes:
+            break
+        shutil.rmtree(d)
+        freed += sizes[d]
+        total -= sizes[d]
+    subprocess.run(["git", "-C", str(ROOT), "worktree", "prune"],
+                   check=True, capture_output=True)
+    return freed

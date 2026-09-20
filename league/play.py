@@ -10,7 +10,7 @@ import json
 import subprocess
 from pathlib import Path
 
-from pool import ROOT, DirtyTree, bot_cmd, bot_id, is_clean, parse_id, short
+from pool import ROOT, WORKBASE, DirtyTree, bot_cmd, bot_id, is_clean, parse_id, short
 
 STATUS_ORDER = {"survived": 0, "eliminated": 1, "timeout": 2, "crashed": 3}
 
@@ -23,8 +23,7 @@ def parse_replay(path: str | Path) -> tuple[list, list]:
 def rank_slots(scores: list, statuses: list) -> list[int]:
     """Slots best-first: higher score wins, status breaks ties."""
     return sorted(range(len(scores)),
-                  key=lambda s: (-scores[s],
-                                 STATUS_ORDER.get(statuses[s], 5), s))
+                  key=lambda s: (-scores[s], STATUS_ORDER[statuses[s]], s))
 
 
 def resolve(field: list[str], root: str | Path = ROOT) -> list[str]:
@@ -40,15 +39,13 @@ def resolve(field: list[str], root: str | Path = ROOT) -> list[str]:
 def play_match(root: str | Path, python: str, field: list[str],
                map_rel: str, turns: int, turntime: int, loadtime: int,
                pseed: int, eseed: int, log_dir: str | Path,
-               timeout: int = 300) -> dict:
+               timeout: int = 300,
+               workbase: str | Path = WORKBASE) -> dict:
     root = Path(root)
     if not is_clean(root):
-        raise DirtyTree("bots/ is dirty; commit or stash before logged play")
+        raise DirtyTree("bot tree is dirty; commit or stash before logged play")
     ids = resolve(field, root)
-    cmds = []
-    for bid in ids:
-        py, entry = bot_cmd(root, bid, python)
-        cmds.append(f"{py} {entry}")
+    cmds = [bot_cmd(root, bid, workbase) for bid in ids]
     log_dir = Path(log_dir)
     log_dir.mkdir(parents=True, exist_ok=True)
     cmd = ([python, str(root / "tools" / "playgame.py"),

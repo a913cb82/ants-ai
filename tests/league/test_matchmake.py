@@ -62,3 +62,22 @@ def test_assign_positions_shuffles_but_keeps_set():
     from matchmake import assign_positions
     f = ["a", "b", "c", "d"]
     assert sorted(assign_positions(f, random.Random(3))) == f
+
+
+def test_prune_evicts_oldest_over_limit(tmp_path):
+    import os
+    import time as _t
+    from pool import prune_worktrees
+    base = tmp_path / "wb"
+    for name, size in (("old", 600), ("mid", 600), ("new", 600)):
+        d = base / name
+        d.mkdir(parents=True)
+        (d / "f").write_bytes(b"x" * size)
+    now = _t.time()
+    os.utime(base / "old", (now - 30, now - 30))
+    os.utime(base / "mid", (now - 20, now - 20))
+    os.utime(base / "new", (now - 10, now - 10))
+    freed = prune_worktrees(base, max_bytes=1500)
+    assert freed == 600
+    assert not (base / "old").exists()
+    assert (base / "mid").is_dir() and (base / "new").is_dir()
