@@ -1,8 +1,9 @@
 # Autoresearch
 
 `autoresearch/` runs a bot development loop. One agent improves one bot.
-Each iteration is one commit and one fixed set of games.
-The agent keeps a change when the rating improves.
+Each iteration makes a fresh bot entry: one commit, changed bot code,
+and one fixed set of games. The agent keeps a change when the rating
+improves.
 
 ## The loop
 
@@ -27,8 +28,8 @@ A second run of the same commit plays nothing.
 
 ## Why the design holds
 
-- Fixed budget per commit. A new commit is a new bot id. The bot cannot
-  gain more games, so the rating cannot be ground up.
+- Fixed budget per commit. Each iteration makes a fresh bot entry.
+  The bot cannot gain more games, so the rating cannot be ground up.
 - Honest selection. The harness picks the maps, slots, seeds, and
   opponents. The agent cannot pick easy games.
 - One mutable surface. The agent edits the bot and the notes only.

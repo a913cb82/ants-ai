@@ -35,6 +35,8 @@ You cannot edit:
 
 Rules:
 
+- Make a fresh bot entry each iteration. Change the bot code and commit it.
+  The harness counts games by bot id. An old entry cannot play again.
 - Use the Python standard library and the packages in the venv.
   Do not run pip.
 - One turn must finish in 1000 ms. A slow bot loses on time.
@@ -44,6 +46,8 @@ Rules:
 - Read the code of the other bots. Do not edit their code.
 
 ## One iteration
+
+Each iteration must run a fresh bot entry. Change the bot code first.
 
 1. Pick one idea from `autoresearch/docs/IDEAS.md` or from research.
 2. Start from the champion:

@@ -13,7 +13,8 @@ One iteration has 23 games for each candidate commit:
 | FFA | 7 | one map for each size 4, 5, 6, 7, 8, 9, 10 | 20 to 90 s each |
 | Total | 23 | all different in one iteration | about 5 to 8 min |
 
-- The candidate is a commit. A new commit is a new bot id.
+- The candidate is a fresh bot entry: a new commit with changed bot code.
+  A new commit is a new bot id.
 - A commit cannot play more than this budget. A second run plays nothing.
 - Every game goes to `league/games.jsonl` and updates `ratings.json`.
 
