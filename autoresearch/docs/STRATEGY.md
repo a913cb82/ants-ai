@@ -7,14 +7,15 @@ This file describes the current champion only. History lives in
 
 ## Current bot
 
-Iteration 4 (5478c43), the current champion, assigns food by global
-distance and guards home hills with spare ants. The bot sorts every
-ant-food pair by distance. It claims the closest unclaimed pair
+Iteration 5 (3fc5988), the current champion, assigns food by global
+distance, guards home hills, and refuses suicide moves. The bot sorts
+every ant-food pair by distance. It claims the closest unclaimed pair
 first, so the closest pairs win whatever the ant order. No two ants
 chase the same food region. Ants with no food claim step toward a
 home hill with a visible enemy within 10 steps, else the nearest
-visible enemy hill, else step n, e, s, w. Recorded score: mu 47.08,
-sigma 4.27, lb 34.28 (5 duels + 3 FFA).
+visible enemy hill, else step n, e, s, w. Every step needs a local
+majority (friends plus self outnumber enemies in attack range).
+Recorded score: mu 52.78, sigma 4.04, lb 40.66 (5 duels + 3 FFA).
 
 ## Good play
 

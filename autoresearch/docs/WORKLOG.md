@@ -70,3 +70,15 @@ Use this format.
 - what changed: Spare ants step toward a home hill with a visible enemy within 10 steps before hunting enemy hills.
 - what you learned: Guards swept all three FFAs 1/4, 1/6, 1/10 but lost 2 maze duels to HoldBot and LeftyBot; holding hills wins crowded games and lifts lb from 33.39 to 34.28.
 - next: Combat — do not move an ant into certain death.
+
+## 5 — combat avoid certain death (2026-09-20)
+- commit: 3fc5988
+- start: 5478c43 (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 52.78, sigma 4.04, lb 40.66
+- champion lb: 34.28
+- verdict: keep
+- games: 5-0, FFA ranks 4p:4 6p:1 10p:1
+- what changed: Every step needs a local majority (friends plus self outnumber enemies in attack range) or the ant holds instead of moving.
+- what you learned: Caution went 5-0 in duels and won the 6p and 10p FFAs against three past champions; refusing 1v1 trades lifts lb from 34.28 to 40.66 despite a last-place 4p game.
+- next: Exploration — send spare ants to unseen squares.

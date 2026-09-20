@@ -2,3 +2,4 @@
 {"date": "2026-09-20", "bot": "autoresearch/bot/main.bot-9031b00", "mu": 43.730116603520365, "sigma": 4.941019061138726, "lb": 28.907059420104186, "games": 8, "champion": null, "budget": "duels=5,ffa=3,turns=1000"}
 {"date": "2026-09-20", "bot": "autoresearch/bot/main.bot-81771a1", "mu": 46.09637935789262, "sigma": 4.234395358719071, "lb": 33.39319328173541, "games": 8, "champion": "autoresearch/bot/main.bot-9031b00", "budget": "duels=5,ffa=3,turns=1000"}
 {"date": "2026-09-20", "bot": "autoresearch/bot/main.bot-5478c43", "mu": 47.07532246214433, "sigma": 4.2654893291193305, "lb": 34.278854474786336, "games": 8, "champion": "autoresearch/bot/main.bot-81771a1", "budget": "duels=5,ffa=3,turns=1000"}
+{"date": "2026-09-20", "bot": "autoresearch/bot/main.bot-3fc5988", "mu": 52.78110122837786, "sigma": 4.0387230386852195, "lb": 40.6649321123222, "games": 8, "champion": "autoresearch/bot/main.bot-5478c43", "budget": "duels=5,ffa=3,turns=1000"}

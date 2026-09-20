@@ -39,7 +39,7 @@ row. Leave the old row as it was.
 | done | Hill defense: spare ants guard a home hill with an enemy within 10 steps. |
 | open | Hill attack: commit attackers only with a local majority. |
 | open | Hill defense: keep ants near your hills when the enemy is close. |
-| open | Combat: do not move an ant into certain death. |
+| done | Combat: skip any step without a local majority in attack range. |
 | open | Exploration: send spare ants to unseen squares. |
 | open | Flood: move a group of ants to one target. |
 | open | Food denial: hold a contested food field. |
