@@ -12,6 +12,7 @@ from random import (
     randrange,
     shuffle,
 )
+from typing import cast
 
 from map import LAND, MAP_RENDER, WATER, Map, defaultdict, sys
 
@@ -367,7 +368,7 @@ class CellMazeMap(Map):
             # list of water to remove when carving a passage between nodes
             # key is tuple of nearest starts (locations)
             # value is list of locations
-            paths = {}
+            paths: dict[tuple[int, ...], list[tuple[int, int]]] = {}
             #            mirror_points = {}
 
             # for each square, find closest starting points
@@ -649,7 +650,7 @@ class CellMazeMap(Map):
 
             # adjust braids until hill distances are within proper ranges
             min_count = max_count = valid_first_count = 0
-            valid_hills = []
+            valid_hills: list[tuple[int, list[int], float]] = []
             adjusted = False
             while valid_first_count == 0:
                 min_count = max_count = valid_first_count = 0
@@ -871,7 +872,7 @@ class CellMazeMap(Map):
 
             hill_count = None if self.hills is None else self.hills - 1
             while len(valid_hills) > 0:
-                if (hill_count is None and random() < 0.5) or hill_count > 0:
+                if (hill_count is None and random() < 0.5) or cast(int, hill_count) > 0:
                     comp = randrange(0, len(valid_hills))
                     comp, hill_dists, _ = valid_hills.pop(comp)
                     hills = sym_points[comp]
@@ -1029,7 +1030,7 @@ class CellMazeMap(Map):
 
             hill_count = None if self.hills is None else self.hills - 1
             while len(valid_hills) > 0:
-                if (hill_count is None and random() < 0.5) or hill_count > 0:
+                if (hill_count is None and random() < 0.5) or cast(int, hill_count) > 0:
                     comp = randrange(0, len(valid_hills))
                     comp, hill_dists, _ = valid_hills.pop(comp)
                     hills = sym_points[comp]

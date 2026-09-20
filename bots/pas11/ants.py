@@ -27,17 +27,18 @@ BEHIND = {"n": "s", "s": "n", "e": "w", "w": "e"}
 
 class Ants:
     def __init__(self):
-        self.cols = None
-        self.rows = None
-        self.map = None
-        self.hill_list = {}
-        self.ant_list = {}
-        self.dead_list = defaultdict(list)
-        self.food_list = []
+        self.cols = 0
+        self.rows = 0
+        self.map: list[list[int]] = []
+        self.hill_list: dict[tuple[int, int], int] = {}
+        self.ant_list: dict[tuple[int, int], int] = {}
+        self.dead_list: defaultdict[tuple[int, int], list[int]] = defaultdict(list)
+        self.food_list: list[tuple[int, int]] = []
         self.turntime = 0
         self.loadtime = 0
-        self.turn_start_time = None
-        self.vision = None
+        self.turn_start_time = 0.0
+        self.vision: list[list[bool]] = []
+        self.vision_offsets_2: list[tuple[int, int]] = []
         self.viewradius2 = 0
         self.attackradius2 = 0
         self.spawnradius2 = 0
@@ -76,7 +77,7 @@ class Ants:
         self.turn_start_time = time.perf_counter()
 
         # reset vision
-        self.vision = None
+        self.vision = []
 
         # clear hill, ant and food data
         self.hill_list = {}
@@ -215,8 +216,8 @@ class Ants:
     def visible(self, loc):
         "determine which squares are visible to the given player"
 
-        if self.vision is None:
-            if not hasattr(self, "vision_offsets_2"):
+        if not self.vision:
+            if not self.vision_offsets_2:
                 # precalculate squares around an ant to set as visible
                 self.vision_offsets_2 = []
                 mx = int(sqrt(self.viewradius2))
@@ -244,7 +245,7 @@ class Ants:
         "return a pretty string representing the map"
         tmp = ""
         for row in self.map:
-            tmp += "# {}\n".format("".join([MAP_RENDER[col] for col in row]))
+            tmp += f"# {''.join(MAP_RENDER[col] for col in row)}\n"
         return tmp
 
     # static methods are not tied to a class and don't have self passed in

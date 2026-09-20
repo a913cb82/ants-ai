@@ -3,6 +3,7 @@ import json
 import random
 import time
 import traceback
+from typing import Any
 
 from sandbox import get_sandbox
 
@@ -164,9 +165,9 @@ def run_game(game, botcmds, options):
             else:
                 simul_num = len(bots)
 
-            bot_moves = [[] for b in bots]
-            error_lines = [[] for b in bots]
-            statuses = [None for b in bots]
+            bot_moves: list[list[str]] = [[] for b in bots]
+            error_lines: list[list[str]] = [[] for b in bots]
+            statuses: list[str | None] = [None for b in bots]
             bot_list = [(b, bot) for b, bot in enumerate(bots) if game.is_alive(b)]
             random.shuffle(bot_list)
             for group_num in range(0, len(bot_list), simul_num):
@@ -344,6 +345,7 @@ def run_game(game, botcmds, options):
                 bot.kill()
             bot.release()
 
+    game_result: dict[str, Any]
     if error:
         game_result = {"error": error}
     else:
@@ -371,9 +373,9 @@ def run_game(game, botcmds, options):
 
 def get_moves(game, bots, bot_nums, time_limit, turn):
     bot_finished = [not game.is_alive(bot_nums[b]) for b in range(len(bots))]
-    bot_moves = [[] for b in bots]
-    error_lines = [[] for b in bots]
-    statuses = [None for b in bots]
+    bot_moves: list[list[str]] = [[] for b in bots]
+    error_lines: list[list[str]] = [[] for b in bots]
+    statuses: list[str | None] = [None for b in bots]
 
     # resume all bots
     for bot in bots:

@@ -7,6 +7,7 @@ from fractions import Fraction
 from math import sqrt
 from random import choice, randint, random, randrange, seed, shuffle
 from sys import maxsize as maxint
+from typing import Any, cast
 
 from game import Game
 
@@ -87,7 +88,9 @@ class Ants(Game):
         self.turn = 0
         self.num_players = map_data["num_players"]
 
-        self.current_ants = {}  # ants that are currently alive
+        self.current_ants: dict[
+            tuple[int, int], Ant
+        ] = {}  # ants that are currently alive
         self.killed_ants = []  # ants which were killed this turn
         self.all_ants = []  # all ants that have been created
 
@@ -181,7 +184,7 @@ class Ants(Game):
         self.init_vision()
 
         # the engine may kill players before the game starts and this is needed to prevent errors
-        self.orders = [[] for i in range(self.num_players)]
+        self.orders: list[list[Any]] = [[] for i in range(self.num_players)]
 
     def distance(self, a_loc, b_loc):
         """Returns distance between x and y squared"""
@@ -193,18 +196,19 @@ class Ants(Game):
 
     def parse_map(self, map_text):
         """Parse the map_text into a more friendly data structure"""
-        ant_list = None
-        hill_list = []
-        hill_count = defaultdict(int)
-        width = height = None
-        water = []
-        food = []
-        ants = defaultdict(list)
-        hills = defaultdict(list)
+        ant_list: list[str] | None = None
+        hill_list: list[str] = []
+        hill_count: defaultdict[int, int] = defaultdict(int)
+        width: int | None = None
+        height: int | None = None
+        water: list[tuple[int, int]] = []
+        food: list[tuple[int, int]] = []
+        ants: defaultdict[int, list[tuple[int, int]]] = defaultdict(list)
+        hills: defaultdict[int, list[tuple[int, int]]] = defaultdict(list)
         row = 0
-        score = None
-        hive = None
-        num_players = None
+        score: list[int] | None = None
+        hive: list[int] | None = None
+        num_players: int | None = None
 
         for line in map_text.split("\n"):
             line = line.strip()
@@ -268,7 +272,7 @@ class Ants(Game):
         if hive and len(hive) != num_players:
             raise Exception(
                 "map",
-                f"Incorrect score count.  Expected {num_players}, got {len(score)}",
+                f"Incorrect score count.  Expected {num_players}, got {len(cast(list[int], score))}",
             )
 
         if height != row:
@@ -553,10 +557,10 @@ class Ants(Game):
         row, col must be integers
         direction must be in (n,s,e,w)
         """
-        orders = []
-        valid = []
-        ignored = []
-        invalid = []
+        orders: list[tuple[tuple[int, int], str]] = []
+        valid: list[str] = []
+        ignored: list[tuple[str, str]] = []
+        invalid: list[tuple[str, str]] = []
 
         for line in lines:
             line = line.strip().lower()
@@ -837,7 +841,7 @@ class Ants(Game):
         Damage does not accumulate over turns
           (ie, ants heal at the end of the battle).
         """
-        damage = defaultdict(Fraction)
+        damage: defaultdict[Any, Fraction] = defaultdict(Fraction)
         nearby_enemies = {}
 
         # each ant damages nearby enemies
@@ -965,9 +969,9 @@ class Ants(Game):
 
     def access_map(self):
         """Determine the list of locations that each player is closest to"""
-        distances = {}
-        players = defaultdict(set)
-        square_queue = deque()
+        distances: dict[tuple[int, int], int | None] = {}
+        players: defaultdict[Any, set[Any]] = defaultdict(set)
+        square_queue: deque[tuple[int, int]] = deque()
 
         # determine the starting squares and valid squares
         # (where food can be placed)
@@ -984,6 +988,8 @@ class Ants(Game):
         # use bfs to determine who can reach each square first
         while square_queue:
             c_loc = square_queue.popleft()
+            c_dist = distances[c_loc]
+            assert c_dist is not None  # queued squares have a known distance
             for d in AIM.values():
                 n_loc = self.destination(c_loc, d)
                 if n_loc not in distances:
@@ -991,10 +997,10 @@ class Ants(Game):
 
                 if distances[n_loc] is None:
                     # first visit to this square
-                    distances[n_loc] = distances[c_loc] + 1
+                    distances[n_loc] = c_dist + 1
                     players[n_loc].update(players[c_loc])
                     square_queue.append(n_loc)
-                elif distances[n_loc] == distances[c_loc] + 1:
+                elif distances[n_loc] == c_dist + 1:
                     # we've seen this square before, but the distance is
                     # the same - therefore combine the players that can
                     # reach this square
@@ -1186,7 +1192,7 @@ class Ants(Game):
         """find if map is similar given loc1 aim of 0 and loc2 ant of player
         return a map of translated enemy locations
         """
-        enemy_map = {}
+        enemy_map: dict[int, int] = {}
         for row in range(self.height):
             for col in range(self.width):
                 row0, col0 = self.destination(loc1, (row, col))
@@ -1276,9 +1282,9 @@ class Ants(Game):
 
         flood fill from each starting hill up to the vision radius
         """
-        vision_squares = {}
+        vision_squares: dict[tuple[int, int], bool] = {}
         for hill in self.hills.values():
-            squares = deque()
+            squares: deque[tuple[int, int]] = deque()
             squares.append(hill.loc)
             while squares:
                 c_loc = squares.popleft()
@@ -1491,7 +1497,9 @@ class Ants(Game):
         self.turn += 1
         self.killed_ants = []
         self.revealed_water = [[] for _ in range(self.num_players)]
-        self.removed_food = [[] for _ in range(self.num_players)]
+        self.removed_food: list[list[tuple[int, int]]] = [
+            [] for _ in range(self.num_players)
+        ]
         self.orders = [[] for _ in range(self.num_players)]
         self.hill_kill = False  # used to stall cutoff counter
 
@@ -1537,7 +1545,7 @@ class Ants(Game):
 
         # calculate population counts for stopping games early
         # FOOD can end the game as well, since no one is gathering it
-        pop_count = defaultdict(int)
+        pop_count: defaultdict[Any, int] = defaultdict(int)
         for ant in self.current_ants.values():
             pop_count[ant.owner] += 1
         for owner in self.remaining_hills():
@@ -1674,7 +1682,7 @@ class Ants(Game):
         ant_count = [0 for _ in range(self.num_players + 1)]
         for ant in self.current_ants.values():
             ant_count[ant.owner] += 1
-        stats = {}
+        stats: dict[str, Any] = {}
         stats["ant_count"] = ant_count
         stats["food"] = len(self.current_food)
         stats["cutoff"] = (
@@ -1748,7 +1756,7 @@ class Ants(Game):
         Used by the engine to create a replay file which may be used
           to replay the game.
         """
-        replay = {}
+        replay: dict[str, Any] = {}
         # required params
         replay["revision"] = 3
         replay["players"] = self.num_players

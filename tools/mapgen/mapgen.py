@@ -31,6 +31,9 @@ def lcm(a, b):
 
 # map class
 class Grid:
+    symmetry: str
+    no_hills: int
+
     # sets up a grid with valid parameters for tile symmetry
     def tile_symmetric_grid(
         self,

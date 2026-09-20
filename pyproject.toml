@@ -43,9 +43,3 @@ no_implicit_optional = true
 warn_redundant_casts = true
 warn_unused_ignores = true
 show_error_codes = true
-
-# The engine and the reference bots are untyped upstream code. Check
-# the annotated functions there, but not the untyped bodies.
-[[tool.mypy.overrides]]
-module = ["tools.*", "bots.*"]
-check_untyped_defs = false

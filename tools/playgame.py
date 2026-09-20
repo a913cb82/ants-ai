@@ -453,7 +453,7 @@ def main(argv):
 def run_rounds(opts, args):
     def get_cmd_wd(cmd, exec_rel_cwd=False):
         """get the proper working directory from a command line"""
-        new_cmd = []
+        new_cmd: list[str] = []
         wd = None
         for i, part in reversed(list(enumerate(cmd.split()))):
             if wd is None and os.path.exists(part):
