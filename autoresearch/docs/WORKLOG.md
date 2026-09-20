@@ -250,3 +250,15 @@ Use this format.
 - what changed: Battling as Grazer in Grazer.bot + Grazer.py; hill-mission ants step to unclaimed food within 3 squares, mission kept.
 - what you learned: Detours won duels 4-1 and the small FFAs but ranked 8/10 behind every past self; one-off snacks dither marches into wandering, worse than ignoring the food, so lb fell from 52.15 to 26.76.
 - next: Stale missions — re-bid food when a new claim is 5+ closer.
+
+## 20 — stale missions re-bid on big gains (2026-09-21)
+- commit: 9eea381
+- start: 3a1dd60 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 41.26, sigma 3.74, lb 30.03
+- champion lb: 52.15
+- verdict: drop the missions line (bold 3 of 3)
+- games: 4-1, FFA ranks 5p:1 7p:4 8p:4
+- what changed: Battling as Goldilocks in Goldilocks.bot + Goldilocks.py; no detour, but food missions re-bid when an unclaimed food is 5+ closer.
+- what you learned: Hysteresis went 4-1 but lost to its parent Grazer and placed 4/7 and 4/8; three strikes (33.58, 26.76, 30.03) prove stateful assignment loses to greedy re-bidding at this strength, so the line is dropped.
+- next: BOLD — new line, research first (border missions candidate).
