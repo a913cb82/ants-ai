@@ -142,3 +142,15 @@ Use this format.
 - what changed: Battling as Elephant in Elephant.py; sighted enemy hills persist until one of my ants stands on them, so attackers march through fog.
 - what you learned: Memory won the 5p and a 7p stacked with four past selves but lost a duel to RandomBot and ranked 4/8 behind the champion; marching on stale hills wastes attackers when the fog hides the real fight.
 - next: Walk off hill — never end a turn on your own hill (plus .bot filename sync).
+
+## 11 — walk off own hill to keep spawn open (2026-09-20)
+- commit: 858bf3b
+- start: bb19f16 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 56.08, sigma 4.02, lb 44.03
+- champion lb: 43.82
+- verdict: keep (bold 3 of 3, line wins)
+- games: 5-0, FFA ranks 4p:1 6p:1 10p:2
+- what changed: Battling as NoCamping in NoCamping.bot + NoCamping.py; any ant still holding on a home hill after the main pass steps off s-e-w-n so the hill stays open for spawning.
+- what you learned: Open hills swept duels 5-0 and both small FFAs and took 2nd in a GreedyBot-led 10p; the bold line (pathfinding, memory, walk-off) lifts lb from 43.82 to 44.03 and takes the crown.
+- next: Escape space — among safe moves pick the most open space.
