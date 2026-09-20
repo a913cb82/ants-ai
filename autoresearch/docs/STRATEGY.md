@@ -7,14 +7,14 @@ This file describes the current champion only. History lives in
 
 ## Current bot
 
-Iteration 2 (9031b00), the current champion, assigns food by global
-distance. The bot sorts every ant-food pair by distance. It claims the
-closest unclaimed pair first, so the closest pairs win whatever the
-ant order. No two ants chase the same food region. Movement matches
-iteration 1: step toward the assigned food and avoid a used
-destination, else step n, e, s, w. The bot ignores hills and the
-enemy. Recorded score: mu 43.73, sigma 4.94, lb 28.91 (baseline,
-5 duels + 3 FFA).
+Iteration 3 (81771a1), the current champion, assigns food by global
+distance and hunts hills with spare ants. The bot sorts every
+ant-food pair by distance. It claims the closest unclaimed pair
+first, so the closest pairs win whatever the ant order. No two ants
+chase the same food region. Ants with no food claim step toward the
+nearest visible enemy hill and avoid a used destination, else step n,
+e, s, w. The bot ignores defense and the enemy. Recorded score:
+mu 46.10, sigma 4.23, lb 33.39 (5 duels + 3 FFA).
 
 ## Good play
 

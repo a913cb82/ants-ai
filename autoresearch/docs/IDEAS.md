@@ -35,7 +35,8 @@ row. Leave the old row as it was.
 | done | Closest food: each ant moves to the nearest visible food. |
 | done | Collision: one ant per food and one ant per destination square. |
 | done | Collision: assign food by global ant-food distance, closest first. |
-| open | Hill attack: attack an enemy hill with a local majority. |
+| done | Hill attack: spare ants step toward the nearest visible enemy hill. |
+| open | Hill attack: commit attackers only with a local majority. |
 | open | Hill defense: keep ants near your hills when the enemy is close. |
 | open | Combat: do not move an ant into certain death. |
 | open | Exploration: send spare ants to unseen squares. |

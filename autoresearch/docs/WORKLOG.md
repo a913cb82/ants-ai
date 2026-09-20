@@ -46,3 +46,15 @@ Use this format.
 - what changed: Sort all ant-food pairs by distance and claim greedily so the closest pairs win regardless of ant order.
 - what you learned: Global assignment went 5-0 in duels and ranked 1/4, 2/6, 3/10 in FFA; exclusive claims beat per-ant greedy order on the new 5+3 budget and set lb 28.91 as baseline.
 - next: Hill attack — attack an enemy hill with a local majority.
+
+## 3 — hill attack with spare ants (2026-09-20)
+- commit: 81771a1
+- start: 9031b00 (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 46.10, sigma 4.23, lb 33.39
+- champion lb: 28.91
+- verdict: keep
+- games: 5-0, FFA ranks 5p:4 7p:1 8p:2
+- what changed: Ants with no food claim step toward the nearest visible enemy hill before the n-e-s-w fallback.
+- what you learned: Spare-ant hill hunting went 5-0 in duels and won the 7p FFA; unclaimed ants raze hills instead of walking n-e-s-w and lift lb from 28.91 to 33.39.
+- next: Hill defense — keep ants near your hills when the enemy is close.
