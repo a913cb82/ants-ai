@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class NoCamping:
+class Houdini:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -25,11 +25,11 @@ class NoCamping:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Walk off hill: never end a turn sitting on your own hill.
-        # Battling as NoCamping. Memory, movement, combat, and
-        # exploration match iteration 10. After the main pass, any
-        # ant still holding on a home hill steps off so the hill
-        # stays open for spawning.
+        # Escape space: spare ants run to open ground, not caves.
+        # Battling as Houdini. Memory, movement, combat, and walk-off
+        # match iteration 11. The fallback ranks safe exits by the
+        # space behind them (BFS 8, close tiles weigh most, friends
+        # x3, enemies x-3), least-visited squares break ties.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -79,6 +79,37 @@ class NoCamping:
                 if f != self_loc and sq_dist(nloc, f) <= attack_r2:
                     friends += 1
             return friends + 1 > enemies
+
+        enemy_set = set(enemy_locs)
+
+        def escape_values(ant_loc: tuple[int, int]) -> dict[str, float]:
+            # Open space behind each first step.
+            vals = {"n": 0.0, "e": 0.0, "s": 0.0, "w": 0.0}
+            dist: dict[tuple[int, int], int] = {ant_loc: 0}
+            first: dict[tuple[int, int], set[str]] = {ant_loc: set()}
+            queue: deque[tuple[int, int]] = deque([ant_loc])
+            while queue:
+                cur = queue.popleft()
+                dcur = dist[cur]
+                if dcur >= 8:
+                    continue
+                for m in ("n", "e", "s", "w"):
+                    nxt = ants.destination(cur, m)
+                    if nxt in dist or not ants.passable(nxt):
+                        continue
+                    dist[nxt] = dcur + 1
+                    fm = {m} if cur == ant_loc else first[cur]
+                    first[nxt] = fm
+                    w = float(9 - (dcur + 1))
+                    if nxt in my_set:
+                        w *= 3.0
+                    elif nxt in enemy_set:
+                        w *= -3.0
+                    share = w / len(fm)
+                    for f in fm:
+                        vals[f] += share
+                    queue.append(nxt)
+            return vals
 
         def first_step(
             start: tuple[int, int], goal: tuple[int, int], budget: int = 250
@@ -144,10 +175,14 @@ class NoCamping:
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved:
-                # No hill move: explore least-visited squares first.
+                # No hill move: most open space first, visits break ties.
+                space = escape_values(ant_loc)
                 dirs = sorted(
                     ("n", "e", "s", "w"),
-                    key=lambda d: self.visits.get(ants.destination(ant_loc, d), 0),
+                    key=lambda d: (
+                        -space[d],
+                        self.visits.get(ants.destination(ant_loc, d), 0),
+                    ),
                 )
                 for direction in dirs:
                     new_loc = ants.destination(ant_loc, direction)
@@ -188,6 +223,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(NoCamping())
+        Ants.run(Houdini())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
