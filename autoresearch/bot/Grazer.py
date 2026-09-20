@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Steward:
+class Grazer:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -29,11 +29,11 @@ class Steward:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Standing orders: ants keep targets across turns.
-        # Battling as Steward. Headings, memory, aggression, walk-off,
-        # and exploration match iteration 15. Each ant holds its food
-        # or hill mission until the target is gone; only missionless
-        # ants bid, so equidistant targets stop swapping every turn.
+        # Mission detour: hill ants grab nearby food en route.
+        # Battling as Grazer. Missions, headings, memory, aggression,
+        # walk-off, and exploration match iteration 18. A hill-mission
+        # ant steps to unclaimed food within 3 squares without losing
+        # its mission, so marches never walk past food.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -220,6 +220,21 @@ class Steward:
                 if step is not None and try_step(ant_loc, step):
                     moved = True
                 # else keep the mission; the claim persists.
+            if not moved and kind_loc is not None and kind_loc[0] == "hill":
+                # Detour: unclaimed food within 3 squares, mission kept.
+                snack = None
+                snack_d = 4
+                for f in foods:
+                    if f in taken_food:
+                        continue
+                    d = ants.distance(ant_loc, f)
+                    if d < snack_d:
+                        snack_d = d
+                        snack = f
+                if snack is not None:
+                    step = first_step(ant_loc, snack)
+                    if step is not None and try_step(ant_loc, step):
+                        moved = True
             if not moved:
                 hill_goal = None
                 if kind_loc is not None and kind_loc[0] == "hill":
@@ -277,6 +292,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Steward())
+        Ants.run(Grazer())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
