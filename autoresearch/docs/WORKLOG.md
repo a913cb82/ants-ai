@@ -238,3 +238,15 @@ Use this format.
 - what changed: Battling as Steward in Steward.bot + Steward.py; ants hold food and hill missions across turns with proximity handoff, only missionless ants bid.
 - what you learned: Missions swept duels and won the 4p and 10p but finished 6/6 behind weak old selves; hill-mission ants march past fresh food, breaking food-first economy, so lb fell from 52.15 to 33.58.
 - next: Mission detour — hill ants grab food within 3 steps without losing missions.
+
+## 19 — mission detour to nearby food (2026-09-20)
+- commit: 3a1dd60
+- start: 7edaf62 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 38.14, sigma 3.79, lb 26.76
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 4-1, FFA ranks 4p:1 6p:1 10p:8
+- what changed: Battling as Grazer in Grazer.bot + Grazer.py; hill-mission ants step to unclaimed food within 3 squares, mission kept.
+- what you learned: Detours won duels 4-1 and the small FFAs but ranked 8/10 behind every past self; one-off snacks dither marches into wandering, worse than ignoring the food, so lb fell from 52.15 to 26.76.
+- next: Stale missions — re-bid food when a new claim is 5+ closer.

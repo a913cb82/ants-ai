@@ -53,3 +53,4 @@ row. Leave the old row as it was.
 | done | Aggressive combat: trade 1-for-1 when 14+ friends near the fight. |
 | trying | Hill-first order: hunt hills before food. |
 | trying | Standing orders: ants keep targets across turns. |
+| trying | Mission detour: hill ants grab food within 3 steps. |
