@@ -15,9 +15,10 @@ score improves.
 5. Commit.
 6. Play the budget: 5 duels and 3 FFA games.
 7. The harness records the score in `docs/PROGRESS.jsonl`. Keep the
-   commit if the new score beats the champion score.
-8. Log the result. Push both branches:
-   `git push origin autoresearch/main main`. Repeat.
+   commit if the new score beats the champion score for the current
+   budget.
+8. Log the result. Push your branch:
+   `git push origin autoresearch/main`. Repeat.
 
 The operating instructions are in `docs/PROGRAM.md`. Start there.
 
@@ -38,22 +39,26 @@ part-way plays the games that remain.
 
 The score is the snapshot `mu - 3 * sigma` at the end of the budget.
 The harness writes one JSON line for each completed iteration to
-`docs/PROGRESS.jsonl`. Every fresh bot gets the same games, so the
-comparison is fair. A bot keeps playing after its iteration, but the
-recorded score does not move. The champion is the best recorded score.
+`docs/PROGRESS.jsonl`. Every fresh bot gets 8 games, 5 duels and
+3 FFA, against fairly chosen opponents, so the comparison is fair.
+A bot keeps playing after its iteration, but the recorded score does
+not move. The champion is the best recorded score for the current
+budget. The file is append-only; rows from an older budget stay and
+are ignored.
 
 ## Why the design holds
 
 - Fixed budget per commit. Each iteration makes a fresh bot entry.
   The bot cannot gain more games, so the rating cannot be ground up.
-- Recorded scores. The harness compares each bot after the same 8
-  games, not against a live rating that keeps changing.
+- Recorded scores. The harness compares each bot after its fixed
+  8-game budget, not against a live rating that keeps changing.
 - Honest selection. The harness picks the maps, slots, seeds, and
   opponents. The agent cannot pick easy games.
 - One mutable surface. The agent edits the bot and the notes only.
   The engine must match `main`. The league and the harness stay fixed.
-- Remote sync. The loop pushes `main` and `autoresearch/main` after
-  each log commit, so the remotes carry every recorded score.
+- Remote sync. The loop pushes `autoresearch/main` after each log
+  commit, so the remote carries every recorded score. `main` is
+  maintained outside the loop.
 - Bold cadence. Two failures in a row force a different approach.
   A bold line gets at least 3 iterations before judgement.
 

@@ -29,7 +29,11 @@ One iteration has 8 games for each candidate commit:
 The score is the snapshot `lb = mu - 3 * sigma` at the end of the
 budget. The model is OpenSkill BradleyTerryFull. A high score is good.
 The harness appends the score to `autoresearch/docs/PROGRESS.jsonl` and
-never changes that line. The champion is the best recorded score.
+never changes that line. The file is append-only. The champion is the
+best recorded score for the current budget.
+
+The harness prints the candidate's live `mu`, `sigma`, and `lb` after
+each game, then the recorded score at the end.
 
 A bot keeps playing after its iteration, so its live rating moves.
 Compare recorded scores, not live ratings.
@@ -48,6 +52,10 @@ iteration. The object has these keys:
 | `lb` | `mu - 3 * sigma` |
 | `games` | the number of games in the budget |
 | `champion` | the best bot id before this line, or `null` |
+| `budget` | the budget tag (`duels=5,ffa=3,turns=1000`) |
+
+Rows with an older `budget` stay in the file and are ignored for the
+champion.
 
 ## Result order
 
@@ -88,9 +96,10 @@ Branch `main` must be an ancestor of `HEAD`. The iteration fails when
 it is not. Merge `main` into `autoresearch/main` at the start of each
 iteration.
 
-The loop pushes both branches after the log commit:
-`git push origin autoresearch/main main`. A failed push keeps the
-commits in place and is retried at the next log commit.
+The loop pushes its own branch after the log commit:
+`git push origin autoresearch/main`. The loop never pushes `main`
+(which it only merges in) and never pushes tags. A failed push keeps
+the commits in place and is retried at the next log commit.
 
 ## Commands
 
@@ -102,13 +111,13 @@ commits in place and is retried at the next log commit.
 .venv/bin/python league/board.py
 
 # push the iteration (after the log commit)
-git push origin autoresearch/main main
+git push origin autoresearch/main
 ```
 
 ## Replays
 
 Each game writes `autoresearch/runs/<sha>/<phase>_<n>/0.replay`.
 The harness removes the oldest replays when the store is larger than
-`--max-replay-gb` (0.5 GB). It keeps the replays of the current
+`--max-replay-gb` (5 GB). It keeps the replays of the current
 candidate. The harness removes the oldest worktrees when the store is
 larger than `--max-worktree-gb` (1.0 GB).

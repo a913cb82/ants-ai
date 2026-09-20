@@ -74,6 +74,10 @@ EPSILON = 0.2
 BREADTH = 3
 SIGMA_WEIGHT = 0.02
 
+# One tag for one budget. PROGRESS.jsonl is append-only; rows with an
+# older tag stay in the file and are ignored for the champion.
+BUDGET = f"duels={DUELS},ffa={len(FFA_SETS[0])},turns={TURNS}"
+
 
 def candidate_id(root: str | Path, botfile: str, rev: str | None = None) -> str:
     """The bot id a manifest has. Default rev: the newest commit that
@@ -215,6 +219,7 @@ def read_progress(path: str | Path | None = None) -> list[dict]:
                     "lb": float(row["lb"]),
                     "games": int(row["games"]),
                     "champion": row["champion"],
+                    "budget": row.get("budget"),
                 }
             )
         except (json.JSONDecodeError, KeyError, TypeError, ValueError):
@@ -234,7 +239,8 @@ def record_report(
     The prior champion is the best recorded score before this run."""
     p = Path(path) if path is not None else PROGRESS
     rows = read_progress(p)
-    prior = max(rows, key=lambda r: r["lb"]) if rows else None
+    same = [r for r in rows if r["budget"] == BUDGET]
+    prior = max(same, key=lambda r: r["lb"]) if same else None
     for r in rows:
         if r["bot"] == bid:
             return r, prior, False
@@ -246,6 +252,7 @@ def record_report(
         "lb": lb,
         "games": games,
         "champion": prior["bot"] if prior else None,
+        "budget": BUDGET,
     }
     p.parent.mkdir(parents=True, exist_ok=True)
     with open(p, "a") as fh:
@@ -302,7 +309,7 @@ def main(argv=None) -> int:
     ap.add_argument("--runs", default=str(RUNS))
     ap.add_argument("--workbase", default=str(WORKBASE))
     ap.add_argument("--max-worktree-gb", type=float, default=1.0)
-    ap.add_argument("--max-replay-gb", type=float, default=0.5)
+    ap.add_argument("--max-replay-gb", type=float, default=5.0)
     args = ap.parse_args(argv)
 
     root = ROOT
@@ -321,11 +328,7 @@ def main(argv=None) -> int:
     ratings = R.rebuild(records)
     R.save(RATINGS_PATH, ratings)
     done = counts(records, bid)
-    mu, sigma, lb = score(ratings, bid)
     print(f"candidate {bid}", flush=True)
-    ffa = " ".join(f"{n}p {min(done['ffa'].get(n, 0), 1)}/1" for n in ffa_sizes)
-    print(f"duels {done['duels']}/{DUELS}  ffa {ffa}", flush=True)
-    print(f"mu {mu:.1f}  sigma {sigma:.2f}  lb {lb:.1f}", flush=True)
 
     duels_left, sizes_left = planned(records, bid, DUELS, ffa_sizes)
 
@@ -370,9 +373,11 @@ def main(argv=None) -> int:
                 R.save(RATINGS_PATH, ratings)
                 rank = rec["result"].index(bid) + 1
                 outcome = "WIN" if rank == 1 else "LOSS"
+                mu, sigma, lb = score(ratings, bid)
                 print(
                     f"duel {done['duels']}/{DUELS} "
-                    f"{Path(map_rel).name} {result_line(rec, bid)} -> {outcome}",
+                    f"{Path(map_rel).name} {result_line(rec, bid)} -> {outcome}"
+                    f"  cand mu {mu:.1f} sigma {sigma:.2f} lb {lb:.1f}",
                     flush=True,
                 )
 
@@ -405,9 +410,10 @@ def main(argv=None) -> int:
             ratings = R.update(ratings, rec["field"], rec["result"])
             R.save(RATINGS_PATH, ratings)
             rank = rec["result"].index(bid) + 1
+            mu, sigma, lb = score(ratings, bid)
             print(
                 f"ffa {n}p {Path(map_rel).name} {result_line(rec, bid)} "
-                f"-> rank {rank}/{n}",
+                f"-> rank {rank}/{n}  cand mu {mu:.1f} sigma {sigma:.2f} lb {lb:.1f}",
                 flush=True,
             )
 
@@ -421,7 +427,7 @@ def main(argv=None) -> int:
             f"recorded earlier; best is {best['bot']} lb {best['lb']:.1f}", flush=True
         )
     elif prior is None:
-        print("report: first recorded score (baseline)", flush=True)
+        print("report: first recorded score for this budget (baseline)", flush=True)
     elif lb > prior["lb"]:
         print(f"report: beats champion {prior['bot']} lb {prior['lb']:.1f}", flush=True)
     else:
