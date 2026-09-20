@@ -1,6 +1,7 @@
 # AntsAI
 
 This repo plays the Ants game from the 2011 AI Challenge.
+See http://ants.aichallenge.org/ for the source game.
 It holds the game engine and two Python bots.
 The engine runs a match and records a replay.
 
