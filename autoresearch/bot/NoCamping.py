@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Elephant:
+class NoCamping:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -25,11 +25,11 @@ class Elephant:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Remembered hills: enemy hills persist across turns.
-        # Battling as Elephant. Movement, assignment, combat, and
-        # exploration match iteration 9. Sighted hills are never
-        # forgotten until one of my ants stands on them, so attackers
-        # march through fog instead of waiting to see a hill again.
+        # Walk off hill: never end a turn sitting on your own hill.
+        # Battling as NoCamping. Memory, movement, combat, and
+        # exploration match iteration 10. After the main pass, any
+        # ant still holding on a home hill steps off so the hill
+        # stays open for spawning.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -123,6 +123,7 @@ class Elephant:
             return False
 
         destinations: set[tuple[int, int]] = set()
+        held: list[tuple[int, int]] = []
         for ai, ant_loc in enumerate(ants_list):
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
             best = target.get(ai)
@@ -158,10 +159,20 @@ class Elephant:
                     ):
                         ants.issue_order((ant_loc, direction))
                         destinations.add(new_loc)
+                        moved = True
                         break
+            if not moved:
+                held.append(ant_loc)
             # check if we still have time left to calculate more orders
             if ants.time_remaining() < 10:
                 break
+        # Walk off hill: a held ant on a home hill must step off.
+        hill_set = set(my_hills)
+        for ant_loc in held:
+            if ant_loc in hill_set and ants.time_remaining() >= 10:
+                for direction in ("s", "e", "w", "n"):
+                    if try_step(ant_loc, direction):
+                        break
 
 
 if __name__ == "__main__":
@@ -177,6 +188,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Elephant())
+        Ants.run(NoCamping())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
