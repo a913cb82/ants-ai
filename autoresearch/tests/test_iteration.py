@@ -187,6 +187,18 @@ def test_progress_skips_bad_lines(tmp_path):
     assert [r["bot"] for r in rows] == ["good"]
 
 
+def test_prior_champion_only_counts_the_same_budget(tmp_path, monkeypatch):
+    import iteration
+
+    p = tmp_path / "PROGRESS.jsonl"
+    monkeypatch.setattr(iteration, "BUDGET", "old")
+    iteration.record_report("old-1", 40.0, 1.0, 37.0, 8, path=p)
+    monkeypatch.setattr(iteration, "BUDGET", "new")
+    row, prior, appended = iteration.record_report("new-2", 30.0, 5.0, 15.0, 8, path=p)
+    assert appended and prior is None
+    assert row["budget"] == "new"
+
+
 def test_budget_flags_are_gone():
     from iteration import main
 
