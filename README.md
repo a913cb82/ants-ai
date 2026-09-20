@@ -2,16 +2,14 @@
 
 This repo plays the Ants game from the 2011 AI Challenge.
 See http://ants.aichallenge.org/ for the source game.
-It holds the game engine and two Python bots.
+It holds the game engine and bots.
 The engine runs a match and records a replay.
 
 ## Layout
 
 - `tools/` holds the upstream engine. Treat it as read-only. Never edit files here.
-- `bots/pas11/` holds the Pas11 bot with its `ants.py`. It runs stand-alone.
-- `bots/py3_starter/` holds the Python 3 starter bot with its `ants.py`. It runs stand-alone.
+- `bots/` holds one dir per bot. Each bot dir runs stand-alone. The engine runs each bot from its own dir.
 - `vendor/` holds the source archives.
-- Each dir under `bots/` is stand-alone. Each dir has all files the engine needs.
 
 ## Requirements
 
@@ -20,22 +18,12 @@ The engine runs a match and records a replay.
 
 ## Use
 
-1. Run the engine with a map, two bot commands, and a replay dir outside `tools/`.
+1. Run the engine with a map, one bot command per player, and a replay dir outside `tools/`.
 2. Open the replay in the visualizer.
 
 ## Example
 
-Record one game between two copies of the starter bot:
-
-```sh
-python3 tools/playgame.py \
-  --map_file tools/maps/example/tutorial1.map \
-  --nolaunch --turns 100 --log_dir replays \
-  "python3 bots/py3_starter/MyBot.py3" \
-  "python3 bots/py3_starter/MyBot.py3"
-```
-
-Open the replay in the visualizer:
+Play one game between two copies of the starter bot with this command:
 
 ```sh
 python3 tools/playgame.py \
@@ -45,6 +33,4 @@ python3 tools/playgame.py \
   "python3 bots/py3_starter/MyBot.py3"
 ```
 
-The engine writes the replay and opens a browser page.
-
-The engine sets the bot work dir to the bot file dir.
+The command records the game. It opens the replay in a browser page. Add `--nolaunch` to play without the visualizer.
