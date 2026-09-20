@@ -21,11 +21,10 @@ class MyBot:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Hill defense: spare ants guard a threatened home hill first.
-        # Food assignment matches iteration 3 (global closest-first
-        # claims). Ants with no food claim step toward the nearest
-        # threatened home hill, else the nearest visible enemy hill,
-        # else step n, e, s, w.
+        # Combat: do not step into certain death.
+        # Food and hill behavior matches iteration 4. A move is safe
+        # only with a local majority (friends + self > enemies in
+        # attack range). Unsafe directions are skipped.
         foods = ants.food()
         ants_list = ants.my_ants()
         pairs: list[tuple[int, int, int]] = []
@@ -45,6 +44,31 @@ class MyBot:
         threatened = [
             h for h in my_hills if any(ants.distance(h, e) <= 10 for e in enemy_locs)
         ]
+        attack_r2 = ants.attackradius2 or 5
+        rows, cols = ants.rows, ants.cols
+
+        def sq_dist(a: tuple[int, int], b: tuple[int, int]) -> int:
+            dr = abs(a[0] - b[0])
+            dr = min(dr, rows - dr) if rows else dr
+            dc = abs(a[1] - b[1])
+            dc = min(dc, cols - dc) if cols else dc
+            return dr * dr + dc * dc
+
+        def is_safe(nloc: tuple[int, int], self_loc: tuple[int, int]) -> bool:
+            enemies = 0
+            for e in enemy_locs:
+                if sq_dist(nloc, e) <= attack_r2:
+                    enemies += 1
+                    if enemies >= len(ants_list):
+                        break
+            if enemies == 0:
+                return True
+            friends = 0
+            for f in ants_list:
+                if f != self_loc and sq_dist(nloc, f) <= attack_r2:
+                    friends += 1
+            return friends + 1 > enemies
+
         destinations: set[tuple[int, int]] = set()
         for ai, ant_loc in enumerate(ants_list):
             best = target.get(ai)
@@ -56,6 +80,7 @@ class MyBot:
                         new_loc not in destinations
                         and ants.passable(new_loc)
                         and ants.unoccupied(new_loc)
+                        and is_safe(new_loc, ant_loc)
                     ):
                         ants.issue_order((ant_loc, direction))
                         destinations.add(new_loc)
@@ -75,6 +100,7 @@ class MyBot:
                         new_loc not in destinations
                         and ants.passable(new_loc)
                         and ants.unoccupied(new_loc)
+                        and is_safe(new_loc, ant_loc)
                     ):
                         ants.issue_order((ant_loc, direction))
                         destinations.add(new_loc)
@@ -88,6 +114,7 @@ class MyBot:
                         new_loc not in destinations
                         and ants.passable(new_loc)
                         and ants.unoccupied(new_loc)
+                        and is_safe(new_loc, ant_loc)
                     ):
                         ants.issue_order((ant_loc, direction))
                         destinations.add(new_loc)
