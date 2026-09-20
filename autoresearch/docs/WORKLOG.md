@@ -154,3 +154,15 @@ Use this format.
 - what changed: Battling as NoCamping in NoCamping.bot + NoCamping.py; any ant still holding on a home hill after the main pass steps off s-e-w-n so the hill stays open for spawning.
 - what you learned: Open hills swept duels 5-0 and both small FFAs and took 2nd in a GreedyBot-led 10p; the bold line (pathfinding, memory, walk-off) lifts lb from 43.82 to 44.03 and takes the crown.
 - next: Escape space — among safe moves pick the most open space.
+
+## 12 — escape to most open space (2026-09-20)
+- commit: 2f107a0
+- start: 858bf3b (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 32.01, sigma 3.96, lb 20.12
+- champion lb: 44.03
+- verdict: discard
+- games: 2-3, FFA ranks 5p:2 7p:4 8p:1
+- what changed: Battling as Houdini in Houdini.bot + Houdini.py; the spare-ant fallback ranks safe exits by open space behind them (BFS 8, friends x3, enemies x-3) with visits only breaking ties.
+- what you learned: Space-seeking lost twice to LeftyBot and fell to 4/7 in a weak 7p; ranking space above food-proximity wanders ants away from the economy, so lb collapsed from 44.03 to 20.12.
+- next: Aggressive combat — trade 1-for-1 when 14+ friends near the fight.

@@ -49,6 +49,6 @@ row. Leave the old row as it was.
 | done | Bold pathfinding: BFS first step around water instead of greedy steps. |
 | done | Remembered hills: keep enemy hill targets across turns. |
 | done | Walk off hill: never end a turn on your own hill. |
-| open | Escape space: among safe moves pick the most open space. |
+| trying | Escape space: among safe moves pick the most open space. |
 | open | Aggressive combat: trade 1-for-1 when 14+ friends near the fight. |
 | open | Hill-first order: hunt hills before food. |
