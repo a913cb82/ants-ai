@@ -53,13 +53,13 @@ The record keeps the score for a later comparison.
 
 ```sh
 # play the rest of the budget and show the score
-python autoresearch/iteration.py --bot autoresearch/bot/main.bot
+.venv/bin/python autoresearch/iteration.py --bot autoresearch/bot/main.bot
 
 # show the budget and the score. Play no game.
-python autoresearch/iteration.py --bot autoresearch/bot/main.bot --dry-run
+.venv/bin/python autoresearch/iteration.py --bot autoresearch/bot/main.bot --dry-run
 
 # show the field
-python league/board.py
+.venv/bin/python league/board.py
 ```
 
 ## Replays

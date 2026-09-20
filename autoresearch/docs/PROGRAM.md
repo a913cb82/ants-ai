@@ -7,17 +7,15 @@ Do not ask the human anything. Commit, play, measure, and repeat.
 
 Do this once for each run.
 
-1. Activate the venv: `source .venv/bin/activate`
-2. Check the tree: `git status`. The tree must be clean before you play.
-3. Read `autoresearch/README.md`, `autoresearch/docs/METHODS.md`,
+1. Use `.venv/bin/python` for every command. Each command runs in a new
+   shell, so an activated venv does not stay active.
+2. Read `autoresearch/README.md`, `autoresearch/docs/METHODS.md`,
    `autoresearch/docs/IDEAS.md`, `autoresearch/docs/STRATEGY.md`,
    `autoresearch/docs/CEILING.md`, and the end of
    `autoresearch/docs/WORKLOG.md`.
-4. Work on branch `autoresearch/main`. If the branch does not exist,
-   run `git checkout -b autoresearch/main`.
-   The seed commit has the tag `champion/main`.
-5. The bot is in `autoresearch/bot/`. The file `main.bot` starts the bot.
-   The seed is a copy of the py3 starter.
+3. Work on branch `autoresearch/main`:
+   `git checkout autoresearch/main`
+4. The bot is in `autoresearch/bot/`. The file `main.bot` starts the bot.
 
 ## Scope
 
@@ -56,7 +54,7 @@ Each iteration must run a fresh bot entry. Change the bot code first.
 4. Commit the change:
    `git add autoresearch/bot && git commit -m "exp: <idea>"`
 5. Play the budget:
-   `python autoresearch/iteration.py --bot autoresearch/bot/main.bot`
+   `.venv/bin/python autoresearch/iteration.py --bot autoresearch/bot/main.bot`
 6. Read the score. The score is `lb = mu - 3 * sigma`.
 7. If `lb` is more than the `lb` of the champion, move the tag:
    `git tag -f champion/main`.
@@ -117,9 +115,10 @@ A local optimum is the main risk. Obey these rules.
 
 ## Analysis
 
-- `python league/board.py` shows the field. The `lb` column is the score.
-- `python autoresearch/iteration.py --dry-run` shows the budget and the
-  score.
+- `.venv/bin/python league/board.py` shows the field. The `lb` column is
+  the score.
+- `.venv/bin/python autoresearch/iteration.py --dry-run` shows the budget
+  and the score.
 - The replays are in `autoresearch/runs/<sha>/`.
   Read them to find errors.
 - Read `autoresearch/docs/CEILING.md` before you work on a large gain.
