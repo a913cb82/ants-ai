@@ -82,3 +82,15 @@ Use this format.
 - what changed: Every step needs a local majority (friends plus self outnumber enemies in attack range) or the ant holds instead of moving.
 - what you learned: Caution went 5-0 in duels and won the 6p and 10p FFAs against three past champions; refusing 1v1 trades lifts lb from 34.28 to 40.66 despite a last-place 4p game.
 - next: Exploration — send spare ants to unseen squares.
+
+## 6 — exploration prefer unvisited squares (2026-09-20)
+- commit: e830cd3
+- start: 3fc5988 (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 56.50, sigma 4.22, lb 43.82
+- champion lb: 40.66
+- verdict: keep
+- games: 5-0, FFA ranks 4p:1 6p:1 10p:2
+- what changed: The bot counts visits per square and orders the n-e-s-w fallback by least-visited first.
+- what you learned: Spreading went 5-0 in duels and beat two past champions in the 6p FFA; unvisited-first fallback finds food and hills faster and lifts lb from 40.66 to 43.82.
+- next: Flood — move a group of ants to one target.
