@@ -1,11 +1,13 @@
 #!/usr/bin/env python
+from collections import deque
+
 from ants import Ants
 
 
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class NoLunchForYou:
+class Cartographer:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -21,26 +23,17 @@ class NoLunchForYou:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Food denial: contested foods get claimed first.
-        # Battling as NoLunchForYou. Economy, hills, combat, and
-        # exploration match iteration 6. Foods with a visible enemy
-        # within 8 steps sort as 4 steps closer, so our closest ants
-        # hold the contested field instead of walking past it.
+        # Bold pathfinding: BFS first step around water.
+        # Battling as Cartographer. Assignment, hills, combat, and
+        # exploration match iteration 6. Food and hill moves follow
+        # the first step of a shortest passable path, not a greedy
+        # compass step, so maze walls no longer trap ants.
         foods = ants.food()
         ants_list = ants.my_ants()
-        enemy_locs = [loc for loc, _ in ants.enemy_ants()]
-        contested = {
-            fi
-            for fi, food_loc in enumerate(foods)
-            if any(ants.distance(food_loc, e) <= 8 for e in enemy_locs)
-        }
         pairs: list[tuple[int, int, int]] = []
         for ai, ant_loc in enumerate(ants_list):
             for fi, food_loc in enumerate(foods):
-                dist = ants.distance(ant_loc, food_loc)
-                if fi in contested:
-                    dist -= 4
-                pairs.append((dist, ai, fi))
+                pairs.append((ants.distance(ant_loc, food_loc), ai, fi))
         pairs.sort()
         target: dict[int, tuple[int, int]] = {}
         claimed_food: set[int] = set()
@@ -50,6 +43,7 @@ class NoLunchForYou:
                 claimed_food.add(fi)
         hills = [loc for loc, _ in ants.enemy_hills()]
         my_hills = ants.my_hills()
+        enemy_locs = [loc for loc, _ in ants.enemy_ants()]
         threatened = [
             h for h in my_hills if any(ants.distance(h, e) <= 10 for e in enemy_locs)
         ]
@@ -78,24 +72,57 @@ class NoLunchForYou:
                     friends += 1
             return friends + 1 > enemies
 
+        def first_step(
+            start: tuple[int, int], goal: tuple[int, int], budget: int = 250
+        ) -> str | None:
+            # Shortest passable path around water; return its first step.
+            if start == goal:
+                return None
+            parent: dict[tuple[int, int], tuple[tuple[int, int], str]] = {}
+            parent[start] = (start, "")
+            queue: deque[tuple[int, int]] = deque([start])
+            expanded = 0
+            while queue and expanded < budget:
+                cur = queue.popleft()
+                expanded += 1
+                for d in ("n", "e", "s", "w"):
+                    nxt = ants.destination(cur, d)
+                    if nxt in parent or not ants.passable(nxt):
+                        continue
+                    parent[nxt] = (cur, d)
+                    if nxt == goal:
+                        queue.clear()
+                        break
+                    queue.append(nxt)
+            if goal not in parent:
+                return None
+            node = goal
+            while parent[node][0] != start:
+                node = parent[node][0]
+            return parent[node][1]
+
+        def try_step(ant_loc: tuple[int, int], direction: str) -> bool:
+            new_loc = ants.destination(ant_loc, direction)
+            if (
+                new_loc not in destinations
+                and ants.passable(new_loc)
+                and ants.unoccupied(new_loc)
+                and is_safe(new_loc, ant_loc)
+            ):
+                ants.issue_order((ant_loc, direction))
+                destinations.add(new_loc)
+                return True
+            return False
+
         destinations: set[tuple[int, int]] = set()
         for ai, ant_loc in enumerate(ants_list):
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
             best = target.get(ai)
             moved = False
             if best is not None:
-                for direction in ants.direction(ant_loc, best):
-                    new_loc = ants.destination(ant_loc, direction)
-                    if (
-                        new_loc not in destinations
-                        and ants.passable(new_loc)
-                        and ants.unoccupied(new_loc)
-                        and is_safe(new_loc, ant_loc)
-                    ):
-                        ants.issue_order((ant_loc, direction))
-                        destinations.add(new_loc)
-                        moved = True
-                        break
+                step = first_step(ant_loc, best)
+                if step is not None and try_step(ant_loc, step):
+                    moved = True
                 if not moved:
                     # Assigned food is blocked; keep the claim so no other
                     # ant chases the same region this turn.
@@ -104,18 +131,9 @@ class NoLunchForYou:
                 # No food or blocked: guard home first, else hunt.
                 targets = threatened if threatened else hills
                 nearest = min(targets, key=lambda h: ants.distance(ant_loc, h))
-                for direction in ants.direction(ant_loc, nearest):
-                    new_loc = ants.destination(ant_loc, direction)
-                    if (
-                        new_loc not in destinations
-                        and ants.passable(new_loc)
-                        and ants.unoccupied(new_loc)
-                        and is_safe(new_loc, ant_loc)
-                    ):
-                        ants.issue_order((ant_loc, direction))
-                        destinations.add(new_loc)
-                        moved = True
-                        break
+                step = first_step(ant_loc, nearest)
+                if step is not None and try_step(ant_loc, step):
+                    moved = True
             if not moved:
                 # No hill move: explore least-visited squares first.
                 dirs = sorted(
@@ -151,6 +169,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(NoLunchForYou())
+        Ants.run(Cartographer())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
