@@ -7,10 +7,11 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Cartographer:
+class Elephant:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
+        self.remembered_hills: set[tuple[int, int]] = set()
 
     # do_setup is run once at the start of the game
     # after the bot has received the game settings
@@ -18,18 +19,25 @@ class Cartographer:
     def do_setup(self, ants: Ants):
         # initialize data structures after learning the game settings
         self.visits = {}
+        self.remembered_hills = set()
 
     # do turn is run once per turn
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Bold pathfinding: BFS first step around water.
-        # Battling as Cartographer. Assignment, hills, combat, and
-        # exploration match iteration 6. Food and hill moves follow
-        # the first step of a shortest passable path, not a greedy
-        # compass step, so maze walls no longer trap ants.
+        # Remembered hills: enemy hills persist across turns.
+        # Battling as Elephant. Movement, assignment, combat, and
+        # exploration match iteration 9. Sighted hills are never
+        # forgotten until one of my ants stands on them, so attackers
+        # march through fog instead of waiting to see a hill again.
         foods = ants.food()
         ants_list = ants.my_ants()
+        my_set = set(ants_list)
+        for hloc, _ in ants.enemy_hills():
+            self.remembered_hills.add(hloc)
+        for hloc in list(self.remembered_hills):
+            if hloc in my_set:
+                self.remembered_hills.discard(hloc)
         pairs: list[tuple[int, int, int]] = []
         for ai, ant_loc in enumerate(ants_list):
             for fi, food_loc in enumerate(foods):
@@ -41,7 +49,7 @@ class Cartographer:
             if ai not in target and fi not in claimed_food:
                 target[ai] = foods[fi]
                 claimed_food.add(fi)
-        hills = [loc for loc, _ in ants.enemy_hills()]
+        hills = sorted(self.remembered_hills)
         my_hills = ants.my_hills()
         enemy_locs = [loc for loc, _ in ants.enemy_ants()]
         threatened = [
@@ -169,6 +177,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Cartographer())
+        Ants.run(Elephant())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
