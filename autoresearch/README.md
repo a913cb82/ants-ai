@@ -32,7 +32,7 @@ One iteration has 8 games:
 
 The harness sets the numbers. No flag changes them.
 Every game goes to `league/games.jsonl`. A commit cannot play more.
-A completed commit plays no game on a second run; a run stopped
+A completed commit plays no game on a second run. A run stopped
 part-way plays the games that remain.
 
 ## Score
@@ -43,8 +43,8 @@ The harness writes one JSON line for each completed iteration to
 3 FFA, against fairly chosen opponents, so the comparison is fair.
 A bot keeps playing after its iteration, but the recorded score does
 not move. The champion is the best recorded score for the current
-budget. The file is append-only; rows from an older budget stay and
-are ignored.
+budget. The file is append-only. Rows from an older budget stay in
+the file. The harness ignores them.
 
 ## Why the design holds
 
