@@ -36,7 +36,8 @@ def test_tiny_real_game_produces_record(tmp_path):
     import sys as _sys
     from play import play_match, ROOT
     rec = play_match(ROOT, _sys.executable,
-                     field=["bots/py3_starter-HEAD", "bots/pas11-HEAD"],
+                     field=["bots/py3_starter/main.bot-HEAD",
+                            "bots/pas11/main.bot-HEAD"],
                      map_rel="tools/maps/example/tutorial1.map",
                      turns=2, turntime=200, loadtime=500,
                      pseed=1, eseed=2, log_dir=tmp_path)
