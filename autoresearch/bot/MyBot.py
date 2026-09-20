@@ -21,10 +21,10 @@ class MyBot:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Collision: assign food to ants by global distance.
-        # Sort every ant-food pair and claim greedily so no two ants
-        # chase the same food region; closest pairs win regardless of
-        # ant order. Movement and fallback match iteration 1.
+        # Hill attack: spare ants hunt visible enemy hills.
+        # Food assignment matches iteration 2 (global closest-first
+        # claims). Ants with no food claim step toward the nearest
+        # visible enemy hill, else step n, e, s, w.
         foods = ants.food()
         ants_list = ants.my_ants()
         pairs: list[tuple[int, int, int]] = []
@@ -38,6 +38,7 @@ class MyBot:
             if ai not in target and fi not in claimed_food:
                 target[ai] = foods[fi]
                 claimed_food.add(fi)
+        hills = [loc for loc, _ in ants.enemy_hills()]
         destinations: set[tuple[int, int]] = set()
         for ai, ant_loc in enumerate(ants_list):
             best = target.get(ai)
@@ -58,8 +59,22 @@ class MyBot:
                     # Assigned food is blocked; keep the claim so no other
                     # ant chases the same region this turn.
                     pass
+            if not moved and hills:
+                # No food or blocked: hunt the nearest enemy hill first.
+                nearest = min(hills, key=lambda h: ants.distance(ant_loc, h))
+                for direction in ants.direction(ant_loc, nearest):
+                    new_loc = ants.destination(ant_loc, direction)
+                    if (
+                        new_loc not in destinations
+                        and ants.passable(new_loc)
+                        and ants.unoccupied(new_loc)
+                    ):
+                        ants.issue_order((ant_loc, direction))
+                        destinations.add(new_loc)
+                        moved = True
+                        break
             if not moved:
-                # No food or blocked: step in order n, e, s, w.
+                # No hill move: step in order n, e, s, w.
                 for direction in ("n", "e", "s", "w"):
                     new_loc = ants.destination(ant_loc, direction)
                     if (
