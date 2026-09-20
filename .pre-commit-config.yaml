@@ -43,7 +43,7 @@ repos:
         pass_filenames: false
       - id: pytest
         name: pytest
-        entry: .venv/bin/python -m pytest -q
+        entry: .venv/bin/python -m pytest -q -m "not slow"
         language: system
         files: ^(league|autoresearch|tests)/.*\.py$|^conftest\.py$
         pass_filenames: false

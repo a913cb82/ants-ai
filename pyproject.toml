@@ -23,6 +23,7 @@ packages = []
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "autoresearch/tests"]
+markers = ["slow: builds real worktrees and plays a game"]
 
 [tool.ruff]
 target-version = "py310"

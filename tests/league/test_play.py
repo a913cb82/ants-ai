@@ -3,6 +3,8 @@
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "league"))
 
 REPLAY = Path(__file__).with_name("replay_fixture.json")
@@ -91,6 +93,7 @@ def test_rank_slots_stable_ties_share_order():
     assert rank_slots([1, 1], ["survived", "survived"]) == [0, 1]
 
 
+@pytest.mark.slow
 def test_tiny_real_game_produces_record(tmp_path, monkeypatch):
     import sys as _sys
 
