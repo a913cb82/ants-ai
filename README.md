@@ -13,7 +13,7 @@ The engine runs a match and records a replay.
 
 ## Requirements
 
-- Use Python 3.
+- The engine needs Python 3.
 - Run all commands from the repo root.
 
 ## Use
