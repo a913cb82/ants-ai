@@ -13,8 +13,15 @@ The engine runs a match and records a replay.
 
 ## Requirements
 
-- The engine needs Python 3.
+- The engine needs Python 3. Use the repo venv for all commands.
 - Run all commands from the repo root.
+
+Set up the venv once:
+
+```sh
+python3 -m venv .venv
+.venv/bin/pip install -e .
+```
 
 ## Use
 
@@ -26,11 +33,11 @@ The engine runs a match and records a replay.
 Play one game between two copies of the starter bot with this command:
 
 ```sh
-python3 tools/playgame.py \
+.venv/bin/python tools/playgame.py \
   --map_file tools/maps/example/tutorial1.map \
   --turns 100 --log_dir replays \
-  "python3 bots/py3_starter/MyBot.py" \
-  "python3 bots/py3_starter/MyBot.py"
+  ".venv/bin/python bots/py3_starter/MyBot.py" \
+  ".venv/bin/python bots/py3_starter/MyBot.py"
 ```
 
 The command records the game. It opens the replay in a browser page. Add `--nolaunch` to play without the visualizer.
