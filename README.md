@@ -20,7 +20,8 @@ Set up the venv once:
 
 ```sh
 python3 -m venv .venv
-.venv/bin/pip install -e .
+source .venv/bin/activate
+pip install -e .
 ```
 
 ## Use
@@ -33,11 +34,11 @@ python3 -m venv .venv
 Play one game between two copies of the starter bot with this command:
 
 ```sh
-.venv/bin/python tools/playgame.py \
+python tools/playgame.py \
   --map_file tools/maps/example/tutorial1.map \
   --turns 100 --log_dir replays \
-  ".venv/bin/python bots/py3_starter/MyBot.py" \
-  ".venv/bin/python bots/py3_starter/MyBot.py"
+  "python bots/py3_starter/MyBot.py" \
+  "python bots/py3_starter/MyBot.py"
 ```
 
 The command records the game. It opens the replay in a browser page. Add `--nolaunch` to play without the visualizer.

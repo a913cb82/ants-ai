@@ -83,6 +83,8 @@ def run_game(game, botcmds, options):
     bot_status = []
     bot_turns = []
     if capture_errors:
+        if error_logs is None:
+            error_logs = [None]*len(botcmds)
         error_logs = [HeadTail(log, capture_errors_max) for log in error_logs]
     try:
         # create bot sandboxes
