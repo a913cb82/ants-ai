@@ -45,7 +45,7 @@ row. Leave the old row as it was.
 | trying | Food denial: hold a contested food field. |
 | done | Opponent model: threaten a home hill at 16 steps when an enemy closes. |
 | trying | Endgame: hold most hills until the turn limit. |
-| open | Time: use the turn time for search. |
+| trying | Time: use the turn time for search. |
 | done | Bold pathfinding: BFS first step around water instead of greedy steps. |
 | done | Remembered hills: keep enemy hill targets across turns. |
 | done | Walk off hill: never end a turn on your own hill. |

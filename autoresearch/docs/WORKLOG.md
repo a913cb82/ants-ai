@@ -214,3 +214,15 @@ Use this format.
 - what changed: Battling as Lockdown in Lockdown.bot + Lockdown.py; with 150 turns left, spare ants rally to the nearest home hill, or all-out attack with no hills left.
 - what you learned: Rallying swept duels and the small FFAs but ranked 5/8 behind three past selves that kept razing; holding forfeits the late raze race that decides FFAs, so lb fell from 52.15 to 43.07.
 - next: Time — use the turn time for search.
+
+## 17 — time-aware BFS search budget (2026-09-20)
+- commit: 71bf7c1
+- start: 79bbd16 (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 56.99, sigma 3.85, lb 45.45
+- champion lb: 52.15
+- verdict: discard
+- games: 5-0, FFA ranks 4p:1 6p:2 10p:2
+- what changed: Battling as Clockwork in Clockwork.bot + Clockwork.py; each ant's BFS budget follows the clock (800/250/60) so early ants search deep.
+- what you learned: Deeper early search swept duels 5-0 and took two 2nds, but lost the 6p to Crusader and the 10p to Elephant; depth without direction just finds longer walks, so lb fell from 52.15 to 45.45.
+- next: BOLD — two discards in a row, research a different design.
