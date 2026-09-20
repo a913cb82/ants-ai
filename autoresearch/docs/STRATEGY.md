@@ -5,9 +5,11 @@ Update this file when the behavior of the bot changes.
 
 ## Current bot
 
-The seed is a copy of the py3 starter. Each ant steps in the order
-`n`, `e`, `s`, `w`. It ignores food, hills, and the enemy.
-It usually loses to a bot that looks for food.
+Iteration 1 (d02ec94) seeks the closest food. Each ant picks its nearest
+visible food, one ant claims one food, and no two ants enter the same
+destination square. When the target is blocked or no food is visible,
+the ant steps in the order `n`, `e`, `s`, `w`. It ignores hills and
+the enemy. Recorded score: mu 35.94, sigma 3.49, lb 25.46 (baseline).
 
 ## Good play
 
