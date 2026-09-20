@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Garrison:
+class Lancer:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Garrison:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Hungry posts: defenders snack before they stand.
-        # Battling as Garrison. Rings, formations, headings, memory,
-        # aggression, walk-off, food, and exploration match iteration
-        # 25. A defender steps to unclaimed food within 4 squares
-        # first; the post re-drafts by proximity next turn.
+        # Seek supported fights: charge, don't wait.
+        # Battling as Lancer. Headings, memory, aggression, walk-off,
+        # food, and exploration match iteration 15. After defense,
+        # ants with an enemy inside 8 steps close on it and form
+        # fighting lines; the majority filter refuses bad trades.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -87,42 +87,6 @@ class Garrison:
                 for e in enemy_locs
             )
         ]
-        # Formation defense: each threatened hill posts its passable
-        # diagonals, held by the closest spare ants. Heavily hit
-        # hills (4+ enemies inside 20) post a second ring at double
-        # distance from the remaining spares.
-        defender_post: dict[int, tuple[int, int]] = {}
-        if threatened:
-            spares = [ai for ai in range(len(ants_list)) if ai not in target]
-            taken_post: set[tuple[int, int]] = set()
-
-            def man_ring(hr: int, hc: int, ring: int) -> None:
-                for dr, dc in ((-1, -1), (-1, 1), (1, -1), (1, 1)):
-                    post = (
-                        (hr + dr * ring) % ants.rows,
-                        (hc + dc * ring) % ants.cols,
-                    )
-                    if post in taken_post or not ants.passable(post):
-                        continue
-                    if not spares:
-                        return
-                    pick = spares[0]
-                    pick_d = ants.distance(ants_list[pick], post)
-                    for i in spares[1:]:
-                        d = ants.distance(ants_list[i], post)
-                        if d < pick_d:
-                            pick_d = d
-                            pick = i
-                    spares.remove(pick)
-                    defender_post[pick] = post
-                    taken_post.add(post)
-
-            for hill in threatened:
-                man_ring(hill[0], hill[1], 1)
-            for hill in threatened:
-                foes = sum(1 for e in enemy_locs if ants.distance(e, hill) <= 20)
-                if foes >= 4:
-                    man_ring(hill[0], hill[1], 2)
         attack_r2 = ants.attackradius2 or 5
         rows, cols = ants.rows, ants.cols
 
@@ -212,34 +176,28 @@ class Garrison:
                     # Assigned food is blocked; keep the claim so no other
                     # ant chases the same region this turn.
                     pass
-            if not moved and ai in defender_post:
-                # Hungry post: snack unclaimed food within 4 first.
-                snack = None
-                snack_d = 5
-                for f in foods:
-                    if f in claimed_food:
-                        continue
-                    d = ants.distance(ant_loc, f)
-                    if d < snack_d:
-                        snack_d = d
-                        snack = f
-                if snack is not None:
-                    step = first_step(ant_loc, snack)
+            if not moved and threatened:
+                # No food or blocked: guard home first.
+                nearest = min(threatened, key=lambda h: ants.distance(ant_loc, h))
+                step = first_step(ant_loc, nearest)
+                if step is not None and try_step(ant_loc, step):
+                    moved = True
+            if not moved and enemy_locs:
+                # Seek the enemy inside 8 steps; filter holds the line.
+                foe = None
+                foe_d = 9
+                for e in enemy_locs:
+                    d = ants.distance(ant_loc, e)
+                    if d < foe_d:
+                        foe_d = d
+                        foe = e
+                if foe is not None:
+                    step = first_step(ant_loc, foe)
                     if step is not None and try_step(ant_loc, step):
                         moved = True
-                if not moved:
-                    # Hold the post or march to it.
-                    post = defender_post[ai]
-                    if ant_loc == post:
-                        moved = True
-                    else:
-                        step = first_step(ant_loc, post)
-                        if step is not None and try_step(ant_loc, step):
-                            moved = True
-            if not moved and (threatened or hills):
-                # No food or blocked: guard home first, else hunt.
-                targets = threatened if threatened else hills
-                nearest = min(targets, key=lambda h: ants.distance(ant_loc, h))
+            if not moved and hills:
+                # No fight: hunt remembered hills.
+                nearest = min(hills, key=lambda h: ants.distance(ant_loc, h))
                 step = first_step(ant_loc, nearest)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
@@ -288,6 +246,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Garrison())
+        Ants.run(Lancer())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
