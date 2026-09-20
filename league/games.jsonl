@@ -1,0 +1,1 @@
+{"v": 1, "map": "tools/maps/maze/maze_p02_15.map", "turns": 20, "turntime": 1000, "loadtime": 3000, "engine": "a1c11d2", "pseed": 846885253, "eseed": 225437259, "field": ["bots/py3_starter-b673d44", "bots/py3_starter-b51bc7f"], "result": ["bots/py3_starter-b673d44", "bots/py3_starter-b51bc7f"]}

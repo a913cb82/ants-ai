@@ -7,6 +7,10 @@ version = "0.1.0"
 description = "Ants game from the 2011 AI Challenge: game engine and bots"
 readme = "README.md"
 requires-python = ">=3.10"
+dependencies = ["openskill"]
+
+[project.optional-dependencies]
+dev = ["pytest"]
 
 [tool.setuptools]
 # No distributable packages. Engine and bots run as scripts.
