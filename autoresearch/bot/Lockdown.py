@@ -7,12 +7,13 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Oracle:
+class Lockdown:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
         self.remembered_hills: set[tuple[int, int]] = set()
         self.prev_enemies: list[tuple[int, int]] = []
+        self.turn = 0
 
     # do_setup is run once at the start of the game
     # after the bot has received the game settings
@@ -22,18 +23,21 @@ class Oracle:
         self.visits = {}
         self.remembered_hills = set()
         self.prev_enemies = []
+        self.turn = 0
 
     # do turn is run once per turn
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Opponent model: read enemy headings from enemy moves.
-        # Battling as Oracle. Memory, movement, aggression, walk-off,
-        # and exploration match iteration 13. Visible enemies are
-        # matched to last turn's positions; a hill counts threatened
-        # at 16 steps when an enemy is closing on it, else 10.
+        # Endgame: hold most hills until the turn limit.
+        # Battling as Lockdown. Headings, memory, aggression, walk-off,
+        # and exploration match iteration 15. With fewer than 150 turns
+        # left, spare ants rally to the nearest home hill to hold the
+        # lead, or to the nearest enemy hill with no hills left.
         foods = ants.food()
         ants_list = ants.my_ants()
+        self.turn += 1
+        endgame = ants.turns > 0 and (ants.turns - self.turn) < 150
         my_set = set(ants_list)
         for hloc, _ in ants.enemy_hills():
             self.remembered_hills.add(hloc)
@@ -183,6 +187,14 @@ class Oracle:
                 step = first_step(ant_loc, nearest)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
+            if not moved and endgame and (my_hills or hills):
+                # Endgame: rally to hold home hills, or all-out attack
+                # on the nearest enemy hill with no hills left.
+                keep = my_hills if my_hills else hills
+                goal = min(keep, key=lambda h: ants.distance(ant_loc, h))
+                step = first_step(ant_loc, goal)
+                if step is not None and try_step(ant_loc, step):
+                    moved = True
             if not moved:
                 # No hill move: explore least-visited squares first.
                 dirs = sorted(
@@ -228,6 +240,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Oracle())
+        Ants.run(Lockdown())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
