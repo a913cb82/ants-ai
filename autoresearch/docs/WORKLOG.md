@@ -190,3 +190,15 @@ Use this format.
 - what changed: Battling as Crusader in Crusader.bot + Crusader.py; each hill drafts up to 4 closest ants within 20 steps before food, only undrafted ants claim food.
 - what you learned: Drafting swept duels 5-0 and won the 4p and 10p, but ranked 5/6 behind four weak past selves that just ate; hills-first starves the economy, so lb fell from 49.55 to 37.41.
 - next: Opponent model — read the enemy target from the enemy moves.
+
+## 15 — opponent model read enemy headings (2026-09-20)
+- commit: 79bbd16
+- start: 117f54a (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 63.80, sigma 3.88, lb 52.15
+- champion lb: 49.55
+- verdict: keep
+- games: 5-0, FFA ranks 5p:1 7p:1 8p:1
+- what changed: Battling as Oracle in Oracle.bot + Oracle.py; enemies matched to last-turn positions give headings, and a home hill counts threatened at 16 steps when an enemy closes on it.
+- what you learned: Early warning swept every game including head-to-head wins over NoCamping and Berserker; meeting razers halfway lifts lb from 49.55 to 52.15.
+- next: Endgame — hold most hills until the turn limit.

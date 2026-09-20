@@ -7,15 +7,17 @@ This file describes the current champion only. History lives in
 
 ## Current bot
 
-Iteration 13 (117f54a), the current champion, battles as Berserker
-in Berserker.bot + Berserker.py. It assigns food by global distance,
-guards threatened home hills, and marches on remembered enemy hills
-until razed. Food and hill moves follow the first step of a BFS
+Iteration 15 (79bbd16), the current champion, battles as Oracle in
+Oracle.bot + Oracle.py. It assigns food by global distance, guards
+threatened home hills, and marches on remembered enemy hills until
+razed. Visible enemies are matched to last-turn positions for
+headings; a home hill counts threatened at 16 steps when an enemy
+closes on it. Food and hill moves follow the first step of a BFS
 shortest path around water. Moves need a local majority, except
 equal trades are accepted when 14+ friends stand within 10 steps.
 Spare ants explore least-visited squares, and no ant ends a turn
 sitting on its own hill so spawning stays open. Recorded score:
-mu 61.04, sigma 3.83, lb 49.55 (5 duels + 3 FFA).
+mu 63.80, sigma 3.88, lb 52.15 (5 duels + 3 FFA).
 
 ## Good play
 
