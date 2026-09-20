@@ -13,6 +13,7 @@ Do this once for each run.
    and the end of `autoresearch/docs/WORKLOG.md`.
 2. Work on branch `autoresearch/main`:
    `git checkout autoresearch/main`. The loop merges `main` at step 1.
+   `main` is read-only for you: never commit to it, never push it.
 3. The bot is in `autoresearch/bot/`. The file `main.bot` starts the bot.
    `main.bot` is a one-line command; the engine runs it with the bot
    directory as the working directory.
@@ -55,10 +56,10 @@ Rules:
 The goal is to maximize the iteration score. The score is
 `lb = mu - 3 * sigma`, measured after the fixed budget of games.
 The harness writes it to `autoresearch/docs/PROGRESS.jsonl` when the
-budget ends. Every fresh bot gets the same 8 games, so the
-comparison is fair. A bot's live rating keeps moving after the
-iteration. The recorded score does not move.
-The champion is the best recorded score.
+budget ends. Every fresh bot gets 8 games, 5 duels and 3 FFA, against
+fairly chosen opponents, so the comparison is fair. A bot's live
+rating keeps moving after the iteration. The recorded score does not
+move. The champion is the best recorded score for the current budget.
 
 ## One iteration
 
@@ -76,21 +77,24 @@ Each iteration must run a fresh bot entry. Change the bot code first.
 6. Play the budget:
    `.venv/bin/python autoresearch/iteration.py --bot autoresearch/bot/main.bot`
 7. Read the score. The harness prints the score and adds one JSON line
-   to `autoresearch/docs/PROGRESS.jsonl`. The champion is the best line.
+   to `autoresearch/docs/PROGRESS.jsonl`. The champion is the best
+   line for the current budget.
 8. Compare the new score with the champion score:
-   - No recorded score: this run sets the baseline. Move the tag:
-    `git tag -f champion/main`.
-   - New score is higher: move the tag: `git tag -f champion/main`.
-   - New score is lower or equal: do not move the tag.
-   Keep the commit in all three cases. Start the next idea from the
-   champion.
+   - Baseline (no row for this budget) or new best: point the tag at
+     this commit: `git tag -f champion/main`.
+   - Lower or equal: point the tag at the best row's commit:
+     `git tag -f champion/main <sha in the best row's bot id>`.
+   A missing tag is fine; the rule above rebuilds it. The tag is
+   local: never push tags. Keep the commit in all cases. Start the
+   next idea from the champion.
 9. Add one entry to `autoresearch/docs/WORKLOG.md`. Commit the notes
    and the new games:
    `git add autoresearch/docs league/games.jsonl && git commit -m "log: <idea>"`
-10. Push both branches:
-    `git push origin autoresearch/main main`
-    A failed push is not a lost iteration. Keep the commits and push
-    again at the next log commit.
+10. Push your branch:
+    `git push origin autoresearch/main`
+    You own this branch only; never push `main` or tags. A failed
+    push is not a lost iteration. Keep the commits and push again at
+    the next log commit.
 11. Go to step 1. Do not stop.
 
 ## Budget
@@ -163,6 +167,8 @@ A local optimum is the main risk. Obey these rules.
   rating can differ from the recorded score.
 - `autoresearch/docs/PROGRESS.jsonl` holds the recorded score for each
   completed iteration. It is the source of truth for keep or discard.
+  It is append-only; the champion is the best row for the current
+  budget. Rows from an older budget stay in the file and are ignored.
 - The replays are in `autoresearch/runs/<sha>/`.
   Read them to find errors.
 - Read `autoresearch/docs/CEILING.md` before you work on a large gain.
