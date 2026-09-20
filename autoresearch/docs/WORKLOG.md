@@ -202,3 +202,15 @@ Use this format.
 - what changed: Battling as Oracle in Oracle.bot + Oracle.py; enemies matched to last-turn positions give headings, and a home hill counts threatened at 16 steps when an enemy closes on it.
 - what you learned: Early warning swept every game including head-to-head wins over NoCamping and Berserker; meeting razers halfway lifts lb from 49.55 to 52.15.
 - next: Endgame — hold most hills until the turn limit.
+
+## 16 — endgame rally to hold hills (2026-09-20)
+- commit: f1107b0
+- start: 79bbd16 (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 54.15, sigma 3.69, lb 43.07
+- champion lb: 52.15
+- verdict: discard
+- games: 5-0, FFA ranks 5p:1 7p:1 8p:5
+- what changed: Battling as Lockdown in Lockdown.bot + Lockdown.py; with 150 turns left, spare ants rally to the nearest home hill, or all-out attack with no hills left.
+- what you learned: Rallying swept duels and the small FFAs but ranked 5/8 behind three past selves that kept razing; holding forfeits the late raze race that decides FFAs, so lb fell from 52.15 to 43.07.
+- next: Time — use the turn time for search.
