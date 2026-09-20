@@ -24,20 +24,19 @@ def generate(data, generated_path):
     if len(mod_path) > 0 and mod_path[-1] != "/":
         mod_path += "/"
 
-    quote_re = re.compile("'")
-    newline_re = re.compile(r"\s", re.MULTILINE)
     insert_re = re.compile(r"## REPLAY PLACEHOLDER ##")
     path_re = re.compile(r"## PATH PLACEHOLDER ##")
 
     try:
-        json.loads(data)
-        data = quote_re.sub(r"\\\\'", data)
-        data = newline_re.sub("", data)
+        parsed = json.loads(data)
+        data = json.dumps(parsed, separators=(",", ":"))
+        # Escape the JSON for the single-quoted JavaScript string.
+        data = data.replace("\\", "\\\\").replace("'", "\\'")
     except ValueError:
         data = data.replace("\n", "\\\\n")
 
-    content = path_re.sub(mod_path, content)
-    content = insert_re.sub(data, content)
+    content = path_re.sub(lambda match: mod_path, content)
+    content = insert_re.sub(lambda match: data, content)
 
     with open(generated_path, "w") as output:
         output.write(content)
