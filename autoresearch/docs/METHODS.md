@@ -88,6 +88,10 @@ Branch `main` must be an ancestor of `HEAD`. The iteration fails when
 it is not. Merge `main` into `autoresearch/main` at the start of each
 iteration.
 
+The loop pushes both branches after the log commit:
+`git push origin autoresearch/main main`. A failed push keeps the
+commits in place and is retried at the next log commit.
+
 ## Commands
 
 ```sh
@@ -96,6 +100,9 @@ iteration.
 
 # show the field (live ratings)
 .venv/bin/python league/board.py
+
+# push the iteration (after the log commit)
+git push origin autoresearch/main main
 ```
 
 ## Replays
