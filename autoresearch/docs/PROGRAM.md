@@ -62,26 +62,29 @@ The champion is the best recorded score.
 
 Each iteration must run a fresh bot entry. Change the bot code first.
 
-1. Pick one idea from `autoresearch/docs/IDEAS.md` or from research.
-2. Choose the start. The champion is a safe start. An older bot or a
+1. Merge `main` into `autoresearch/main`:
+   `git checkout autoresearch/main && git merge main`
+   Resolve any conflict before you continue.
+2. Pick one idea from `autoresearch/docs/IDEAS.md` or from research.
+3. Choose the start. The champion is a safe start. An older bot or a
    new design is also allowed.
-3. Edit `autoresearch/bot/`.
-4. Commit the change:
+4. Edit `autoresearch/bot/`.
+5. Commit the change:
    `git add autoresearch/bot && git commit -m "exp: <idea>"`
-5. Play the budget:
+6. Play the budget:
    `.venv/bin/python autoresearch/iteration.py --bot autoresearch/bot/main.bot`
-6. Read the score. The harness prints the score and adds one JSON line
+7. Read the score. The harness prints the score and adds one JSON line
    to `autoresearch/docs/PROGRESS.jsonl`. The champion is the best line.
-7. Compare the new score with the champion score:
+8. Compare the new score with the champion score:
    - No recorded score: this run sets the baseline. Move the tag.
    - New score is higher: move the tag: `git tag -f champion/main`.
    - New score is lower or equal: do not move the tag.
    Keep the commit in all three cases. Start the next idea from the
    champion.
-8. Add one entry to `autoresearch/docs/WORKLOG.md`. Commit the notes
+9. Add one entry to `autoresearch/docs/WORKLOG.md`. Commit the notes
    and the new games:
    `git add autoresearch/docs league/games.jsonl && git commit -m "log: <idea>"`
-9. Go to step 1. Do not stop.
+10. Go to step 1. Do not stop.
 
 ## Budget
 
@@ -134,6 +137,8 @@ A local optimum is the main risk. Obey these rules.
 - If the harness says "duplicates a rated bot", the code matches a bot
   that already has games. Change the code.
 - If the harness says "tree is dirty", commit first.
+- If the harness says "main is not merged", run `git merge main` and
+  commit the merge.
 - If the harness says "tools/ diverges from branch main", the engine
   changed. Restore it with `git checkout main -- tools/`.
   Do not edit the engine.

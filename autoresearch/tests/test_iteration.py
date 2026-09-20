@@ -183,6 +183,14 @@ def test_engine_matches_main():
     assert engine_on_main(AROOT)
 
 
+def test_iteration_refuses_when_main_not_merged(monkeypatch):
+    import iteration
+
+    monkeypatch.setattr(iteration, "engine_on_main", lambda root: True)
+    monkeypatch.setattr(iteration, "main_merged", lambda root: False)
+    assert iteration.main([]) == 4
+
+
 def test_main_plays_records_and_never_replays(tmp_path, monkeypatch):
     import iteration
 
@@ -197,6 +205,7 @@ def test_main_plays_records_and_never_replays(tmp_path, monkeypatch):
     # the working tree.
     monkeypatch.setattr(iteration, "is_clean", lambda root: True)
     monkeypatch.setattr(iteration, "engine_on_main", lambda root: True)
+    monkeypatch.setattr(iteration, "main_merged", lambda root: True)
     bid = iteration.candidate_id(iteration.ROOT, iteration.DEFAULT_BOT)
     monkeypatch.setattr(
         iteration, "pool_ids", lambda root, ratings=None: [bid, "rival"]

@@ -7,15 +7,16 @@ score improves.
 
 ## The loop
 
-1. Read the notes. Pick one idea.
-2. Choose the start. You can start from the champion, an older bot, or
+1. Merge `main` into `autoresearch/main`.
+2. Read the notes. Pick one idea.
+3. Choose the start. You can start from the champion, an older bot, or
    a new design.
-3. Edit `bot/`.
-4. Commit.
-5. Play the budget: 16 duels and 7 FFA games.
-6. The harness records the score in `docs/PROGRESS.jsonl`. Keep the
+4. Edit `bot/`.
+5. Commit.
+6. Play the budget: 16 duels and 7 FFA games.
+7. The harness records the score in `docs/PROGRESS.jsonl`. Keep the
    commit if the new score beats the champion score.
-7. Log the result. Repeat.
+8. Log the result. Repeat.
 
 The operating instructions are in `docs/PROGRAM.md`. Start there.
 

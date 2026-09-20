@@ -183,3 +183,28 @@ def test_last_touch_ignores_later_commits(tmp_path):
     subprocess.run(["git", "-C", str(r), "add", "-A"], check=True)
     subprocess.run(["git", "-C", str(r), "commit", "-qm", "docs"], check=True)
     assert last_touch(r, "bots/a") == first
+
+
+def test_main_merged(tmp_path):
+    from pool import main_merged
+
+    r = tmp_path / "r"
+    subprocess.run(["git", "init", "-q", str(r)], check=True)
+    subprocess.run(
+        ["git", "-C", str(r), "symbolic-ref", "HEAD", "refs/heads/main"],
+        check=True,
+    )
+    subprocess.run(["git", "-C", str(r), "config", "user.email", "t@t"], check=True)
+    subprocess.run(["git", "-C", str(r), "config", "user.name", "t"], check=True)
+    (r / "f").write_text("1\n")
+    subprocess.run(["git", "-C", str(r), "add", "-A"], check=True)
+    subprocess.run(["git", "-C", str(r), "commit", "-qm", "one"], check=True)
+    subprocess.run(["git", "-C", str(r), "checkout", "-q", "-b", "work"], check=True)
+    (r / "f").write_text("2\n")
+    subprocess.run(["git", "-C", str(r), "commit", "-qam", "two"], check=True)
+    assert main_merged(r) is True
+    subprocess.run(["git", "-C", str(r), "checkout", "-q", "main"], check=True)
+    (r / "f").write_text("3\n")
+    subprocess.run(["git", "-C", str(r), "commit", "-qam", "three"], check=True)
+    subprocess.run(["git", "-C", str(r), "checkout", "-q", "work"], check=True)
+    assert main_merged(r) is False

@@ -101,6 +101,17 @@ def engine_on_main(root: str | Path = ROOT) -> bool:
     return not others.stdout.strip()
 
 
+def main_merged(root: str | Path = ROOT) -> bool:
+    """True when branch main is an ancestor of HEAD. The autoresearch
+    loop merges main at the start of each iteration."""
+    out = subprocess.run(
+        ["git", "-C", str(root), "merge-base", "--is-ancestor", "main", "HEAD"],
+        capture_output=True,
+        env=git_env(),
+    )
+    return out.returncode == 0
+
+
 def bot_id(path: str, sha: str) -> str:
     return f"{path}-{sha}"
 

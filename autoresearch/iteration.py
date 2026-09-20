@@ -45,6 +45,7 @@ from pool import (  # noqa: E402
     engine_on_main,
     is_clean,
     last_touch,
+    main_merged,
     parse_id,
     prune_replays,
     prune_worktrees,
@@ -267,6 +268,9 @@ def main(argv=None) -> int:
     if not engine_on_main(root):
         print("tools/ diverges from branch main; the engine is fixed", file=sys.stderr)
         return 3
+    if not main_merged(root):
+        print("main is not merged; run `git merge main`", file=sys.stderr)
+        return 4
     if not is_clean(root):
         print("bot tree is dirty; commit before logged play", file=sys.stderr)
         return 2

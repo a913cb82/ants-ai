@@ -69,6 +69,12 @@ iteration. The object has these keys:
 The engine under `tools/` must match branch `main`. The iteration
 fails when it does not.
 
+## Branch
+
+Branch `main` must be an ancestor of `HEAD`. The iteration fails when
+it is not. Merge `main` into `autoresearch/main` at the start of each
+iteration.
+
 ## Commands
 
 ```sh
