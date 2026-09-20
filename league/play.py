@@ -10,7 +10,7 @@ import json
 import subprocess
 from pathlib import Path
 
-from pool import ROOT, bot_cmd, bot_id, parse_id, short
+from pool import ROOT, DirtyTree, bot_cmd, bot_id, is_clean, parse_id, short
 
 STATUS_ORDER = {"survived": 0, "eliminated": 1, "timeout": 2, "crashed": 3}
 
@@ -42,6 +42,8 @@ def play_match(root: str | Path, python: str, field: list[str],
                pseed: int, eseed: int, log_dir: str | Path,
                timeout: int = 300) -> dict:
     root = Path(root)
+    if not is_clean(root):
+        raise DirtyTree("bots/ is dirty; commit or stash before logged play")
     ids = resolve(field, root)
     cmds = []
     for bid in ids:

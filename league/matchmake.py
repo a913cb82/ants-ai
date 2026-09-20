@@ -15,7 +15,7 @@ from pathlib import Path
 
 from openskill.models import BradleyTerryFull
 
-from pool import ROOT, pool as pool_ids
+from pool import ROOT, DirtyTree, is_clean, pool as pool_ids
 from play import play_match
 import ratings as R
 
@@ -123,6 +123,10 @@ def main(argv=None) -> int:
         print(f"proposed {n}p on {m}: {' '.join(field)}", flush=True)
         return 0
     import sys as _sys
+    if not is_clean(ROOT):
+        print("bots/ is dirty; commit or stash before logged play",
+              file=_sys.stderr)
+        return 2
     last: tuple | None = None
     for i in range(args.play):
         n, m = pick_map(rng, MAPS_ROOT, args.players)

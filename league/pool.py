@@ -13,6 +13,18 @@ ROOT = Path(__file__).resolve().parents[1]
 WORKBASE = Path("/tmp/antwork")
 
 
+class DirtyTree(Exception):
+    """bots/ has uncommitted changes. Records pin committed shas, so
+    logged play refuses dirty code: commit or stash first."""
+
+
+def is_clean(root: str | Path = ROOT) -> bool:
+    out = subprocess.run(["git", "-C", str(root), "status",
+                          "--porcelain", "--", "bots/"],
+                         capture_output=True, text=True, check=True)
+    return out.stdout.strip() == ""
+
+
 def bot_id(path: str, sha: str) -> str:
     return f"{path}-{sha}"
 
