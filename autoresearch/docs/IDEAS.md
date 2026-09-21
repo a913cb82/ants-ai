@@ -152,3 +152,4 @@ row. Leave the old row as it was.
 | dropped | Rearguard: spawn back. |
 | dropped | Triage: sit hot front. |
 | trying | Shortfuse: closing at 14. |
+| trying | Counter: walk-off at enemy. |

@@ -1403,6 +1403,18 @@ Use this format.
 - what you learned: Shortfuses went 3-2, took 2/4 and 3/6, then finished 9/10; later warnings arrive after the raze, so lb fell to 11.72 against 52.15.
 - next: Counter — walk-off heads at enemy.
 
+## 119 — counter walks at enemy (2026-09-21)
+- commit: 2301443
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 47.72, sigma 3.44, lb 37.38
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 4-1, FFA ranks 4p:4 6p:1 10p:1
+- what changed: Battling as Counter in Counter.bot + Counter.py; walk-off heads at enemy.
+- what you learned: Counters went 4-1 losing to Serve, finished 4/4, then won the 6p and 10p; skirmish feet sweep big fields but abandon home small, so lb reached 37.38 against 52.15.
+- next: Longfuse — closing at 18.
+
 ## 105 — ram targets centroid hill (2026-09-21)
 - commit: 9283521
 - start: 6329ae1 (bold line)
