@@ -62,3 +62,4 @@ row. Leave the old row as it was.
 | dropped | Second ring: double-distance posts when heavily hit. |
 | dropped | Hungry posts: defenders snack within 4. |
 | trying | Seek fights: close on enemies inside 8. |
+| trying | Supported charges: 2+ friends nearby. |
