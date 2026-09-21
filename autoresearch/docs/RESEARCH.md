@@ -99,6 +99,12 @@ Use this format.
 - evidence: Fresh-spawn mission target is a random border tile, otherwise the closest; paths recalculated with A*; interrupted ants discard missions; targets re-searched every turn when time allows, at least every 10 turns; areas come from simultaneous BFS (20-step) with borders where areas meet.
 - idea: Frontier missions for idle ants only (food/hill paths untouched); frontier equals unseen neighbors of seen squares, no full-map areas needed.
 
+## Opportunistic eating: forage radius (2026-09-21)
+- source: loss-mode analysis over iters 30-38 (dispersed armies, late arrivals)
+- claim: Marathon food walks disperse the army and end in death or theft.
+- evidence: Global pairs claim food at any distance, so ants cross the map for crumbs while hills burn and crowds form; every FFA collapse features our army scattered and late.
+- idea: Locavores — claim only food within 15 steps; distant food waits for wanderers.
+
 ## Defense before food: guard first, eat later (2026-09-21)
 - source: loss-mode analysis over iters 24-35 (razed while gathering)
 - claim: Food-first ordering leaves hills defended by leftovers; threats should draft first.

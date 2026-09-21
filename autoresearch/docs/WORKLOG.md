@@ -478,3 +478,15 @@ Use this format.
 - what changed: Battling as Sentry in Sentry.bot + Sentry.py; 2 spares per threatened hill take exclusive duty instead of 4.
 - what you learned: Sentries went 4-1 losing a duel to Militia, won the 4p and a 6p over the whole militia family, then finished 9/10 in a Vanguard-led 10p; two defenders cannot hold big-field chaos, so lb reached 26.66 against 52.15.
 - next: BOLD — new line, research first.
+
+## 39 — locavores eat within 15 steps (2026-09-21)
+- commit: 7d05034
+- start: 79bbd16 (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 51.74, sigma 3.54, lb 41.12
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 4-1, FFA ranks 5p:2 7p:1 8p:4
+- what changed: Battling as Locavore in Locavore.bot + Locavore.py; food pairs claim only within 15 steps, distant food waits.
+- what you learned: Locavores went 4-1 losing a duel to Sentry, won a 7p over Bookmaker and the militia family, and took 4/8 behind Boone and Pilgrim; concentration works in crowds but cedes too much elsewhere, so lb reached 41.12 against 52.15.
+- next: Nibbler — tighten the radius to 10.
