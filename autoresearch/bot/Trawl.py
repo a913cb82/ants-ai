@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Palisade:
+class Trawl:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Palisade:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Palisade: safe hunt, fearless wall.
-        # Battling as Palisade. Anchor wall, safe hunting, headings,
-        # memory, aggression, walk-off, food, and exploration match
-        # iteration 90. Guards skip safety; hunters stay careful.
-        # The missing cell of the wall matrix.
+        # Trawl: Dragnet grows teeth.
+        # Battling as Trawl. Dragnet screen, fearless-ahead hunt,
+        # aggression, walk-off, food, hills, and exploration match
+        # iteration 85. Two or more enemies near the hill get
+        # intercepted; a lone razer meets the hill guard.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -166,7 +166,6 @@ class Palisade:
 
         destinations: set[tuple[int, int]] = set()
         held: list[tuple[int, int]] = []
-        anchored: set[tuple[int, int]] = set()
         for ai, ant_loc in enumerate(ants_list):
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
             best = target.get(ai)
@@ -180,27 +179,24 @@ class Palisade:
                     # ant chases the same region this turn.
                     pass
             if not moved and threatened:
-                # No food or blocked: first guard holds the hill,
-                # extras screen the razer off it.
+                # No food or blocked: packs get dragged away from the
+                # hill; a lone razer meets the guard on it.
                 nearest = min(threatened, key=lambda h: ants.distance(ant_loc, h))
-                if nearest in anchored:
-                    screen = min(
-                        enemy_locs,
-                        key=lambda e: ants.distance(nearest, e),
-                        default=nearest,
-                    )
-                    step = first_step(ant_loc, screen)
+                pack = [e for e in enemy_locs if ants.distance(nearest, e) <= 16]
+                if len(pack) >= 2:
+                    dest = min(pack, key=lambda e: ants.distance(nearest, e))
                 else:
-                    anchored.add(nearest)
-                    step = first_step(ant_loc, nearest)
-                # Fearless wall: guards skip safety to meet razers.
-                if step is not None and try_step(ant_loc, step, safe=False):
+                    dest = nearest
+                step = first_step(ant_loc, dest)
+                if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved and hills:
-                # Hunt always, safe always; the wall does the pressing.
+                # Hunt always; fearless when ahead on hills.
                 nearest = min(hills, key=lambda h: ants.distance(ant_loc, h))
                 step = first_step(ant_loc, nearest)
-                if step is not None and try_step(ant_loc, step):
+                if step is not None and try_step(
+                    ant_loc, step, safe=len(my_hills) <= len(hills)
+                ):
                     moved = True
             if not moved:
                 # No hill move: explore least-visited squares first.
@@ -247,6 +243,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Palisade())
+        Ants.run(Trawl())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
