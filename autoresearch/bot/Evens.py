@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Odds:
+class Evens:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,8 +27,8 @@ class Odds:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Odds: equal trades at 10.
-        # Battling as Odds. Bulwark wall, cheaper equal trades,
+        # Evens: equal trades at 20.
+        # Battling as Evens. Bulwark wall, pricier equal trades,
         # aggression, walk-off, food, and exploration match iteration
         # 76. Hunt always; ahead on hills, hunters skip the safety
         # filter. Closeouts need teeth, not patience.
@@ -117,8 +117,8 @@ class Odds:
                     near += 1
             if friends + 1 > enemies:
                 return True
-            # Aggressive: 10+ friends near the fight accept equal trades.
-            return near >= 10 and friends + 1 >= enemies
+            # Aggressive: 20+ friends near the fight accept equal trades.
+            return near >= 20 and friends + 1 >= enemies
 
         def first_step(
             start: tuple[int, int], goal: tuple[int, int], budget: int = 250
@@ -248,6 +248,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Odds())
+        Ants.run(Evens())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
