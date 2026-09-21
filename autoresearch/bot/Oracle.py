@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Harvest:
+class Oracle:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Harvest:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Harvest: walk-off heads to food.
-        # Battling as Harvest. Bulwark wall, food-seeking walk-off,
-        # aggression, walk-off, food, and exploration match iteration
-        # 76. Hunt always; ahead on hills, hunters skip the safety
-        # filter. Closeouts need teeth, not patience.
+        # Opponent model: read enemy headings from enemy moves.
+        # Battling as Oracle. Memory, movement, aggression, walk-off,
+        # and exploration match iteration 13. Visible enemies are
+        # matched to last turn's positions; a hill counts threatened
+        # at 16 steps when an enemy is closing on it, else 10.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -149,15 +149,13 @@ class Harvest:
                 node = parent[node][0]
             return parent[node][1]
 
-        def try_step(
-            ant_loc: tuple[int, int], direction: str, safe: bool = True
-        ) -> bool:
+        def try_step(ant_loc: tuple[int, int], direction: str) -> bool:
             new_loc = ants.destination(ant_loc, direction)
             if (
                 new_loc not in destinations
                 and ants.passable(new_loc)
                 and ants.unoccupied(new_loc)
-                and (not safe or is_safe(new_loc, ant_loc))
+                and is_safe(new_loc, ant_loc)
             ):
                 ants.issue_order((ant_loc, direction))
                 destinations.add(new_loc)
@@ -166,7 +164,6 @@ class Harvest:
 
         destinations: set[tuple[int, int]] = set()
         held: list[tuple[int, int]] = []
-        anchored: set[tuple[int, int]] = set()
         for ai, ant_loc in enumerate(ants_list):
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
             best = target.get(ai)
@@ -179,29 +176,12 @@ class Harvest:
                     # Assigned food is blocked; keep the claim so no other
                     # ant chases the same region this turn.
                     pass
-            if not moved and threatened:
-                # No food or blocked: first guard holds the hill,
-                # extras screen the razer off it.
-                nearest = min(threatened, key=lambda h: ants.distance(ant_loc, h))
-                if nearest in anchored:
-                    screen = min(
-                        enemy_locs,
-                        key=lambda e: ants.distance(nearest, e),
-                        default=nearest,
-                    )
-                    step = first_step(ant_loc, screen)
-                else:
-                    anchored.add(nearest)
-                    step = first_step(ant_loc, nearest)
-                if step is not None and try_step(ant_loc, step):
-                    moved = True
-            if not moved and hills:
-                # Hunt always; fearless when ahead on hills.
-                nearest = min(hills, key=lambda h: ants.distance(ant_loc, h))
+            if not moved and (threatened or hills):
+                # No food or blocked: guard home first, else hunt.
+                targets = threatened if threatened else hills
+                nearest = min(targets, key=lambda h: ants.distance(ant_loc, h))
                 step = first_step(ant_loc, nearest)
-                if step is not None and try_step(
-                    ant_loc, step, safe=len(my_hills) <= len(hills)
-                ):
+                if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved:
                 # No hill move: explore least-visited squares first.
@@ -230,13 +210,7 @@ class Harvest:
         hill_set = set(my_hills)
         for ant_loc in held:
             if ant_loc in hill_set and ants.time_remaining() >= 10:
-                order: tuple[str, ...] = ("s", "e", "w", "n")
-                if foods:
-                    crop = min(foods, key=lambda f: ants.distance(ant_loc, f))
-                    first = first_step(ant_loc, crop)
-                    if first is not None:
-                        order = (first,) + tuple(d for d in order if d != first)
-                for direction in order:
+                for direction in ("s", "e", "w", "n"):
                     if try_step(ant_loc, direction):
                         break
 
@@ -254,6 +228,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Harvest())
+        Ants.run(Oracle())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
