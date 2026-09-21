@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Median:
+class Doormat:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Median:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Median: split the range.
-        # Battling as Median. Alarm quorum, headings, memory,
-        # aggression, walk-off, food, hills, and exploration match
-        # iteration 61. The closing rule fires at 14 steps, between
-        # Stoic calm and champion panic; quorum dropped.
+        # Doormat: never block your own door.
+        # Battling as Doormat. Headings, memory, aggression, food,
+        # hills, and exploration match iteration 15. Walk-off only
+        # covers held ants, so try_step and explore refuse own-hill
+        # destinations outright; nobody ends a turn on a home hill.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -53,6 +53,7 @@ class Median:
                 claimed_food.add(fi)
         hills = sorted(self.remembered_hills)
         my_hills = ants.my_hills()
+        hill_set = set(my_hills)
         enemy_locs = [loc for loc, _ in ants.enemy_ants()]
         # Match each visible enemy to a last-turn position to read
         # its heading. Ants move one square per turn, so matches at
@@ -83,7 +84,7 @@ class Median:
             for h in my_hills
             if any(
                 ants.distance(h, e) <= 10
-                or (ants.distance(h, e) <= 14 and closing(e, h))
+                or (ants.distance(h, e) <= 16 and closing(e, h))
                 for e in enemy_locs
             )
         ]
@@ -153,6 +154,7 @@ class Median:
             new_loc = ants.destination(ant_loc, direction)
             if (
                 new_loc not in destinations
+                and new_loc not in hill_set
                 and ants.passable(new_loc)
                 and ants.unoccupied(new_loc)
                 and is_safe(new_loc, ant_loc)
@@ -193,6 +195,7 @@ class Median:
                     new_loc = ants.destination(ant_loc, direction)
                     if (
                         new_loc not in destinations
+                        and new_loc not in hill_set
                         and ants.passable(new_loc)
                         and ants.unoccupied(new_loc)
                         and is_safe(new_loc, ant_loc)
@@ -207,7 +210,6 @@ class Median:
             if ants.time_remaining() < 10:
                 break
         # Walk off hill: a held ant on a home hill must step off.
-        hill_set = set(my_hills)
         for ant_loc in held:
             if ant_loc in hill_set and ants.time_remaining() >= 10:
                 for direction in ("s", "e", "w", "n"):
@@ -228,6 +230,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Median())
+        Ants.run(Doormat())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
