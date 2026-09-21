@@ -76,5 +76,6 @@ row. Leave the old row as it was.
 | dropped | Locavores: food claims within 15. |
 | dropped | Nibblers: radius tightens to 10. |
 | dropped | Flexitarian: radius grows with army. |
-| trying | Wolfpack: gang shared prey, join equals. |
-| trying | Hyena: join only 3+ bud crowds. |
+| dropped | Wolfpack: gang shared prey, join equals. |
+| dropped | Hyena: join only 3+ bud crowds. |
+| dropped | Jackal: nearest foe, join on commitment. |

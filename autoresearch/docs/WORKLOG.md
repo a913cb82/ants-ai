@@ -538,3 +538,15 @@ Use this format.
 - what changed: Battling as Hyena in Hyena.bot + Hyena.py; the pack gangs only prey with 3+ buds already near it.
 - what you learned: Hyenas went 4-1 beating Tariff and splitting Nibbler, won the 5p, and took 2nd in the 8p behind Detour, but finished 5/7 behind Wolfpack itself; crowd-gating fixes duels yet goes passive in crowds, so lb reached 32.42 against 52.15.
 - next: Jackal — nearest foe, lead on majority, join on commitment.
+
+## 44 — jackal leads majority joins commitment (2026-09-21)
+- commit: 587fbb7
+- start: ba5982b (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 27.06, sigma 3.66, lb 16.07
+- champion lb: 52.15
+- verdict: drop the pack line (bold 3 of 3)
+- games: 3-2, FFA ranks 5p:1 7p:5 8p:7
+- what changed: Battling as Jackal in Jackal.bot + Jackal.py; nearest foe inside 12, first ant leads on static majority, buddies join equal trades.
+- what you learned: Jackals went 3-2 losing twice to Tariff with lb negative mid-run, won a weak 5p, then finished 5/7 and 7/8; nearest-foe targeting without crowd sense is suicide, so lb collapsed from 52.15 to 16.07.
+- next: BOLD — new line, research first.
