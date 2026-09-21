@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Brawler:
+class Monk:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Brawler:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Brawler: pick more fights.
-        # Battling as Brawler. Headings, memory, walk-off, food, and
-        # exploration match iteration 15. The equal-trade gate drops
-        # from 14 friends near the fight to 8; everything else,
-        # including majority rule, stands exactly as the champion.
+        # Monk: refuse nearly all equals.
+        # Battling as Monk. Brawler habits, headings, memory,
+        # walk-off, food, and exploration match iteration 45. The
+        # equal-trade gate rises from 14 friends to 20; majority
+        # rule still takes winning fights, equals need a crowd.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -117,8 +117,8 @@ class Brawler:
                     near += 1
             if friends + 1 > enemies:
                 return True
-            # Brawler: 8+ friends near the fight accept equal trades.
-            return near >= 8 and friends + 1 >= enemies
+            # Monk: 20+ friends near the fight accept equal trades.
+            return near >= 20 and friends + 1 >= enemies
 
         def first_step(
             start: tuple[int, int], goal: tuple[int, int], budget: int = 250
@@ -228,6 +228,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Brawler())
+        Ants.run(Monk())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
