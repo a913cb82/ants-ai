@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Peak:
+class Glutton:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Peak:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Peak: hills first, food second.
-        # Battling as Peak. Headings, memory, aggression, walk-off,
-        # and exploration match iteration 15. The hill branch runs
-        # before the food branch; claims persist for ants whose
-        # hills fail. The big tapes say pressure beats gathering.
+        # Glutton: eat through danger.
+        # Battling as Glutton. Peak ordering, headings, memory,
+        # aggression, walk-off, and exploration match iteration 69.
+        # Gatherers skip the safety filter; fighters and explorers
+        # stay careful. Order is ruled out, fear is on trial.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -149,13 +149,15 @@ class Peak:
                 node = parent[node][0]
             return parent[node][1]
 
-        def try_step(ant_loc: tuple[int, int], direction: str) -> bool:
+        def try_step(
+            ant_loc: tuple[int, int], direction: str, safe: bool = True
+        ) -> bool:
             new_loc = ants.destination(ant_loc, direction)
             if (
                 new_loc not in destinations
                 and ants.passable(new_loc)
                 and ants.unoccupied(new_loc)
-                and is_safe(new_loc, ant_loc)
+                and (not safe or is_safe(new_loc, ant_loc))
             ):
                 ants.issue_order((ant_loc, direction))
                 destinations.add(new_loc)
@@ -176,8 +178,9 @@ class Peak:
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved and best is not None:
+                # Fearless food: gatherers skip the safety filter.
                 step = first_step(ant_loc, best)
-                if step is not None and try_step(ant_loc, step):
+                if step is not None and try_step(ant_loc, step, safe=False):
                     moved = True
                 if not moved:
                     # Assigned food is blocked; keep the claim so no other
@@ -228,6 +231,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Peak())
+        Ants.run(Glutton())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
