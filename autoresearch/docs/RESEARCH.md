@@ -105,6 +105,12 @@ Use this format.
 - evidence: Fresh-spawn mission target is a random border tile, otherwise the closest; paths recalculated with A*; interrupted ants discard missions; targets re-searched every turn when time allows, at least every 10 turns; areas come from simultaneous BFS (20-step) with borders where areas meet.
 - idea: Frontier missions for idle ants only (food/hill paths untouched); frontier equals unseen neighbors of seen squares, no full-map areas needed.
 
+## Cohesion fallback: huddle, don't wander (2026-09-21)
+- source: autoresearch loss-mode analysis (scatter + late arrivals in every FFA collapse)
+- claim: Least-visited wandering sends lone ants to the edges where they die; mass survives.
+- evidence: Influence waves herd cohesive units with momentum; our fallback is the only scatter source left untested — every FFA collapse features our army spread thin.
+- idea: Huddle — fallback ants step toward the nearest friend (explore only to bootstrap).
+
 ## Conservative synthesis: radius plus posts (2026-09-21)
 - source: autoresearch loss-mode analysis (Flexitarian 45.78 + Phalanx 42.27, top partials)
 - claim: The best failed ideas compose: radius concentrates the army, posts spend the freed spares.

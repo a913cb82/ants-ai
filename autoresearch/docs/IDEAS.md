@@ -88,3 +88,4 @@ row. Leave the old row as it was.
 | dropped | Hearth: radius plus posts synthesis. |
 | dropped | Manor: snacking posts on the hearth. |
 | dropped | Homestead: conservative triple. |
+| trying | Huddle: fallback masses friends. |

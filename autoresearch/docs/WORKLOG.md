@@ -658,3 +658,15 @@ Use this format.
 - what changed: Battling as Homestead in Homestead.bot + Homestead.py; radius plus snacking posts plus kill-zone avoidance on hill marches.
 - what you learned: Homesteads went 3-2 losing to Haunt and Houdini, won a weak 5p, took 2/7, then finished 7/8 behind Hearth and Manor itself; cowardice re-poisons the mix, so lb reached 26.99 against 52.15.
 - next: BOLD — new line, research first.
+
+## 54 — huddle fallback masses friends (2026-09-21)
+- commit: 0ee5d07
+- start: 79bbd16 (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 32.69, sigma 3.55, lb 22.03
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 3-2, FFA ranks 4p:2 6p:6 10p:1
+- what changed: Battling as Huddle in Huddle.bot + Huddle.py; fallback ants step toward the nearest friend, exploring only to bootstrap.
+- what you learned: Huddles went 3-2 losing to Haunt and Wolfpack, finished 6/6 in a real 6p, and won a cripple-field 10p; the ball cedes map and food and gets out-grown, so lb reached 22.03 against 52.15.
+- next: Loose huddle — mass toward friends only past turn 100.
