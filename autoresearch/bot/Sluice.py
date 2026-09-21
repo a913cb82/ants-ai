@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Floodgate:
+class Sluice:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Floodgate:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Floodgates: turtle, then swarm.
-        # Battling as Floodgate. Headings, memory, aggression,
-        # walk-off, food, and exploration match iteration 15. No
-        # hill-hunting below 15 ants (spares explore instead); at
-        # 15+, every spare marches the nearest remembered hill.
+        # Lower gate: swarm at 8, not 15.
+        # Battling as Sluice. Floodgates, headings, memory,
+        # aggression, walk-off, food, and exploration match iteration
+        # 33. No hill-hunting below 8 ants; at 8+, every spare
+        # marches the nearest remembered hill before foes own the map.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -182,7 +182,7 @@ class Floodgate:
                 step = first_step(ant_loc, nearest)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
-            if not moved and hills and len(ants_list) >= 15:
+            if not moved and hills and len(ants_list) >= 8:
                 # Floodgate open: every spare swarms the nearest hill.
                 nearest = min(hills, key=lambda h: ants.distance(ant_loc, h))
                 step = first_step(ant_loc, nearest)
@@ -233,6 +233,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Floodgate())
+        Ants.run(Sluice())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
