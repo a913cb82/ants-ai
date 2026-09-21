@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Outpost:
+class Bloodhound:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Outpost:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Outpost: gather forward.
-        # Battling as Outpost. Headings, memory, aggression, walk-off,
-        # hills, and explore match iteration 15. Foods nearest enemy
-        # hills are claimed first; gatherers double as forward
-        # presence and denial.
+        # Bloodhound: guards answer closing enemies only.
+        # Battling as Bloodhound. Food, headings, memory, aggression,
+        # walk-off, hills, and explore match iteration 15. The static
+        # 10-step threatened radius is dropped; only enemies closing
+        # within 16 count. Guards stop flinching at passersby.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -42,23 +42,14 @@ class Outpost:
                 self.remembered_hills.discard(hloc)
         hills = sorted(self.remembered_hills)
         my_hills = ants.my_hills()
-        # Forward food: foods nearest enemy hills get claimed first;
-        # gatherers double as forward presence. No known hills yet:
-        # nearest-ant order as usual.
-        fwd: list[int] = []
-        for food_loc in foods:
-            if hills:
-                fwd.append(min(ants.distance(food_loc, h) for h in hills))
-            else:
-                fwd.append(0)
-        pairs: list[tuple[int, int, int, int]] = []
+        pairs: list[tuple[int, int, int]] = []
         for ai, ant_loc in enumerate(ants_list):
             for fi, food_loc in enumerate(foods):
-                pairs.append((fwd[fi], ants.distance(ant_loc, food_loc), ai, fi))
+                pairs.append((ants.distance(ant_loc, food_loc), ai, fi))
         pairs.sort()
         target: dict[int, tuple[int, int]] = {}
         claimed_food: set[int] = set()
-        for _, _, ai, fi in pairs:
+        for _, ai, fi in pairs:
             if ai not in target and fi not in claimed_food:
                 target[ai] = foods[fi]
                 claimed_food.add(fi)
@@ -90,11 +81,7 @@ class Outpost:
         threatened = [
             h
             for h in my_hills
-            if any(
-                ants.distance(h, e) <= 10
-                or (ants.distance(h, e) <= 16 and closing(e, h))
-                for e in enemy_locs
-            )
+            if any(ants.distance(h, e) <= 16 and closing(e, h) for e in enemy_locs)
         ]
         attack_r2 = ants.attackradius2 or 5
         rows, cols = ants.rows, ants.cols
@@ -237,6 +224,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Outpost())
+        Ants.run(Bloodhound())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
