@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Sentry:
+class Locavore:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Sentry:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Sentry: a lighter watch.
-        # Battling as Sentry. Volunteer duty, headings, memory,
-        # aggression, walk-off, food, and exploration match iteration
-        # 37. Two spares per threatened hill take exclusive duty; the
-        # rest of the swarm still marches instead of standing guard.
+        # Opportunistic eating: never marathon for crumbs.
+        # Battling as Locavore. Headings, memory, aggression,
+        # walk-off, and exploration match iteration 15. Food pairs
+        # claim only within 15 steps; distant food waits, and the
+        # army stays home instead of scattering across the map.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -43,7 +43,9 @@ class Sentry:
         pairs: list[tuple[int, int, int]] = []
         for ai, ant_loc in enumerate(ants_list):
             for fi, food_loc in enumerate(foods):
-                pairs.append((ants.distance(ant_loc, food_loc), ai, fi))
+                d = ants.distance(ant_loc, food_loc)
+                if d <= 15:
+                    pairs.append((d, ai, fi))
         pairs.sort()
         target: dict[int, tuple[int, int]] = {}
         claimed_food: set[int] = set()
@@ -87,18 +89,6 @@ class Sentry:
                 for e in enemy_locs
             )
         ]
-        # Sentries: the 2 closest spares per threatened hill take
-        # exclusive duty; food claims stand.
-        defender_of: dict[int, tuple[int, int]] = {}
-        if threatened:
-            spares = [ai for ai in range(len(ants_list)) if ai not in target]
-            for hill in threatened:
-                scored = sorted(
-                    (ants.distance(ants_list[ai], hill), ai) for ai in spares
-                )
-                for _, ai in scored[:2]:
-                    defender_of[ai] = hill
-                    spares.remove(ai)
         attack_r2 = ants.attackradius2 or 5
         rows, cols = ants.rows, ants.cols
 
@@ -188,11 +178,6 @@ class Sentry:
                     # Assigned food is blocked; keep the claim so no other
                     # ant chases the same region this turn.
                     pass
-            if not moved and ai in defender_of:
-                # Volunteer duty: march the assigned hill.
-                step = first_step(ant_loc, defender_of[ai])
-                if step is not None and try_step(ant_loc, step):
-                    moved = True
             if not moved and (threatened or hills):
                 # No food or blocked: guard home first, else hunt.
                 targets = threatened if threatened else hills
@@ -245,6 +230,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Sentry())
+        Ants.run(Locavore())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
