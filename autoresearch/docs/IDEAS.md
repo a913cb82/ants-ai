@@ -68,3 +68,4 @@ row. Leave the old row as it was.
 | dropped | Brave detours: cowardice on hill marches only. |
 | dropped | Danger tolls: +3 a kill-zone tile. |
 | trying | Floodgates: swarm remembered hills at 15 ants. |
+| trying | Lower gate: swarm at 8 ants. |

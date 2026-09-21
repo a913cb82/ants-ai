@@ -418,3 +418,15 @@ Use this format.
 - what changed: Battling as Floodgate in Floodgate.bot + Floodgate.py; no hill-hunting below 15 ants, then every spare swarms the nearest remembered hill.
 - what you learned: Gates swept duels 5-0 and a weak 6p, but finished 7/10 behind six of its own descendants; turtling cedes the map and the swarm opens onto enemy ground, so lb reached 29.48 against 52.15.
 - next: Lower gate — swarm at 8 ants.
+
+## 34 — lower floodgate to 8 ants (2026-09-21)
+- commit: e974d2c
+- start: 3a17be9 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 43.64, sigma 3.65, lb 32.70
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 4-1, FFA ranks 5p:5 7p:1 8p:1
+- what changed: Battling as Sluice in Sluice.bot + Sluice.py; the swarm gates on 8 ants instead of 15.
+- what you learned: The low gate went 4-1 losing a duel to Detour, won the 7p and 8p over Floodgate itself, then finished 5/5 in a 5p behind Detour and Floodgate; gate timing is feast or famine, so lb reached 32.70 against 52.15.
+- next: Posse — hunt only hills with 3+ spares nearby.
