@@ -92,3 +92,4 @@ row. Leave the old row as it was.
 | dropped | Reunion: huddle past turn 100. |
 | dropped | Intern: shadow employed ants. |
 | trying | Marshal: danger moves first. |
+| trying | Purser: food-claimants move first. |

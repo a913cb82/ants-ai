@@ -706,3 +706,15 @@ Use this format.
 - what changed: Battling as Marshal in Marshal.bot + Marshal.py; movers sort by nearest-enemy distance, closest first.
 - what you learned: Marshals went 3-2 losing duels to Intern and Reunion, won the 5p and 7p, and took 3/8 behind Garrison and Bouncer; ordering shows signal but duels bleed to clumps, so lb reached 40.85 against 52.15.
 - next: Purser — food-claimants move first.
+
+## 58 — purser moves food first (2026-09-21)
+- commit: feda0a5
+- start: 597cd54 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 41.86, sigma 3.55, lb 31.22
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 4-1, FFA ranks 4p:2 6p:4 10p:2
+- what changed: Battling as Purser in Purser.bot + Purser.py; food-claimants move first, the rest in engine order.
+- what you learned: Pursers went 4-1 losing a duel to Intern and took 2/4, 4/6, 2/10 behind Bookmaker and Brawler; consistent but flat, never winning, so lb reached 31.22 against 52.15.
+- next: Raider — hunters move first, food last.
