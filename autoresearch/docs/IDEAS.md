@@ -73,5 +73,6 @@ row. Leave the old row as it was.
 | dropped | Militia: defense drafts before food. |
 | dropped | Volunteers: duty drafts from spares only. |
 | dropped | Sentry: 2 volunteers per hill. |
-| trying | Locavores: food claims within 15. |
-| trying | Nibblers: radius tightens to 10. |
+| dropped | Locavores: food claims within 15. |
+| dropped | Nibblers: radius tightens to 10. |
+| dropped | Flexitarian: radius grows with army. |

@@ -502,3 +502,15 @@ Use this format.
 - what changed: Battling as Nibbler in Nibbler.bot + Nibbler.py; the forage radius tightens from 15 to 10.
 - what you learned: Nibblers went 4-1 losing another duel to Sentry, won a weak 6p, but finished 3/4 and 6/10 in the militia fields; tighter starves, so lb fell from 52.15 to 25.77.
 - next: Flexitarian — radius grows with the army.
+
+## 41 — flexitarian radius grows with army (2026-09-21)
+- commit: dfce6c0
+- start: 9786ff7 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 56.42, sigma 3.55, lb 45.78
+- champion lb: 52.15
+- verdict: drop the food line (bold 3 of 3)
+- games: 5-0, FFA ranks 5p:2 7p:1 8p:3
+- what changed: Battling as Flexitarian in Flexitarian.bot + Flexitarian.py; food claims reach 8 + army size.
+- what you learned: Flexitarians swept duels 5-0 over Nibbler twice, won the 7p, and took 3rd in the 8p behind Cartographer and Cavalry; adaptive radius is the best idea since Oracle at lb 45.78, yet still 6 points short, so the line is dropped.
+- next: BOLD — new line, research first.
