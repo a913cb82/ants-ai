@@ -1628,4 +1628,16 @@ Use this format.
 - what changed: Battling as Flank in Flank.bot + Flank.py; second-nearest hunting.
 - what you learned: Flanks went 1-4 losing thrice to Guerrilla, won the 4p, took 2/6 and 5/10; second-nearest marches past the action, so lb reached 17.23 against 52.15.
 - next: Seance — Bulwark forgets ghosts.
+
+## 135 — seance forgets ghosts (2026-09-21)
+- commit: 312200f
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 16.71, sigma 3.52, lb 6.15
+- champion lb: 52.15
+- verdict: drop the crowd line (bold 3 of 3)
+- games: 3-2, FFA ranks 5p:5 7p:2 8p:8
+- what changed: Battling as Seance in Seance.bot + Seance.py; ghost-forgetting on wall.
+- what you learned: Seances went 3-2, finished 5/5, took 2/7, then finished 8/8; ghosts point hunters forward, forgetting blinds the army, so lb fell to 6.15 against 52.15.
+- next: BOLD — new line, research first.
 - next: BOLD — new line, research first.
