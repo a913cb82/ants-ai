@@ -7,13 +7,12 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Vigil:
+class Hearth:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
         self.remembered_hills: set[tuple[int, int]] = set()
         self.prev_enemies: list[tuple[int, int]] = []
-        self.ghost_turns: dict[tuple[int, int], int] = {}
 
     # do_setup is run once at the start of the game
     # after the bot has received the game settings
@@ -23,40 +22,31 @@ class Vigil:
         self.visits = {}
         self.remembered_hills = set()
         self.prev_enemies = []
-        self.ghost_turns = {}
 
     # do turn is run once per turn
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Vigil: a short watch for ghosts.
-        # Battling as Vigil. Haunt counters, headings, aggression,
-        # walk-off, food, and exploration match iteration 49. Hills
-        # seen empty 5 straight turns are dropped; a short rally,
-        # then the hunters move on to living targets.
+        # Hearth: eat local, guard posts.
+        # Battling as Hearth. Headings, memory, aggression, walk-off,
+        # and exploration match iteration 15. Food claims reach 8 +
+        # army size, and threatened hills post closest spares on
+        # passable diagonals; the radius frees the spares posts need.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
-        foe_hills = {hloc for hloc, _ in ants.enemy_hills()}
-        for hloc in foe_hills:
+        for hloc, _ in ants.enemy_hills():
             self.remembered_hills.add(hloc)
         for hloc in list(self.remembered_hills):
             if hloc in my_set:
                 self.remembered_hills.discard(hloc)
-                self.ghost_turns.pop(hloc, None)
-            elif hloc not in foe_hills and ants.visible(hloc):
-                turns = self.ghost_turns.get(hloc, 0) + 1
-                if turns >= 5:
-                    self.remembered_hills.discard(hloc)
-                    self.ghost_turns.pop(hloc, None)
-                else:
-                    self.ghost_turns[hloc] = turns
-            else:
-                self.ghost_turns.pop(hloc, None)
+        reach = 8 + len(ants_list)
         pairs: list[tuple[int, int, int]] = []
         for ai, ant_loc in enumerate(ants_list):
             for fi, food_loc in enumerate(foods):
-                pairs.append((ants.distance(ant_loc, food_loc), ai, fi))
+                d = ants.distance(ant_loc, food_loc)
+                if d <= reach:
+                    pairs.append((d, ai, fi))
         pairs.sort()
         target: dict[int, tuple[int, int]] = {}
         claimed_food: set[int] = set()
@@ -100,6 +90,30 @@ class Vigil:
                 for e in enemy_locs
             )
         ]
+        # Corner posts: each threatened hill mans its passable
+        # diagonals with the closest spares.
+        defender_post: dict[int, tuple[int, int]] = {}
+        if threatened:
+            spares = [ai for ai in range(len(ants_list)) if ai not in target]
+            taken_post: set[tuple[int, int]] = set()
+            for hill in threatened:
+                hr, hc = hill
+                for dr, dc in ((-1, -1), (-1, 1), (1, -1), (1, 1)):
+                    post = ((hr + dr) % ants.rows, (hc + dc) % ants.cols)
+                    if post in taken_post or not ants.passable(post):
+                        continue
+                    if not spares:
+                        break
+                    pick = spares[0]
+                    pick_d = ants.distance(ants_list[pick], post)
+                    for i in spares[1:]:
+                        d = ants.distance(ants_list[i], post)
+                        if d < pick_d:
+                            pick_d = d
+                            pick = i
+                    spares.remove(pick)
+                    defender_post[pick] = post
+                    taken_post.add(post)
         attack_r2 = ants.attackradius2 or 5
         rows, cols = ants.rows, ants.cols
 
@@ -189,6 +203,15 @@ class Vigil:
                     # Assigned food is blocked; keep the claim so no other
                     # ant chases the same region this turn.
                     pass
+            if not moved and ai in defender_post:
+                # Hold the post or march to it.
+                post = defender_post[ai]
+                if ant_loc == post:
+                    moved = True
+                else:
+                    step = first_step(ant_loc, post)
+                    if step is not None and try_step(ant_loc, step):
+                        moved = True
             if not moved and (threatened or hills):
                 # No food or blocked: guard home first, else hunt.
                 targets = threatened if threatened else hills
@@ -241,6 +264,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Vigil())
+        Ants.run(Hearth())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
