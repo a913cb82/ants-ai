@@ -1042,3 +1042,15 @@ Use this format.
 - what changed: Battling as Sieve in Sieve.bot + Sieve.py; lone razer screened, packs met at hill.
 - what you learned: Sieves went 3-2, took 2/4, finished 5/6, then took 2/10 behind Bloodhound; the split dithers as counts change, so lb fell to 20.02 against 52.15.
 - next: Dragnet — screen packs, guard lone.
+
+## 86 — dragnet screens packs (2026-09-21)
+- commit: 35daee3
+- start: 57f9240 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 50.65, sigma 3.62, lb 39.80
+- champion lb: 52.15
+- verdict: drop the screen line (bold 3 of 3)
+- games: 4-1, FFA ranks 4p:2 6p:1 10p:2
+- what changed: Battling as Dragnet in Dragnet.bot + Dragnet.py; packs screened, lone met at hill.
+- what you learned: Dragnets went 4-1 losing to Tariff, took 2/4, won the 6p, then took 2/10 behind Manor; pack-screening ties pure interception (39.80 vs 39.04), the split barely matters, so lb reached 39.80 against 52.15.
+- next: BOLD — new line, research first.

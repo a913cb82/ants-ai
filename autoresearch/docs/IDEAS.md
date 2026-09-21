@@ -118,5 +118,6 @@ row. Leave the old row as it was.
 | dropped | Hotspot: most-visited explore. |
 | dropped | Outpost: forward food. |
 | dropped | Bloodhound: closing-only defense. |
-| trying | Screen: intercept razers. |
-| trying | Sieve: screen lone, guard pack. |
+| dropped | Screen: intercept razers. |
+| dropped | Sieve: screen lone, guard pack. |
+| dropped | Dragnet: screen packs. |
