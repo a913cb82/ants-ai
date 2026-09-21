@@ -814,3 +814,15 @@ Use this format.
 - what changed: Battling as Grinder in Grinder.bot + Grinder.py; friendless 1v1 engages when our visible army is at least theirs.
 - what you learned: Grinders went 3-2 losing twice to Bodyguard, finished 5/5 in a real 5p, and won two cripple-field FFAs; visible counts lie and parity trades lose tempo, so lb reached 23.74 against 52.15.
 - next: Strict grinder — 1v1 only when strictly ahead.
+
+## 67 — surplus trades 1v1 strictly ahead (2026-09-21)
+- commit: 30261d8
+- start: 48311cb (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 34.63, sigma 3.50, lb 24.14
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 3-2, FFA ranks 5p:1 7p:4 8p:5
+- what changed: Battling as Surplus in Surplus.bot + Surplus.py; the 1v1 trade needs strictly more visible ants than enemies.
+- what you learned: Surpluses went 3-2 losing to Intern and Bodyguard, won a weak 5p, and took 4/7 and 5/8 in real FFAs; strictness barely helps, the axis is dead, so lb reached 24.14 against 52.15.
+- next: Hoard — 1v1 needs 2x visible surplus.

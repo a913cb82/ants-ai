@@ -101,3 +101,4 @@ row. Leave the old row as it was.
 | dropped | Bodyguard: defenders may stand hills. |
 | dropped | Squatter: delete walk-off. |
 | trying | Grinder: 1v1 when ahead. |
+| trying | Surplus: 1v1 strictly ahead. |
