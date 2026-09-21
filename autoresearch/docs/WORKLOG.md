@@ -610,3 +610,15 @@ Use this format.
 - what changed: Battling as Haunt in Haunt.bot + Haunt.py; hills seen empty 20 straight turns are dropped, fresh kills stay rally points.
 - what you learned: Haunts went 4-1 splitting Tariff, won the 4p, but finished 6/6 behind Exorcist itself and 5/10; lingering fails harder than purging, so lb reached 19.53 against 52.15.
 - next: Vigil — drop ghosts after 5 turns.
+
+## 50 — vigil drops ghosts after 5 turns (2026-09-21)
+- commit: 9d26322
+- start: 080ae78 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 36.58, sigma 3.69, lb 25.52
+- champion lb: 52.15
+- verdict: drop the ghost line (bold 3 of 3)
+- games: 3-2, FFA ranks 4p:3 6p:1 10p:4
+- what changed: Battling as Vigil in Vigil.bot + Vigil.py; hills seen empty 5 straight turns are dropped instead of 20.
+- what you learned: Vigils went 3-2 losing twice to Haunt, took 3/4 behind Exorcist and Haunt, won a weak 6p, and took 4/10; any pruning loses, 5 turns is merely least-bad, so lb reached 25.52 against 52.15.
+- next: BOLD — new line, research first.
