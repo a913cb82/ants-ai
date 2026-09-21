@@ -1283,6 +1283,18 @@ Use this format.
 - what you learned: The identical code fell from 52.15 to 13.09; modern duel foes (Sundown, Outpost) and modern FFA children beat champion-style play routinely. Fields hardened enormously since iter 15, so Bulwark at 49.78-modern sits ~37 above champion-modern and ~2.4 below the frozen number.
 - next: BOLD — Bulwark family, the number is reachable.
 
+## 109 — harrier screens packs fearless (2026-09-21)
+- commit: b248f7d
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 24.74, sigma 3.46, lb 14.37
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 3-2, FFA ranks 5p:1 7p:6 8p:7
+- what changed: Battling as Harrier in Harrier.bot + Harrier.py; fearless hunt with pack-screen defense.
+- what you learned: Harriers went 3-2 beating Oracle-today, won the 5p, then finished 6/7 and 7/8 behind Oracle-today itself; pack-screen needs safe-hunt context, so lb reached 14.37 against 52.15.
+- next: Majority — fearless when ants outnumber.
+
 ## 105 — ram targets centroid hill (2026-09-21)
 - commit: 9283521
 - start: 6329ae1 (bold line)
