@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Doormat:
+class Bodyguard:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Doormat:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Doormat: never block your own door.
-        # Battling as Doormat. Headings, memory, aggression, food,
-        # hills, and exploration match iteration 15. Walk-off only
-        # covers held ants, so try_step and explore refuse own-hill
-        # destinations outright; nobody ends a turn on a home hill.
+        # Bodyguard: stand the hill that matters.
+        # Battling as Bodyguard. Doormat refusal, headings, memory,
+        # aggression, food, hills, and exploration match iteration
+        # 63. Defenders marching to threatened hills may stand them;
+        # everyone else keeps off to leave the spawn clear.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -150,11 +150,13 @@ class Doormat:
                 node = parent[node][0]
             return parent[node][1]
 
-        def try_step(ant_loc: tuple[int, int], direction: str) -> bool:
+        def try_step(
+            ant_loc: tuple[int, int], direction: str, guard: bool = False
+        ) -> bool:
             new_loc = ants.destination(ant_loc, direction)
             if (
                 new_loc not in destinations
-                and new_loc not in hill_set
+                and (guard or new_loc not in hill_set)
                 and ants.passable(new_loc)
                 and ants.unoccupied(new_loc)
                 and is_safe(new_loc, ant_loc)
@@ -180,10 +182,11 @@ class Doormat:
                     pass
             if not moved and (threatened or hills):
                 # No food or blocked: guard home first, else hunt.
+                # Defenders may stand threatened hills to body-block.
                 targets = threatened if threatened else hills
                 nearest = min(targets, key=lambda h: ants.distance(ant_loc, h))
                 step = first_step(ant_loc, nearest)
-                if step is not None and try_step(ant_loc, step):
+                if step is not None and try_step(ant_loc, step, nearest in threatened):
                     moved = True
             if not moved:
                 # No hill move: explore least-visited squares first.
@@ -230,6 +233,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Doormat())
+        Ants.run(Bodyguard())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
