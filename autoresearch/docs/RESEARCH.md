@@ -105,6 +105,12 @@ Use this format.
 - evidence: Fresh-spawn mission target is a random border tile, otherwise the closest; paths recalculated with A*; interrupted ants discard missions; targets re-searched every turn when time allows, at least every 10 turns; areas come from simultaneous BFS (20-step) with borders where areas meet.
 - idea: Frontier missions for idle ants only (food/hill paths untouched); frontier equals unseen neighbors of seen squares, no full-map areas needed.
 
+## Frontrunner: hill count is the score proxy (2026-09-21)
+- source: tools/ants.py scoring (raze +2/-1, kills fractional) + game length (elimination or 1000)
+- claim: Hill lead wins; hunting from ahead feeds razers for nothing.
+- evidence: Score comes from razes far more than kills; bots cannot see score, but my_hills vs remembered hills is visible. Every iteration hunts unconditionally.
+- idea: Frontrunner — skip hill-hunting while ahead on hills; defense and economy continue.
+
 ## Blitz: full pressure before turn 25 (2026-09-21)
 - source: autoresearch loss-mode analysis (enemies scale while we gather; duel pool is incest RPS)
 - claim: Nobody defends early; a full-army rush razes before enemies scale.

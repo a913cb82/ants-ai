@@ -910,3 +910,15 @@ Use this format.
 - what changed: Battling as Hornet in Hornet.bot + Hornet.py; no food claims from turn 25 to 60, swarm window.
 - what you learned: Hornets went 3-2 splitting Peak, finished 4/4, won a weak 6p, then finished 7/10 behind Blitz and Siege itself; timed swarms starve mid-game, so lb collapsed from 52.15 to 15.24.
 - next: BOLD — new line, research first.
+
+## 75 — frontrunner sits on hill lead (2026-09-21)
+- commit: 1992956
+- start: 79bbd16 (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 39.48, sigma 3.49, lb 29.00
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 3-2, FFA ranks 5p:3 7p:1 8p:4
+- what changed: Battling as Frontrunner in Frontrunner.bot + Frontrunner.py; hill-hunting only when not ahead on hills.
+- what you learned: Frontrunners went 3-2 losing twice to Glutton, took 3/5, won the 7p over Glutton and Surplus, then finished 4/8 behind Blitz and Monk; sitting is passive when ghosts overcount, so lb reached 29.00 against 52.15.
+- next: Underdog — hunt extra hard from behind.
