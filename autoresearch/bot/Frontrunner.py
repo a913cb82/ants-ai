@@ -7,13 +7,12 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Hornet:
+class Frontrunner:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
         self.remembered_hills: set[tuple[int, int]] = set()
         self.prev_enemies: list[tuple[int, int]] = []
-        self.turn = 0
 
     # do_setup is run once at the start of the game
     # after the bot has received the game settings
@@ -23,18 +22,16 @@ class Hornet:
         self.visits = {}
         self.remembered_hills = set()
         self.prev_enemies = []
-        self.turn = 0
 
     # do turn is run once per turn
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Hornet: swarm on schedule.
-        # Battling as Hornet. Siege phasing, headings, memory,
-        # aggression, walk-off, hills, and exploration match
-        # iteration 73. No food claims from turn 25 to 60; the grown
-        # army all-hunts in the window, then eats again.
-        self.turn += 1
+        # Frontrunner: sit on a lead, chase from behind.
+        # Battling as Frontrunner. Headings, memory, aggression,
+        # walk-off, food, and exploration match iteration 15. Hill
+        # count is the score proxy: ahead means no hill-hunting,
+        # defense and economy continue, razers get no free kills.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -44,11 +41,10 @@ class Hornet:
             if hloc in my_set:
                 self.remembered_hills.discard(hloc)
         pairs: list[tuple[int, int, int]] = []
-        if self.turn < 25 or self.turn > 60:
-            for ai, ant_loc in enumerate(ants_list):
-                for fi, food_loc in enumerate(foods):
-                    pairs.append((ants.distance(ant_loc, food_loc), ai, fi))
-            pairs.sort()
+        for ai, ant_loc in enumerate(ants_list):
+            for fi, food_loc in enumerate(foods):
+                pairs.append((ants.distance(ant_loc, food_loc), ai, fi))
+        pairs.sort()
         target: dict[int, tuple[int, int]] = {}
         claimed_food: set[int] = set()
         for _, ai, fi in pairs:
@@ -180,10 +176,15 @@ class Hornet:
                     # Assigned food is blocked; keep the claim so no other
                     # ant chases the same region this turn.
                     pass
-            if not moved and (threatened or hills):
-                # No food or blocked: guard home first, else hunt.
-                targets = threatened if threatened else hills
-                nearest = min(targets, key=lambda h: ants.distance(ant_loc, h))
+            if not moved and threatened:
+                # No food or blocked: guard home first.
+                nearest = min(threatened, key=lambda h: ants.distance(ant_loc, h))
+                step = first_step(ant_loc, nearest)
+                if step is not None and try_step(ant_loc, step):
+                    moved = True
+            if not moved and hills and len(my_hills) <= len(hills):
+                # Hunt only when not ahead on hills.
+                nearest = min(hills, key=lambda h: ants.distance(ant_loc, h))
                 step = first_step(ant_loc, nearest)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
@@ -232,6 +233,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Hornet())
+        Ants.run(Frontrunner())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
