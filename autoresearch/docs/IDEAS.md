@@ -110,3 +110,4 @@ row. Leave the old row as it was.
 | dropped | Siege: eat at first blood. |
 | dropped | Hornet: swarm turns 25-60. |
 | trying | Frontrunner: sit on hill lead. |
+| trying | Underdog: fearless behind. |

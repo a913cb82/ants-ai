@@ -922,3 +922,15 @@ Use this format.
 - what changed: Battling as Frontrunner in Frontrunner.bot + Frontrunner.py; hill-hunting only when not ahead on hills.
 - what you learned: Frontrunners went 3-2 losing twice to Glutton, took 3/5, won the 7p over Glutton and Surplus, then finished 4/8 behind Blitz and Monk; sitting is passive when ghosts overcount, so lb reached 29.00 against 52.15.
 - next: Underdog — hunt extra hard from behind.
+
+## 76 — underdog hunts fearless behind (2026-09-21)
+- commit: 9c8536b
+- start: 1992956 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 35.23, sigma 3.55, lb 24.59
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 4-1, FFA ranks 5p:3 7p:5 8p:3
+- what changed: Battling as Underdog in Underdog.bot + Underdog.py; behind on hills, hunters skip safety.
+- what you learned: Underdogs went 4-1 in duels but took 3/5, 5/7, 3/8 in real fields; desperate razing donates kills, so lb fell to 24.59 against 52.15.
+- next: Closer — press fearless when ahead.
