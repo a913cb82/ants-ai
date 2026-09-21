@@ -454,3 +454,15 @@ Use this format.
 - what changed: Battling as Militia in Militia.bot + Militia.py; the 4 closest ants per threatened hill defend and eat nothing, food drafts from the rest.
 - what you learned: The militia swept duels 5-0 and took 2nd in the 5p, but finished 8/8 in a cell-maze 8p behind Floodgate and Detour; drafting defenders first starves the army because threats never stop, so lb reached 24.85 against 52.15.
 - next: Volunteer militia — defenders drafted from spares only.
+
+## 37 — volunteer militia from spares only (2026-09-21)
+- commit: f12c5f5
+- start: 153fc6a (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 40.27, sigma 3.80, lb 28.86
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 5-0, FFA ranks 4p:4 6p:1 10p:3
+- what changed: Battling as Minuteman in Minuteman.bot + Minuteman.py; food pairs draft first, then the 4 closest spares per threatened hill take exclusive duty.
+- what you learned: Volunteers swept duels 5-0, won a weak 6p, and took 3rd in the 10p, but finished 4/4 in a maze 4p behind Militia itself; exclusive duty underperforms the champion's pile-on, so lb reached 28.86 against 52.15.
+- next: Sentry — lighter watch, 2 volunteers per hill.
