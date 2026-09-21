@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Screen:
+class Sieve:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Screen:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Screen: meet the razer off the hill.
-        # Battling as Screen. Headings, memory, aggression, walk-off,
-        # food, and exploration match iteration 15. Guards target the
-        # enemy nearest the threatened hill, so the hill stays
-        # spawnable and fights happen away from it.
+        # Sieve: lone razer screened, packs met at the hill.
+        # Battling as Sieve. Screen structure, headings, memory,
+        # aggression, walk-off, food, hills, and exploration match
+        # iteration 84. One enemy near the hill gets intercepted;
+        # more than one, guards hold the hill itself.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -177,14 +177,12 @@ class Screen:
                     # ant chases the same region this turn.
                     pass
             if not moved and threatened:
-                # No food or blocked: screen the razer off the hill.
+                # No food or blocked: lone razer gets screened off the
+                # hill; packs get met at the hill.
                 nearest = min(threatened, key=lambda h: ants.distance(ant_loc, h))
-                screen = min(
-                    enemy_locs,
-                    key=lambda e: ants.distance(nearest, e),
-                    default=nearest,
-                )
-                step = first_step(ant_loc, screen)
+                pack = [e for e in enemy_locs if ants.distance(nearest, e) <= 16]
+                dest = pack[0] if len(pack) == 1 else nearest
+                step = first_step(ant_loc, dest)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved and hills:
@@ -238,6 +236,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Screen())
+        Ants.run(Sieve())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
