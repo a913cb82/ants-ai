@@ -170,3 +170,4 @@ row. Leave the old row as it was.
 | dropped | Flank: second-nearest. |
 | dropped | Seance: forget ghosts. |
 | trying | Alarum: walk-off defense. |
+| trying | Mob: fearless in crowds. |

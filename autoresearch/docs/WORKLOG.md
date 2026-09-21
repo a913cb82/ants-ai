@@ -1652,4 +1652,16 @@ Use this format.
 - what changed: Battling as Alarum in Alarum.bot + Alarum.py; walk-off reinforces defense.
 - what you learned: Alarums went 2-3, won the 4p, took 3/6, then finished 8/10; holders pile on and nothing hunts, walk-off axis reads default 49.78, enemy 37.38, food 35.25, hills 30.71, threatened 14.96, so lb reached 15.02 against 52.15.
 - next: Mob — fearless in crowds.
+
+## 137 — mob fears small fights (2026-09-21)
+- commit: ecbabe4
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 28.35, sigma 3.52, lb 17.79
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 2-3, FFA ranks 5p:3 7p:3 8p:4
+- what changed: Battling as Mob in Mob.bot + Mob.py; fearless ahead in crowds.
+- what you learned: Mobs went 2-3 losing to Cohort twice, took 3/5 and 3/7, then finished 4/8; both crowd directions fail, so lb reached 17.79 against 52.15.
+- next: Homeward — explore reinforces hunt.
 - next: BOLD — new line, research first.
