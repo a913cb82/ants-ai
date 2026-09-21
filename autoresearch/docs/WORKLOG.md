@@ -1234,3 +1234,15 @@ Use this format.
 - what changed: Battling as Pickoff in Pickoff.bot + Pickoff.py; weakest-hill hunting on Bulwark base.
 - what you learned: Pickoffs went 4-1 losing to Sieve, took 4/5, won the 7p, then finished 6/8; weakest-hill hunting scatters pressure, so lb reached 25.51 against 52.15.
 - next: BOLD — new line, research first.
+
+## 102 — mugger hunts strongest hill (2026-09-21)
+- commit: 513a01b
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 34.20, sigma 3.51, lb 23.67
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 4-1, FFA ranks 5p:4 7p:2 8p:6
+- what changed: Battling as Mugger in Mugger.bot + Mugger.py; strongest-hill hunting on Bulwark base.
+- what you learned: Muggers went 4-1 losing to Barbwire, took 4/5 and 2/7, then finished 6/8; hunters suicide into the most-defended hill, target axis reads nearest 49.78, weakest 25.51, strongest 23.67, so lb reached 23.67 against 52.15.
+- next: Sundown — no food after turn 700.

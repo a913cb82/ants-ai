@@ -136,3 +136,4 @@ row. Leave the old row as it was.
 | dropped | Tripwire: guards at 8. |
 | dropped | Barbwire: guards at 12. |
 | dropped | Pickoff: weakest hill. |
+| trying | Mugger: strongest hill. |

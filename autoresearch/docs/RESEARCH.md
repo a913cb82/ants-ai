@@ -111,6 +111,12 @@ Use this format.
 - evidence: Bloodhound proved the static radius load-bearing by dropping it (11.94); narrowing was never tried. Bulwark's wound is FFA 2nds, a pressure shortfall.
 - idea: Tripwire — static threatened radius 10 to 8 on Bulwark base.
 
+## Mugger: hunt the strongest hill (2026-09-21)
+- source: target-axis audit at iter 101 (nearest held, weakest failed)
+- claim: Concentration beats trickle; gang the most-defended hill.
+- evidence: Hunters split across remembered hills nearest-first; weakest-first scattered pressure (25.51). Strongest-first is the untested cell.
+- idea: Mugger — hunters target the hill with most enemies near it.
+
 ## Redoubt: two guards per hill (2026-09-21)
 - source: guard-branch audit at iter 95 (unbounded pile-on since iter 4)
 - claim: The third guard on a hill is a wasted hunter.
