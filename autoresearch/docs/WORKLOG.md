@@ -730,3 +730,15 @@ Use this format.
 - what changed: Battling as Raider in Raider.bot + Raider.py; hunters move first and food last.
 - what you learned: Raiders swept duels 5-0 but finished 3/4, 6/6 in a real 6p, and won a cripple-field 10p; pressure-first starves the economy in real fields, so lb reached 26.79 against 52.15.
 - next: BOLD — new line, research first.
+
+## 60 — stoic calms closing rule to 12 (2026-09-21)
+- commit: a8245be
+- start: 79bbd16 (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 51.12, sigma 3.47, lb 40.71
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 4-1, FFA ranks 4p:4 6p:1 10p:1
+- what changed: Battling as Stoic in Stoic.bot + Stoic.py; the closing-threat rule drops from 16 steps to 12.
+- what you learned: Stoics went 4-1 losing a duel to Raider, won the 6p and a 10p over Jackal and Monk, but finished 4/4 behind Raider and Wolfpack; calmer threats win big fields yet sleep through small ones, so lb reached 40.71 against 52.15.
+- next: Alarm — closing rule needs 2+ enemies.

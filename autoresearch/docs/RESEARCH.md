@@ -105,6 +105,12 @@ Use this format.
 - evidence: Fresh-spawn mission target is a random border tile, otherwise the closest; paths recalculated with A*; interrupted ants discard missions; targets re-searched every turn when time allows, at least every 10 turns; areas come from simultaneous BFS (20-step) with borders where areas meet.
 - idea: Frontier missions for idle ants only (food/hill paths untouched); frontier equals unseen neighbors of seen squares, no full-map areas needed.
 
+## Loss tapes: the threat rule is Berserker's only delta (2026-09-21)
+- source: league/games.jsonl (Oracle beaten by Berserker x2) + diff 117f54a..79bbd16
+- claim: Oracle IS Berserker plus the closing-16 threat rule; that rule is untuned.
+- evidence: The diff shows zero other changes; Berserker (10-only) beats Oracle head-to-head but trails on average (49.55 vs 52.15) — the 16-range inflates threats and wastes guards, while 10-only reacts late.
+- idea: Stoic — closing rule at 12 steps, between twitchy and blind.
+
 ## Urgency ordering: danger moves first (2026-09-21)
 - source: autoresearch loss-mode analysis (contested tiles go to arbitrary engine order)
 - claim: First pick of contested destinations should go to ants in danger, not engine order.
