@@ -1198,3 +1198,15 @@ Use this format.
 - what changed: Battling as Tide in Tide.bot + Tide.py; fearless at even-or-better on hills.
 - what you learned: Tides went 3-2 losing to Foulweather and Tariff, won the 5p and 7p, then finished 4/8; gate axis completes (safe 15.33, strictly-ahead 49.78, even-or-better 38.60, always 40.63), strictly-ahead confirmed, so lb reached 38.60 against 52.15.
 - next: BOLD — new line, research first.
+
+## 99 — tripwire guards at 8 (2026-09-21)
+- commit: ef0c0ca
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 47.91, sigma 3.47, lb 37.51
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 4-1, FFA ranks 4p:2 6p:2 10p:3
+- what changed: Battling as Tripwire in Tripwire.bot + Tripwire.py; static threatened 10 to 8.
+- what you learned: Tripwires went 4-1 losing to Redoubt, took three 2nds and a 3/10; freed hunters do not cover late warnings, so lb reached 37.51 against 52.15.
+- next: Barbwire — guards at 12.

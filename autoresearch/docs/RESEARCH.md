@@ -105,6 +105,12 @@ Use this format.
 - evidence: Fresh-spawn mission target is a random border tile, otherwise the closest; paths recalculated with A*; interrupted ants discard missions; targets re-searched every turn when time allows, at least every 10 turns; areas come from simultaneous BFS (20-step) with borders where areas meet.
 - idea: Frontier missions for idle ants only (food/hill paths untouched); frontier equals unseen neighbors of seen squares, no full-map areas needed.
 
+## Tripwire: guards answer at 8 (2026-09-21)
+- source: defense-radius audit at iter 98 (static 10 untouched on wall base)
+- claim: Bulwark over-defends; closer tripwire frees hunters.
+- evidence: Bloodhound proved the static radius load-bearing by dropping it (11.94); narrowing was never tried. Bulwark's wound is FFA 2nds, a pressure shortfall.
+- idea: Tripwire — static threatened radius 10 to 8 on Bulwark base.
+
 ## Redoubt: two guards per hill (2026-09-21)
 - source: guard-branch audit at iter 95 (unbounded pile-on since iter 4)
 - claim: The third guard on a hill is a wasted hunter.
