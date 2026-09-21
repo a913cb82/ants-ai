@@ -382,3 +382,15 @@ Use this format.
 - what changed: Battling as Detour in Detour.bot + Detour.py; BFS skips tiles inside enemy attack range (goal exempt), walled-off ants fall back.
 - what you learned: Detours swept duels 5-0 and the 4p, but finished 6/6 in a maze 6p behind Saturn and Bookmaker and 5/10; refusing paths near any enemy cowers the army off food and hills, so lb reached 27.31 against 52.15.
 - next: Brave detours — skip kill zones only en route to hills.
+
+## 31 — cowardice only on hill marches (2026-09-21)
+- commit: e389466
+- start: 6d0db87 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 52.56, sigma 3.54, lb 41.95
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 5-0, FFA ranks 5p:2 7p:2 8p:3
+- what changed: Battling as Pilgrim in Pilgrim.bot + Pilgrim.py; kill-zone skipping applies only to hill-hunt paths, food and defense stay greedy.
+- what you learned: Scoped cowardice steadied to straight podiums (2/5, 2/7, 3/8 behind Cavalry and Boone) but never wins; hunters survive the march yet arrive too late and too few, so lb reached 41.95 against 52.15.
+- next: Tolls — pay +3 per kill-zone tile instead of skipping.

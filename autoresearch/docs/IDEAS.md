@@ -65,3 +65,4 @@ row. Leave the old row as it was.
 | dropped | Supported charges: 2+ friends nearby. |
 | dropped | Favorites only: charge winning fights. |
 | trying | Danger routing: BFS skips kill zones. |
+| trying | Brave detours: cowardice on hill marches only. |
