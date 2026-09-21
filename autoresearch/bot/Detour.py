@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Bookmaker:
+class Detour:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Bookmaker:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Favorites only: never bet an even fight.
-        # Battling as Bookmaker. Charges, seek-fights, headings,
-        # memory, aggression, walk-off, food, and exploration match
-        # iteration 28. Ants close on a foe inside 8 steps only when
-        # friends outnumber enemies around the foe itself.
+        # Danger-aware routing: bend around kill zones.
+        # Battling as Detour. Headings, memory, aggression, walk-off,
+        # food, and exploration match iteration 15. BFS skips tiles
+        # inside enemy attack range (goal exempt); walled-off ants
+        # fall back instead of marching through death.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -123,7 +123,7 @@ class Bookmaker:
         def first_step(
             start: tuple[int, int], goal: tuple[int, int], budget: int = 250
         ) -> str | None:
-            # Shortest passable path around water; return its first step.
+            # Shortest safe path around water and kill zones.
             if start == goal:
                 return None
             parent: dict[tuple[int, int], tuple[tuple[int, int], str]] = {}
@@ -136,6 +136,10 @@ class Bookmaker:
                 for d in ("n", "e", "s", "w"):
                     nxt = ants.destination(cur, d)
                     if nxt in parent or not ants.passable(nxt):
+                        continue
+                    if nxt != goal and any(
+                        sq_dist(nxt, e) <= attack_r2 for e in enemy_locs
+                    ):
                         continue
                     parent[nxt] = (cur, d)
                     if nxt == goal:
@@ -176,35 +180,10 @@ class Bookmaker:
                     # Assigned food is blocked; keep the claim so no other
                     # ant chases the same region this turn.
                     pass
-            if not moved and threatened:
-                # No food or blocked: guard home first.
-                nearest = min(threatened, key=lambda h: ants.distance(ant_loc, h))
-                step = first_step(ant_loc, nearest)
-                if step is not None and try_step(ant_loc, step):
-                    moved = True
-            if not moved and enemy_locs:
-                # Favorites only: friends must outnumber foes there.
-                foe = None
-                foe_d = 9
-                for e in enemy_locs:
-                    d = ants.distance(ant_loc, e)
-                    if d < foe_d:
-                        foe_d = d
-                        foe = e
-                if foe is not None:
-                    buds = sum(
-                        1
-                        for f in ants_list
-                        if f != ant_loc and ants.distance(f, foe) <= 10
-                    )
-                    foes = sum(1 for e in enemy_locs if ants.distance(e, foe) <= 10)
-                    if buds > foes:
-                        step = first_step(ant_loc, foe)
-                        if step is not None and try_step(ant_loc, step):
-                            moved = True
-            if not moved and hills:
-                # No fight: hunt remembered hills.
-                nearest = min(hills, key=lambda h: ants.distance(ant_loc, h))
+            if not moved and (threatened or hills):
+                # No food or blocked: guard home first, else hunt.
+                targets = threatened if threatened else hills
+                nearest = min(targets, key=lambda h: ants.distance(ant_loc, h))
                 step = first_step(ant_loc, nearest)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
@@ -253,6 +232,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Bookmaker())
+        Ants.run(Detour())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
