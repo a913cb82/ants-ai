@@ -1186,3 +1186,15 @@ Use this format.
 - what changed: Battling as Storm in Storm.bot + Storm.py; full-fearless hunt on Bulwark wall.
 - what you learned: Storms went 4-1 losing to Foulweather, won the 5p, took 2/7 behind Screen, then finished 4/8; hunt-gate axis reads safe 15.33, ahead-fearless 49.78, full-fearless 40.63, so lb reached 40.63 against 52.15.
 - next: Tide — fearless at even or better.
+
+## 98 — tide presses at even better (2026-09-21)
+- commit: 000efde
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 49.17, sigma 3.52, lb 38.60
+- champion lb: 52.15
+- verdict: drop the redoubt line (bold 3 of 3)
+- games: 3-2, FFA ranks 5p:1 7p:1 8p:4
+- what changed: Battling as Tide in Tide.bot + Tide.py; fearless at even-or-better on hills.
+- what you learned: Tides went 3-2 losing to Foulweather and Tariff, won the 5p and 7p, then finished 4/8; gate axis completes (safe 15.33, strictly-ahead 49.78, even-or-better 38.60, always 40.63), strictly-ahead confirmed, so lb reached 38.60 against 52.15.
+- next: BOLD — new line, research first.
