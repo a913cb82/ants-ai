@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Seance:
+class Alarum:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,8 +27,8 @@ class Seance:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Seance: hunt the living only.
-        # Battling as Seance. Bulwark wall, living targets only,
+        # Alarum: walk-off reinforces defense.
+        # Battling as Alarum. Bulwark wall, reinforcing walk-off,
         # aggression, walk-off, food, and exploration match iteration
         # 76. Hunt always; ahead on hills, hunters skip the safety
         # filter. Closeouts need teeth, not patience.
@@ -39,9 +39,6 @@ class Seance:
             self.remembered_hills.add(hloc)
         for hloc in list(self.remembered_hills):
             if hloc in my_set:
-                self.remembered_hills.discard(hloc)
-            elif ants.visible(hloc) and all(e != hloc for e, _ in ants.enemy_ants()):
-                # Visibly empty: razed or abandoned, stop marching.
                 self.remembered_hills.discard(hloc)
         pairs: list[tuple[int, int, int]] = []
         for ai, ant_loc in enumerate(ants_list):
@@ -233,7 +230,13 @@ class Seance:
         hill_set = set(my_hills)
         for ant_loc in held:
             if ant_loc in hill_set and ants.time_remaining() >= 10:
-                for direction in ("s", "e", "w", "n"):
+                order: tuple[str, ...] = ("s", "e", "w", "n")
+                if threatened:
+                    post = min(threatened, key=lambda h: ants.distance(ant_loc, h))
+                    first = first_step(ant_loc, post)
+                    if first is not None:
+                        order = (first,) + tuple(d for d in order if d != first)
+                for direction in order:
                     if try_step(ant_loc, direction):
                         break
 
@@ -251,6 +254,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Seance())
+        Ants.run(Alarum())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
