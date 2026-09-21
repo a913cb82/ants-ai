@@ -117,6 +117,12 @@ Use this format.
 - evidence: Identical code scored 52.15 at iter 15, 13.09 today (2-3 duels, 7/7 FFA). Duel foes and FFA fields are all descendants now.
 - idea: Keep hunting Bulwark-family gains; 49.78-modern needs ~2.4, and the number is regime-noisy. No re-tag without beating 52.15.
 
+## Shortfuse: closing threats at 14 (2026-09-21)
+- source: defense-number audit at iter 117 (closing-16 untouched since iter 15)
+- claim: Later warnings free hunters without losing hills.
+- evidence: Static radius mapped 8/10/12 with peak at 10; closing radius never tuned. Bulwark's wound is FFA 2nds.
+- idea: Shortfuse — closing threatened radius 16 to 14 on Bulwark base.
+
 ## Usher: route spawns to the front (2026-09-21)
 - source: tools/ants.py do_spawn (least-recently-touched first, standing blocks)
 - claim: Spawns should arrive at the front hill, not the safest back hill.

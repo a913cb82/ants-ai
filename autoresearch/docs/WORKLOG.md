@@ -1391,6 +1391,18 @@ Use this format.
 - what you learned: Triages went 2-3 losing to Outpost, HunterBot, and Usher, took 4/5, won a weak 7p, then finished 7/8; switching sitting dithers spawns worst of all, so lb fell to 8.60 against 52.15.
 - next: BOLD — new line, research first.
 
+## 118 — shortfuse warns at 14 (2026-09-21)
+- commit: 2f99a11
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 22.38, sigma 3.55, lb 11.72
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 3-2, FFA ranks 4p:2 6p:3 10p:9
+- what changed: Battling as Shortfuse in Shortfuse.bot + Shortfuse.py; closing threatened 16 to 14.
+- what you learned: Shortfuses went 3-2, took 2/4 and 3/6, then finished 9/10; later warnings arrive after the raze, so lb fell to 11.72 against 52.15.
+- next: Counter — walk-off heads at enemy.
+
 ## 105 — ram targets centroid hill (2026-09-21)
 - commit: 9283521
 - start: 6329ae1 (bold line)
