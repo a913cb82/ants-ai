@@ -754,3 +754,15 @@ Use this format.
 - what changed: Battling as Alarm in Alarm.bot + Alarm.py; the closing rule needs 2+ enemies inside 16, lone scouts ignored.
 - what you learned: Alarms went 4-1 losing a duel to Wolfpack and took 3/4, 2/6, then won the 10p over Exorcist and Vigil; quorum sleeps through small fields worse than Stoic, so lb reached 37.22 against 52.15.
 - next: Median — closing rule at 14, the middle path.
+
+## 62 — median sets closing rule at 14 (2026-09-21)
+- commit: 97b8ac4
+- start: 386dfbb (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 52.69, sigma 3.49, lb 42.22
+- champion lb: 52.15
+- verdict: drop the threat line (bold 3 of 3)
+- games: 5-0, FFA ranks 4p:1 6p:5 10p:1
+- what changed: Battling as Median in Median.bot + Median.py; the closing rule fires at 14 steps, quorum dropped.
+- what you learned: Medians swept duels 5-0, won the 4p and a 10p over Sentry and Stoic, but finished 5/6 behind Hearth and Manor; 14 splits 12 and 16 honestly yet still trails, so lb reached 42.22 against 52.15.
+- next: BOLD — new line, research first.
