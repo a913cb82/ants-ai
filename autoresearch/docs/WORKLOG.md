@@ -1451,6 +1451,18 @@ Use this format.
 - what you learned: Evenss went 2-3 losing to Triage and Rearguard twice, won the 4p, then finished 6/7 and 7/8; pricier equals mean timid everywhere, aggression axis reads 10: 22.63, 14: 49.78, 20: 9.95, so lb fell to 9.95 against 52.15.
 - next: Margin — safe moves need +2.
 
+## 123 — margin needs plus two (2026-09-21)
+- commit: 57b7fe4
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 29.81, sigma 3.52, lb 19.27
+- champion lb: 52.15
+- verdict: drop the odds line (bold 3 of 3)
+- games: 2-3, FFA ranks 5p:4 7p:2 8p:2
+- what changed: Battling as Margin in Margin.bot + Margin.py; strict-majority safety.
+- what you learned: Margins went 2-3, took 4/5, then took 2/7 and 2/8; strict safety cedes contact, so lb reached 19.27 against 52.15.
+- next: BOLD — new line, research first.
+
 ## 105 — ram targets centroid hill (2026-09-21)
 - commit: 9283521
 - start: 6329ae1 (bold line)

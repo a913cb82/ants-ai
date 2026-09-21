@@ -154,5 +154,6 @@ row. Leave the old row as it was.
 | dropped | Shortfuse: closing at 14. |
 | dropped | Counter: walk-off at enemy. |
 | dropped | Longfuse: closing at 18. |
-| trying | Odds: trades at 10. |
-| trying | Evens: trades at 20. |
+| dropped | Odds: trades at 10. |
+| dropped | Evens: trades at 20. |
+| dropped | Margin: strict safety. |
