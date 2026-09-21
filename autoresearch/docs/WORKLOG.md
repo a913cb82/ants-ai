@@ -1006,3 +1006,15 @@ Use this format.
 - what changed: Battling as Outpost in Outpost.bot + Outpost.py; foods nearest enemy hills claimed first, champion explore restored.
 - what you learned: Outposts went 3-2 splitting Tariff, took 3/5 and 3/7, then finished 5/8 behind Peak and Overrun; forward gatherers march into danger, so lb reached 19.43 against 52.15.
 - next: Bloodhound — defense on headings only.
+
+## 83 — bloodhound guards closing only (2026-09-21)
+- commit: debf4e5
+- start: 0eccc38 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 22.57, sigma 3.54, lb 11.94
+- champion lb: 52.15
+- verdict: drop the knob line (bold 3 of 3)
+- games: 4-1, FFA ranks 4p:1 6p:5 10p:9
+- what changed: Battling as Bloodhound in Bloodhound.bot + Bloodhound.py; threatened needs closing within 16, static 10 dropped, forward food reverted.
+- what you learned: Bloodhounds went 4-1 in duels, won the 4p, then finished 5/6 and 9/10 behind Outpost and Wolfpack; stationary lurkers walk onto hills unopposed, so lb collapsed from 52.15 to 11.94.
+- next: BOLD — new line, research first.
