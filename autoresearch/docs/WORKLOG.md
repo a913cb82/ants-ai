@@ -1102,3 +1102,15 @@ Use this format.
 - what changed: Battling as Anchor in Anchor.bot + Anchor.py; Bulwark wall with safe-always hunting.
 - what you learned: Anchors went 3-2, won the 4p, then finished 6/6 and 5/10; the wall without teeth collapses, fearlessness is load-bearing, so lb fell to 15.33 against 52.15.
 - next: Rampart — fearless screens on Bulwark.
+
+## 91 — rampart guards fearless (2026-09-21)
+- commit: e5051e6
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 34.47, sigma 3.50, lb 23.97
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 3-2, FFA ranks 5p:1 7p:3 8p:7
+- what changed: Battling as Rampart in Rampart.bot + Rampart.py; Bulwark wall with fearless guards.
+- what you learned: Ramparts went 3-2 losing twice to Anchor, won the 5p, took 3/7, then finished 7/8; fearless guards die, the safe wall beats it head-to-head, so lb reached 23.97 against 52.15.
+- next: Palisade — safe hunt plus fearless wall.
