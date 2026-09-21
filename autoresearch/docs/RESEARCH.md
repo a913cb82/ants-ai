@@ -105,6 +105,12 @@ Use this format.
 - evidence: Fresh-spawn mission target is a random border tile, otherwise the closest; paths recalculated with A*; interrupted ants discard missions; targets re-searched every turn when time allows, at least every 10 turns; areas come from simultaneous BFS (20-step) with borders where areas meet.
 - idea: Frontier missions for idle ants only (food/hill paths untouched); frontier equals unseen neighbors of seen squares, no full-map areas needed.
 
+## Onslaught: fearless hunt meets interception (2026-09-21)
+- source: best-mechanism audit at iter 86 (Closer 45.13 + Screen 39.04, never combined)
+- claim: Total pressure — fearless-ahead hunters plus intercepting guards.
+- evidence: The two best post-Oracle mechanisms are both pressure-flavored; previous synthesis mixed caution mechanisms. Pressure may compound instead.
+- idea: Onslaught — Closer base with Screen interception defense.
+
 ## Screen: intercept razers off the hill (2026-09-21)
 - source: defense-branch audit at iter 83 (guards walk at the hill since iter 4)
 - claim: Meeting the razer away keeps the hill spawnable and unrazed.

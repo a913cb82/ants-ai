@@ -121,3 +121,4 @@ row. Leave the old row as it was.
 | dropped | Screen: intercept razers. |
 | dropped | Sieve: screen lone, guard pack. |
 | dropped | Dragnet: screen packs. |
+| trying | Onslaught: fearless hunt + screen. |

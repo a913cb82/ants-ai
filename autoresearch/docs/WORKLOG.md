@@ -1054,3 +1054,15 @@ Use this format.
 - what changed: Battling as Dragnet in Dragnet.bot + Dragnet.py; packs screened, lone met at hill.
 - what you learned: Dragnets went 4-1 losing to Tariff, took 2/4, won the 6p, then took 2/10 behind Manor; pack-screening ties pure interception (39.80 vs 39.04), the split barely matters, so lb reached 39.80 against 52.15.
 - next: BOLD — new line, research first.
+
+## 87 — onslaught joins fearless hunt (2026-09-21)
+- commit: be173d9
+- start: e170c5f (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 38.74, sigma 3.47, lb 28.34
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 3-2, FFA ranks 5p:4 7p:2 8p:2
+- what changed: Battling as Onslaught in Onslaught.bot + Onslaught.py; Closer hunt plus Screen interception.
+- what you learned: Onslaughts went 3-2 losing to Sieve and Outpost, finished 4/5 behind Peak, then took 2/7 and 2/8; pressure does not compound, razed at home while away, so lb reached 28.34 against 52.15.
+- next: Safe press — fearless hunt plus hill guards.
