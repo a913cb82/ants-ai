@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Jackal:
+class Brawler:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Jackal:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Jackal: lead on majority, join on commitment.
-        # Battling as Jackal. Pack safety, headings, memory,
-        # aggression, walk-off, food, and exploration match iteration
-        # 43. Ants take the nearest foe inside 12; the first ant
-        # leads on static majority and buddies join equal trades.
+        # Brawler: pick more fights.
+        # Battling as Brawler. Headings, memory, walk-off, food, and
+        # exploration match iteration 15. The equal-trade gate drops
+        # from 14 friends near the fight to 8; everything else,
+        # including majority rule, stands exactly as the champion.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -97,11 +97,7 @@ class Jackal:
             dc = min(dc, cols - dc) if cols else dc
             return dr * dr + dc * dc
 
-        def is_safe(
-            nloc: tuple[int, int],
-            self_loc: tuple[int, int],
-            foe: tuple[int, int] | None = None,
-        ) -> bool:
+        def is_safe(nloc: tuple[int, int], self_loc: tuple[int, int]) -> bool:
             enemies = 0
             for e in enemy_locs:
                 if sq_dist(nloc, e) <= attack_r2:
@@ -121,11 +117,8 @@ class Jackal:
                     near += 1
             if friends + 1 > enemies:
                 return True
-            # Aggressive: 14+ friends near the fight accept equal trades.
-            # Pack: equal trades go when a buddy already committed.
-            return friends + 1 >= enemies and (
-                near >= 14 or (foe is not None and pack.get(foe, 0) >= 1)
-            )
+            # Brawler: 8+ friends near the fight accept equal trades.
+            return near >= 8 and friends + 1 >= enemies
 
         def first_step(
             start: tuple[int, int], goal: tuple[int, int], budget: int = 250
@@ -156,17 +149,13 @@ class Jackal:
                 node = parent[node][0]
             return parent[node][1]
 
-        def try_step(
-            ant_loc: tuple[int, int],
-            direction: str,
-            foe: tuple[int, int] | None = None,
-        ) -> bool:
+        def try_step(ant_loc: tuple[int, int], direction: str) -> bool:
             new_loc = ants.destination(ant_loc, direction)
             if (
                 new_loc not in destinations
                 and ants.passable(new_loc)
                 and ants.unoccupied(new_loc)
-                and is_safe(new_loc, ant_loc, foe)
+                and is_safe(new_loc, ant_loc)
             ):
                 ants.issue_order((ant_loc, direction))
                 destinations.add(new_loc)
@@ -175,7 +164,6 @@ class Jackal:
 
         destinations: set[tuple[int, int]] = set()
         held: list[tuple[int, int]] = []
-        pack: dict[tuple[int, int], int] = {}
         for ai, ant_loc in enumerate(ants_list):
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
             best = target.get(ai)
@@ -188,30 +176,10 @@ class Jackal:
                     # Assigned food is blocked; keep the claim so no other
                     # ant chases the same region this turn.
                     pass
-            if not moved and threatened:
-                # No food or blocked: guard home first.
-                nearest = min(threatened, key=lambda h: ants.distance(ant_loc, h))
-                step = first_step(ant_loc, nearest)
-                if step is not None and try_step(ant_loc, step):
-                    moved = True
-            if not moved and enemy_locs:
-                # Jackal: nearest foe inside 12; lead on majority,
-                # buddies join equal trades through the safety filter.
-                prey = None
-                prey_d = 13
-                for e in enemy_locs:
-                    d = ants.distance(ant_loc, e)
-                    if d < prey_d:
-                        prey_d = d
-                        prey = e
-                if prey is not None:
-                    step = first_step(ant_loc, prey)
-                    if step is not None and try_step(ant_loc, step, prey):
-                        moved = True
-                        pack[prey] = pack.get(prey, 0) + 1
-            if not moved and hills:
-                # No fight: hunt remembered hills.
-                nearest = min(hills, key=lambda h: ants.distance(ant_loc, h))
+            if not moved and (threatened or hills):
+                # No food or blocked: guard home first, else hunt.
+                targets = threatened if threatened else hills
+                nearest = min(targets, key=lambda h: ants.distance(ant_loc, h))
                 step = first_step(ant_loc, nearest)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
@@ -260,6 +228,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Jackal())
+        Ants.run(Brawler())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
