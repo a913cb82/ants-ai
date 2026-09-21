@@ -646,3 +646,15 @@ Use this format.
 - what changed: Battling as Manor in Manor.bot + Manor.py; hearth defenders snack unclaimed food within 4, post kept.
 - what you learned: Manors went 4-1 losing a duel to Hearth, won the 5p and an 8p over Hearth and Goldilocks, and took 4/7; snacking fixes the starvation but not the pressure gap, so lb reached 39.62 against 52.15.
 - next: Homestead — full conservative triple synthesis.
+
+## 53 — homestead full conservative triple (2026-09-21)
+- commit: f516ee2
+- start: bfa4ed5 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 37.51, sigma 3.51, lb 26.99
+- champion lb: 52.15
+- verdict: drop the synthesis line (bold 3 of 3)
+- games: 3-2, FFA ranks 5p:1 7p:2 8p:7
+- what changed: Battling as Homestead in Homestead.bot + Homestead.py; radius plus snacking posts plus kill-zone avoidance on hill marches.
+- what you learned: Homesteads went 3-2 losing to Haunt and Houdini, won a weak 5p, took 2/7, then finished 7/8 behind Hearth and Manor itself; cowardice re-poisons the mix, so lb reached 26.99 against 52.15.
+- next: BOLD — new line, research first.

@@ -85,5 +85,6 @@ row. Leave the old row as it was.
 | dropped | Exorcist: drop visible-empty hills. |
 | dropped | Haunt: drop ghosts after 20 turns. |
 | dropped | Vigil: drop ghosts after 5 turns. |
-| trying | Hearth: radius plus posts synthesis. |
-| trying | Manor: snacking posts on the hearth. |
+| dropped | Hearth: radius plus posts synthesis. |
+| dropped | Manor: snacking posts on the hearth. |
+| dropped | Homestead: conservative triple. |
