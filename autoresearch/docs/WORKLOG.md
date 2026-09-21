@@ -526,3 +526,15 @@ Use this format.
 - what changed: Battling as Wolfpack in Wolfpack.bot + Wolfpack.py; ants gang the foe with the most friends near it inside 12, and committed buddies join equal trades.
 - what you learned: The pack went 3-2 losing twice to Tariff, won a weak 5p, and took mid-pack 3/7 and 4/8; shared targeting pulls ants off food into losing fights, so lb reached 30.55 against 52.15.
 - next: Lone-wolf gate — gang only with 3+ buds at the prey.
+
+## 43 — hyenas join only 3+ bud crowds (2026-09-21)
+- commit: ba5982b
+- start: 1f98078 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 42.95, sigma 3.51, lb 32.42
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 4-1, FFA ranks 5p:1 7p:5 8p:2
+- what changed: Battling as Hyena in Hyena.bot + Hyena.py; the pack gangs only prey with 3+ buds already near it.
+- what you learned: Hyenas went 4-1 beating Tariff and splitting Nibbler, won the 5p, and took 2nd in the 8p behind Detour, but finished 5/7 behind Wolfpack itself; crowd-gating fixes duels yet goes passive in crowds, so lb reached 32.42 against 52.15.
+- next: Jackal — nearest foe, lead on majority, join on commitment.

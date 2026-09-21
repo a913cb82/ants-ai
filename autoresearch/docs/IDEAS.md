@@ -77,3 +77,4 @@ row. Leave the old row as it was.
 | dropped | Nibblers: radius tightens to 10. |
 | dropped | Flexitarian: radius grows with army. |
 | trying | Wolfpack: gang shared prey, join equals. |
+| trying | Hyena: join only 3+ bud crowds. |
