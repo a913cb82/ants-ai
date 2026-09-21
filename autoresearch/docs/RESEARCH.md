@@ -105,6 +105,12 @@ Use this format.
 - evidence: Fresh-spawn mission target is a random border tile, otherwise the closest; paths recalculated with A*; interrupted ants discard missions; targets re-searched every turn when time allows, at least every 10 turns; areas come from simultaneous BFS (20-step) with borders where areas meet.
 - idea: Frontier missions for idle ants only (food/hill paths untouched); frontier equals unseen neighbors of seen squares, no full-map areas needed.
 
+## Focus battle: 1v1 is mutual death, trade down (2026-09-21)
+- source: tools/ants.py do_attack_focus (default engine battle) + spawnradius2=1
+- claim: Under focus, 1v1 always kills both; refusing every 1v1 cedes tempo when ahead.
+- evidence: Ant dies iff min enemy weakness <= own weakness; lone pair both have weakness 1. Our is_safe refuses all friendless fights, so lone ants dance around lone enemies while losing food and ground.
+- idea: Grinder — allow friendless 1v1 engagement when our visible army >= theirs.
+
 ## NoCamping is half-applied: moved ants block spawns (2026-09-21)
 - source: full re-read of Oracle 79bbd16 (233 lines, first since iter 15)
 - claim: Walk-off only iterates held ants; ants that move onto home hills stay.

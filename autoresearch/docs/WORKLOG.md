@@ -802,3 +802,15 @@ Use this format.
 - what changed: Battling as Squatter in Squatter.bot + Squatter.py; the walk-off loop is deleted, held ants stay.
 - what you learned: Squatters swept duels 5-0 over Doormat twice and Bodyguard, took 2/6, and won the 10p, but finished 4/4 behind Locavore and Bodyguard; standing beats refusing yet the champion's held-only mix beats both, so lb reached 36.79 against 52.15.
 - next: BOLD — new line, research first.
+
+## 66 — grinder trades 1v1 when ahead (2026-09-21)
+- commit: 48311cb
+- start: 79bbd16 (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 34.33, sigma 3.53, lb 23.74
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 3-2, FFA ranks 5p:5 7p:1 8p:1
+- what changed: Battling as Grinder in Grinder.bot + Grinder.py; friendless 1v1 engages when our visible army is at least theirs.
+- what you learned: Grinders went 3-2 losing twice to Bodyguard, finished 5/5 in a real 5p, and won two cripple-field FFAs; visible counts lie and parity trades lose tempo, so lb reached 23.74 against 52.15.
+- next: Strict grinder — 1v1 only when strictly ahead.
