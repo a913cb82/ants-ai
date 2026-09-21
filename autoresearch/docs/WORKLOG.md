@@ -1367,6 +1367,18 @@ Use this format.
 - what you learned: Ushers went 2-3 losing thrice to Serve, took 4/5, 2/7, 4/8; sitters idle while blocking, contested front plus sitting back skips spawn turns, so lb reached 14.09 against 52.15.
 - next: Rearguard — sit front, spawn back.
 
+## 116 — rearguard sits front hill (2026-09-21)
+- commit: 0649946
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 34.19, sigma 3.71, lb 23.07
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 2-3, FFA ranks 4p:2 6p:2 10p:3
+- what changed: Battling as Rearguard in Rearguard.bot + Rearguard.py; sitters hold front, backs open.
+- what you learned: Rearguards went 2-3 losing to Outpost and Usher twice, took three podiums; safe spawns beat front spawns but any sitting taxes, so lb reached 23.07 against 52.15.
+- next: Triage — sit front only when threatened.
+
 ## 105 — ram targets centroid hill (2026-09-21)
 - commit: 9283521
 - start: 6329ae1 (bold line)

@@ -149,3 +149,4 @@ row. Leave the old row as it was.
 | dropped | Draft: fighters first. |
 | dropped | Serve: gatherers first. |
 | trying | Usher: spawn forward. |
+| trying | Rearguard: spawn back. |
