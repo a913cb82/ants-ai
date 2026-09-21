@@ -139,5 +139,6 @@ row. Leave the old row as it was.
 | dropped | Mugger: strongest hill. |
 | dropped | Sundown: no food past 700. |
 | dropped | Dusk: fearless past 700. |
-| trying | Ram: centroid ram. |
-| trying | Muster: walk-off to war. |
+| dropped | Ram: centroid ram. |
+| dropped | Muster: walk-off to war. |
+| dropped | Harvest: walk-off to food. |

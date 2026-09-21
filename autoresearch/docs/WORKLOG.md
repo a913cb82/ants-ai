@@ -1294,3 +1294,15 @@ Use this format.
 - what changed: Battling as Muster in Muster.bot + Muster.py; walk-off heads to nearest hill.
 - what you learned: Musters went 3-2 losing to Sundown and Ram, finished 4/4, won the 6p, then took 2/10; mustering helps big fields but abandons home in small ones, so lb reached 30.71 against 52.15.
 - next: Harvest — walk-off heads to food.
+
+## 107 — harvest walks off to food (2026-09-21)
+- commit: 271b7e1
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 45.75, sigma 3.50, lb 35.25
+- champion lb: 52.15
+- verdict: drop the ram line (bold 3 of 3)
+- games: 3-2, FFA ranks 4p:1 6p:4 10p:2
+- what changed: Battling as Harvest in Harvest.bot + Harvest.py; walk-off heads to food.
+- what you learned: Harvests went 3-2 losing to Sundown and Pickoff, won the 4p, took 4/6 and 2/10; food-seeking feet beat war-marching, yet lb reached only 35.25 against 52.15.
+- next: BOLD — new line, research first.
