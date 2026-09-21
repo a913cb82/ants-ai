@@ -718,3 +718,15 @@ Use this format.
 - what changed: Battling as Purser in Purser.bot + Purser.py; food-claimants move first, the rest in engine order.
 - what you learned: Pursers went 4-1 losing a duel to Intern and took 2/4, 4/6, 2/10 behind Bookmaker and Brawler; consistent but flat, never winning, so lb reached 31.22 against 52.15.
 - next: Raider — hunters move first, food last.
+
+## 59 — raider moves hunters first (2026-09-21)
+- commit: 2b4a04e
+- start: feda0a5 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 37.35, sigma 3.52, lb 26.79
+- champion lb: 52.15
+- verdict: drop the ordering line (bold 3 of 3)
+- games: 5-0, FFA ranks 4p:3 6p:6 10p:1
+- what changed: Battling as Raider in Raider.bot + Raider.py; hunters move first and food last.
+- what you learned: Raiders swept duels 5-0 but finished 3/4, 6/6 in a real 6p, and won a cripple-field 10p; pressure-first starves the economy in real fields, so lb reached 26.79 against 52.15.
+- next: BOLD — new line, research first.
