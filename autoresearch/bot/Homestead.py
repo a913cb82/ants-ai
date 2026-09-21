@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Manor:
+class Homestead:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Manor:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Manor: guards that eat.
-        # Battling as Manor. Hearth synthesis, headings, memory,
-        # aggression, walk-off, and exploration match iteration 51.
-        # Defenders snack unclaimed food within 4 first, post kept;
-        # the radius economy is not strangled by standing guard.
+        # Homestead: the full conservative.
+        # Battling as Homestead. Manor habits, headings, memory,
+        # aggression, walk-off, and exploration match iteration 52.
+        # Radius plus snacking posts plus cowardice on hill marches;
+        # the whole conservative portfolio in one design.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -148,9 +148,12 @@ class Manor:
             return near >= 14 and friends + 1 >= enemies
 
         def first_step(
-            start: tuple[int, int], goal: tuple[int, int], budget: int = 250
+            start: tuple[int, int],
+            goal: tuple[int, int],
+            budget: int = 250,
+            avoid: bool = False,
         ) -> str | None:
-            # Shortest passable path around water; return its first step.
+            # Shortest path around water, and kill zones when avoiding.
             if start == goal:
                 return None
             parent: dict[tuple[int, int], tuple[tuple[int, int], str]] = {}
@@ -163,6 +166,12 @@ class Manor:
                 for d in ("n", "e", "s", "w"):
                     nxt = ants.destination(cur, d)
                     if nxt in parent or not ants.passable(nxt):
+                        continue
+                    if (
+                        avoid
+                        and nxt != goal
+                        and any(sq_dist(nxt, e) <= attack_r2 for e in enemy_locs)
+                    ):
                         continue
                     parent[nxt] = (cur, d)
                     if nxt == goal:
@@ -227,11 +236,16 @@ class Manor:
                         step = first_step(ant_loc, post)
                         if step is not None and try_step(ant_loc, step):
                             moved = True
-            if not moved and (threatened or hills):
-                # No food or blocked: guard home first, else hunt.
-                targets = threatened if threatened else hills
-                nearest = min(targets, key=lambda h: ants.distance(ant_loc, h))
+            if not moved and threatened:
+                # No food or blocked: guard home first, greedy.
+                nearest = min(threatened, key=lambda h: ants.distance(ant_loc, h))
                 step = first_step(ant_loc, nearest)
+                if step is not None and try_step(ant_loc, step):
+                    moved = True
+            if not moved and hills:
+                # Hunt far hills around kill zones.
+                nearest = min(hills, key=lambda h: ants.distance(ant_loc, h))
+                step = first_step(ant_loc, nearest, avoid=True)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved:
@@ -279,6 +293,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Manor())
+        Ants.run(Homestead())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
