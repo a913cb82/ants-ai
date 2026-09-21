@@ -157,5 +157,6 @@ row. Leave the old row as it was.
 | dropped | Odds: trades at 10. |
 | dropped | Evens: trades at 20. |
 | dropped | Margin: strict safety. |
-| trying | Gang: quorum hunting. |
-| trying | Escort: fearless with pack. |
+| dropped | Gang: quorum hunting. |
+| dropped | Escort: fearless with pack. |
+| dropped | LoneWolf: fearless solo. |

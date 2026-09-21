@@ -1487,6 +1487,18 @@ Use this format.
 - what you learned: Escorts went 2-3, won the 5p and 8p, then finished 7/7; the pack condition never holds when it matters, so lb reached 16.41 against 52.15.
 - next: LoneWolf — fearless alone, safe in packs.
 
+## 126 — lonewolf sneaks solo (2026-09-21)
+- commit: 839744c
+- start: 407fc2a (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 39.26, sigma 3.54, lb 28.65
+- champion lb: 52.15
+- verdict: drop the gang line (bold 3 of 3)
+- games: 3-2, FFA ranks 5p:3 7p:3 8p:1
+- what changed: Battling as LoneWolf in LoneWolf.bot + LoneWolf.py; fearless alone, safe in packs.
+- what you learned: LoneWolfs went 3-2 losing twice to Odds, took 3/5 and 3/7, then won the 8p; solo sneak beats pack escort, yet lb reached only 28.65 against 52.15.
+- next: BOLD — new line, research first.
+
 ## 105 — ram targets centroid hill (2026-09-21)
 - commit: 9283521
 - start: 6329ae1 (bold line)
