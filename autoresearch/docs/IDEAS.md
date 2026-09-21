@@ -89,3 +89,4 @@ row. Leave the old row as it was.
 | dropped | Manor: snacking posts on the hearth. |
 | dropped | Homestead: conservative triple. |
 | trying | Huddle: fallback masses friends. |
+| trying | Reunion: huddle past turn 100. |

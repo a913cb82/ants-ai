@@ -670,3 +670,15 @@ Use this format.
 - what changed: Battling as Huddle in Huddle.bot + Huddle.py; fallback ants step toward the nearest friend, exploring only to bootstrap.
 - what you learned: Huddles went 3-2 losing to Haunt and Wolfpack, finished 6/6 in a real 6p, and won a cripple-field 10p; the ball cedes map and food and gets out-grown, so lb reached 22.03 against 52.15.
 - next: Loose huddle — mass toward friends only past turn 100.
+
+## 55 — reunion huddles past turn 100 (2026-09-21)
+- commit: 5475afd
+- start: 0ee5d07 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 32.36, sigma 3.60, lb 21.55
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 3-2, FFA ranks 5p:1 7p:7 8p:1
+- what changed: Battling as Reunion in Reunion.bot + Reunion.py; fallback explores before turn 100, huddles after.
+- what you learned: Reunions went 3-2 losing twice to Huddle, won two cripple-field FFAs, and finished 7/7 in a real 7p behind Huddle itself; phase-gating changes nothing fundamental, so lb reached 21.55 against 52.15.
+- next: Intern — fallback shadows employed ants.
