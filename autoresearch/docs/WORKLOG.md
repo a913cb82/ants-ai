@@ -874,3 +874,15 @@ Use this format.
 - what changed: Battling as Daredevil in Daredevil.bot + Daredevil.py; is_safe deleted, all moves fearless.
 - what you learned: Daredevils went 3-2 losing twice to Grinder, took 2/4, finished 6/6 in a real 6p, and won a cripple-field 10p; full fear is worst of the line, so lb reached 22.07 against 52.15.
 - next: BOLD — new line, research first.
+
+## 72 — blitz skips food before turn 25 (2026-09-21)
+- commit: 63558af
+- start: 79bbd16 (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 38.03, sigma 3.55, lb 27.38
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 3-2, FFA ranks 5p:3 7p:4 8p:1
+- what changed: Battling as Blitz in Blitz.bot + Blitz.py; no food claims before turn 25, full early pressure.
+- what you learned: Blitzes went 3-2 losing to Peak and Daredevil, took 3/5 and 4/7, then won a real 8p over Reunion and Glutton; the all-in gamble feasts or famines, so lb reached 27.38 against 52.15.
+- next: Siege — blitz only until first blood.

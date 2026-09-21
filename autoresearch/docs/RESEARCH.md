@@ -105,6 +105,12 @@ Use this format.
 - evidence: Fresh-spawn mission target is a random border tile, otherwise the closest; paths recalculated with A*; interrupted ants discard missions; targets re-searched every turn when time allows, at least every 10 turns; areas come from simultaneous BFS (20-step) with borders where areas meet.
 - idea: Frontier missions for idle ants only (food/hill paths untouched); frontier equals unseen neighbors of seen squares, no full-map areas needed.
 
+## Blitz: full pressure before turn 25 (2026-09-21)
+- source: autoresearch loss-mode analysis (enemies scale while we gather; duel pool is incest RPS)
+- claim: Nobody defends early; a full-army rush razes before enemies scale.
+- evidence: All our bots gather first and hunt with leftovers, so early razes never happen; sample bots and our kids grow untouched for 100+ turns while we duel over crumbs.
+- idea: Blitz — no food claims before turn 25, every ant hunts, guards, or explores.
+
 ## Big tapes: hills first, fear verified useless (2026-09-21)
 - source: league/games.jsonl big-field podiums (GreedyBot 8) + tools/ants.py finish_turn order
 - claim: Hill-first ordering wins big fields; fearless gathering banks nothing.

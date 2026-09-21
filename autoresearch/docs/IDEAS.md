@@ -106,3 +106,4 @@ row. Leave the old row as it was.
 | dropped | Peak: hills before food. |
 | dropped | Glutton: fearless food. |
 | dropped | Daredevil: no safety anywhere. |
+| trying | Blitz: no food before turn 25. |
