@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Relief:
+class Farmstead:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,8 +27,8 @@ class Relief:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Relief: fearless reinforce.
-        # Battling as Relief. Homeward fallback, fearless arrival,
+        # Farmstead: food feet plus hill fallback.
+        # Battling as Farmstead. Homeward fallback, Harvest feet,
         # aggression, walk-off, food, and exploration match iteration
         # 76. Hunt always; ahead on hills, hunters skip the safety
         # filter. Closeouts need teeth, not patience.
@@ -204,10 +204,10 @@ class Relief:
                 ):
                     moved = True
             if not moved and hills:
-                # No hill move: reinforce fearless, arrive at any cost.
+                # No hill move: reinforce the nearest hill first.
                 near = min(hills, key=lambda h: ants.distance(ant_loc, h))
                 hstep = first_step(ant_loc, near)
-                if hstep is not None and try_step(ant_loc, hstep, safe=False):
+                if hstep is not None and try_step(ant_loc, hstep):
                     moved = True
             if not moved:
                 # Still stuck: explore least-visited squares first.
@@ -236,7 +236,13 @@ class Relief:
         hill_set = set(my_hills)
         for ant_loc in held:
             if ant_loc in hill_set and ants.time_remaining() >= 10:
-                for direction in ("s", "e", "w", "n"):
+                order: tuple[str, ...] = ("s", "e", "w", "n")
+                if foods:
+                    crop = min(foods, key=lambda f: ants.distance(ant_loc, f))
+                    first = first_step(ant_loc, crop)
+                    if first is not None:
+                        order = (first,) + tuple(d for d in order if d != first)
+                for direction in order:
                     if try_step(ant_loc, direction):
                         break
 
@@ -254,6 +260,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Relief())
+        Ants.run(Farmstead())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
