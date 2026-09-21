@@ -1616,4 +1616,16 @@ Use this format.
 - what changed: Battling as Crowd in Crowd.bot + Crowd.py; fearless ahead under ten enemies.
 - what you learned: Crowds went 2-3, won the 5p and 7p, then finished 8/8; the gate fires constantly in big fields so no pressure where it matters, so lb reached 23.20 against 52.15.
 - next: Flank — hunt the second-nearest hill.
+
+## 134 — flank hunts second hill (2026-09-21)
+- commit: c15d0d8
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 28.02, sigma 3.60, lb 17.23
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 1-4, FFA ranks 4p:1 6p:2 10p:5
+- what changed: Battling as Flank in Flank.bot + Flank.py; second-nearest hunting.
+- what you learned: Flanks went 1-4 losing thrice to Guerrilla, won the 4p, took 2/6 and 5/10; second-nearest marches past the action, so lb reached 17.23 against 52.15.
+- next: Seance — Bulwark forgets ghosts.
 - next: BOLD — new line, research first.
