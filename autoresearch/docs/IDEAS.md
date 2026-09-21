@@ -119,3 +119,4 @@ row. Leave the old row as it was.
 | dropped | Outpost: forward food. |
 | dropped | Bloodhound: closing-only defense. |
 | trying | Screen: intercept razers. |
+| trying | Sieve: screen lone, guard pack. |

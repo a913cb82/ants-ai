@@ -1030,3 +1030,15 @@ Use this format.
 - what changed: Battling as Screen in Screen.bot + Screen.py; guards target the enemy nearest the threatened hill.
 - what you learned: Screens went 5-0 in duels, finished 4/4, then took 2/6 behind Homestead and 2/10 behind Vigil; interception duels perfectly but leaves hills bare in small fields, so lb reached 39.04 against 52.15.
 - next: Sieve — screen one razer, guard the rest.
+
+## 85 — sieve screens lone razers (2026-09-21)
+- commit: 57f9240
+- start: 85a9009 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 30.50, sigma 3.49, lb 20.02
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 3-2, FFA ranks 4p:2 6p:5 10p:2
+- what changed: Battling as Sieve in Sieve.bot + Sieve.py; lone razer screened, packs met at hill.
+- what you learned: Sieves went 3-2, took 2/4, finished 5/6, then took 2/10 behind Bloodhound; the split dithers as counts change, so lb fell to 20.02 against 52.15.
+- next: Dragnet — screen packs, guard lone.
