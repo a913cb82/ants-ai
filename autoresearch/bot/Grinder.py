@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Squatter:
+class Grinder:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Squatter:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Squatter: standing is good, test maximum standing.
-        # Battling as Squatter. Headings, memory, aggression, food,
-        # hills, and exploration match iteration 15, minus walk-off.
-        # If body-blocking beats spawn-blocking, held ants stay put;
-        # the stand axis ends here, one way or the other.
+        # Grinder: mutual death favors the bigger army.
+        # Battling as Grinder. Headings, memory, aggression,
+        # walk-off, food, hills, and exploration match iteration 15.
+        # The engine fights focus: 1v1 kills both, so friendless 1v1
+        # engages when our visible army is at least theirs.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -117,6 +117,10 @@ class Squatter:
                     near += 1
             if friends + 1 > enemies:
                 return True
+            # Grinder: friendless 1v1 is mutual death; take it when
+            # our visible army is at least theirs.
+            if enemies == 1 and friends == 0:
+                return len(ants_list) >= len(enemy_locs)
             # Aggressive: 14+ friends near the fight accept equal trades.
             return near >= 14 and friends + 1 >= enemies
 
@@ -206,6 +210,13 @@ class Squatter:
             # check if we still have time left to calculate more orders
             if ants.time_remaining() < 10:
                 break
+        # Walk off hill: a held ant on a home hill must step off.
+        hill_set = set(my_hills)
+        for ant_loc in held:
+            if ant_loc in hill_set and ants.time_remaining() >= 10:
+                for direction in ("s", "e", "w", "n"):
+                    if try_step(ant_loc, direction):
+                        break
 
 
 if __name__ == "__main__":
@@ -221,6 +232,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Squatter())
+        Ants.run(Grinder())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
