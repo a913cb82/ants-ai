@@ -166,3 +166,4 @@ row. Leave the old row as it was.
 | dropped | Legion: floor at ten. |
 | dropped | Cohort: floor at five. |
 | dropped | Guerrilla: sneak small. |
+| trying | Crowd: fearless under ten. |

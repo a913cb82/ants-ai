@@ -1604,4 +1604,16 @@ Use this format.
 - games: 3-2, FFA ranks 4p:2 6p:6 10p:5
 - what changed: Battling as Guerrilla in Guerrilla.bot + Guerrilla.py; fearless small-growing.
 - what you learned: Guerrillas went 3-2 losing twice to Legion, took 2/4, finished 6/6, then finished 5/10; babies die fearless and armies never press, so lb fell to 9.24 against 52.15.
+
+## 133 — crowd fears big fights (2026-09-21)
+- commit: 45538b0
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 33.76, sigma 3.52, lb 23.20
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 2-3, FFA ranks 5p:1 7p:1 8p:8
+- what changed: Battling as Crowd in Crowd.bot + Crowd.py; fearless ahead under ten enemies.
+- what you learned: Crowds went 2-3, won the 5p and 7p, then finished 8/8; the gate fires constantly in big fields so no pressure where it matters, so lb reached 23.20 against 52.15.
+- next: Flank — hunt the second-nearest hill.
 - next: BOLD — new line, research first.

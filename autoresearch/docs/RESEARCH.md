@@ -123,6 +123,12 @@ Use this format.
 - evidence: Berserker-line set 14 on the champion base; Bulwark's wound is FFA 2nds.
 - idea: Odds — 14-rule at 10 on Bulwark base.
 
+## Crowd: fearless under ten enemies (2026-09-21)
+- source: rematch tape reread (Bulwark 86 to 20 donating into crowds)
+- claim: Hunters should press small fights and survive big ones.
+- evidence: Dragnet's safe hunters grew 62 to 131 while Bulwark's fearless ones melted; donations happen in crowds, not duels.
+- idea: Crowd — fearless ahead unless 10+ enemies visible.
+
 ## Legion: press needs ten ants (2026-09-21)
 - source: Recruit cb5e229 wounds (3-2 duels; growing-true from turn 1)
 - claim: Early growth is spawns, not winning; fearless babies donate in duels.
