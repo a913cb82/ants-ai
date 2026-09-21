@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Tripwire:
+class Barbwire:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,8 +27,8 @@ class Tripwire:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Tripwire: guards answer at 8.
-        # Battling as Tripwire. Bulwark wall, closer tripwire,
+        # Barbwire: guards answer at 12.
+        # Battling as Barbwire. Bulwark wall, wider tripwire,
         # aggression, walk-off, food, and exploration match iteration
         # 76. Hunt always; ahead on hills, hunters skip the safety
         # filter. Closeouts need teeth, not patience.
@@ -82,7 +82,7 @@ class Tripwire:
             h
             for h in my_hills
             if any(
-                ants.distance(h, e) <= 8
+                ants.distance(h, e) <= 12
                 or (ants.distance(h, e) <= 16 and closing(e, h))
                 for e in enemy_locs
             )
@@ -248,6 +248,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Tripwire())
+        Ants.run(Barbwire())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
