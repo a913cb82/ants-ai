@@ -790,3 +790,15 @@ Use this format.
 - what changed: Battling as Bodyguard in Bodyguard.bot + Bodyguard.py; defenders marching to threatened hills may stand them, others refuse.
 - what you learned: Bodyguards went 3-2 losing to Haunt and Intern, took 2/5, won the 7p over the brawl family, then finished 8/8 behind Sluice and Median; splitting the difference splits results, so lb reached 28.05 against 52.15.
 - next: Squatter — remove walk-off, test standing.
+
+## 65 — squatter deletes walk-off (2026-09-21)
+- commit: c6b15ff
+- start: 79bbd16 (champion base)
+- budget: 5 duels, 3 FFA
+- score: mu 47.51, sigma 3.58, lb 36.79
+- champion lb: 52.15
+- verdict: drop the stand line (bold 3 of 3)
+- games: 5-0, FFA ranks 4p:4 6p:2 10p:1
+- what changed: Battling as Squatter in Squatter.bot + Squatter.py; the walk-off loop is deleted, held ants stay.
+- what you learned: Squatters swept duels 5-0 over Doormat twice and Bodyguard, took 2/6, and won the 10p, but finished 4/4 behind Locavore and Bodyguard; standing beats refusing yet the champion's held-only mix beats both, so lb reached 36.79 against 52.15.
+- next: BOLD — new line, research first.
