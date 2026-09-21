@@ -1078,3 +1078,15 @@ Use this format.
 - what changed: Battling as Picket in Picket.bot + Picket.py; first guard screens, rest hold.
 - what you learned: Pickets went 2-3 swept by Bloodhound, won the 4p, took 2/6 and 3/10; coordination helps crowds but duels collapse, so lb reached 34.01 against 52.15.
 - next: Bulwark — first guard holds, extras screen.
+
+## 89 — bulwark holds then screens (2026-09-21)
+- commit: 6329ae1
+- start: 4c4abe3 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 60.51, sigma 3.58, lb 49.78
+- champion lb: 52.15
+- verdict: drop the pressure line (bold 3 of 3)
+- games: 5-0, FFA ranks 5p:1 7p:2 8p:2
+- what changed: Battling as Bulwark in Bulwark.bot + Bulwark.py; first guard holds, extras screen.
+- what you learned: Bulwarks went 5-0 in duels, won the 5p, then took two 2nds behind Dragnet; anchor-first is the best coordination yet, second-best ever, but lb reached only 49.78 against 52.15.
+- next: BOLD — new line from Bulwark, research first.
