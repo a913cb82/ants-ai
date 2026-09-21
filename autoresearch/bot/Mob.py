@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Alarum:
+class Mob:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,8 +27,8 @@ class Alarum:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Alarum: walk-off reinforces defense.
-        # Battling as Alarum. Bulwark wall, reinforcing walk-off,
+        # Mob: fearless in crowds.
+        # Battling as Mob. Bulwark wall, crowd-fight hunting,
         # aggression, walk-off, food, and exploration match iteration
         # 76. Hunt always; ahead on hills, hunters skip the safety
         # filter. Closeouts need teeth, not patience.
@@ -196,11 +196,13 @@ class Alarum:
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved and hills:
-                # Hunt always; fearless when ahead on hills.
+                # Hunt always; fearless ahead in crowds of ten plus.
                 nearest = min(hills, key=lambda h: ants.distance(ant_loc, h))
                 step = first_step(ant_loc, nearest)
                 if step is not None and try_step(
-                    ant_loc, step, safe=len(my_hills) <= len(hills)
+                    ant_loc,
+                    step,
+                    safe=len(my_hills) <= len(hills) or len(enemy_locs) < 10,
                 ):
                     moved = True
             if not moved:
@@ -230,13 +232,7 @@ class Alarum:
         hill_set = set(my_hills)
         for ant_loc in held:
             if ant_loc in hill_set and ants.time_remaining() >= 10:
-                order: tuple[str, ...] = ("s", "e", "w", "n")
-                if threatened:
-                    post = min(threatened, key=lambda h: ants.distance(ant_loc, h))
-                    first = first_step(ant_loc, post)
-                    if first is not None:
-                        order = (first,) + tuple(d for d in order if d != first)
-                for direction in order:
+                for direction in ("s", "e", "w", "n"):
                     if try_step(ant_loc, direction):
                         break
 
@@ -254,6 +250,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Alarum())
+        Ants.run(Mob())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
