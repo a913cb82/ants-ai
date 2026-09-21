@@ -7,12 +7,13 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Huddle:
+class Reunion:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
         self.remembered_hills: set[tuple[int, int]] = set()
         self.prev_enemies: list[tuple[int, int]] = []
+        self.turn = 0
 
     # do_setup is run once at the start of the game
     # after the bot has received the game settings
@@ -22,16 +23,18 @@ class Huddle:
         self.visits = {}
         self.remembered_hills = set()
         self.prev_enemies = []
+        self.turn = 0
 
     # do turn is run once per turn
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Huddle: mass survives, wanderers die.
-        # Battling as Huddle. Headings, memory, aggression, walk-off,
-        # food, and hills match iteration 15. Fallback ants step
-        # toward the nearest friend instead of wandering alone;
-        # least-visited exploring only bootstraps an empty map.
+        # Reunion: spread early, ball late.
+        # Battling as Reunion. Huddle habits, headings, memory,
+        # aggression, walk-off, food, and hills match iteration 54.
+        # Fallback ants explore before turn 100 to claim the map,
+        # then mass toward friends for the late wars.
+        self.turn += 1
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -183,8 +186,8 @@ class Huddle:
                 step = first_step(ant_loc, nearest)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
-            if not moved and (hills or foods):
-                # Huddle: step toward the nearest friend.
+            if not moved and (hills or foods) and self.turn >= 100:
+                # Reunion: step toward the nearest friend.
                 bud = None
                 bud_d = 1 << 30
                 for f in ants_list:
@@ -243,6 +246,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Huddle())
+        Ants.run(Reunion())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
