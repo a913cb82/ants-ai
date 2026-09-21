@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Posse:
+class Militia:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Posse:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Posse: never ride alone.
-        # Battling as Posse. Lower gates, headings, memory,
-        # aggression, walk-off, food, and exploration match iteration
-        # 34. The gate moves to the target: spares march only hills
-        # with 3+ spares inside 12 steps, else explore.
+        # Defense before food: guard first, eat later.
+        # Battling as Militia. Headings, memory, aggression,
+        # walk-off, and exploration match iteration 15. The 4 closest
+        # ants per threatened hill defend and eat nothing; food pairs
+        # draft from the rest, and duty routes each defender home.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -40,17 +40,6 @@ class Posse:
         for hloc in list(self.remembered_hills):
             if hloc in my_set:
                 self.remembered_hills.discard(hloc)
-        pairs: list[tuple[int, int, int]] = []
-        for ai, ant_loc in enumerate(ants_list):
-            for fi, food_loc in enumerate(foods):
-                pairs.append((ants.distance(ant_loc, food_loc), ai, fi))
-        pairs.sort()
-        target: dict[int, tuple[int, int]] = {}
-        claimed_food: set[int] = set()
-        for _, ai, fi in pairs:
-            if ai not in target and fi not in claimed_food:
-                target[ai] = foods[fi]
-                claimed_food.add(fi)
         hills = sorted(self.remembered_hills)
         my_hills = ants.my_hills()
         enemy_locs = [loc for loc, _ in ants.enemy_ants()]
@@ -87,17 +76,30 @@ class Posse:
                 for e in enemy_locs
             )
         ]
-        # Posse: hills worth riding have 3+ spares inside 12.
-        marchable = [
-            h
-            for h in hills
-            if sum(
-                1
+        # Militia: the 4 closest ants per threatened hill defend
+        # first and eat nothing; food pairs draft from the rest.
+        defender_of: dict[int, tuple[int, int]] = {}
+        for hill in threatened:
+            scored = sorted(
+                (ants.distance(a, hill), ai)
                 for ai, a in enumerate(ants_list)
-                if ai not in target and ants.distance(a, h) <= 12
+                if ai not in defender_of
             )
-            >= 3
-        ]
+            for _, ai in scored[:4]:
+                defender_of[ai] = hill
+        pairs: list[tuple[int, int, int]] = []
+        for ai, ant_loc in enumerate(ants_list):
+            if ai in defender_of:
+                continue
+            for fi, food_loc in enumerate(foods):
+                pairs.append((ants.distance(ant_loc, food_loc), ai, fi))
+        pairs.sort()
+        target: dict[int, tuple[int, int]] = {}
+        claimed_food: set[int] = set()
+        for _, ai, fi in pairs:
+            if ai not in target and fi not in claimed_food:
+                target[ai] = foods[fi]
+                claimed_food.add(fi)
         attack_r2 = ants.attackradius2 or 5
         rows, cols = ants.rows, ants.cols
 
@@ -187,15 +189,15 @@ class Posse:
                     # Assigned food is blocked; keep the claim so no other
                     # ant chases the same region this turn.
                     pass
-            if not moved and threatened:
-                # No food or blocked: guard home first.
-                nearest = min(threatened, key=lambda h: ants.distance(ant_loc, h))
-                step = first_step(ant_loc, nearest)
+            if not moved and ai in defender_of:
+                # Militia duty: march the assigned hill.
+                step = first_step(ant_loc, defender_of[ai])
                 if step is not None and try_step(ant_loc, step):
                     moved = True
-            if not moved and marchable:
-                # Posse rides: nearest hill with 3+ spares nearby.
-                nearest = min(marchable, key=lambda h: ants.distance(ant_loc, h))
+            if not moved and (threatened or hills):
+                # No food or blocked: guard home first, else hunt.
+                targets = threatened if threatened else hills
+                nearest = min(targets, key=lambda h: ants.distance(ant_loc, h))
                 step = first_step(ant_loc, nearest)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
@@ -244,6 +246,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Posse())
+        Ants.run(Militia())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
