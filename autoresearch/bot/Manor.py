@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Hearth:
+class Manor:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Hearth:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Hearth: eat local, guard posts.
-        # Battling as Hearth. Headings, memory, aggression, walk-off,
-        # and exploration match iteration 15. Food claims reach 8 +
-        # army size, and threatened hills post closest spares on
-        # passable diagonals; the radius frees the spares posts need.
+        # Manor: guards that eat.
+        # Battling as Manor. Hearth synthesis, headings, memory,
+        # aggression, walk-off, and exploration match iteration 51.
+        # Defenders snack unclaimed food within 4 first, post kept;
+        # the radius economy is not strangled by standing guard.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -204,14 +204,29 @@ class Hearth:
                     # ant chases the same region this turn.
                     pass
             if not moved and ai in defender_post:
-                # Hold the post or march to it.
-                post = defender_post[ai]
-                if ant_loc == post:
-                    moved = True
-                else:
-                    step = first_step(ant_loc, post)
+                # Hungry post: snack unclaimed food within 4 first.
+                snack = None
+                snack_d = 5
+                for f in foods:
+                    if f in claimed_food:
+                        continue
+                    d = ants.distance(ant_loc, f)
+                    if d < snack_d:
+                        snack_d = d
+                        snack = f
+                if snack is not None:
+                    step = first_step(ant_loc, snack)
                     if step is not None and try_step(ant_loc, step):
                         moved = True
+                if not moved:
+                    # Hold the post or march to it.
+                    post = defender_post[ai]
+                    if ant_loc == post:
+                        moved = True
+                    else:
+                        step = first_step(ant_loc, post)
+                        if step is not None and try_step(ant_loc, step):
+                            moved = True
             if not moved and (threatened or hills):
                 # No food or blocked: guard home first, else hunt.
                 targets = threatened if threatened else hills
@@ -264,6 +279,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Hearth())
+        Ants.run(Manor())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
