@@ -862,3 +862,15 @@ Use this format.
 - what changed: Battling as Glutton in Glutton.bot + Glutton.py; food branch skips the safety filter, rest careful.
 - what you learned: Gluttons went 3-2 splitting Peak, finished 5/5 in a real 5p, and won two weak-field FFAs; fearless food recovers gathering but dies in real fights, so lb reached 26.03 against 52.15.
 - next: Daredevil — drop the safety filter everywhere.
+
+## 71 — daredevil deletes safety filter (2026-09-21)
+- commit: d350bc2
+- start: d641251 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 32.65, sigma 3.53, lb 22.07
+- champion lb: 52.15
+- verdict: drop the tape line (bold 3 of 3)
+- games: 3-2, FFA ranks 4p:2 6p:6 10p:1
+- what changed: Battling as Daredevil in Daredevil.bot + Daredevil.py; is_safe deleted, all moves fearless.
+- what you learned: Daredevils went 3-2 losing twice to Grinder, took 2/4, finished 6/6 in a real 6p, and won a cripple-field 10p; full fear is worst of the line, so lb reached 22.07 against 52.15.
+- next: BOLD — new line, research first.

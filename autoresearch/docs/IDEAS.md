@@ -103,5 +103,6 @@ row. Leave the old row as it was.
 | dropped | Grinder: 1v1 when ahead. |
 | dropped | Surplus: 1v1 strictly ahead. |
 | dropped | Hoard: 1v1 needs 2x. |
-| trying | Peak: hills before food. |
-| trying | Glutton: fearless food. |
+| dropped | Peak: hills before food. |
+| dropped | Glutton: fearless food. |
+| dropped | Daredevil: no safety anywhere. |
