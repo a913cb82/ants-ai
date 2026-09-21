@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Locavore:
+class Nibbler:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Locavore:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Opportunistic eating: never marathon for crumbs.
-        # Battling as Locavore. Headings, memory, aggression,
-        # walk-off, and exploration match iteration 15. Food pairs
-        # claim only within 15 steps; distant food waits, and the
-        # army stays home instead of scattering across the map.
+        # Nibbler: tighten the belt to 10.
+        # Battling as Nibbler. Locavore habits, headings, memory,
+        # aggression, walk-off, and exploration match iteration 39.
+        # Food pairs claim only within 10 steps; the army masses
+        # where it stands instead of commuting to dinner.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -44,7 +44,7 @@ class Locavore:
         for ai, ant_loc in enumerate(ants_list):
             for fi, food_loc in enumerate(foods):
                 d = ants.distance(ant_loc, food_loc)
-                if d <= 15:
+                if d <= 10:
                     pairs.append((d, ai, fi))
         pairs.sort()
         target: dict[int, tuple[int, int]] = {}
@@ -230,6 +230,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Locavore())
+        Ants.run(Nibbler())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
