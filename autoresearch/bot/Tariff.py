@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from collections import deque
+import heapq
 
 from ants import Ants
 
@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Pilgrim:
+class Tariff:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Pilgrim:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Brave detours: cowardice only on hill marches.
-        # Battling as Pilgrim. Danger routing, headings, memory,
+        # Tolls: bend around danger, never cower from it.
+        # Battling as Tariff. Brave detours, headings, memory,
         # aggression, walk-off, food, and exploration match iteration
-        # 30. Hill hunters bend around kill zones; food and defense
-        # stay greedy because cowering starves worse than dying.
+        # 31. Dijkstra charges +3 a kill-zone tile on every path, so
+        # ants bend when cheap and push through when nothing is.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -121,37 +121,40 @@ class Pilgrim:
             return near >= 14 and friends + 1 >= enemies
 
         def first_step(
-            start: tuple[int, int],
-            goal: tuple[int, int],
-            budget: int = 250,
-            avoid: bool = False,
+            start: tuple[int, int], goal: tuple[int, int], budget: int = 250
         ) -> str | None:
-            # Shortest path around water, and kill zones when avoiding.
+            # Cheapest path around water; kill zones cost +3 a tile.
             if start == goal:
                 return None
             parent: dict[tuple[int, int], tuple[tuple[int, int], str]] = {}
             parent[start] = (start, "")
-            queue: deque[tuple[int, int]] = deque([start])
+            best: dict[tuple[int, int], int] = {start: 0}
+            heap: list[tuple[int, tuple[int, int]]] = [(0, start)]
             expanded = 0
-            while queue and expanded < budget:
-                cur = queue.popleft()
+            found = False
+            while heap and expanded < budget:
+                cost, cur = heapq.heappop(heap)
+                if cost != best[cur]:
+                    continue
                 expanded += 1
+                if cur == goal:
+                    found = True
+                    break
                 for d in ("n", "e", "s", "w"):
                     nxt = ants.destination(cur, d)
-                    if nxt in parent or not ants.passable(nxt):
+                    if not ants.passable(nxt):
                         continue
-                    if (
-                        avoid
-                        and nxt != goal
-                        and any(sq_dist(nxt, e) <= attack_r2 for e in enemy_locs)
+                    step = 1
+                    if nxt != goal and any(
+                        sq_dist(nxt, e) <= attack_r2 for e in enemy_locs
                     ):
-                        continue
-                    parent[nxt] = (cur, d)
-                    if nxt == goal:
-                        queue.clear()
-                        break
-                    queue.append(nxt)
-            if goal not in parent:
+                        step += 3
+                    ncost = cost + step
+                    if ncost < best.get(nxt, 1 << 30):
+                        best[nxt] = ncost
+                        parent[nxt] = (cur, d)
+                        heapq.heappush(heap, (ncost, nxt))
+            if not found:
                 return None
             node = goal
             while parent[node][0] != start:
@@ -185,16 +188,12 @@ class Pilgrim:
                     # Assigned food is blocked; keep the claim so no other
                     # ant chases the same region this turn.
                     pass
-            if not moved and threatened:
-                # No food or blocked: guard home first, greedy.
-                nearest = min(threatened, key=lambda h: ants.distance(ant_loc, h))
+            if not moved and (threatened or hills):
+                # No food or blocked: guard home first, else hunt.
+                # Every path pays the danger toll.
+                targets = threatened if threatened else hills
+                nearest = min(targets, key=lambda h: ants.distance(ant_loc, h))
                 step = first_step(ant_loc, nearest)
-                if step is not None and try_step(ant_loc, step):
-                    moved = True
-            if not moved and hills:
-                # Hunt far hills around kill zones.
-                nearest = min(hills, key=lambda h: ants.distance(ant_loc, h))
-                step = first_step(ant_loc, nearest, avoid=True)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved:
@@ -242,6 +241,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Pilgrim())
+        Ants.run(Tariff())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
