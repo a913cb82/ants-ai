@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Frontrunner:
+class Underdog:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Frontrunner:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Frontrunner: sit on a lead, chase from behind.
-        # Battling as Frontrunner. Headings, memory, aggression,
-        # walk-off, food, and exploration match iteration 15. Hill
-        # count is the score proxy: ahead means no hill-hunting,
-        # defense and economy continue, razers get no free kills.
+        # Underdog: nothing to lose.
+        # Battling as Underdog. Frontrunner sitting, headings,
+        # memory, aggression, walk-off, food, and exploration match
+        # iteration 75. Behind on hills, hunters skip the safety
+        # filter; desperate razing beats safe losing.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -149,13 +149,15 @@ class Frontrunner:
                 node = parent[node][0]
             return parent[node][1]
 
-        def try_step(ant_loc: tuple[int, int], direction: str) -> bool:
+        def try_step(
+            ant_loc: tuple[int, int], direction: str, safe: bool = True
+        ) -> bool:
             new_loc = ants.destination(ant_loc, direction)
             if (
                 new_loc not in destinations
                 and ants.passable(new_loc)
                 and ants.unoccupied(new_loc)
-                and is_safe(new_loc, ant_loc)
+                and (not safe or is_safe(new_loc, ant_loc))
             ):
                 ants.issue_order((ant_loc, direction))
                 destinations.add(new_loc)
@@ -183,10 +185,12 @@ class Frontrunner:
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved and hills and len(my_hills) <= len(hills):
-                # Hunt only when not ahead on hills.
+                # Hunt only when not ahead; fearless when behind.
                 nearest = min(hills, key=lambda h: ants.distance(ant_loc, h))
                 step = first_step(ant_loc, nearest)
-                if step is not None and try_step(ant_loc, step):
+                if step is not None and try_step(
+                    ant_loc, step, safe=len(my_hills) >= len(hills)
+                ):
                     moved = True
             if not moved:
                 # No hill move: explore least-visited squares first.
@@ -233,6 +237,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Frontrunner())
+        Ants.run(Underdog())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
