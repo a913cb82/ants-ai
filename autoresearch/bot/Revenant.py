@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Surge:
+class Revenant:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Surge:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Surge: ahead means fearless everywhere.
-        # Battling as Surge. Closer hunting, headings, memory,
-        # aggression, walk-off, and exploration match iteration 77.
-        # Ahead on hills, gatherers skip safety too; the whole army
-        # presses the lead, economy included.
+        # Revenant: hunt the living only.
+        # Battling as Revenant. Closer pressure, headings, memory,
+        # aggression, walk-off, food, and exploration match iteration
+        # 76. Hunt always; ahead on hills, hunters skip the safety
+        # filter. Closeouts need teeth, not patience.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -39,6 +39,9 @@ class Surge:
             self.remembered_hills.add(hloc)
         for hloc in list(self.remembered_hills):
             if hloc in my_set:
+                self.remembered_hills.discard(hloc)
+            elif ants.visible(hloc) and all(e != hloc for e, _ in ants.enemy_ants()):
+                # Visibly empty: razed or abandoned, stop marching.
                 self.remembered_hills.discard(hloc)
         pairs: list[tuple[int, int, int]] = []
         for ai, ant_loc in enumerate(ants_list):
@@ -172,9 +175,7 @@ class Surge:
             moved = False
             if best is not None:
                 step = first_step(ant_loc, best)
-                if step is not None and try_step(
-                    ant_loc, step, safe=len(my_hills) <= len(hills)
-                ):
+                if step is not None and try_step(ant_loc, step):
                     moved = True
                 if not moved:
                     # Assigned food is blocked; keep the claim so no other
@@ -239,6 +240,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Surge())
+        Ants.run(Revenant())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
