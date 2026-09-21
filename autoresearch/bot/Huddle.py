@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Homestead:
+class Huddle:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Homestead:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Homestead: the full conservative.
-        # Battling as Homestead. Manor habits, headings, memory,
-        # aggression, walk-off, and exploration match iteration 52.
-        # Radius plus snacking posts plus cowardice on hill marches;
-        # the whole conservative portfolio in one design.
+        # Huddle: mass survives, wanderers die.
+        # Battling as Huddle. Headings, memory, aggression, walk-off,
+        # food, and hills match iteration 15. Fallback ants step
+        # toward the nearest friend instead of wandering alone;
+        # least-visited exploring only bootstraps an empty map.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -40,13 +40,10 @@ class Homestead:
         for hloc in list(self.remembered_hills):
             if hloc in my_set:
                 self.remembered_hills.discard(hloc)
-        reach = 8 + len(ants_list)
         pairs: list[tuple[int, int, int]] = []
         for ai, ant_loc in enumerate(ants_list):
             for fi, food_loc in enumerate(foods):
-                d = ants.distance(ant_loc, food_loc)
-                if d <= reach:
-                    pairs.append((d, ai, fi))
+                pairs.append((ants.distance(ant_loc, food_loc), ai, fi))
         pairs.sort()
         target: dict[int, tuple[int, int]] = {}
         claimed_food: set[int] = set()
@@ -90,30 +87,6 @@ class Homestead:
                 for e in enemy_locs
             )
         ]
-        # Corner posts: each threatened hill mans its passable
-        # diagonals with the closest spares.
-        defender_post: dict[int, tuple[int, int]] = {}
-        if threatened:
-            spares = [ai for ai in range(len(ants_list)) if ai not in target]
-            taken_post: set[tuple[int, int]] = set()
-            for hill in threatened:
-                hr, hc = hill
-                for dr, dc in ((-1, -1), (-1, 1), (1, -1), (1, 1)):
-                    post = ((hr + dr) % ants.rows, (hc + dc) % ants.cols)
-                    if post in taken_post or not ants.passable(post):
-                        continue
-                    if not spares:
-                        break
-                    pick = spares[0]
-                    pick_d = ants.distance(ants_list[pick], post)
-                    for i in spares[1:]:
-                        d = ants.distance(ants_list[i], post)
-                        if d < pick_d:
-                            pick_d = d
-                            pick = i
-                    spares.remove(pick)
-                    defender_post[pick] = post
-                    taken_post.add(post)
         attack_r2 = ants.attackradius2 or 5
         rows, cols = ants.rows, ants.cols
 
@@ -148,12 +121,9 @@ class Homestead:
             return near >= 14 and friends + 1 >= enemies
 
         def first_step(
-            start: tuple[int, int],
-            goal: tuple[int, int],
-            budget: int = 250,
-            avoid: bool = False,
+            start: tuple[int, int], goal: tuple[int, int], budget: int = 250
         ) -> str | None:
-            # Shortest path around water, and kill zones when avoiding.
+            # Shortest passable path around water; return its first step.
             if start == goal:
                 return None
             parent: dict[tuple[int, int], tuple[tuple[int, int], str]] = {}
@@ -166,12 +136,6 @@ class Homestead:
                 for d in ("n", "e", "s", "w"):
                     nxt = ants.destination(cur, d)
                     if nxt in parent or not ants.passable(nxt):
-                        continue
-                    if (
-                        avoid
-                        and nxt != goal
-                        and any(sq_dist(nxt, e) <= attack_r2 for e in enemy_locs)
-                    ):
                         continue
                     parent[nxt] = (cur, d)
                     if nxt == goal:
@@ -212,44 +176,30 @@ class Homestead:
                     # Assigned food is blocked; keep the claim so no other
                     # ant chases the same region this turn.
                     pass
-            if not moved and ai in defender_post:
-                # Hungry post: snack unclaimed food within 4 first.
-                snack = None
-                snack_d = 5
-                for f in foods:
-                    if f in claimed_food:
-                        continue
-                    d = ants.distance(ant_loc, f)
-                    if d < snack_d:
-                        snack_d = d
-                        snack = f
-                if snack is not None:
-                    step = first_step(ant_loc, snack)
-                    if step is not None and try_step(ant_loc, step):
-                        moved = True
-                if not moved:
-                    # Hold the post or march to it.
-                    post = defender_post[ai]
-                    if ant_loc == post:
-                        moved = True
-                    else:
-                        step = first_step(ant_loc, post)
-                        if step is not None and try_step(ant_loc, step):
-                            moved = True
-            if not moved and threatened:
-                # No food or blocked: guard home first, greedy.
-                nearest = min(threatened, key=lambda h: ants.distance(ant_loc, h))
+            if not moved and (threatened or hills):
+                # No food or blocked: guard home first, else hunt.
+                targets = threatened if threatened else hills
+                nearest = min(targets, key=lambda h: ants.distance(ant_loc, h))
                 step = first_step(ant_loc, nearest)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
-            if not moved and hills:
-                # Hunt far hills around kill zones.
-                nearest = min(hills, key=lambda h: ants.distance(ant_loc, h))
-                step = first_step(ant_loc, nearest, avoid=True)
-                if step is not None and try_step(ant_loc, step):
-                    moved = True
+            if not moved and (hills or foods):
+                # Huddle: step toward the nearest friend.
+                bud = None
+                bud_d = 1 << 30
+                for f in ants_list:
+                    if f == ant_loc:
+                        continue
+                    d = ants.distance(ant_loc, f)
+                    if d < bud_d:
+                        bud_d = d
+                        bud = f
+                if bud is not None:
+                    step = first_step(ant_loc, bud)
+                    if step is not None and try_step(ant_loc, step):
+                        moved = True
             if not moved:
-                # No hill move: explore least-visited squares first.
+                # No huddle: explore least-visited squares first.
                 dirs = sorted(
                     ("n", "e", "s", "w"),
                     key=lambda d: self.visits.get(ants.destination(ant_loc, d), 0),
@@ -293,6 +243,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Homestead())
+        Ants.run(Huddle())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
