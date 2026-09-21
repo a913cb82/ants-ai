@@ -105,6 +105,12 @@ Use this format.
 - evidence: Fresh-spawn mission target is a random border tile, otherwise the closest; paths recalculated with A*; interrupted ants discard missions; targets re-searched every turn when time allows, at least every 10 turns; areas come from simultaneous BFS (20-step) with borders where areas meet.
 - idea: Frontier missions for idle ants only (food/hill paths untouched); frontier equals unseen neighbors of seen squares, no full-map areas needed.
 
+## Surge: ahead means fearless everywhere (2026-09-21)
+- source: Closer e170c5f wounds (2/5 behind Bodyguard, duel loss to Hornet)
+- claim: Closer presses with hunters only; gatherers stay careful while ahead.
+- evidence: Fearless-ahead hunting won two FFAs (lb 45.13, best in 60); nothing covers the economy side of a lead.
+- idea: Surge — food branch also skips safety when ahead on hills.
+
 ## Frontrunner: hill count is the score proxy (2026-09-21)
 - source: tools/ants.py scoring (raze +2/-1, kills fractional) + game length (elimination or 1000)
 - claim: Hill lead wins; hunting from ahead feeds razers for nothing.

@@ -946,3 +946,15 @@ Use this format.
 - what changed: Battling as Closer in Closer.bot + Closer.py; hunt always, fearless when ahead on hills.
 - what you learned: Closers went 4-1, took 2/5, then won the 7p and a monster 8p over Squatter, Hoard, Manor, Minuteman, Marshal, and Median; pressing leads beats sitting them, best score in 60 iterations yet lb reached only 45.13 against 52.15.
 - next: BOLD — new line from Closer, research first.
+
+## 78 — surge presses economy ahead (2026-09-21)
+- commit: 5da9de1
+- start: e170c5f (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 40.73, sigma 3.51, lb 30.18
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 4-1, FFA ranks 4p:4 6p:1 10p:3
+- what changed: Battling as Surge in Surge.bot + Surge.py; gatherers also skip safety when ahead.
+- what you learned: Surges went 4-1 losing to Underdog, finished 4/4 behind Doormat, won a weak 6p, then took 3/10 behind Grinder and Bodyguard; fearless gatherers donate, so lb fell to 30.18 against 52.15.
+- next: Ghost-hunt — forget empty hills on Closer base.
