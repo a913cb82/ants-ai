@@ -1331,6 +1331,18 @@ Use this format.
 - what you learned: Elastics went 5-0 in duels, took 3/5 and 3/7, then finished 8/8; local food starves big-map pressure, synthesis curse 4 for 4, so lb reached 25.89 against 52.15.
 - next: Draft — fighters move first.
 
+## 113 — draft moves fighters first (2026-09-21)
+- commit: dc6af17
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 35.89, sigma 3.50, lb 25.40
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 2-3, FFA ranks 4p:2 6p:1 10p:5
+- what changed: Battling as Draft in Draft.bot + Draft.py; unclaimed ants move first.
+- what you learned: Drafts went 2-3 losing twice to Oracle-today, took 2/4, won the 6p, then finished 5/10; fighters-first leaves gatherers blocked, so lb reached 25.40 against 52.15.
+- next: Serve — gatherers move first.
+
 ## 105 — ram targets centroid hill (2026-09-21)
 - commit: 9283521
 - start: 6329ae1 (bold line)

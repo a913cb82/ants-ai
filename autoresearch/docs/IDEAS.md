@@ -146,3 +146,4 @@ row. Leave the old row as it was.
 | dropped | Majority: ant-count gate. |
 | dropped | Seine: ant-gated split. |
 | trying | Elastic: adaptive food + wall. |
+| trying | Draft: fighters first. |
