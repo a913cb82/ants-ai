@@ -1307,6 +1307,18 @@ Use this format.
 - what you learned: Majorities went 2-3 losing thrice to Harrier, took 3/4, won the 6p, then took 2/10 behind Pickoff; fog makes visible counts noisy, so lb reached 26.27 against 52.15.
 - next: Seine — pack screen with ant gate.
 
+## 111 — seine gates dragnet on ants (2026-09-21)
+- commit: 1479c2a
+- start: 35daee3 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 33.72, sigma 3.45, lb 23.36
+- champion lb: 52.15
+- verdict: drop the harrier line (bold 3 of 3)
+- games: 3-2, FFA ranks 5p:1 6p:6 8p:2
+- what changed: Battling as Seine in Seine.bot + Seine.py; pack screen with ant-gated hunting.
+- what you learned: Seines went 3-2 splitting Oracle-today, won the 5p, finished 6/7, then took 2/8 behind Siege; ant-gated splits cannot touch safe Dragnet, so lb reached 23.36 against 52.15.
+- next: BOLD — new line, research first.
+
 ## 105 — ram targets centroid hill (2026-09-21)
 - commit: 9283521
 - start: 6329ae1 (bold line)
