@@ -105,6 +105,12 @@ Use this format.
 - evidence: Fresh-spawn mission target is a random border tile, otherwise the closest; paths recalculated with A*; interrupted ants discard missions; targets re-searched every turn when time allows, at least every 10 turns; areas come from simultaneous BFS (20-step) with borders where areas meet.
 - idea: Frontier missions for idle ants only (food/hill paths untouched); frontier equals unseen neighbors of seen squares, no full-map areas needed.
 
+## Big tapes: hills first, fear verified useless (2026-09-21)
+- source: league/games.jsonl big-field podiums (GreedyBot 8) + tools/ants.py finish_turn order
+- claim: Hill-first ordering wins big fields; fearless gathering banks nothing.
+- evidence: GreedyBot hunts hills before food with zero safety; engine runs orders, battle, raze, spawn, THEN gather — dead gatherers bank nothing, so the wins come from hill pressure, not fearlessness.
+- idea: Peak — hill branch before food branch in the ant loop, claims persist.
+
 ## Focus battle: 1v1 is mutual death, trade down (2026-09-21)
 - source: tools/ants.py do_attack_focus (default engine battle) + spawnradius2=1
 - claim: Under focus, 1v1 always kills both; refusing every 1v1 cedes tempo when ahead.

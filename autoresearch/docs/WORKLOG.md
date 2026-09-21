@@ -838,3 +838,15 @@ Use this format.
 - what changed: Battling as Hoard in Hoard.bot + Hoard.py; friendless 1v1 needs 2x visible ants over enemies.
 - what you learned: Hoards went 4-1 losing a duel to Surplus, won the 5p and 7p over the trade family, but finished 5/8 behind NoCamping and Squatter; the fog margin is real (23.74, 24.14, 40.36) yet still 12 short, so the line is dropped.
 - next: BOLD — new line, research first.
+
+## 69 — peak puts hills before food (2026-09-21)
+- commit: 7b55c9c
+- start: 79bbd16 (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 31.66, sigma 3.48, lb 21.23
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 3-2, FFA ranks 5p:3 7p:2 8p:7
+- what changed: Battling as Peak in Peak.bot + Peak.py; the hill branch runs before the food branch, claims persist.
+- what you learned: Peaks went 3-2 losing twice to Grinder and took 3/5, 2/7, then 7/8 behind Locavore and Surplus; hill-first starves on a strong base just like Crusader, so lb reached 21.23 against 52.15.
+- next: Fearless food — gatherers skip the safety filter.
