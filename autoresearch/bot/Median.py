@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Alarm:
+class Median:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Alarm:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Alarm: panic at pushes, sleep at scouts.
-        # Battling as Alarm. Stoic calm, headings, memory,
+        # Median: split the range.
+        # Battling as Median. Alarm quorum, headings, memory,
         # aggression, walk-off, food, hills, and exploration match
-        # iteration 60. The closing rule needs 2+ enemies inside 16;
-        # lone scouts no longer pull guards off the economy.
+        # iteration 61. The closing rule fires at 14 steps, between
+        # Stoic calm and champion panic; quorum dropped.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -81,9 +81,11 @@ class Alarm:
         threatened = [
             h
             for h in my_hills
-            if any(ants.distance(h, e) <= 10 for e in enemy_locs)
-            or sum(1 for e in enemy_locs if ants.distance(h, e) <= 16 and closing(e, h))
-            >= 2
+            if any(
+                ants.distance(h, e) <= 10
+                or (ants.distance(h, e) <= 14 and closing(e, h))
+                for e in enemy_locs
+            )
         ]
         attack_r2 = ants.attackradius2 or 5
         rows, cols = ants.rows, ants.cols
@@ -226,6 +228,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Alarm())
+        Ants.run(Median())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
