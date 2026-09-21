@@ -7,13 +7,15 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Blitz:
+class Siege:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
         self.remembered_hills: set[tuple[int, int]] = set()
         self.prev_enemies: list[tuple[int, int]] = []
         self.turn = 0
+        self.peak = 0
+        self.blood = False
 
     # do_setup is run once at the start of the game
     # after the bot has received the game settings
@@ -24,17 +26,22 @@ class Blitz:
         self.remembered_hills = set()
         self.prev_enemies = []
         self.turn = 0
+        self.peak = 0
+        self.blood = False
 
     # do turn is run once per turn
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Blitz: full pressure before turn 25.
-        # Battling as Blitz. Headings, memory, aggression, walk-off,
-        # hills, and exploration match iteration 15. No food claims
-        # before turn 25; every ant hunts, guards, or explores while
-        # enemies are small. Food waits, razes do not.
+        # Siege: pressure while unscathed.
+        # Battling as Siege. Blitz phasing, headings, memory,
+        # aggression, walk-off, hills, and exploration match
+        # iteration 72. Food claims start at first blood (army
+        # shrinks) or turn 25; pressure is free until it costs.
         self.turn += 1
+        if len(ants.my_ants()) < self.peak:
+            self.blood = True
+        self.peak = max(self.peak, len(ants.my_ants()))
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -44,7 +51,7 @@ class Blitz:
             if hloc in my_set:
                 self.remembered_hills.discard(hloc)
         pairs: list[tuple[int, int, int]] = []
-        if self.turn >= 25:
+        if self.turn >= 25 or self.blood:
             for ai, ant_loc in enumerate(ants_list):
                 for fi, food_loc in enumerate(foods):
                     pairs.append((ants.distance(ant_loc, food_loc), ai, fi))
@@ -232,6 +239,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Blitz())
+        Ants.run(Siege())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
