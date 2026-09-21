@@ -133,5 +133,6 @@ row. Leave the old row as it was.
 | dropped | Redoubt: 2 guards per hill. |
 | dropped | Storm: full-fearless wall. |
 | dropped | Tide: even-or-better. |
-| trying | Tripwire: guards at 8. |
-| trying | Barbwire: guards at 12. |
+| dropped | Tripwire: guards at 8. |
+| dropped | Barbwire: guards at 12. |
+| dropped | Pickoff: weakest hill. |

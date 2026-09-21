@@ -1222,3 +1222,15 @@ Use this format.
 - what changed: Battling as Barbwire in Barbwire.bot + Barbwire.py; static threatened 10 to 12.
 - what you learned: Barbwires went 3-2 losing to Surplus and Militia, won the 4p, took 4/6 and 2/10; radius axis reads 8: 37.51, 10: 49.78, 12: 30.34, inverted-U with peak at 10, so lb reached 30.34 against 52.15.
 - next: Pickoff — hunt the weakest hill.
+
+## 101 — pickoff hunts weakest hill (2026-09-21)
+- commit: b9218c9
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 35.95, sigma 3.48, lb 25.51
+- champion lb: 52.15
+- verdict: drop the tripwire line (bold 3 of 3)
+- games: 4-1, FFA ranks 5p:4 7p:1 8p:6
+- what changed: Battling as Pickoff in Pickoff.bot + Pickoff.py; weakest-hill hunting on Bulwark base.
+- what you learned: Pickoffs went 4-1 losing to Sieve, took 4/5, won the 7p, then finished 6/8; weakest-hill hunting scatters pressure, so lb reached 25.51 against 52.15.
+- next: BOLD — new line, research first.
