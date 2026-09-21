@@ -934,3 +934,15 @@ Use this format.
 - what changed: Battling as Underdog in Underdog.bot + Underdog.py; behind on hills, hunters skip safety.
 - what you learned: Underdogs went 4-1 in duels but took 3/5, 5/7, 3/8 in real fields; desperate razing donates kills, so lb fell to 24.59 against 52.15.
 - next: Closer — press fearless when ahead.
+
+## 77 — closer hunts fearless ahead (2026-09-21)
+- commit: e170c5f
+- start: 9c8536b (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 55.79, sigma 3.55, lb 45.13
+- champion lb: 52.15
+- verdict: drop the score line (bold 3 of 3)
+- games: 4-1, FFA ranks 5p:2 7p:1 8p:1
+- what changed: Battling as Closer in Closer.bot + Closer.py; hunt always, fearless when ahead on hills.
+- what you learned: Closers went 4-1, took 2/5, then won the 7p and a monster 8p over Squatter, Hoard, Manor, Minuteman, Marshal, and Median; pressing leads beats sitting them, best score in 60 iterations yet lb reached only 45.13 against 52.15.
+- next: BOLD — new line from Closer, research first.

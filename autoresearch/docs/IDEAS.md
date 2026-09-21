@@ -109,5 +109,6 @@ row. Leave the old row as it was.
 | dropped | Blitz: no food before turn 25. |
 | dropped | Siege: eat at first blood. |
 | dropped | Hornet: swarm turns 25-60. |
-| trying | Frontrunner: sit on hill lead. |
-| trying | Underdog: fearless behind. |
+| dropped | Frontrunner: sit on hill lead. |
+| dropped | Underdog: fearless behind. |
+| dropped | Closer: fearless ahead. |
