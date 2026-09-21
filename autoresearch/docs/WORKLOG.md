@@ -574,3 +574,15 @@ Use this format.
 - what changed: Battling as Monk in Monk.bot + Monk.py; the equal-trade gate rises from 14 friends to 20.
 - what you learned: Monks went 3-2 splitting Tariff and losing a duel to Brawler, won a weak 6p, and took 5/10; refusing equals cedes fights as surely as seeking them bleeds, so lb reached 25.94 against 52.15.
 - next: Bouncer — the crowd must be within 6, not 10.
+
+## 47 — bouncer counts crowds within 6 (2026-09-21)
+- commit: a61b9be
+- start: 5be0a68 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 32.41, sigma 3.84, lb 20.87
+- champion lb: 52.15
+- verdict: drop the aggression line (bold 3 of 3)
+- games: 3-2, FFA ranks 4p:2 6p:1 10p:6
+- what changed: Battling as Bouncer in Bouncer.bot + Bouncer.py; the gate stands at 14 but near tightens from 10 to 6.
+- what you learned: Bouncers went 3-2 losing to Brawler and Tariff, won a weak 6p, and finished 6/10 behind Jackal and the brawl family; close crowds are not the backup that matters, so lb reached 20.87 against 52.15.
+- next: BOLD — new line, research first.
