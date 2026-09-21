@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Hyena:
+class Jackal:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Hyena:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Hyena: join kills, start none.
-        # Battling as Hyena. Pack habits, headings, memory,
+        # Jackal: lead on majority, join on commitment.
+        # Battling as Jackal. Pack safety, headings, memory,
         # aggression, walk-off, food, and exploration match iteration
-        # 42. Ants gang only prey with 3+ buds already near it;
-        # without a crowd there is no fight worth joining.
+        # 43. Ants take the nearest foe inside 12; the first ant
+        # leads on static majority and buddies join equal trades.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -195,24 +195,14 @@ class Hyena:
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved and enemy_locs:
-                # Pack hunter: gang the foe with the most friends near
-                # it inside 12; buddies committed this turn join equal
-                # trades through the safety filter.
+                # Jackal: nearest foe inside 12; lead on majority,
+                # buddies join equal trades through the safety filter.
                 prey = None
-                prey_key = (-1, 0)
+                prey_d = 13
                 for e in enemy_locs:
                     d = ants.distance(ant_loc, e)
-                    if d > 12:
-                        continue
-                    buds = sum(
-                        1
-                        for f in ants_list
-                        if f != ant_loc and ants.distance(f, e) <= 10
-                    )
-                    if buds < 3:
-                        continue
-                    if (buds, -d) > prey_key:
-                        prey_key = (buds, -d)
+                    if d < prey_d:
+                        prey_d = d
                         prey = e
                 if prey is not None:
                     step = first_step(ant_loc, prey)
@@ -270,6 +260,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Hyena())
+        Ants.run(Jackal())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
