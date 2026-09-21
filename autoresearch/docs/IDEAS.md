@@ -169,5 +169,6 @@ row. Leave the old row as it was.
 | dropped | Crowd: fearless under ten. |
 | dropped | Flank: second-nearest. |
 | dropped | Seance: forget ghosts. |
-| trying | Alarum: walk-off defense. |
-| trying | Mob: fearless in crowds. |
+| dropped | Alarum: walk-off defense. |
+| dropped | Mob: fearless in crowds. |
+| dropped | Homeward: explore to hills. |

@@ -1664,4 +1664,16 @@ Use this format.
 - what changed: Battling as Mob in Mob.bot + Mob.py; fearless ahead in crowds.
 - what you learned: Mobs went 2-3 losing to Cohort twice, took 3/5 and 3/7, then finished 4/8; both crowd directions fail, so lb reached 17.79 against 52.15.
 - next: Homeward — explore reinforces hunt.
+
+## 138 — homeward explores to hills (2026-09-21)
+- commit: 67c7703
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 45.56, sigma 3.42, lb 35.31
+- champion lb: 52.15
+- verdict: drop the alarum line (bold 3 of 3)
+- games: 3-2, FFA ranks 4p:2 6p:2 10p:2
+- what changed: Battling as Homeward in Homeward.bot + Homeward.py; explore falls back to hills.
+- what you learned: Homewards went 3-2 losing to LoneWolf and Harrier, then took three straight 2nds; reinforcements arrive late, never first, so lb reached 35.31 against 52.15.
+- next: BOLD — new line, research first.
 - next: BOLD — new line, research first.
