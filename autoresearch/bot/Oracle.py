@@ -28,6 +28,7 @@ class Oracle:
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
         # Opponent model: read enemy headings from enemy moves.
+        # Diagnostic re-run 2026-09-21: identical tactics, field drift check.
         # Battling as Oracle. Memory, movement, aggression, walk-off,
         # and exploration match iteration 13. Visible enemies are
         # matched to last turn's positions; a hill counts threatened
