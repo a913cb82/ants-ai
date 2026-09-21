@@ -131,3 +131,4 @@ row. Leave the old row as it was.
 | dropped | Fairweather: wall ahead. |
 | dropped | Foulweather: wall behind. |
 | trying | Redoubt: 2 guards per hill. |
+| trying | Storm: full-fearless wall. |

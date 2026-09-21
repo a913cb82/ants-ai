@@ -1174,3 +1174,15 @@ Use this format.
 - what changed: Battling as Redoubt in Redoubt.bot + Redoubt.py; max 2 guards per hill, rest hunt.
 - what you learned: Redoubts went 3-2, took 2/5 and 2/7, then finished 7/8; quotas thin defense fatally, freed hunters do not compensate, so lb reached 22.62 against 52.15.
 - next: Storm — full-fearless hunt on the wall.
+
+## 97 — storm hunts fearless always (2026-09-21)
+- commit: 205552a
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 51.20, sigma 3.52, lb 40.63
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 4-1, FFA ranks 5p:1 7p:2 8p:4
+- what changed: Battling as Storm in Storm.bot + Storm.py; full-fearless hunt on Bulwark wall.
+- what you learned: Storms went 4-1 losing to Foulweather, won the 5p, took 2/7 behind Screen, then finished 4/8; hunt-gate axis reads safe 15.33, ahead-fearless 49.78, full-fearless 40.63, so lb reached 40.63 against 52.15.
+- next: Tide — fearless at even or better.
