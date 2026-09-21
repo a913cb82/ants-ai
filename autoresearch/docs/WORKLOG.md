@@ -1210,3 +1210,15 @@ Use this format.
 - what changed: Battling as Tripwire in Tripwire.bot + Tripwire.py; static threatened 10 to 8.
 - what you learned: Tripwires went 4-1 losing to Redoubt, took three 2nds and a 3/10; freed hunters do not cover late warnings, so lb reached 37.51 against 52.15.
 - next: Barbwire — guards at 12.
+
+## 100 — barbwire guards at 12 (2026-09-21)
+- commit: ff80e0c
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 40.74, sigma 3.47, lb 30.34
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 3-2, FFA ranks 4p:1 6p:4 10p:2
+- what changed: Battling as Barbwire in Barbwire.bot + Barbwire.py; static threatened 10 to 12.
+- what you learned: Barbwires went 3-2 losing to Surplus and Militia, won the 4p, took 4/6 and 2/10; radius axis reads 8: 37.51, 10: 49.78, 12: 30.34, inverted-U with peak at 10, so lb reached 30.34 against 52.15.
+- next: Pickoff — hunt the weakest hill.

@@ -134,3 +134,4 @@ row. Leave the old row as it was.
 | dropped | Storm: full-fearless wall. |
 | dropped | Tide: even-or-better. |
 | trying | Tripwire: guards at 8. |
+| trying | Barbwire: guards at 12. |
