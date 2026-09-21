@@ -123,6 +123,12 @@ Use this format.
 - evidence: Berserker-line set 14 on the champion base; Bulwark's wound is FFA 2nds.
 - idea: Odds — 14-rule at 10 on Bulwark base.
 
+## Relief: fearless reinforce (2026-09-21)
+- source: Homeward 67c7703 wounds (three 2nds, reinforcements late)
+- claim: Late reinforcements never win; fearless ones arrive.
+- evidence: Homeward's safe reinforce podiums everywhere but wins nowhere (35.31).
+- idea: Relief — reinforce step skips safety.
+
 ## Alarum: walk-off reinforces defense (2026-09-21)
 - source: walk-off audit at iter 135 (threatened hill never targeted)
 - claim: Holders should reinforce the wall, not wander.

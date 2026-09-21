@@ -1676,4 +1676,16 @@ Use this format.
 - what changed: Battling as Homeward in Homeward.bot + Homeward.py; explore falls back to hills.
 - what you learned: Homewards went 3-2 losing to LoneWolf and Harrier, then took three straight 2nds; reinforcements arrive late, never first, so lb reached 35.31 against 52.15.
 - next: BOLD — new line, research first.
+
+## 139 — relief arrives fearless (2026-09-21)
+- commit: 37b1682
+- start: 67c7703 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 32.91, sigma 3.47, lb 22.51
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 3-2, FFA ranks 5p:5 7p:1 8p:3
+- what changed: Battling as Relief in Relief.bot + Relief.py; fearless reinforce step.
+- what you learned: Reliefs went 3-2 losing to Cohort and Evens, finished 5/5, won the 7p, then took 3/8; fearless reinforcements die on arrival, so lb reached 22.51 against 52.15.
+- next: Farmstead — food feet plus hill fallback.
 - next: BOLD — new line, research first.
