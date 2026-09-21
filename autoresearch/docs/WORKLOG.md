@@ -1463,6 +1463,18 @@ Use this format.
 - what you learned: Margins went 2-3, took 4/5, then took 2/7 and 2/8; strict safety cedes contact, so lb reached 19.27 against 52.15.
 - next: BOLD — new line, research first.
 
+## 124 — gang hunts with pack (2026-09-21)
+- commit: 934b3e7
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 19.37, sigma 3.56, lb 8.68
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 2-3, FFA ranks 5p:2 7p:4 8p:8
+- what changed: Battling as Gang in Gang.bot + Gang.py; hunt iff 3+ friends near, else pack up.
+- what you learned: Gangs went 2-3, took 2/5 and 4/7, then finished 8/8; quorum never forms in spread maps, hunters pack up forever, so lb fell to 8.68 against 52.15.
+- next: Escort — fearless only with pack.
+
 ## 105 — ram targets centroid hill (2026-09-21)
 - commit: 9283521
 - start: 6329ae1 (bold line)

@@ -123,6 +123,12 @@ Use this format.
 - evidence: Berserker-line set 14 on the champion base; Bulwark's wound is FFA 2nds.
 - idea: Odds — 14-rule at 10 on Bulwark base.
 
+## Gang: hunt only with a pack (2026-09-21)
+- source: rematch tape of Bulwark's 8p loss (maze_p08_07, pseed 97628294)
+- claim: 86 ants with zero razes in 670 turns means trickle-donation, not bad luck.
+- evidence: Bulwark killed Closer by t252 (9 pts), peaked 86 army at t700, razed nothing until t923, melted to 20 while Dragnet grew 62 to 131 and razed 8 more hills. Fearless solo hunters donate into crowds.
+- idea: Gang — hunt iff 3+ friends within 10, else pack up toward nearest friend.
+
 ## Shortfuse: closing threats at 14 (2026-09-21)
 - source: defense-number audit at iter 117 (closing-16 untouched since iter 15)
 - claim: Later warnings free hunters without losing hills.
