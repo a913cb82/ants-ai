@@ -158,3 +158,4 @@ row. Leave the old row as it was.
 | dropped | Evens: trades at 20. |
 | dropped | Margin: strict safety. |
 | trying | Gang: quorum hunting. |
+| trying | Escort: fearless with pack. |

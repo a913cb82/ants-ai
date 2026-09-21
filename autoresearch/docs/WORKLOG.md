@@ -1475,6 +1475,18 @@ Use this format.
 - what you learned: Gangs went 2-3, took 2/5 and 4/7, then finished 8/8; quorum never forms in spread maps, hunters pack up forever, so lb fell to 8.68 against 52.15.
 - next: Escort — fearless only with pack.
 
+## 125 — escort fears solo hunts (2026-09-21)
+- commit: 407fc2a
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 26.98, sigma 3.53, lb 16.41
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 2-3, FFA ranks 5p:1 7p:7 8p:1
+- what changed: Battling as Escort in Escort.bot + Escort.py; fearless ahead only with 3+ near.
+- what you learned: Escorts went 2-3, won the 5p and 8p, then finished 7/7; the pack condition never holds when it matters, so lb reached 16.41 against 52.15.
+- next: LoneWolf — fearless alone, safe in packs.
+
 ## 105 — ram targets centroid hill (2026-09-21)
 - commit: 9283521
 - start: 6329ae1 (bold line)
