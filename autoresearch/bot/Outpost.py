@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Hotspot:
+class Outpost:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,10 +27,11 @@ class Hotspot:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Hotspot: mass where the action is.
-        # Battling as Hotspot. Headings, memory, aggression, walk-off,
-        # food, and hills match iteration 15. Explore prefers the
-        # most-visited squares; the army masses instead of spreading.
+        # Outpost: gather forward.
+        # Battling as Outpost. Headings, memory, aggression, walk-off,
+        # hills, and explore match iteration 15. Foods nearest enemy
+        # hills are claimed first; gatherers double as forward
+        # presence and denial.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -39,19 +40,28 @@ class Hotspot:
         for hloc in list(self.remembered_hills):
             if hloc in my_set:
                 self.remembered_hills.discard(hloc)
-        pairs: list[tuple[int, int, int]] = []
+        hills = sorted(self.remembered_hills)
+        my_hills = ants.my_hills()
+        # Forward food: foods nearest enemy hills get claimed first;
+        # gatherers double as forward presence. No known hills yet:
+        # nearest-ant order as usual.
+        fwd: list[int] = []
+        for food_loc in foods:
+            if hills:
+                fwd.append(min(ants.distance(food_loc, h) for h in hills))
+            else:
+                fwd.append(0)
+        pairs: list[tuple[int, int, int, int]] = []
         for ai, ant_loc in enumerate(ants_list):
             for fi, food_loc in enumerate(foods):
-                pairs.append((ants.distance(ant_loc, food_loc), ai, fi))
+                pairs.append((fwd[fi], ants.distance(ant_loc, food_loc), ai, fi))
         pairs.sort()
         target: dict[int, tuple[int, int]] = {}
         claimed_food: set[int] = set()
-        for _, ai, fi in pairs:
+        for _, _, ai, fi in pairs:
             if ai not in target and fi not in claimed_food:
                 target[ai] = foods[fi]
                 claimed_food.add(fi)
-        hills = sorted(self.remembered_hills)
-        my_hills = ants.my_hills()
         enemy_locs = [loc for loc, _ in ants.enemy_ants()]
         # Match each visible enemy to a last-turn position to read
         # its heading. Ants move one square per turn, so matches at
@@ -183,11 +193,10 @@ class Hotspot:
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved:
-                # No hill move: explore most-visited squares first.
+                # No hill move: explore least-visited squares first.
                 dirs = sorted(
                     ("n", "e", "s", "w"),
                     key=lambda d: self.visits.get(ants.destination(ant_loc, d), 0),
-                    reverse=True,
                 )
                 for direction in dirs:
                     new_loc = ants.destination(ant_loc, direction)
@@ -228,6 +237,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Hotspot())
+        Ants.run(Outpost())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
