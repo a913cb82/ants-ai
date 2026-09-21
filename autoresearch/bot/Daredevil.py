@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Glutton:
+class Daredevil:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Glutton:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Glutton: eat through danger.
-        # Battling as Glutton. Peak ordering, headings, memory,
-        # aggression, walk-off, and exploration match iteration 69.
-        # Gatherers skip the safety filter; fighters and explorers
-        # stay careful. Order is ruled out, fear is on trial.
+        # Daredevil: no fear anywhere.
+        # Battling as Daredevil. Glutton habits, headings, memory,
+        # walk-off, food, hills, and exploration match iteration
+        # 70. The safety filter is deleted outright; aggression and
+        # majority rule go with it. Full GreedyBot fearlessness.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -87,38 +87,6 @@ class Glutton:
                 for e in enemy_locs
             )
         ]
-        attack_r2 = ants.attackradius2 or 5
-        rows, cols = ants.rows, ants.cols
-
-        def sq_dist(a: tuple[int, int], b: tuple[int, int]) -> int:
-            dr = abs(a[0] - b[0])
-            dr = min(dr, rows - dr) if rows else dr
-            dc = abs(a[1] - b[1])
-            dc = min(dc, cols - dc) if cols else dc
-            return dr * dr + dc * dc
-
-        def is_safe(nloc: tuple[int, int], self_loc: tuple[int, int]) -> bool:
-            enemies = 0
-            for e in enemy_locs:
-                if sq_dist(nloc, e) <= attack_r2:
-                    enemies += 1
-                    if enemies >= len(ants_list):
-                        break
-            if enemies == 0:
-                return True
-            friends = 0
-            near = 0
-            for f in ants_list:
-                if f == self_loc:
-                    continue
-                if sq_dist(nloc, f) <= attack_r2:
-                    friends += 1
-                if ants.distance(nloc, f) <= 10:
-                    near += 1
-            if friends + 1 > enemies:
-                return True
-            # Aggressive: 14+ friends near the fight accept equal trades.
-            return near >= 14 and friends + 1 >= enemies
 
         def first_step(
             start: tuple[int, int], goal: tuple[int, int], budget: int = 250
@@ -149,15 +117,12 @@ class Glutton:
                 node = parent[node][0]
             return parent[node][1]
 
-        def try_step(
-            ant_loc: tuple[int, int], direction: str, safe: bool = True
-        ) -> bool:
+        def try_step(ant_loc: tuple[int, int], direction: str) -> bool:
             new_loc = ants.destination(ant_loc, direction)
             if (
                 new_loc not in destinations
                 and ants.passable(new_loc)
                 and ants.unoccupied(new_loc)
-                and (not safe or is_safe(new_loc, ant_loc))
             ):
                 ants.issue_order((ant_loc, direction))
                 destinations.add(new_loc)
@@ -178,9 +143,8 @@ class Glutton:
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved and best is not None:
-                # Fearless food: gatherers skip the safety filter.
                 step = first_step(ant_loc, best)
-                if step is not None and try_step(ant_loc, step, safe=False):
+                if step is not None and try_step(ant_loc, step):
                     moved = True
                 if not moved:
                     # Assigned food is blocked; keep the claim so no other
@@ -198,7 +162,6 @@ class Glutton:
                         new_loc not in destinations
                         and ants.passable(new_loc)
                         and ants.unoccupied(new_loc)
-                        and is_safe(new_loc, ant_loc)
                     ):
                         ants.issue_order((ant_loc, direction))
                         destinations.add(new_loc)
@@ -231,6 +194,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Glutton())
+        Ants.run(Daredevil())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
