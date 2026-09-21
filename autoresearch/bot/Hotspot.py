@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Overrun:
+class Hotspot:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,10 @@ class Overrun:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Overrun: no guards while ahead.
-        # Battling as Overrun. Closer pressure, headings, memory,
-        # aggression, walk-off, food, and exploration match iteration
-        # 76. Hunt always; ahead on hills, hunters skip the safety
-        # filter. Closeouts need teeth, not patience.
+        # Hotspot: mass where the action is.
+        # Battling as Hotspot. Headings, memory, aggression, walk-off,
+        # food, and hills match iteration 15. Explore prefers the
+        # most-visited squares; the army masses instead of spreading.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -149,15 +148,13 @@ class Overrun:
                 node = parent[node][0]
             return parent[node][1]
 
-        def try_step(
-            ant_loc: tuple[int, int], direction: str, safe: bool = True
-        ) -> bool:
+        def try_step(ant_loc: tuple[int, int], direction: str) -> bool:
             new_loc = ants.destination(ant_loc, direction)
             if (
                 new_loc not in destinations
                 and ants.passable(new_loc)
                 and ants.unoccupied(new_loc)
-                and (not safe or is_safe(new_loc, ant_loc))
+                and is_safe(new_loc, ant_loc)
             ):
                 ants.issue_order((ant_loc, direction))
                 destinations.add(new_loc)
@@ -178,25 +175,19 @@ class Overrun:
                     # Assigned food is blocked; keep the claim so no other
                     # ant chases the same region this turn.
                     pass
-            if not moved and threatened and len(my_hills) <= len(hills):
-                # No food or blocked: guard home, unless ahead.
-                nearest = min(threatened, key=lambda h: ants.distance(ant_loc, h))
+            if not moved and (threatened or hills):
+                # No food or blocked: guard home first, else hunt.
+                targets = threatened if threatened else hills
+                nearest = min(targets, key=lambda h: ants.distance(ant_loc, h))
                 step = first_step(ant_loc, nearest)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
-            if not moved and hills:
-                # Hunt always; fearless when ahead on hills.
-                nearest = min(hills, key=lambda h: ants.distance(ant_loc, h))
-                step = first_step(ant_loc, nearest)
-                if step is not None and try_step(
-                    ant_loc, step, safe=len(my_hills) <= len(hills)
-                ):
-                    moved = True
             if not moved:
-                # No hill move: explore least-visited squares first.
+                # No hill move: explore most-visited squares first.
                 dirs = sorted(
                     ("n", "e", "s", "w"),
                     key=lambda d: self.visits.get(ants.destination(ant_loc, d), 0),
+                    reverse=True,
                 )
                 for direction in dirs:
                     new_loc = ants.destination(ant_loc, direction)
@@ -237,6 +228,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Overrun())
+        Ants.run(Hotspot())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
