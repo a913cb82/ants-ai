@@ -1640,4 +1640,16 @@ Use this format.
 - what changed: Battling as Seance in Seance.bot + Seance.py; ghost-forgetting on wall.
 - what you learned: Seances went 3-2, finished 5/5, took 2/7, then finished 8/8; ghosts point hunters forward, forgetting blinds the army, so lb fell to 6.15 against 52.15.
 - next: BOLD — new line, research first.
+
+## 136 — alarum walks to wall (2026-09-21)
+- commit: d6327f9
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 25.44, sigma 3.47, lb 15.02
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 2-3, FFA ranks 4p:1 6p:3 10p:8
+- what changed: Battling as Alarum in Alarum.bot + Alarum.py; walk-off reinforces defense.
+- what you learned: Alarums went 2-3, won the 4p, took 3/6, then finished 8/10; holders pile on and nothing hunts, walk-off axis reads default 49.78, enemy 37.38, food 35.25, hills 30.71, threatened 14.96, so lb reached 15.02 against 52.15.
+- next: Mob — fearless in crowds.
 - next: BOLD — new line, research first.

@@ -169,3 +169,4 @@ row. Leave the old row as it was.
 | dropped | Crowd: fearless under ten. |
 | dropped | Flank: second-nearest. |
 | dropped | Seance: forget ghosts. |
+| trying | Alarum: walk-off defense. |

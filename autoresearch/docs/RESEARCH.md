@@ -123,6 +123,12 @@ Use this format.
 - evidence: Berserker-line set 14 on the champion base; Bulwark's wound is FFA 2nds.
 - idea: Odds — 14-rule at 10 on Bulwark base.
 
+## Alarum: walk-off reinforces defense (2026-09-21)
+- source: walk-off audit at iter 135 (threatened hill never targeted)
+- claim: Holders should reinforce the wall, not wander.
+- evidence: Walk-off mapped default/hills/food/enemy; defense-reinforce untried. Bulwark's wall wants bodies.
+- idea: Alarum — walk-off heads to nearest threatened hill.
+
 ## Crowd: fearless under ten enemies (2026-09-21)
 - source: rematch tape reread (Bulwark 86 to 20 donating into crowds)
 - claim: Hunters should press small fights and survive big ones.
