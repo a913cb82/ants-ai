@@ -886,3 +886,15 @@ Use this format.
 - what changed: Battling as Blitz in Blitz.bot + Blitz.py; no food claims before turn 25, full early pressure.
 - what you learned: Blitzes went 3-2 losing to Peak and Daredevil, took 3/5 and 4/7, then won a real 8p over Reunion and Glutton; the all-in gamble feasts or famines, so lb reached 27.38 against 52.15.
 - next: Siege — blitz only until first blood.
+
+## 73 — siege eats at first blood (2026-09-21)
+- commit: 64f97f5
+- start: 63558af (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 38.77, sigma 3.54, lb 28.17
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 3-2, FFA ranks 5p:1 7p:2 8p:7
+- what changed: Battling as Siege in Siege.bot + Siege.py; food claims start at first blood or turn 25.
+- what you learned: Sieges went 3-2 losing twice to Daredevil, won the 5p, took 2/7 behind Bookmaker, then finished 7/8; first blood comes fast so it eats early anyway, lb reached 28.17 against 52.15.
+- next: Crusade — timed swarm turns 25 to 60.

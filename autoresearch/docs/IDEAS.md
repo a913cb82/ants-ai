@@ -107,3 +107,4 @@ row. Leave the old row as it was.
 | dropped | Glutton: fearless food. |
 | dropped | Daredevil: no safety anywhere. |
 | trying | Blitz: no food before turn 25. |
+| trying | Siege: eat at first blood. |
