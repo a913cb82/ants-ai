@@ -105,6 +105,12 @@ Use this format.
 - evidence: Fresh-spawn mission target is a random border tile, otherwise the closest; paths recalculated with A*; interrupted ants discard missions; targets re-searched every turn when time allows, at least every 10 turns; areas come from simultaneous BFS (20-step) with borders where areas meet.
 - idea: Frontier missions for idle ants only (food/hill paths untouched); frontier equals unseen neighbors of seen squares, no full-map areas needed.
 
+## Urgency ordering: danger moves first (2026-09-21)
+- source: autoresearch loss-mode analysis (contested tiles go to arbitrary engine order)
+- claim: First pick of contested destinations should go to ants in danger, not engine order.
+- evidence: try_step hands conflicts to whoever moves first; xathis phases food before fight before defence, but our per-ant loop interleaves everything in arbitrary order.
+- idea: Marshal — sort movers by nearest-enemy distance, closest first.
+
 ## Cohesion fallback: huddle, don't wander (2026-09-21)
 - source: autoresearch loss-mode analysis (scatter + late arrivals in every FFA collapse)
 - claim: Least-visited wandering sends lone ants to the edges where they die; mass survives.

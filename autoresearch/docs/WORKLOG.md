@@ -694,3 +694,15 @@ Use this format.
 - what changed: Battling as Intern in Intern.bot + Intern.py; fallback steps toward the nearest food-claim holder.
 - what you learned: Interns went 4-1 splitting Huddle, took 2/4, finished 6/6 in a real 6p, and won a cripple-field 10p; shadowing trails gatherers, best of a bad line, so lb reached 24.98 against 52.15.
 - next: BOLD — new line, research first.
+
+## 57 — marshal orders danger first (2026-09-21)
+- commit: 597cd54
+- start: 79bbd16 (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 51.45, sigma 3.53, lb 40.85
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 3-2, FFA ranks 5p:1 7p:1 8p:3
+- what changed: Battling as Marshal in Marshal.bot + Marshal.py; movers sort by nearest-enemy distance, closest first.
+- what you learned: Marshals went 3-2 losing duels to Intern and Reunion, won the 5p and 7p, and took 3/8 behind Garrison and Bouncer; ordering shows signal but duels bleed to clumps, so lb reached 40.85 against 52.15.
+- next: Purser — food-claimants move first.

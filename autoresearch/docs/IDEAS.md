@@ -91,3 +91,4 @@ row. Leave the old row as it was.
 | dropped | Huddle: fallback masses friends. |
 | dropped | Reunion: huddle past turn 100. |
 | dropped | Intern: shadow employed ants. |
+| trying | Marshal: danger moves first. |
