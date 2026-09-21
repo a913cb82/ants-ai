@@ -1282,3 +1282,15 @@ Use this format.
 - what changed: Battling as Ram in Ram.bot + Ram.py; all hunters target the centroid-nearest hill.
 - what you learned: Rams went 3-2, won the 4p, then finished 5/6 and 5/10; concentration marches at one distant hill, so lb reached 20.38 against 52.15.
 - next: Muster — walk-off marches to war.
+
+## 106 — muster walks off to war (2026-09-21)
+- commit: 6835c0c
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 41.18, sigma 3.49, lb 30.71
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 3-2, FFA ranks 4p:4 6p:1 10p:2
+- what changed: Battling as Muster in Muster.bot + Muster.py; walk-off heads to nearest hill.
+- what you learned: Musters went 3-2 losing to Sundown and Ram, finished 4/4, won the 6p, then took 2/10; mustering helps big fields but abandons home in small ones, so lb reached 30.71 against 52.15.
+- next: Harvest — walk-off heads to food.
