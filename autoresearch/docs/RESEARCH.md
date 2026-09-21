@@ -105,6 +105,12 @@ Use this format.
 - evidence: Fresh-spawn mission target is a random border tile, otherwise the closest; paths recalculated with A*; interrupted ants discard missions; targets re-searched every turn when time allows, at least every 10 turns; areas come from simultaneous BFS (20-step) with borders where areas meet.
 - idea: Frontier missions for idle ants only (food/hill paths untouched); frontier equals unseen neighbors of seen squares, no full-map areas needed.
 
+## Screen: intercept razers off the hill (2026-09-21)
+- source: defense-branch audit at iter 83 (guards walk at the hill since iter 4)
+- claim: Meeting the razer away keeps the hill spawnable and unrazed.
+- evidence: Guards pile onto threatened hills, blocking our own spawns while the razer picks fights; interception was never tried.
+- idea: Screen — defense branch targets the enemy nearest the threatened hill.
+
 ## Hotspot: most-visited explore (2026-09-21)
 - source: knob audit at iter 80 (explore least-visited unchallenged since iter 6)
 - claim: Spreading thin loses big fields; massing wins them.

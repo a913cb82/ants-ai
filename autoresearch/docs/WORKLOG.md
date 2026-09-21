@@ -1018,3 +1018,15 @@ Use this format.
 - what changed: Battling as Bloodhound in Bloodhound.bot + Bloodhound.py; threatened needs closing within 16, static 10 dropped, forward food reverted.
 - what you learned: Bloodhounds went 4-1 in duels, won the 4p, then finished 5/6 and 9/10 behind Outpost and Wolfpack; stationary lurkers walk onto hills unopposed, so lb collapsed from 52.15 to 11.94.
 - next: BOLD — new line, research first.
+
+## 84 — screen intercepts razers (2026-09-21)
+- commit: 85a9009
+- start: 79bbd16 (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 49.48, sigma 3.48, lb 39.04
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 5-0, FFA ranks 4p:4 6p:2 10p:2
+- what changed: Battling as Screen in Screen.bot + Screen.py; guards target the enemy nearest the threatened hill.
+- what you learned: Screens went 5-0 in duels, finished 4/4, then took 2/6 behind Homestead and 2/10 behind Vigil; interception duels perfectly but leaves hills bare in small fields, so lb reached 39.04 against 52.15.
+- next: Sieve — screen one razer, guard the rest.
