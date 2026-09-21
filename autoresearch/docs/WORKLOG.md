@@ -994,3 +994,15 @@ Use this format.
 - what changed: Battling as Hotspot in Hotspot.bot + Hotspot.py; explore fallback prefers most-visited squares.
 - what you learned: Hotspots went 2-3 losing twice to Hornet, took 2/4, 4/6, and 2/10 in weak fields; massing blinds the army, so lb reached 18.96 against 52.15.
 - next: Forward food — claim food nearest enemy hills.
+
+## 82 — outpost claims forward food (2026-09-21)
+- commit: 0eccc38
+- start: fe7f6b4 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 30.00, sigma 3.52, lb 19.43
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 3-2, FFA ranks 5p:3 7p:3 8p:5
+- what changed: Battling as Outpost in Outpost.bot + Outpost.py; foods nearest enemy hills claimed first, champion explore restored.
+- what you learned: Outposts went 3-2 splitting Tariff, took 3/5 and 3/7, then finished 5/8 behind Peak and Overrun; forward gatherers march into danger, so lb reached 19.43 against 52.15.
+- next: Bloodhound — defense on headings only.
