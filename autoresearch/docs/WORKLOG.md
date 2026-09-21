@@ -550,3 +550,15 @@ Use this format.
 - what changed: Battling as Jackal in Jackal.bot + Jackal.py; nearest foe inside 12, first ant leads on static majority, buddies join equal trades.
 - what you learned: Jackals went 3-2 losing twice to Tariff with lb negative mid-run, won a weak 5p, then finished 5/7 and 7/8; nearest-foe targeting without crowd sense is suicide, so lb collapsed from 52.15 to 16.07.
 - next: BOLD — new line, research first.
+
+## 45 — brawler lowers equal-trade gate to 8 (2026-09-21)
+- commit: 4f3f0e1
+- start: 79bbd16 (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 27.87, sigma 3.83, lb 16.39
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 2-3, FFA ranks 5p:5 7p:1 8p:1
+- what changed: Battling as Brawler in Brawler.bot + Brawler.py; the equal-trade gate drops from 14 friends to 8.
+- what you learned: Brawlers went 2-3 losing twice to Jackal and once to Tariff, finished 5/5 in a real 5p, and won two cripple-field FFAs; more equal trades just means more deaths, so lb collapsed from 52.15 to 16.39.
+- next: Monk — raise the gate to 20, refuse equals.

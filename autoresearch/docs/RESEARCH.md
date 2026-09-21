@@ -33,6 +33,12 @@ Use this format.
 - evidence: exploreValue resets when reachable within 10 steps; ants BFS 11 steps toward max exploreValue; surplus ants get missions to border tiles (random for fresh spawns, closest otherwise), paths recalculated with A*.
 - idea: Our visit counts approximate exploreValue; add border missions for idle ants later in this bold line.
 
+## Aggression gate tuning: 14 is not gospel (2026-09-21)
+- source: autoresearch loss-mode analysis (Berserker lb 49.55, closest line, never varied)
+- claim: xathis tuned 14+ friends for its scale; our crowds differ and the gate is untested.
+- evidence: Berserker swept everything (5-0 + three FFA wins) with the champion's borrowed 14; no iteration ever moved the number.
+- idea: Brawler — lower the equal-trade gate to 8 friends, then follow the results.
+
 ## Combat eval trades ants for position (2026-09-20)
 - source: https://github.com/T-Py-T/AntsAIBot (docs/reference/xathis/postmortem.txt, combat section)
 - claim: One-turn minimax with eval enemyDead*300 - myDead*180 - dist when 14+ friends near, else 512/768 with no 1v1 trades.
