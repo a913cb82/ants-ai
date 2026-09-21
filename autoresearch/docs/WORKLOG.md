@@ -394,3 +394,15 @@ Use this format.
 - what changed: Battling as Pilgrim in Pilgrim.bot + Pilgrim.py; kill-zone skipping applies only to hill-hunt paths, food and defense stay greedy.
 - what you learned: Scoped cowardice steadied to straight podiums (2/5, 2/7, 3/8 behind Cavalry and Boone) but never wins; hunters survive the march yet arrive too late and too few, so lb reached 41.95 against 52.15.
 - next: Tolls — pay +3 per kill-zone tile instead of skipping.
+
+## 32 — danger tolls instead of walls (2026-09-21)
+- commit: 19b129c
+- start: e389466 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 29.32, sigma 3.63, lb 18.43
+- champion lb: 52.15
+- verdict: drop the routing line (bold 3 of 3)
+- games: 3-2, FFA ranks 5p:1 7p:7 8p:2
+- what changed: Battling as Tariff in Tariff.bot + Tariff.py; Dijkstra charges +3 a kill-zone tile on every path, never walled off.
+- what you learned: Tolls went 3-2 losing twice to Hunter and finished 7/7 in a cell-maze 7p; bending every path makes ants late to food and fights everywhere, so lb collapsed from 52.15 to 18.43.
+- next: BOLD — new line, research first.
