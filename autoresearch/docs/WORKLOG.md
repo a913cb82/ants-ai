@@ -1379,6 +1379,18 @@ Use this format.
 - what you learned: Rearguards went 2-3 losing to Outpost and Usher twice, took three podiums; safe spawns beat front spawns but any sitting taxes, so lb reached 23.07 against 52.15.
 - next: Triage — sit front only when threatened.
 
+## 117 — triage sits hot front (2026-09-21)
+- commit: 8600225
+- start: 0649946 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 19.12, sigma 3.51, lb 8.60
+- champion lb: 52.15
+- verdict: drop the usher line (bold 3 of 3)
+- games: 2-3, FFA ranks 5p:4 7p:1 8p:7
+- what changed: Battling as Triage in Triage.bot + Triage.py; sit front only when threatened.
+- what you learned: Triages went 2-3 losing to Outpost, HunterBot, and Usher, took 4/5, won a weak 7p, then finished 7/8; switching sitting dithers spawns worst of all, so lb fell to 8.60 against 52.15.
+- next: BOLD — new line, research first.
+
 ## 105 — ram targets centroid hill (2026-09-21)
 - commit: 9283521
 - start: 6329ae1 (bold line)
