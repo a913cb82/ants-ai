@@ -466,3 +466,15 @@ Use this format.
 - what changed: Battling as Minuteman in Minuteman.bot + Minuteman.py; food pairs draft first, then the 4 closest spares per threatened hill take exclusive duty.
 - what you learned: Volunteers swept duels 5-0, won a weak 6p, and took 3rd in the 10p, but finished 4/4 in a maze 4p behind Militia itself; exclusive duty underperforms the champion's pile-on, so lb reached 28.86 against 52.15.
 - next: Sentry — lighter watch, 2 volunteers per hill.
+
+## 38 — sentry posts 2 volunteers per hill (2026-09-21)
+- commit: bce3e11
+- start: f12c5f5 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 37.39, sigma 3.58, lb 26.66
+- champion lb: 52.15
+- verdict: drop the militia line (bold 3 of 3)
+- games: 4-1, FFA ranks 4p:1 6p:1 10p:9
+- what changed: Battling as Sentry in Sentry.bot + Sentry.py; 2 spares per threatened hill take exclusive duty instead of 4.
+- what you learned: Sentries went 4-1 losing a duel to Militia, won the 4p and a 6p over the whole militia family, then finished 9/10 in a Vanguard-led 10p; two defenders cannot hold big-field chaos, so lb reached 26.66 against 52.15.
+- next: BOLD — new line, research first.
