@@ -7,13 +7,12 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Reunion:
+class Intern:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
         self.remembered_hills: set[tuple[int, int]] = set()
         self.prev_enemies: list[tuple[int, int]] = []
-        self.turn = 0
 
     # do_setup is run once at the start of the game
     # after the bot has received the game settings
@@ -23,18 +22,16 @@ class Reunion:
         self.visits = {}
         self.remembered_hills = set()
         self.prev_enemies = []
-        self.turn = 0
 
     # do turn is run once per turn
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Reunion: spread early, ball late.
-        # Battling as Reunion. Huddle habits, headings, memory,
-        # aggression, walk-off, food, and hills match iteration 54.
-        # Fallback ants explore before turn 100 to claim the map,
-        # then mass toward friends for the late wars.
-        self.turn += 1
+        # Intern: follow the employed.
+        # Battling as Intern. Reunion shadowing, headings, memory,
+        # aggression, walk-off, food, and hills match iteration 55.
+        # Fallback ants step toward the nearest food-claim holder,
+        # not the nearest idler; exploring only finds the work.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -186,12 +183,12 @@ class Reunion:
                 step = first_step(ant_loc, nearest)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
-            if not moved and (hills or foods) and self.turn >= 100:
-                # Reunion: step toward the nearest friend.
+            if not moved and (hills or foods):
+                # Intern: shadow the nearest employed ant.
                 bud = None
                 bud_d = 1 << 30
-                for f in ants_list:
-                    if f == ant_loc:
+                for bi, f in enumerate(ants_list):
+                    if f == ant_loc or bi not in target:
                         continue
                     d = ants.distance(ant_loc, f)
                     if d < bud_d:
@@ -246,6 +243,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Reunion())
+        Ants.run(Intern())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
