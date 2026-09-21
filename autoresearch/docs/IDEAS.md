@@ -61,5 +61,6 @@ row. Leave the old row as it was.
 | dropped | Formation defense: corner posts around threatened hills. |
 | dropped | Second ring: double-distance posts when heavily hit. |
 | dropped | Hungry posts: defenders snack within 4. |
-| trying | Seek fights: close on enemies inside 8. |
-| trying | Supported charges: 2+ friends nearby. |
+| dropped | Seek fights: close on enemies inside 8. |
+| dropped | Supported charges: 2+ friends nearby. |
+| dropped | Favorites only: charge winning fights. |

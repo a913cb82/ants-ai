@@ -358,3 +358,15 @@ Use this format.
 - what changed: Battling as Cavalry in Cavalry.bot + Cavalry.py; ants close on enemies inside 8 only with 2+ friends within 10.
 - what you learned: Support fixed the duel loss and the 8p (3rd behind Boone and Vanguard), but ranked 5/7 in a maze 7p behind Cartographer and Lancer itself; company helps yet still wanders into crowds, so lb reached 39.08 against 52.15.
 - next: Favorites only — charge winning fights at the foe.
+
+## 29 — charge only winning fights at foe (2026-09-21)
+- commit: 6f47258
+- start: 06d253e (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 46.72, sigma 3.66, lb 35.74
+- champion lb: 52.15
+- verdict: drop the offense line (bold 3 of 3)
+- games: 5-0, FFA ranks 4p:1 6p:1 10p:9
+- what changed: Battling as Bookmaker in Bookmaker.bot + Bookmaker.py; ants close on a foe inside 8 only when friends outnumber enemies around the foe.
+- what you learned: Favorites swept duels 5-0 and won the 4p and a 6p over Cavalry and Lancer, then finished 9/10 in a Berserker-led 10p ahead of only an ErrorBot; the family (37.54, 39.08, 35.74) never threatens the champion, so the line is dropped.
+- next: BOLD — new line, research first.
