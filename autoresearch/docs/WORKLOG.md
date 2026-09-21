@@ -1593,3 +1593,15 @@ Use this format.
 - what changed: Battling as Cohort in Cohort.bot + Cohort.py; floor at five.
 - what you learned: Cohorts went 2-3, finished 4/4, won the 6p, then took 3/10; lower floor milder spiral, yet lb reached only 20.08 against 52.15.
 - next: Guerrilla — sneak while small.
+
+## 132 — guerrilla sneaks small (2026-09-21)
+- commit: 85efdf4
+- start: a82ad16 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 19.80, sigma 3.52, lb 9.24
+- champion lb: 52.15
+- verdict: drop the legion line (bold 3 of 3)
+- games: 3-2, FFA ranks 4p:2 6p:6 10p:5
+- what changed: Battling as Guerrilla in Guerrilla.bot + Guerrilla.py; fearless small-growing.
+- what you learned: Guerrillas went 3-2 losing twice to Legion, took 2/4, finished 6/6, then finished 5/10; babies die fearless and armies never press, so lb fell to 9.24 against 52.15.
+- next: BOLD — new line, research first.

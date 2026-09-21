@@ -163,5 +163,6 @@ row. Leave the old row as it was.
 | dropped | Avenge: press when bleeding. |
 | dropped | Entrench: turtle bleeding. |
 | dropped | Recruit: press while growing. |
-| trying | Legion: floor at ten. |
-| trying | Cohort: floor at five. |
+| dropped | Legion: floor at ten. |
+| dropped | Cohort: floor at five. |
+| dropped | Guerrilla: sneak small. |
