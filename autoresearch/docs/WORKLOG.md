@@ -1415,6 +1415,18 @@ Use this format.
 - what you learned: Counters went 4-1 losing to Serve, finished 4/4, then won the 6p and 10p; skirmish feet sweep big fields but abandon home small, so lb reached 37.38 against 52.15.
 - next: Longfuse — closing at 18.
 
+## 120 — longfuse warns at 18 (2026-09-21)
+- commit: 0acf7ec
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 13.60, sigma 3.63, lb 2.71
+- champion lb: 52.15
+- verdict: drop the shortfuse line (bold 3 of 3)
+- games: 1-4, FFA ranks 4p:1 6p:4 10p:8
+- what changed: Battling as Longfuse in Longfuse.bot + Longfuse.py; closing threatened 16 to 18.
+- what you learned: Longfuses went 1-4, won the 4p, took 4/6, then finished 8/10; earlier warnings mean everyone guards and nobody works, closing axis reads 14: 11.72, 16: 49.78, 18: 2.71, so lb collapsed to 2.71 against 52.15.
+- next: BOLD — new line, research first.
+
 ## 105 — ram targets centroid hill (2026-09-21)
 - commit: 9283521
 - start: 6329ae1 (bold line)
