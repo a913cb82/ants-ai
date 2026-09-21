@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Oracle:
+class Harrier:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,12 +27,11 @@ class Oracle:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Opponent model: read enemy headings from enemy moves.
-        # Diagnostic re-run 2026-09-21: identical tactics, field drift check.
-        # Battling as Oracle. Memory, movement, aggression, walk-off,
-        # and exploration match iteration 13. Visible enemies are
-        # matched to last turn's positions; a hill counts threatened
-        # at 16 steps when an enemy is closing on it, else 10.
+        # Harrier: screen packs, guard lone.
+        # Battling as Harrier. Bulwark hunt, pack-screen defense,
+        # aggression, walk-off, food, and exploration match iteration
+        # 76. Hunt always; ahead on hills, hunters skip the safety
+        # filter. Closeouts need teeth, not patience.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -150,13 +149,15 @@ class Oracle:
                 node = parent[node][0]
             return parent[node][1]
 
-        def try_step(ant_loc: tuple[int, int], direction: str) -> bool:
+        def try_step(
+            ant_loc: tuple[int, int], direction: str, safe: bool = True
+        ) -> bool:
             new_loc = ants.destination(ant_loc, direction)
             if (
                 new_loc not in destinations
                 and ants.passable(new_loc)
                 and ants.unoccupied(new_loc)
-                and is_safe(new_loc, ant_loc)
+                and (not safe or is_safe(new_loc, ant_loc))
             ):
                 ants.issue_order((ant_loc, direction))
                 destinations.add(new_loc)
@@ -177,12 +178,25 @@ class Oracle:
                     # Assigned food is blocked; keep the claim so no other
                     # ant chases the same region this turn.
                     pass
-            if not moved and (threatened or hills):
-                # No food or blocked: guard home first, else hunt.
-                targets = threatened if threatened else hills
-                nearest = min(targets, key=lambda h: ants.distance(ant_loc, h))
-                step = first_step(ant_loc, nearest)
+            if not moved and threatened:
+                # No food or blocked: packs get screened away, a lone
+                # razer meets the guard on the hill.
+                nearest = min(threatened, key=lambda h: ants.distance(ant_loc, h))
+                pack = [e for e in enemy_locs if ants.distance(nearest, e) <= 16]
+                if len(pack) >= 2:
+                    dest = min(pack, key=lambda e: ants.distance(nearest, e))
+                else:
+                    dest = nearest
+                step = first_step(ant_loc, dest)
                 if step is not None and try_step(ant_loc, step):
+                    moved = True
+            if not moved and hills:
+                # Hunt always; fearless when ahead on hills.
+                nearest = min(hills, key=lambda h: ants.distance(ant_loc, h))
+                step = first_step(ant_loc, nearest)
+                if step is not None and try_step(
+                    ant_loc, step, safe=len(my_hills) <= len(hills)
+                ):
                     moved = True
             if not moved:
                 # No hill move: explore least-visited squares first.
@@ -229,6 +243,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Oracle())
+        Ants.run(Harrier())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
