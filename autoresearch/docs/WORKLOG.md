@@ -1355,6 +1355,18 @@ Use this format.
 - what you learned: Serves went 4-1 losing to Harrier, took 3/5, finished 7/7, then finished 5/8; order axis reads engine 49.78, fighters 25.40, gatherers 11.98, default order is load-bearing, so lb fell to 11.98 against 52.15.
 - next: BOLD — new line, research first.
 
+## 115 — usher routes spawns forward (2026-09-21)
+- commit: 3dc283d
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 24.67, sigma 3.53, lb 14.09
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 2-3, FFA ranks 5p:4 7p:2 8p:4
+- what changed: Battling as Usher in Usher.bot + Usher.py; sitters hold back hills, front stays open.
+- what you learned: Ushers went 2-3 losing thrice to Serve, took 4/5, 2/7, 4/8; sitters idle while blocking, contested front plus sitting back skips spawn turns, so lb reached 14.09 against 52.15.
+- next: Rearguard — sit front, spawn back.
+
 ## 105 — ram targets centroid hill (2026-09-21)
 - commit: 9283521
 - start: 6329ae1 (bold line)

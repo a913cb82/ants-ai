@@ -117,6 +117,12 @@ Use this format.
 - evidence: Identical code scored 52.15 at iter 15, 13.09 today (2-3 duels, 7/7 FFA). Duel foes and FFA fields are all descendants now.
 - idea: Keep hunting Bulwark-family gains; 49.78-modern needs ~2.4, and the number is regime-noisy. No re-tag without beating 52.15.
 
+## Usher: route spawns to the front (2026-09-21)
+- source: tools/ants.py do_spawn (least-recently-touched first, standing blocks)
+- claim: Spawns should arrive at the front hill, not the safest back hill.
+- evidence: Walk-off opens all hills; spawn location is emergent. Engine docstring says standing controls it. Never tried in 114 iterations.
+- idea: Usher — sitters hold back hills, front hill stays open.
+
 ## Elastic: Bulwark plus adaptive food (2026-09-21)
 - source: Flexitarian dfce6c0 (reach 8+army, lb 45.78) + Bulwark 6329ae1 (lb 49.78)
 - claim: Local gathering feeds the wall; reach grows with the army.

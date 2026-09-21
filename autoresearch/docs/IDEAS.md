@@ -148,3 +148,4 @@ row. Leave the old row as it was.
 | dropped | Elastic: adaptive food + wall. |
 | dropped | Draft: fighters first. |
 | dropped | Serve: gatherers first. |
+| trying | Usher: spawn forward. |
