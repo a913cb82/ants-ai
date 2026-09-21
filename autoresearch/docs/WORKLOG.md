@@ -1499,6 +1499,18 @@ Use this format.
 - what you learned: LoneWolfs went 3-2 losing twice to Odds, took 3/5 and 3/7, then won the 8p; solo sneak beats pack escort, yet lb reached only 28.65 against 52.15.
 - next: BOLD — new line, research first.
 
+## 127 — avenge presses when bleeding (2026-09-21)
+- commit: f6c0b4f
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 32.09, sigma 3.47, lb 21.69
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 2-3, FFA ranks 5p:1 7p:6 8p:1
+- what changed: Battling as Avenge in Avenge.bot + Avenge.py; below max hills hunts full-fearless.
+- what you learned: Avenges went 2-3 losing to Odds, Triage, and Gang, won the 5p and 8p, then finished 6/7; desperation accelerates the bleed, so lb reached 21.69 against 52.15.
+- next: Entrench — turtle when bleeding.
+
 ## 105 — ram targets centroid hill (2026-09-21)
 - commit: 9283521
 - start: 6329ae1 (bold line)

@@ -123,6 +123,12 @@ Use this format.
 - evidence: Berserker-line set 14 on the champion base; Bulwark's wound is FFA 2nds.
 - idea: Odds — 14-rule at 10 on Bulwark base.
 
+## Avenge: total press when bleeding (2026-09-21)
+- source: dynamics audit at iter 126 (levels used, trends never)
+- claim: Lost hills should trigger desperation, not routine.
+- evidence: Frontrunner used hill levels; no bot reacts to LOSING hills. Bulwark bled out late in its 8p loss without changing gear.
+- idea: Avenge — below max hills held, hunt full-fearless.
+
 ## Gang: hunt only with a pack (2026-09-21)
 - source: rematch tape of Bulwark's 8p loss (maze_p08_07, pseed 97628294)
 - claim: 86 ants with zero razes in 670 turns means trickle-donation, not bad luck.
