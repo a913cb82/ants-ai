@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Hoard:
+class Peak:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Hoard:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Hoard: twice the army or no trade.
-        # Battling as Hoard. Surplus caution, headings, memory,
-        # aggression, walk-off, food, hills, and exploration match
-        # iteration 67. Friendless 1v1 needs 2x visible surplus;
-        # fog hides reserves, so demand a margin before trading.
+        # Peak: hills first, food second.
+        # Battling as Peak. Headings, memory, aggression, walk-off,
+        # and exploration match iteration 15. The hill branch runs
+        # before the food branch; claims persist for ants whose
+        # hills fail. The big tapes say pressure beats gathering.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -117,10 +117,6 @@ class Hoard:
                     near += 1
             if friends + 1 > enemies:
                 return True
-            # Grinder: friendless 1v1 is mutual death; take it when
-            # our visible army is at least theirs.
-            if enemies == 1 and friends == 0:
-                return len(ants_list) >= 2 * len(enemy_locs)
             # Aggressive: 14+ friends near the fight accept equal trades.
             return near >= 14 and friends + 1 >= enemies
 
@@ -172,7 +168,14 @@ class Hoard:
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
             best = target.get(ai)
             moved = False
-            if best is not None:
+            if not moved and (threatened or hills):
+                # Hills first: guard home, else hunt.
+                targets = threatened if threatened else hills
+                nearest = min(targets, key=lambda h: ants.distance(ant_loc, h))
+                step = first_step(ant_loc, nearest)
+                if step is not None and try_step(ant_loc, step):
+                    moved = True
+            if not moved and best is not None:
                 step = first_step(ant_loc, best)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
@@ -180,13 +183,6 @@ class Hoard:
                     # Assigned food is blocked; keep the claim so no other
                     # ant chases the same region this turn.
                     pass
-            if not moved and (threatened or hills):
-                # No food or blocked: guard home first, else hunt.
-                targets = threatened if threatened else hills
-                nearest = min(targets, key=lambda h: ants.distance(ant_loc, h))
-                step = first_step(ant_loc, nearest)
-                if step is not None and try_step(ant_loc, step):
-                    moved = True
             if not moved:
                 # No hill move: explore least-visited squares first.
                 dirs = sorted(
@@ -232,6 +228,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Hoard())
+        Ants.run(Peak())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
