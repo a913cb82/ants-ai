@@ -1066,3 +1066,15 @@ Use this format.
 - what changed: Battling as Onslaught in Onslaught.bot + Onslaught.py; Closer hunt plus Screen interception.
 - what you learned: Onslaughts went 3-2 losing to Sieve and Outpost, finished 4/5 behind Peak, then took 2/7 and 2/8; pressure does not compound, razed at home while away, so lb reached 28.34 against 52.15.
 - next: Safe press — fearless hunt plus hill guards.
+
+## 88 — picket screens then holds (2026-09-21)
+- commit: 4c4abe3
+- start: be173d9 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 44.41, sigma 3.47, lb 34.01
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 2-3, FFA ranks 4p:1 6p:2 10p:3
+- what changed: Battling as Picket in Picket.bot + Picket.py; first guard screens, rest hold.
+- what you learned: Pickets went 2-3 swept by Bloodhound, won the 4p, took 2/6 and 3/10; coordination helps crowds but duels collapse, so lb reached 34.01 against 52.15.
+- next: Bulwark — first guard holds, extras screen.

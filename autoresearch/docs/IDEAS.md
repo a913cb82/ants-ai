@@ -122,3 +122,4 @@ row. Leave the old row as it was.
 | dropped | Sieve: screen lone, guard pack. |
 | dropped | Dragnet: screen packs. |
 | trying | Onslaught: fearless hunt + screen. |
+| trying | Picket: screen then hold. |
