@@ -430,3 +430,15 @@ Use this format.
 - what changed: Battling as Sluice in Sluice.bot + Sluice.py; the swarm gates on 8 ants instead of 15.
 - what you learned: The low gate went 4-1 losing a duel to Detour, won the 7p and 8p over Floodgate itself, then finished 5/5 in a 5p behind Detour and Floodgate; gate timing is feast or famine, so lb reached 32.70 against 52.15.
 - next: Posse — hunt only hills with 3+ spares nearby.
+
+## 35 — posse rides only with 3+ spares (2026-09-21)
+- commit: a64a938
+- start: e974d2c (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 39.97, sigma 3.56, lb 29.28
+- champion lb: 52.15
+- verdict: drop the floodgate line (bold 3 of 3)
+- games: 5-0, FFA ranks 5p:3 7p:6 8p:2
+- what changed: Battling as Posse in Posse.bot + Posse.py; the gate moves to the target — spares march only hills with 3+ spares inside 12.
+- what you learned: The posse swept duels 5-0 and took 2nd in a weak 8p, but finished 6/7 in a maze 7p behind Bookmaker and Floodgate; local gates reproduce the family mediocrity, so lb reached 29.28 against 52.15.
+- next: BOLD — new line, research first.
