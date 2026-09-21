@@ -99,6 +99,12 @@ Use this format.
 - evidence: Fresh-spawn mission target is a random border tile, otherwise the closest; paths recalculated with A*; interrupted ants discard missions; targets re-searched every turn when time allows, at least every 10 turns; areas come from simultaneous BFS (20-step) with borders where areas meet.
 - idea: Frontier missions for idle ants only (food/hill paths untouched); frontier equals unseen neighbors of seen squares, no full-map areas needed.
 
+## Defense before food: guard first, eat later (2026-09-21)
+- source: loss-mode analysis over iters 24-35 (razed while gathering)
+- claim: Food-first ordering leaves hills defended by leftovers; threats should draft first.
+- evidence: Every challenger keeps food pairs first, so gatherers keep gathering while hills burn; our FFA losses feature opponents razing us mid-gather.
+- idea: Militia — closest 4 ants per threatened hill defend and eat nothing; food drafts from the rest.
+
 ## Floodgates: mass assault on army size (2026-09-21)
 - source: autoresearch/docs/RESEARCH.md (Waves attack at ant thresholds) + iter 7 flood (lb 37.87, gate missing)
 - claim: Trickle hunting feeds razers piecemeal; a gated swarm razes and lives.

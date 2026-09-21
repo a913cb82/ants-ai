@@ -442,3 +442,15 @@ Use this format.
 - what changed: Battling as Posse in Posse.bot + Posse.py; the gate moves to the target — spares march only hills with 3+ spares inside 12.
 - what you learned: The posse swept duels 5-0 and took 2nd in a weak 8p, but finished 6/7 in a maze 7p behind Bookmaker and Floodgate; local gates reproduce the family mediocrity, so lb reached 29.28 against 52.15.
 - next: BOLD — new line, research first.
+
+## 36 — militia defends before food (2026-09-21)
+- commit: 153fc6a
+- start: 79bbd16 (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 35.44, sigma 3.53, lb 24.85
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 5-0, FFA ranks 5p:2 7p:4 8p:8
+- what changed: Battling as Militia in Militia.bot + Militia.py; the 4 closest ants per threatened hill defend and eat nothing, food drafts from the rest.
+- what you learned: The militia swept duels 5-0 and took 2nd in the 5p, but finished 8/8 in a cell-maze 8p behind Floodgate and Detour; drafting defenders first starves the army because threats never stop, so lb reached 24.85 against 52.15.
+- next: Volunteer militia — defenders drafted from spares only.

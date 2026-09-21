@@ -70,3 +70,4 @@ row. Leave the old row as it was.
 | dropped | Floodgates: swarm remembered hills at 15 ants. |
 | dropped | Lower gate: swarm at 8 ants. |
 | dropped | Posse: hunt hills with 3+ spares nearby. |
+| trying | Militia: defense drafts before food. |
