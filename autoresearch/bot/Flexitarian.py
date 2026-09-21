@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Nibbler:
+class Flexitarian:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Nibbler:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Nibbler: tighten the belt to 10.
-        # Battling as Nibbler. Locavore habits, headings, memory,
-        # aggression, walk-off, and exploration match iteration 39.
-        # Food pairs claim only within 10 steps; the army masses
-        # where it stands instead of commuting to dinner.
+        # Flexitarian: the belt loosens as the army grows.
+        # Battling as Flexitarian. Nibbler habits, headings, memory,
+        # aggression, walk-off, and exploration match iteration 40.
+        # Food claims reach 8 + army size: concentrate while weak,
+        # harvest with numbers once the swarm can afford the walk.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -40,11 +40,12 @@ class Nibbler:
         for hloc in list(self.remembered_hills):
             if hloc in my_set:
                 self.remembered_hills.discard(hloc)
+        reach = 8 + len(ants_list)
         pairs: list[tuple[int, int, int]] = []
         for ai, ant_loc in enumerate(ants_list):
             for fi, food_loc in enumerate(foods):
                 d = ants.distance(ant_loc, food_loc)
-                if d <= 10:
+                if d <= reach:
                     pairs.append((d, ai, fi))
         pairs.sort()
         target: dict[int, tuple[int, int]] = {}
@@ -230,6 +231,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Nibbler())
+        Ants.run(Flexitarian())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
