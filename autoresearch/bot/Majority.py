@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Harrier:
+class Majority:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,8 +27,8 @@ class Harrier:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Harrier: screen packs, guard lone.
-        # Battling as Harrier. Bulwark hunt, pack-screen defense,
+        # Majority: fearless when ants outnumber.
+        # Battling as Majority. Bulwark wall, ant-count gate,
         # aggression, walk-off, food, and exploration match iteration
         # 76. Hunt always; ahead on hills, hunters skip the safety
         # filter. Closeouts need teeth, not patience.
@@ -166,6 +166,7 @@ class Harrier:
 
         destinations: set[tuple[int, int]] = set()
         held: list[tuple[int, int]] = []
+        anchored: set[tuple[int, int]] = set()
         for ai, ant_loc in enumerate(ants_list):
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
             best = target.get(ai)
@@ -179,23 +180,27 @@ class Harrier:
                     # ant chases the same region this turn.
                     pass
             if not moved and threatened:
-                # No food or blocked: packs get screened away, a lone
-                # razer meets the guard on the hill.
+                # No food or blocked: first guard holds the hill,
+                # extras screen the razer off it.
                 nearest = min(threatened, key=lambda h: ants.distance(ant_loc, h))
-                pack = [e for e in enemy_locs if ants.distance(nearest, e) <= 16]
-                if len(pack) >= 2:
-                    dest = min(pack, key=lambda e: ants.distance(nearest, e))
+                if nearest in anchored:
+                    screen = min(
+                        enemy_locs,
+                        key=lambda e: ants.distance(nearest, e),
+                        default=nearest,
+                    )
+                    step = first_step(ant_loc, screen)
                 else:
-                    dest = nearest
-                step = first_step(ant_loc, dest)
+                    anchored.add(nearest)
+                    step = first_step(ant_loc, nearest)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved and hills:
-                # Hunt always; fearless when ahead on hills.
+                # Hunt always; fearless when visible ants outnumber.
                 nearest = min(hills, key=lambda h: ants.distance(ant_loc, h))
                 step = first_step(ant_loc, nearest)
                 if step is not None and try_step(
-                    ant_loc, step, safe=len(my_hills) <= len(hills)
+                    ant_loc, step, safe=len(ants_list) <= len(enemy_locs)
                 ):
                     moved = True
             if not moved:
@@ -243,6 +248,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Harrier())
+        Ants.run(Majority())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
