@@ -7,12 +7,13 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Daredevil:
+class Blitz:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
         self.remembered_hills: set[tuple[int, int]] = set()
         self.prev_enemies: list[tuple[int, int]] = []
+        self.turn = 0
 
     # do_setup is run once at the start of the game
     # after the bot has received the game settings
@@ -22,16 +23,18 @@ class Daredevil:
         self.visits = {}
         self.remembered_hills = set()
         self.prev_enemies = []
+        self.turn = 0
 
     # do turn is run once per turn
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Daredevil: no fear anywhere.
-        # Battling as Daredevil. Glutton habits, headings, memory,
-        # walk-off, food, hills, and exploration match iteration
-        # 70. The safety filter is deleted outright; aggression and
-        # majority rule go with it. Full GreedyBot fearlessness.
+        # Blitz: full pressure before turn 25.
+        # Battling as Blitz. Headings, memory, aggression, walk-off,
+        # hills, and exploration match iteration 15. No food claims
+        # before turn 25; every ant hunts, guards, or explores while
+        # enemies are small. Food waits, razes do not.
+        self.turn += 1
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -41,10 +44,11 @@ class Daredevil:
             if hloc in my_set:
                 self.remembered_hills.discard(hloc)
         pairs: list[tuple[int, int, int]] = []
-        for ai, ant_loc in enumerate(ants_list):
-            for fi, food_loc in enumerate(foods):
-                pairs.append((ants.distance(ant_loc, food_loc), ai, fi))
-        pairs.sort()
+        if self.turn >= 25:
+            for ai, ant_loc in enumerate(ants_list):
+                for fi, food_loc in enumerate(foods):
+                    pairs.append((ants.distance(ant_loc, food_loc), ai, fi))
+            pairs.sort()
         target: dict[int, tuple[int, int]] = {}
         claimed_food: set[int] = set()
         for _, ai, fi in pairs:
@@ -87,6 +91,38 @@ class Daredevil:
                 for e in enemy_locs
             )
         ]
+        attack_r2 = ants.attackradius2 or 5
+        rows, cols = ants.rows, ants.cols
+
+        def sq_dist(a: tuple[int, int], b: tuple[int, int]) -> int:
+            dr = abs(a[0] - b[0])
+            dr = min(dr, rows - dr) if rows else dr
+            dc = abs(a[1] - b[1])
+            dc = min(dc, cols - dc) if cols else dc
+            return dr * dr + dc * dc
+
+        def is_safe(nloc: tuple[int, int], self_loc: tuple[int, int]) -> bool:
+            enemies = 0
+            for e in enemy_locs:
+                if sq_dist(nloc, e) <= attack_r2:
+                    enemies += 1
+                    if enemies >= len(ants_list):
+                        break
+            if enemies == 0:
+                return True
+            friends = 0
+            near = 0
+            for f in ants_list:
+                if f == self_loc:
+                    continue
+                if sq_dist(nloc, f) <= attack_r2:
+                    friends += 1
+                if ants.distance(nloc, f) <= 10:
+                    near += 1
+            if friends + 1 > enemies:
+                return True
+            # Aggressive: 14+ friends near the fight accept equal trades.
+            return near >= 14 and friends + 1 >= enemies
 
         def first_step(
             start: tuple[int, int], goal: tuple[int, int], budget: int = 250
@@ -123,6 +159,7 @@ class Daredevil:
                 new_loc not in destinations
                 and ants.passable(new_loc)
                 and ants.unoccupied(new_loc)
+                and is_safe(new_loc, ant_loc)
             ):
                 ants.issue_order((ant_loc, direction))
                 destinations.add(new_loc)
@@ -135,14 +172,7 @@ class Daredevil:
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
             best = target.get(ai)
             moved = False
-            if not moved and (threatened or hills):
-                # Hills first: guard home, else hunt.
-                targets = threatened if threatened else hills
-                nearest = min(targets, key=lambda h: ants.distance(ant_loc, h))
-                step = first_step(ant_loc, nearest)
-                if step is not None and try_step(ant_loc, step):
-                    moved = True
-            if not moved and best is not None:
+            if best is not None:
                 step = first_step(ant_loc, best)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
@@ -150,6 +180,13 @@ class Daredevil:
                     # Assigned food is blocked; keep the claim so no other
                     # ant chases the same region this turn.
                     pass
+            if not moved and (threatened or hills):
+                # No food or blocked: guard home first, else hunt.
+                targets = threatened if threatened else hills
+                nearest = min(targets, key=lambda h: ants.distance(ant_loc, h))
+                step = first_step(ant_loc, nearest)
+                if step is not None and try_step(ant_loc, step):
+                    moved = True
             if not moved:
                 # No hill move: explore least-visited squares first.
                 dirs = sorted(
@@ -162,6 +199,7 @@ class Daredevil:
                         new_loc not in destinations
                         and ants.passable(new_loc)
                         and ants.unoccupied(new_loc)
+                        and is_safe(new_loc, ant_loc)
                     ):
                         ants.issue_order((ant_loc, direction))
                         destinations.add(new_loc)
@@ -194,6 +232,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Daredevil())
+        Ants.run(Blitz())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
