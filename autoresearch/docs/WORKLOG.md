@@ -1295,6 +1295,18 @@ Use this format.
 - what you learned: Harriers went 3-2 beating Oracle-today, won the 5p, then finished 6/7 and 7/8 behind Oracle-today itself; pack-screen needs safe-hunt context, so lb reached 14.37 against 52.15.
 - next: Majority — fearless when ants outnumber.
 
+## 110 — majority gates on ants (2026-09-21)
+- commit: 7d736d4
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 36.90, sigma 3.54, lb 26.27
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 2-3, FFA ranks 4p:3 6p:1 10p:2
+- what changed: Battling as Majority in Majority.bot + Majority.py; fearless when visible ants outnumber.
+- what you learned: Majorities went 2-3 losing thrice to Harrier, took 3/4, won the 6p, then took 2/10 behind Pickoff; fog makes visible counts noisy, so lb reached 26.27 against 52.15.
+- next: Seine — pack screen with ant gate.
+
 ## 105 — ram targets centroid hill (2026-09-21)
 - commit: 9283521
 - start: 6329ae1 (bold line)

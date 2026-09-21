@@ -143,3 +143,4 @@ row. Leave the old row as it was.
 | dropped | Muster: walk-off to war. |
 | dropped | Harvest: walk-off to food. |
 | trying | Harrier: fearless split. |
+| trying | Majority: ant-count gate. |
