@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Fairweather:
+class Foulweather:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,8 +27,8 @@ class Fairweather:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Fairweather: wall ahead, guard behind.
-        # Battling as Fairweather. Bulwark wall ahead, hill guard
+        # Foulweather: wall behind, guard ahead.
+        # Battling as Foulweather. Bulwark wall behind, hill guard
         # aggression, walk-off, food, and exploration match iteration
         # 76. Hunt always; ahead on hills, hunters skip the safety
         # filter. Closeouts need teeth, not patience.
@@ -180,11 +180,11 @@ class Fairweather:
                     # ant chases the same region this turn.
                     pass
             if not moved and threatened:
-                # No food or blocked: wall when ahead on hills,
-                # guard the hill itself when behind.
+                # No food or blocked: wall when behind on hills,
+                # guard the hill itself when ahead.
                 nearest = min(threatened, key=lambda h: ants.distance(ant_loc, h))
-                ahead = len(my_hills) > len(hills)
-                if ahead and nearest in anchored:
+                behind = len(my_hills) <= len(hills)
+                if behind and nearest in anchored:
                     screen = min(
                         enemy_locs,
                         key=lambda e: ants.distance(nearest, e),
@@ -192,7 +192,7 @@ class Fairweather:
                     )
                     step = first_step(ant_loc, screen)
                 else:
-                    if ahead:
+                    if behind:
                         anchored.add(nearest)
                     step = first_step(ant_loc, nearest)
                 if step is not None and try_step(ant_loc, step):
@@ -250,6 +250,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Fairweather())
+        Ants.run(Foulweather())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
