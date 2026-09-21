@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Purser:
+class Raider:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Purser:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Purser: economy wins ties.
-        # Battling as Purser. Marshal ordering, headings, memory,
+        # Raider: pressure wins ties.
+        # Battling as Raider. Purser ordering, headings, memory,
         # aggression, walk-off, food, hills, and exploration match
-        # iteration 57. Food-claimants move first; fighters route
-        # around instead of stealing gatherers' steps.
+        # iteration 58. Hunters move first and food last; gatherers
+        # route around instead of blocking the pressure.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -164,9 +164,9 @@ class Purser:
 
         destinations: set[tuple[int, int]] = set()
         held: list[tuple[int, int]] = []
-        supply_order = [ai for ai in range(len(ants_list)) if ai in target]
-        supply_order += [ai for ai in range(len(ants_list)) if ai not in target]
-        for ai in supply_order:
+        raid_order = [ai for ai in range(len(ants_list)) if ai not in target]
+        raid_order += [ai for ai in range(len(ants_list)) if ai in target]
+        for ai in raid_order:
             ant_loc = ants_list[ai]
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
             best = target.get(ai)
@@ -231,6 +231,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Purser())
+        Ants.run(Raider())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
