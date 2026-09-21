@@ -105,6 +105,12 @@ Use this format.
 - evidence: Fresh-spawn mission target is a random border tile, otherwise the closest; paths recalculated with A*; interrupted ants discard missions; targets re-searched every turn when time allows, at least every 10 turns; areas come from simultaneous BFS (20-step) with borders where areas meet.
 - idea: Frontier missions for idle ants only (food/hill paths untouched); frontier equals unseen neighbors of seen squares, no full-map areas needed.
 
+## Hotspot: most-visited explore (2026-09-21)
+- source: knob audit at iter 80 (explore least-visited unchallenged since iter 6)
+- claim: Spreading thin loses big fields; massing wins them.
+- evidence: Every challenger spreads via least-visited explore; late-game ants trek to corners while fights rage center. Most-visited was never tried as a pure explore rule.
+- idea: Hotspot — explore fallback prefers most-visited neighboring squares.
+
 ## Surge: ahead means fearless everywhere (2026-09-21)
 - source: Closer e170c5f wounds (2/5 behind Bodyguard, duel loss to Hornet)
 - claim: Closer presses with hunters only; gatherers stay careful while ahead.

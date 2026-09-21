@@ -115,3 +115,4 @@ row. Leave the old row as it was.
 | dropped | Surge: fearless economy ahead. |
 | dropped | Revenant: forget empty hills. |
 | dropped | Overrun: no guards ahead. |
+| trying | Hotspot: most-visited explore. |

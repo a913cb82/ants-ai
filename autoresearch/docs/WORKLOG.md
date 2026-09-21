@@ -982,3 +982,15 @@ Use this format.
 - what changed: Battling as Overrun in Overrun.bot + Overrun.py; no guards while ahead on hills.
 - what you learned: Overruns went 3-2 losing to Siege and Underdog, finished 4/5 behind Siege, took 2/7, then finished 3/8 behind Surplus and Underdog; total press bleeds, so lb fell to 22.79 against 52.15.
 - next: BOLD — new line, research first.
+
+## 81 — hotspot explores most-visited (2026-09-21)
+- commit: fe7f6b4
+- start: 79bbd16 (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 29.30, sigma 3.45, lb 18.96
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 2-3, FFA ranks 4p:2 6p:4 10p:2
+- what changed: Battling as Hotspot in Hotspot.bot + Hotspot.py; explore fallback prefers most-visited squares.
+- what you learned: Hotspots went 2-3 losing twice to Hornet, took 2/4, 4/6, and 2/10 in weak fields; massing blinds the army, so lb reached 18.96 against 52.15.
+- next: Forward food — claim food nearest enemy hills.
