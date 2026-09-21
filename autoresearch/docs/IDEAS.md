@@ -161,3 +161,4 @@ row. Leave the old row as it was.
 | dropped | Escort: fearless with pack. |
 | dropped | LoneWolf: fearless solo. |
 | trying | Avenge: press when bleeding. |
+| trying | Entrench: turtle bleeding. |

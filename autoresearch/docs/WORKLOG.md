@@ -1511,6 +1511,18 @@ Use this format.
 - what you learned: Avenges went 2-3 losing to Odds, Triage, and Gang, won the 5p and 8p, then finished 6/7; desperation accelerates the bleed, so lb reached 21.69 against 52.15.
 - next: Entrench — turtle when bleeding.
 
+## 128 — entrench turtles bleeding (2026-09-21)
+- commit: 18973b5
+- start: f6c0b4f (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 23.41, sigma 3.47, lb 12.98
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 3-2, FFA ranks 5p:5 7p:2 8p:6
+- what changed: Battling as Entrench in Entrench.bot + Entrench.py; below max hills hunts safe.
+- what you learned: Entrenchs went 3-2 losing twice to Avenge, finished 5/5, took 2/7, then finished 6/8; turtling while bleeding is slow death, reacting to trends hurts either way, so lb reached 12.98 against 52.15.
+- next: Recruit — fearless while growing.
+
 ## 105 — ram targets centroid hill (2026-09-21)
 - commit: 9283521
 - start: 6329ae1 (bold line)
