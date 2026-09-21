@@ -1439,6 +1439,18 @@ Use this format.
 - what you learned: Oddss went 4-1 losing to Dusk, took 3/5 and 3/7, then finished 6/8; cheaper equals donate in crowds, so lb reached 22.63 against 52.15.
 - next: Evens — trades at 20.
 
+## 122 — evens trades at 20 (2026-09-21)
+- commit: 0cec342
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 20.38, sigma 3.48, lb 9.95
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 2-3, FFA ranks 4p:1 6p:6 8p:7
+- what changed: Battling as Evens in Evens.bot + Evens.py; equal trades at 20+ near.
+- what you learned: Evenss went 2-3 losing to Triage and Rearguard twice, won the 4p, then finished 6/7 and 7/8; pricier equals mean timid everywhere, aggression axis reads 10: 22.63, 14: 49.78, 20: 9.95, so lb fell to 9.95 against 52.15.
+- next: Margin — safe moves need +2.
+
 ## 105 — ram targets centroid hill (2026-09-21)
 - commit: 9283521
 - start: 6329ae1 (bold line)

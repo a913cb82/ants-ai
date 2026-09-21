@@ -155,3 +155,4 @@ row. Leave the old row as it was.
 | dropped | Counter: walk-off at enemy. |
 | dropped | Longfuse: closing at 18. |
 | trying | Odds: trades at 10. |
+| trying | Evens: trades at 20. |
