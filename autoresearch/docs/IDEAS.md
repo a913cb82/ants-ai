@@ -113,3 +113,4 @@ row. Leave the old row as it was.
 | dropped | Underdog: fearless behind. |
 | dropped | Closer: fearless ahead. |
 | trying | Surge: fearless economy ahead. |
+| trying | Revenant: forget empty hills. |

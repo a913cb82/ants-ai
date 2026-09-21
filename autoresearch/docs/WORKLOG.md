@@ -958,3 +958,15 @@ Use this format.
 - what changed: Battling as Surge in Surge.bot + Surge.py; gatherers also skip safety when ahead.
 - what you learned: Surges went 4-1 losing to Underdog, finished 4/4 behind Doormat, won a weak 6p, then took 3/10 behind Grinder and Bodyguard; fearless gatherers donate, so lb fell to 30.18 against 52.15.
 - next: Ghost-hunt — forget empty hills on Closer base.
+
+## 79 — revenant forgets empty hills (2026-09-21)
+- commit: 78a4246
+- start: e170c5f (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 43.82, sigma 3.51, lb 33.31
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 3-2, FFA ranks 4p:1 6p:1 10p:6
+- what changed: Battling as Revenant in Revenant.bot + Revenant.py; visibly-empty hills forgotten, Closer pressure kept.
+- what you learned: Revenants went 3-2 losing to Underdog and Hornet, won the 4p and 6p, then finished 6/10 behind Alarm and Closer itself; ghost-forgetting wins small fields but collapses in big ones, so lb reached 33.31 against 52.15.
+- next: Overrun — ahead means no defense either.
