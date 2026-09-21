@@ -1150,3 +1150,15 @@ Use this format.
 - what changed: Battling as Fairweather in Fairweather.bot + Fairweather.py; wall ahead, hill-guard behind.
 - what you learned: Fairweathers went 2-3 losing to Anchor and Tariff twice, won the 4p and the 10p, took 4/6; switching modes dithers, the wall pays from behind too, so lb reached 27.35 against 52.15.
 - next: Foulweather — wall behind, guard ahead.
+
+## 95 — foulweather walls only behind (2026-09-21)
+- commit: f6a7784
+- start: 3ec3625 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 31.17, sigma 3.49, lb 20.71
+- champion lb: 52.15
+- verdict: drop the trawl line (bold 3 of 3)
+- games: 3-2, FFA ranks 4p:1 6p:2 10p:9
+- what changed: Battling as Foulweather in Foulweather.bot + Foulweather.py; wall behind, hill-guard ahead.
+- what you learned: Foulweathers went 3-2, won the 4p, took 2/6, then finished 9/10; screening while losing donates, hills fall, so lb reached 20.71 against 52.15.
+- next: BOLD — new line, research first.
