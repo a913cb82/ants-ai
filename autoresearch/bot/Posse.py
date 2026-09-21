@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Sluice:
+class Posse:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Sluice:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Lower gate: swarm at 8, not 15.
-        # Battling as Sluice. Floodgates, headings, memory,
+        # Posse: never ride alone.
+        # Battling as Posse. Lower gates, headings, memory,
         # aggression, walk-off, food, and exploration match iteration
-        # 33. No hill-hunting below 8 ants; at 8+, every spare
-        # marches the nearest remembered hill before foes own the map.
+        # 34. The gate moves to the target: spares march only hills
+        # with 3+ spares inside 12 steps, else explore.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -86,6 +86,17 @@ class Sluice:
                 or (ants.distance(h, e) <= 16 and closing(e, h))
                 for e in enemy_locs
             )
+        ]
+        # Posse: hills worth riding have 3+ spares inside 12.
+        marchable = [
+            h
+            for h in hills
+            if sum(
+                1
+                for ai, a in enumerate(ants_list)
+                if ai not in target and ants.distance(a, h) <= 12
+            )
+            >= 3
         ]
         attack_r2 = ants.attackradius2 or 5
         rows, cols = ants.rows, ants.cols
@@ -182,9 +193,9 @@ class Sluice:
                 step = first_step(ant_loc, nearest)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
-            if not moved and hills and len(ants_list) >= 8:
-                # Floodgate open: every spare swarms the nearest hill.
-                nearest = min(hills, key=lambda h: ants.distance(ant_loc, h))
+            if not moved and marchable:
+                # Posse rides: nearest hill with 3+ spares nearby.
+                nearest = min(marchable, key=lambda h: ants.distance(ant_loc, h))
                 step = first_step(ant_loc, nearest)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
@@ -233,6 +244,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Sluice())
+        Ants.run(Posse())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
