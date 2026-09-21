@@ -136,5 +136,6 @@ row. Leave the old row as it was.
 | dropped | Tripwire: guards at 8. |
 | dropped | Barbwire: guards at 12. |
 | dropped | Pickoff: weakest hill. |
-| trying | Mugger: strongest hill. |
-| trying | Sundown: no food past 700. |
+| dropped | Mugger: strongest hill. |
+| dropped | Sundown: no food past 700. |
+| dropped | Dusk: fearless past 700. |

@@ -1258,3 +1258,15 @@ Use this format.
 - what changed: Battling as Sundown in Sundown.bot + Sundown.py; no food claims after turn 700.
 - what you learned: Sundowns went 2-3, won the 4p, took 2/6, then finished 8/10; games run long and late spawns replace attrition, stopping food starves the endgame, so lb fell to 15.46 against 52.15.
 - next: Dusk — fearless hunting after turn 700.
+
+## 104 — dusk presses after 700 (2026-09-21)
+- commit: 3c150f8
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 39.66, sigma 3.55, lb 29.00
+- champion lb: 52.15
+- verdict: drop the mugger line (bold 3 of 3)
+- games: 2-3, FFA ranks 4p:1 6p:3 10p:2
+- what changed: Battling as Dusk in Dusk.bot + Dusk.py; fearless hunting after turn 700.
+- what you learned: Dusks went 2-3 losing thrice to Sundown, won the 4p, took 3/6 and 2/10; endgame fearless donates in long duels, so lb reached 29.00 against 52.15.
+- next: BOLD — new line, research first.
