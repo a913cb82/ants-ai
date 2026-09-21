@@ -160,5 +160,6 @@ row. Leave the old row as it was.
 | dropped | Gang: quorum hunting. |
 | dropped | Escort: fearless with pack. |
 | dropped | LoneWolf: fearless solo. |
-| trying | Avenge: press when bleeding. |
-| trying | Entrench: turtle bleeding. |
+| dropped | Avenge: press when bleeding. |
+| dropped | Entrench: turtle bleeding. |
+| dropped | Recruit: press while growing. |

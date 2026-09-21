@@ -1271,6 +1271,41 @@ Use this format.
 - what you learned: Dusks went 2-3 losing thrice to Sundown, won the 4p, took 3/6 and 2/10; endgame fearless donates in long duels, so lb reached 29.00 against 52.15.
 - next: BOLD — new line, research first.
 
+## 105 — ram targets centroid hill (2026-09-21)
+- commit: 9283521
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 30.91, sigma 3.51, lb 20.38
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 3-2, FFA ranks 4p:1 6p:5 10p:5
+- what changed: Battling as Ram in Ram.bot + Ram.py; all hunters target the centroid-nearest hill.
+- what you learned: Rams went 3-2, won the 4p, then finished 5/6 and 5/10; concentration marches at one distant hill, so lb reached 20.38 against 52.15.
+- next: Muster — walk-off marches to war.
+
+## 106 — muster walks off to war (2026-09-21)
+- commit: 6835c0c
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 41.18, sigma 3.49, lb 30.71
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 3-2, FFA ranks 4p:4 6p:1 10p:2
+- what changed: Battling as Muster in Muster.bot + Muster.py; walk-off heads to nearest hill.
+- what you learned: Musters went 3-2 losing to Sundown and Ram, finished 4/4, won the 6p, then took 2/10; mustering helps big fields but abandons home in small ones, so lb reached 30.71 against 52.15.
+- next: Harvest — walk-off heads to food.
+
+## 107 — harvest walks off to food (2026-09-21)
+- commit: 271b7e1
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 45.75, sigma 3.50, lb 35.25
+- champion lb: 52.15
+- verdict: drop the ram line (bold 3 of 3)
+- games: 3-2, FFA ranks 4p:1 6p:4 10p:2
+- what changed: Battling as Harvest in Harvest.bot + Harvest.py; walk-off heads to food.
+- what you learned: Harvests went 3-2 losing to Sundown and Pickoff, won the 4p, took 4/6 and 2/10; food-seeking feet beat war-marching, yet lb reached only 35.25 against 52.15.
+- next: BOLD — new line, research first.
 ## 108 — oracle diagnostic re-run (2026-09-21)
 - commit: 56d358c (comment-only change over 79bbd16 tactics)
 - start: 79bbd16 (identical code)
@@ -1523,38 +1558,14 @@ Use this format.
 - what you learned: Entrenchs went 3-2 losing twice to Avenge, finished 5/5, took 2/7, then finished 6/8; turtling while bleeding is slow death, reacting to trends hurts either way, so lb reached 12.98 against 52.15.
 - next: Recruit — fearless while growing.
 
-## 105 — ram targets centroid hill (2026-09-21)
-- commit: 9283521
-- start: 6329ae1 (bold line)
+## 129 — recruit presses while growing (2026-09-21)
+- commit: cb5e229
+- start: 18973b5 (bold line)
 - budget: 5 duels, 3 FFA
-- score: mu 30.91, sigma 3.51, lb 20.38
+- score: mu 52.97, sigma 3.56, lb 42.30
 - champion lb: 52.15
-- verdict: discard (bold 1 of 3)
-- games: 3-2, FFA ranks 4p:1 6p:5 10p:5
-- what changed: Battling as Ram in Ram.bot + Ram.py; all hunters target the centroid-nearest hill.
-- what you learned: Rams went 3-2, won the 4p, then finished 5/6 and 5/10; concentration marches at one distant hill, so lb reached 20.38 against 52.15.
-- next: Muster — walk-off marches to war.
-
-## 106 — muster walks off to war (2026-09-21)
-- commit: 6835c0c
-- start: 6329ae1 (bold line)
-- budget: 5 duels, 3 FFA
-- score: mu 41.18, sigma 3.49, lb 30.71
-- champion lb: 52.15
-- verdict: discard (bold 2 of 3)
-- games: 3-2, FFA ranks 4p:4 6p:1 10p:2
-- what changed: Battling as Muster in Muster.bot + Muster.py; walk-off heads to nearest hill.
-- what you learned: Musters went 3-2 losing to Sundown and Ram, finished 4/4, won the 6p, then took 2/10; mustering helps big fields but abandons home in small ones, so lb reached 30.71 against 52.15.
-- next: Harvest — walk-off heads to food.
-
-## 107 — harvest walks off to food (2026-09-21)
-- commit: 271b7e1
-- start: 6329ae1 (bold line)
-- budget: 5 duels, 3 FFA
-- score: mu 45.75, sigma 3.50, lb 35.25
-- champion lb: 52.15
-- verdict: drop the ram line (bold 3 of 3)
-- games: 3-2, FFA ranks 4p:1 6p:4 10p:2
-- what changed: Battling as Harvest in Harvest.bot + Harvest.py; walk-off heads to food.
-- what you learned: Harvests went 3-2 losing to Sundown and Pickoff, won the 4p, took 4/6 and 2/10; food-seeking feet beat war-marching, yet lb reached only 35.25 against 52.15.
-- next: BOLD — new line, research first.
+- verdict: drop the avenge line (bold 3 of 3)
+- games: 3-2, FFA ranks 5p:1 7p:1 8p:2
+- what changed: Battling as Recruit in Recruit.bot + Recruit.py; fearless ahead or while growing.
+- what you learned: Recruits went 3-2 losing twice to Avenge, won the 5p and 7p, then took 2/8 behind Harvest; army trend is the best dynamic yet, yet lb reached only 42.30 against 52.15.
+- next: BOLD — new line from Recruit, research first.
