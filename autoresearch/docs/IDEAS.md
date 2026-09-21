@@ -145,3 +145,4 @@ row. Leave the old row as it was.
 | dropped | Harrier: fearless split. |
 | dropped | Majority: ant-count gate. |
 | dropped | Seine: ant-gated split. |
+| trying | Elastic: adaptive food + wall. |

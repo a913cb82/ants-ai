@@ -1319,6 +1319,18 @@ Use this format.
 - what you learned: Seines went 3-2 splitting Oracle-today, won the 5p, finished 6/7, then took 2/8 behind Siege; ant-gated splits cannot touch safe Dragnet, so lb reached 23.36 against 52.15.
 - next: BOLD — new line, research first.
 
+## 112 — elastic feeds wall locally (2026-09-21)
+- commit: dd1aa06
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 36.61, sigma 3.57, lb 25.89
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 5-0, FFA ranks 5p:3 7p:3 8p:8
+- what changed: Battling as Elastic in Elastic.bot + Elastic.py; reach-filtered food on Bulwark base.
+- what you learned: Elastics went 5-0 in duels, took 3/5 and 3/7, then finished 8/8; local food starves big-map pressure, synthesis curse 4 for 4, so lb reached 25.89 against 52.15.
+- next: Draft — fighters move first.
+
 ## 105 — ram targets centroid hill (2026-09-21)
 - commit: 9283521
 - start: 6329ae1 (bold line)

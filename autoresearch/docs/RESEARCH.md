@@ -117,6 +117,12 @@ Use this format.
 - evidence: Identical code scored 52.15 at iter 15, 13.09 today (2-3 duels, 7/7 FFA). Duel foes and FFA fields are all descendants now.
 - idea: Keep hunting Bulwark-family gains; 49.78-modern needs ~2.4, and the number is regime-noisy. No re-tag without beating 52.15.
 
+## Elastic: Bulwark plus adaptive food (2026-09-21)
+- source: Flexitarian dfce6c0 (reach 8+army, lb 45.78) + Bulwark 6329ae1 (lb 49.78)
+- claim: Local gathering feeds the wall; reach grows with the army.
+- evidence: Best-pedigree untried combo; food-radius tuning never touched the wall base.
+- idea: Elastic — Bulwark with reach-filtered food claims.
+
 ## Ram: all hunters one hill (2026-09-21)
 - source: concentration audit at iter 104 (per-ant-nearest trickles in big fields)
 - claim: One rammed hill falls; five tickled hills hold.
