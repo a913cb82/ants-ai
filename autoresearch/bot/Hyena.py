@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Wolfpack:
+class Hyena:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Wolfpack:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Pack hunter: nobody fights alone, nobody waits either.
-        # Battling as Wolfpack. Headings, memory, aggression,
-        # walk-off, food, and exploration match iteration 15. Ants
-        # gang the foe with the most friends near it; equal trades
-        # go when a buddy already committed to the same foe.
+        # Hyena: join kills, start none.
+        # Battling as Hyena. Pack habits, headings, memory,
+        # aggression, walk-off, food, and exploration match iteration
+        # 42. Ants gang only prey with 3+ buds already near it;
+        # without a crowd there is no fight worth joining.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -209,6 +209,8 @@ class Wolfpack:
                         for f in ants_list
                         if f != ant_loc and ants.distance(f, e) <= 10
                     )
+                    if buds < 3:
+                        continue
                     if (buds, -d) > prey_key:
                         prey_key = (buds, -d)
                         prey = e
@@ -268,6 +270,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Wolfpack())
+        Ants.run(Hyena())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
