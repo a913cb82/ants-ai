@@ -105,6 +105,12 @@ Use this format.
 - evidence: Fresh-spawn mission target is a random border tile, otherwise the closest; paths recalculated with A*; interrupted ants discard missions; targets re-searched every turn when time allows, at least every 10 turns; areas come from simultaneous BFS (20-step) with borders where areas meet.
 - idea: Frontier missions for idle ants only (food/hill paths untouched); frontier equals unseen neighbors of seen squares, no full-map areas needed.
 
+## Ghost hills eat hunters forever (2026-09-21)
+- source: autoresearch/bot memory code (remembered_hills) vs xathis re-search rule
+- claim: Remembered hills are only dropped when WE own them; razed empty hills haunt memory forever.
+- evidence: Discard fires only on my_set, never on visible-and-empty; xathis re-searches targets every turn (at least every 10). Our hunters march on ghosts all game.
+- idea: Exorcist — drop remembered hills that are visible with no enemy hill.
+
 ## Committed-join pack attacks (2026-09-21)
 - source: bots/pas11/Pas11.py (do_move_direction danger_list + potential_orders)
 - claim: Lone ants should refuse suicide, but the second ant to a fight releases both.

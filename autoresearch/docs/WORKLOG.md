@@ -586,3 +586,15 @@ Use this format.
 - what changed: Battling as Bouncer in Bouncer.bot + Bouncer.py; the gate stands at 14 but near tightens from 10 to 6.
 - what you learned: Bouncers went 3-2 losing to Brawler and Tariff, won a weak 6p, and finished 6/10 behind Jackal and the brawl family; close crowds are not the backup that matters, so lb reached 20.87 against 52.15.
 - next: BOLD — new line, research first.
+
+## 48 — exorcist drops visible-empty hills (2026-09-21)
+- commit: 5a7958a
+- start: 79bbd16 (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 35.33, sigma 3.75, lb 24.10
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 3-2, FFA ranks 4p:2 6p:3 10p:5
+- what changed: Battling as Exorcist in Exorcist.bot + Exorcist.py; remembered hills visible with no enemy hill are dropped as razed ghosts.
+- what you learned: Exorcists went 3-2 losing twice to Bouncer and took 2/4, 3/6, 5/10; ghost-hunting was forward deployment, not waste, so pruning scatters pressure, lb reached 24.10 against 52.15.
+- next: Haunted — re-add ghosts after 50 turns unseen.
