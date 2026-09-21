@@ -123,6 +123,12 @@ Use this format.
 - evidence: Berserker-line set 14 on the champion base; Bulwark's wound is FFA 2nds.
 - idea: Odds — 14-rule at 10 on Bulwark base.
 
+## Legion: press needs ten ants (2026-09-21)
+- source: Recruit cb5e229 wounds (3-2 duels; growing-true from turn 1)
+- claim: Early growth is spawns, not winning; fearless babies donate in duels.
+- evidence: Army grows monotonically early (no combat yet) so growing is always true; Recruit's duels bled while its FFAs thrived.
+- idea: Legion — fearless ahead, or growing with 10+ ants.
+
 ## Avenge: total press when bleeding (2026-09-21)
 - source: dynamics audit at iter 126 (levels used, trends never)
 - claim: Lost hills should trigger desperation, not routine.

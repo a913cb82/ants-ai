@@ -1569,3 +1569,15 @@ Use this format.
 - what changed: Battling as Recruit in Recruit.bot + Recruit.py; fearless ahead or while growing.
 - what you learned: Recruits went 3-2 losing twice to Avenge, won the 5p and 7p, then took 2/8 behind Harvest; army trend is the best dynamic yet, yet lb reached only 42.30 against 52.15.
 - next: BOLD — new line from Recruit, research first.
+
+## 130 — legion musters ten first (2026-09-21)
+- commit: a0590d9
+- start: cb5e229 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 17.24, sigma 3.54, lb 6.61
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 4-1, FFA ranks 4p:2 6p:6 10p:9
+- what changed: Battling as Legion in Legion.bot + Legion.py; fearless ahead or grown-growing.
+- what you learned: Legions went 4-1 splitting Avenge, took 2/4, then finished 6/6 and 9/10; the floor death-spirals (shrink, play safe, shrink), so lb fell to 6.61 against 52.15.
+- next: Cohort — floor at five.
