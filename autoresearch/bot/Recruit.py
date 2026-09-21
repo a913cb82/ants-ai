@@ -7,13 +7,13 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Entrench:
+class Recruit:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
         self.remembered_hills: set[tuple[int, int]] = set()
         self.prev_enemies: list[tuple[int, int]] = []
-        self.most_hills = 0
+        self.prev_army = 0
 
     # do_setup is run once at the start of the game
     # after the bot has received the game settings
@@ -23,14 +23,14 @@ class Entrench:
         self.visits = {}
         self.remembered_hills = set()
         self.prev_enemies = []
-        self.most_hills = 0
+        self.prev_army = 0
 
     # do turn is run once per turn
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Entrench: turtle when bleeding.
-        # Battling as Entrench. Avenge structure, bleeding turtles,
+        # Recruit: fearless while growing.
+        # Battling as Recruit. Entrench structure, army-trend gate,
         # aggression, walk-off, food, and exploration match iteration
         # 76. Hunt always; ahead on hills, hunters skip the safety
         # filter. Closeouts need teeth, not patience.
@@ -56,6 +56,8 @@ class Entrench:
         hills = sorted(self.remembered_hills)
         my_hills = ants.my_hills()
         enemy_locs = [loc for loc, _ in ants.enemy_ants()]
+        growing = len(ants_list) >= self.prev_army
+        self.prev_army = len(ants_list)
         # Match each visible enemy to a last-turn position to read
         # its heading. Ants move one square per turn, so matches at
         # distance 0 or 1 are the same ant; the rest are new spawns.
@@ -198,14 +200,13 @@ class Entrench:
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved and hills:
-                # Hunt always; fearless ahead, safe when bleeding.
-                self.most_hills = max(self.most_hills, len(my_hills))
+                # Hunt always; fearless ahead or while growing.
                 nearest = min(hills, key=lambda h: ants.distance(ant_loc, h))
                 step = first_step(ant_loc, nearest)
                 if step is not None and try_step(
                     ant_loc,
                     step,
-                    safe=len(my_hills) <= len(hills) or len(my_hills) < self.most_hills,
+                    safe=len(my_hills) <= len(hills) and not growing,
                 ):
                     moved = True
             if not moved:
@@ -253,6 +254,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Entrench())
+        Ants.run(Recruit())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
