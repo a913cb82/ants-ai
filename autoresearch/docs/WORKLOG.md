@@ -826,3 +826,15 @@ Use this format.
 - what changed: Battling as Surplus in Surplus.bot + Surplus.py; the 1v1 trade needs strictly more visible ants than enemies.
 - what you learned: Surpluses went 3-2 losing to Intern and Bodyguard, won a weak 5p, and took 4/7 and 5/8 in real FFAs; strictness barely helps, the axis is dead, so lb reached 24.14 against 52.15.
 - next: Hoard — 1v1 needs 2x visible surplus.
+
+## 68 — hoard needs 2x surplus to trade (2026-09-21)
+- commit: 19d6984
+- start: 30261d8 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 51.12, sigma 3.59, lb 40.36
+- champion lb: 52.15
+- verdict: drop the trade line (bold 3 of 3)
+- games: 4-1, FFA ranks 5p:1 7p:1 8p:5
+- what changed: Battling as Hoard in Hoard.bot + Hoard.py; friendless 1v1 needs 2x visible ants over enemies.
+- what you learned: Hoards went 4-1 losing a duel to Surplus, won the 5p and 7p over the trade family, but finished 5/8 behind NoCamping and Squatter; the fog margin is real (23.74, 24.14, 40.36) yet still 12 short, so the line is dropped.
+- next: BOLD — new line, research first.
