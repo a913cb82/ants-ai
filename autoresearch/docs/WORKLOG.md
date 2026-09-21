@@ -562,3 +562,15 @@ Use this format.
 - what changed: Battling as Brawler in Brawler.bot + Brawler.py; the equal-trade gate drops from 14 friends to 8.
 - what you learned: Brawlers went 2-3 losing twice to Jackal and once to Tariff, finished 5/5 in a real 5p, and won two cripple-field FFAs; more equal trades just means more deaths, so lb collapsed from 52.15 to 16.39.
 - next: Monk — raise the gate to 20, refuse equals.
+
+## 46 — monk raises equal-trade gate to 20 (2026-09-21)
+- commit: 5be0a68
+- start: 4f3f0e1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 37.09, sigma 3.72, lb 25.94
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 3-2, FFA ranks 4p:2 6p:1 8p:5
+- what changed: Battling as Monk in Monk.bot + Monk.py; the equal-trade gate rises from 14 friends to 20.
+- what you learned: Monks went 3-2 splitting Tariff and losing a duel to Brawler, won a weak 6p, and took 5/10; refusing equals cedes fights as surely as seeking them bleeds, so lb reached 25.94 against 52.15.
+- next: Bouncer — the crowd must be within 6, not 10.

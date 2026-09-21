@@ -80,3 +80,4 @@ row. Leave the old row as it was.
 | dropped | Hyena: join only 3+ bud crowds. |
 | dropped | Jackal: nearest foe, join on commitment. |
 | trying | Brawler: equal-trade gate at 8. |
+| trying | Monk: equal-trade gate at 20. |
