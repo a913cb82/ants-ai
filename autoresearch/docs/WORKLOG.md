@@ -1270,3 +1270,15 @@ Use this format.
 - what changed: Battling as Dusk in Dusk.bot + Dusk.py; fearless hunting after turn 700.
 - what you learned: Dusks went 2-3 losing thrice to Sundown, won the 4p, took 3/6 and 2/10; endgame fearless donates in long duels, so lb reached 29.00 against 52.15.
 - next: BOLD — new line, research first.
+
+## 105 — ram targets centroid hill (2026-09-21)
+- commit: 9283521
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 30.91, sigma 3.51, lb 20.38
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 3-2, FFA ranks 4p:1 6p:5 10p:5
+- what changed: Battling as Ram in Ram.bot + Ram.py; all hunters target the centroid-nearest hill.
+- what you learned: Rams went 3-2, won the 4p, then finished 5/6 and 5/10; concentration marches at one distant hill, so lb reached 20.38 against 52.15.
+- next: Muster — walk-off marches to war.

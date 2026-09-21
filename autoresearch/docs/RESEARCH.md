@@ -111,6 +111,12 @@ Use this format.
 - evidence: Bloodhound proved the static radius load-bearing by dropping it (11.94); narrowing was never tried. Bulwark's wound is FFA 2nds, a pressure shortfall.
 - idea: Tripwire — static threatened radius 10 to 8 on Bulwark base.
 
+## Ram: all hunters one hill (2026-09-21)
+- source: concentration audit at iter 104 (per-ant-nearest trickles in big fields)
+- claim: One rammed hill falls; five tickled hills hold.
+- evidence: Hunters split across remembered hills nearest-first; Bulwark's 2nds come in big fields with many hills. Concentration was never tried on the wall base.
+- idea: Ram — all hunters target the hill nearest the army centroid.
+
 ## Mugger: hunt the strongest hill (2026-09-21)
 - source: target-axis audit at iter 101 (nearest held, weakest failed)
 - claim: Concentration beats trickle; gang the most-defended hill.
