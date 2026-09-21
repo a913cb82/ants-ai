@@ -1114,3 +1114,15 @@ Use this format.
 - what changed: Battling as Rampart in Rampart.bot + Rampart.py; Bulwark wall with fearless guards.
 - what you learned: Ramparts went 3-2 losing twice to Anchor, won the 5p, took 3/7, then finished 7/8; fearless guards die, the safe wall beats it head-to-head, so lb reached 23.97 against 52.15.
 - next: Palisade — safe hunt plus fearless wall.
+
+## 92 — palisade guards fearless safe hunt (2026-09-21)
+- commit: ab3c7ae
+- start: e8ed3e2 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 40.57, sigma 3.68, lb 29.55
+- champion lb: 52.15
+- verdict: drop the wall line (bold 3 of 3)
+- games: 2-3, FFA ranks 4p:1 6p:3 10p:1
+- what changed: Battling as Palisade in Palisade.bot + Palisade.py; safe hunt with fearless wall.
+- what you learned: Palisades went 2-3 losing twice to Anchor, won the 4p and the 10p, took 3/6; wall matrix completes (safe/safe 15.33, fearless/fearless 23.97, safe/fearless 29.55, fearless/safe 49.78), fearless hunting is the load-bearing half, so lb reached 29.55 against 52.15.
+- next: BOLD — new line, research first.
