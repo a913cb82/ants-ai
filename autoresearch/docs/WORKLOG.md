@@ -634,3 +634,15 @@ Use this format.
 - what changed: Battling as Hearth in Hearth.bot + Hearth.py; adaptive food reach plus ring-1 corner posts, judged as one design.
 - what you learned: Hearths swept duels 5-0 but took 4/4, 3/6, 4/10, scoring below both parents (45.78, 42.27); posts eat the spares radius frees and nobody pressures, so lb reached 26.75 against 52.15.
 - next: Hearth with hungry posts — defenders snack within 4.
+
+## 52 — manor defenders snack within 4 (2026-09-21)
+- commit: bfa4ed5
+- start: 9a7762f (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 50.26, sigma 3.55, lb 39.62
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 4-1, FFA ranks 5p:1 7p:4 8p:1
+- what changed: Battling as Manor in Manor.bot + Manor.py; hearth defenders snack unclaimed food within 4, post kept.
+- what you learned: Manors went 4-1 losing a duel to Hearth, won the 5p and an 8p over Hearth and Goldilocks, and took 4/7; snacking fixes the starvation but not the pressure gap, so lb reached 39.62 against 52.15.
+- next: Homestead — full conservative triple synthesis.

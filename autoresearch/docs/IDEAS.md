@@ -86,3 +86,4 @@ row. Leave the old row as it was.
 | dropped | Haunt: drop ghosts after 20 turns. |
 | dropped | Vigil: drop ghosts after 5 turns. |
 | trying | Hearth: radius plus posts synthesis. |
+| trying | Manor: snacking posts on the hearth. |
