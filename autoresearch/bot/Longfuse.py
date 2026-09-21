@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Counter:
+class Longfuse:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,8 +27,8 @@ class Counter:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Counter: walk-off heads at enemy.
-        # Battling as Counter. Bulwark wall, skirmish walk-off,
+        # Longfuse: closing threats at 18.
+        # Battling as Longfuse. Bulwark wall, earlier warnings,
         # aggression, walk-off, food, and exploration match iteration
         # 76. Hunt always; ahead on hills, hunters skip the safety
         # filter. Closeouts need teeth, not patience.
@@ -83,7 +83,7 @@ class Counter:
             for h in my_hills
             if any(
                 ants.distance(h, e) <= 10
-                or (ants.distance(h, e) <= 16 and closing(e, h))
+                or (ants.distance(h, e) <= 18 and closing(e, h))
                 for e in enemy_locs
             )
         ]
@@ -230,13 +230,7 @@ class Counter:
         hill_set = set(my_hills)
         for ant_loc in held:
             if ant_loc in hill_set and ants.time_remaining() >= 10:
-                order: tuple[str, ...] = ("s", "e", "w", "n")
-                if enemy_locs:
-                    foe = min(enemy_locs, key=lambda e: ants.distance(ant_loc, e))
-                    first = first_step(ant_loc, foe)
-                    if first is not None:
-                        order = (first,) + tuple(d for d in order if d != first)
-                for direction in order:
+                for direction in ("s", "e", "w", "n"):
                     if try_step(ant_loc, direction):
                         break
 
@@ -254,6 +248,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Counter())
+        Ants.run(Longfuse())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
