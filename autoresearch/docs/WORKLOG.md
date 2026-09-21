@@ -766,3 +766,15 @@ Use this format.
 - what changed: Battling as Median in Median.bot + Median.py; the closing rule fires at 14 steps, quorum dropped.
 - what you learned: Medians swept duels 5-0, won the 4p and a 10p over Sentry and Stoic, but finished 5/6 behind Hearth and Manor; 14 splits 12 and 16 honestly yet still trails, so lb reached 42.22 against 52.15.
 - next: BOLD — new line, research first.
+
+## 63 — doormat refuses own-hill destinations (2026-09-21)
+- commit: 093f546
+- start: 79bbd16 (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 36.74, sigma 3.45, lb 26.40
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 4-1, FFA ranks 5p:4 7p:1 8p:5
+- what changed: Battling as Doormat in Doormat.bot + Doormat.py; try_step and explore refuse own-hill destinations.
+- what you learned: Doormats went 4-1 losing to Intern, won a weak 7p, and took 4/5 and 5/8; standing on hills body-blocks razers, so full refusal loses more spawns than it saves, lb reached 26.40 against 52.15.
+- next: Bodyguard — defenders may stand hills, others refuse.

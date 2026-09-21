@@ -97,3 +97,4 @@ row. Leave the old row as it was.
 | dropped | Stoic: closing rule at 12. |
 | dropped | Alarm: quorum of 2 closing. |
 | dropped | Median: closing rule at 14. |
+| trying | Doormat: refuse own-hill destinations. |

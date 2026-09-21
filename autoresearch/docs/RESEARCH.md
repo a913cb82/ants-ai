@@ -105,6 +105,12 @@ Use this format.
 - evidence: Fresh-spawn mission target is a random border tile, otherwise the closest; paths recalculated with A*; interrupted ants discard missions; targets re-searched every turn when time allows, at least every 10 turns; areas come from simultaneous BFS (20-step) with borders where areas meet.
 - idea: Frontier missions for idle ants only (food/hill paths untouched); frontier equals unseen neighbors of seen squares, no full-map areas needed.
 
+## NoCamping is half-applied: moved ants block spawns (2026-09-21)
+- source: full re-read of Oracle 79bbd16 (233 lines, first since iter 15)
+- claim: Walk-off only iterates held ants; ants that move onto home hills stay.
+- evidence: try_step and the explore branch both allow destinations on own hills; guards stepping onto threatened hills and explorers passing over block spawning until something moves them.
+- idea: Doormat — refuse own-hill destinations in try_step and explore; nobody ends on a home hill.
+
 ## Loss tapes: the threat rule is Berserker's only delta (2026-09-21)
 - source: league/games.jsonl (Oracle beaten by Berserker x2) + diff 117f54a..79bbd16
 - claim: Oracle IS Berserker plus the closing-16 threat rule; that rule is untuned.
