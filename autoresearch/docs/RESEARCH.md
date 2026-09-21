@@ -105,6 +105,12 @@ Use this format.
 - evidence: Fresh-spawn mission target is a random border tile, otherwise the closest; paths recalculated with A*; interrupted ants discard missions; targets re-searched every turn when time allows, at least every 10 turns; areas come from simultaneous BFS (20-step) with borders where areas meet.
 - idea: Frontier missions for idle ants only (food/hill paths untouched); frontier equals unseen neighbors of seen squares, no full-map areas needed.
 
+## Anchor: safe hunt behind the wall (2026-09-21)
+- source: Bulwark 6329ae1 ablation (fearless-ahead cost 7 on champion base)
+- claim: The wall works; fearlessness may be dead weight on it.
+- evidence: Bulwark 49.78 carries Closer hunting, but safe-hunting beat fearless-hunting 52.15 to 45.13 on the champion base.
+- idea: Anchor — Bulwark defense with safe-always hunting.
+
 ## Onslaught: fearless hunt meets interception (2026-09-21)
 - source: best-mechanism audit at iter 86 (Closer 45.13 + Screen 39.04, never combined)
 - claim: Total pressure — fearless-ahead hunters plus intercepting guards.

@@ -1090,3 +1090,15 @@ Use this format.
 - what changed: Battling as Bulwark in Bulwark.bot + Bulwark.py; first guard holds, extras screen.
 - what you learned: Bulwarks went 5-0 in duels, won the 5p, then took two 2nds behind Dragnet; anchor-first is the best coordination yet, second-best ever, but lb reached only 49.78 against 52.15.
 - next: BOLD — new line from Bulwark, research first.
+
+## 90 — anchor hunts safe behind wall (2026-09-21)
+- commit: e8ed3e2
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 25.71, sigma 3.46, lb 15.33
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 3-2, FFA ranks 4p:1 6p:6 10p:5
+- what changed: Battling as Anchor in Anchor.bot + Anchor.py; Bulwark wall with safe-always hunting.
+- what you learned: Anchors went 3-2, won the 4p, then finished 6/6 and 5/10; the wall without teeth collapses, fearlessness is load-bearing, so lb fell to 15.33 against 52.15.
+- next: Rampart — fearless screens on Bulwark.

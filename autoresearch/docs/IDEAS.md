@@ -124,3 +124,4 @@ row. Leave the old row as it was.
 | dropped | Onslaught: fearless hunt + screen. |
 | dropped | Picket: screen then hold. |
 | dropped | Bulwark: hold then screen. |
+| trying | Anchor: safe hunt + wall. |
