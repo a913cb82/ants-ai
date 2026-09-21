@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Minuteman:
+class Sentry:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Minuteman:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Volunteer militia: food claims stand.
-        # Battling as Minuteman. Militia duty, headings, memory,
-        # aggression, walk-off, and exploration match iteration 36.
-        # Food pairs draft first; the 4 closest spares per threatened
-        # hill then take exclusive duty instead of piling on.
+        # Sentry: a lighter watch.
+        # Battling as Sentry. Volunteer duty, headings, memory,
+        # aggression, walk-off, food, and exploration match iteration
+        # 37. Two spares per threatened hill take exclusive duty; the
+        # rest of the swarm still marches instead of standing guard.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -87,7 +87,7 @@ class Minuteman:
                 for e in enemy_locs
             )
         ]
-        # Volunteers: the 4 closest spares per threatened hill take
+        # Sentries: the 2 closest spares per threatened hill take
         # exclusive duty; food claims stand.
         defender_of: dict[int, tuple[int, int]] = {}
         if threatened:
@@ -96,7 +96,7 @@ class Minuteman:
                 scored = sorted(
                     (ants.distance(ants_list[ai], hill), ai) for ai in spares
                 )
-                for _, ai in scored[:4]:
+                for _, ai in scored[:2]:
                     defender_of[ai] = hill
                     spares.remove(ai)
         attack_r2 = ants.attackradius2 or 5
@@ -245,6 +245,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Minuteman())
+        Ants.run(Sentry())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
