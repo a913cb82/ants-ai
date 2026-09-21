@@ -1271,6 +1271,18 @@ Use this format.
 - what you learned: Dusks went 2-3 losing thrice to Sundown, won the 4p, took 3/6 and 2/10; endgame fearless donates in long duels, so lb reached 29.00 against 52.15.
 - next: BOLD — new line, research first.
 
+## 108 — oracle diagnostic re-run (2026-09-21)
+- commit: 56d358c (comment-only change over 79bbd16 tactics)
+- start: 79bbd16 (identical code)
+- budget: 5 duels, 3 FFA
+- score: mu 23.60, sigma 3.50, lb 13.09
+- champion lb: 52.15
+- verdict: diagnostic, tag stays 79bbd16
+- games: 2-3, FFA ranks 5p:2 7p:7 10p:1
+- what changed: Nothing tactical; the champion replayed a modern budget.
+- what you learned: The identical code fell from 52.15 to 13.09; modern duel foes (Sundown, Outpost) and modern FFA children beat champion-style play routinely. Fields hardened enormously since iter 15, so Bulwark at 49.78-modern sits ~37 above champion-modern and ~2.4 below the frozen number.
+- next: BOLD — Bulwark family, the number is reachable.
+
 ## 105 — ram targets centroid hill (2026-09-21)
 - commit: 9283521
 - start: 6329ae1 (bold line)

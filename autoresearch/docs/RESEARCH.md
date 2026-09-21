@@ -111,6 +111,12 @@ Use this format.
 - evidence: Bloodhound proved the static radius load-bearing by dropping it (11.94); narrowing was never tried. Bulwark's wound is FFA 2nds, a pressure shortfall.
 - idea: Tripwire — static threatened radius 10 to 8 on Bulwark base.
 
+## Field drift: the bar is frozen, the pool hardened (2026-09-21)
+- source: iter 108 diagnostic (Oracle 79bbd16 tactics re-run as 56d358c)
+- claim: 52.15 was set against HunterBot-era fields; modern children beat champion-style play.
+- evidence: Identical code scored 52.15 at iter 15, 13.09 today (2-3 duels, 7/7 FFA). Duel foes and FFA fields are all descendants now.
+- idea: Keep hunting Bulwark-family gains; 49.78-modern needs ~2.4, and the number is regime-noisy. No re-tag without beating 52.15.
+
 ## Ram: all hunters one hill (2026-09-21)
 - source: concentration audit at iter 104 (per-ant-nearest trickles in big fields)
 - claim: One rammed hill falls; five tickled hills hold.
