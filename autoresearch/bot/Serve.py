@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Draft:
+class Serve:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,8 +27,8 @@ class Draft:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Draft: fighters move first.
-        # Battling as Draft. Bulwark wall, fighters-first order,
+        # Serve: gatherers move first.
+        # Battling as Serve. Bulwark wall, gatherers-first order,
         # aggression, walk-off, food, and exploration match iteration
         # 76. Hunt always; ahead on hills, hunters skip the safety
         # filter. Closeouts need teeth, not patience.
@@ -167,8 +167,8 @@ class Draft:
         destinations: set[tuple[int, int]] = set()
         held: list[tuple[int, int]] = []
         anchored: set[tuple[int, int]] = set()
-        # Fighters first: unclaimed ants win contested squares.
-        order = sorted(range(len(ants_list)), key=lambda ai: ai in target)
+        # Economy first: claimed ants win contested squares.
+        order = sorted(range(len(ants_list)), key=lambda ai: ai not in target)
         for ai in order:
             ant_loc = ants_list[ai]
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
@@ -251,6 +251,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Draft())
+        Ants.run(Serve())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
