@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Monk:
+class Bouncer:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Monk:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Monk: refuse nearly all equals.
-        # Battling as Monk. Brawler habits, headings, memory,
-        # walk-off, food, and exploration match iteration 45. The
-        # equal-trade gate rises from 14 friends to 20; majority
-        # rule still takes winning fights, equals need a crowd.
+        # Bouncer: the crowd must be close.
+        # Battling as Bouncer. Monk habits, headings, memory,
+        # walk-off, food, and exploration match iteration 46. The
+        # gate stands at 14 friends but near tightens to 6 steps;
+        # scattered crowds no longer count as backup.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -113,12 +113,12 @@ class Monk:
                     continue
                 if sq_dist(nloc, f) <= attack_r2:
                     friends += 1
-                if ants.distance(nloc, f) <= 10:
+                if ants.distance(nloc, f) <= 6:
                     near += 1
             if friends + 1 > enemies:
                 return True
-            # Monk: 20+ friends near the fight accept equal trades.
-            return near >= 20 and friends + 1 >= enemies
+            # Bouncer: 14+ friends within 6 accept equal trades.
+            return near >= 14 and friends + 1 >= enemies
 
         def first_step(
             start: tuple[int, int], goal: tuple[int, int], budget: int = 250
@@ -228,6 +228,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Monk())
+        Ants.run(Bouncer())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
