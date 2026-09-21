@@ -514,3 +514,15 @@ Use this format.
 - what changed: Battling as Flexitarian in Flexitarian.bot + Flexitarian.py; food claims reach 8 + army size.
 - what you learned: Flexitarians swept duels 5-0 over Nibbler twice, won the 7p, and took 3rd in the 8p behind Cartographer and Cavalry; adaptive radius is the best idea since Oracle at lb 45.78, yet still 6 points short, so the line is dropped.
 - next: BOLD — new line, research first.
+
+## 42 — wolfpack gangs shared prey (2026-09-21)
+- commit: 1f98078
+- start: 79bbd16 (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 41.00, sigma 3.49, lb 30.55
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 3-2, FFA ranks 5p:1 7p:3 8p:4
+- what changed: Battling as Wolfpack in Wolfpack.bot + Wolfpack.py; ants gang the foe with the most friends near it inside 12, and committed buddies join equal trades.
+- what you learned: The pack went 3-2 losing twice to Tariff, won a weak 5p, and took mid-pack 3/7 and 4/8; shared targeting pulls ants off food into losing fights, so lb reached 30.55 against 52.15.
+- next: Lone-wolf gate — gang only with 3+ buds at the prey.

@@ -99,6 +99,12 @@ Use this format.
 - evidence: Fresh-spawn mission target is a random border tile, otherwise the closest; paths recalculated with A*; interrupted ants discard missions; targets re-searched every turn when time allows, at least every 10 turns; areas come from simultaneous BFS (20-step) with borders where areas meet.
 - idea: Frontier missions for idle ants only (food/hill paths untouched); frontier equals unseen neighbors of seen squares, no full-map areas needed.
 
+## Committed-join pack attacks (2026-09-21)
+- source: bots/pas11/Pas11.py (do_move_direction danger_list + potential_orders)
+- claim: Lone ants should refuse suicide, but the second ant to a fight releases both.
+- evidence: Moves landing near enemies queue as potential until 2+ commit to the same foe, then both orders issue; our is_safe judges static positions, so nobody ever joins an attack in progress.
+- idea: Wolfpack — gang the foe with the most friends near it; equal trades allowed when a buddy already committed this turn.
+
 ## Opportunistic eating: forage radius (2026-09-21)
 - source: loss-mode analysis over iters 30-38 (dispersed armies, late arrivals)
 - claim: Marathon food walks disperse the army and end in death or theft.
