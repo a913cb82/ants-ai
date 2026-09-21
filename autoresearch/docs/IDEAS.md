@@ -95,3 +95,4 @@ row. Leave the old row as it was.
 | dropped | Purser: food-claimants move first. |
 | dropped | Raider: hunters move first. |
 | trying | Stoic: closing rule at 12. |
+| trying | Alarm: quorum of 2 closing. |

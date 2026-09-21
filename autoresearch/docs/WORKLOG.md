@@ -742,3 +742,15 @@ Use this format.
 - what changed: Battling as Stoic in Stoic.bot + Stoic.py; the closing-threat rule drops from 16 steps to 12.
 - what you learned: Stoics went 4-1 losing a duel to Raider, won the 6p and a 10p over Jackal and Monk, but finished 4/4 behind Raider and Wolfpack; calmer threats win big fields yet sleep through small ones, so lb reached 40.71 against 52.15.
 - next: Alarm — closing rule needs 2+ enemies.
+
+## 61 — alarm needs 2+ closing enemies (2026-09-21)
+- commit: 386dfbb
+- start: a8245be (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 47.84, sigma 3.54, lb 37.22
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 4-1, FFA ranks 4p:3 6p:2 10p:1
+- what changed: Battling as Alarm in Alarm.bot + Alarm.py; the closing rule needs 2+ enemies inside 16, lone scouts ignored.
+- what you learned: Alarms went 4-1 losing a duel to Wolfpack and took 3/4, 2/6, then won the 10p over Exorcist and Vigil; quorum sleeps through small fields worse than Stoic, so lb reached 37.22 against 52.15.
+- next: Median — closing rule at 14, the middle path.
