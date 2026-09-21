@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Serve:
+class Usher:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,8 +27,8 @@ class Serve:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Serve: gatherers move first.
-        # Battling as Serve. Bulwark wall, gatherers-first order,
+        # Usher: route spawns to the front.
+        # Battling as Usher. Bulwark wall, spawn-routing sitters,
         # aggression, walk-off, food, and exploration match iteration
         # 76. Hunt always; ahead on hills, hunters skip the safety
         # filter. Closeouts need teeth, not patience.
@@ -54,6 +54,12 @@ class Serve:
         hills = sorted(self.remembered_hills)
         my_hills = ants.my_hills()
         enemy_locs = [loc for loc, _ in ants.enemy_ants()]
+        # Spawn routing: sitters hold back hills so new ants arrive
+        # at the front (mine nearest a remembered hill).
+        back: set[tuple[int, int]] = set()
+        if hills and len(my_hills) > 1:
+            front = min(my_hills, key=lambda h: min(ants.distance(h, e) for e in hills))
+            back = {h for h in my_hills if h != front}
         # Match each visible enemy to a last-turn position to read
         # its heading. Ants move one square per turn, so matches at
         # distance 0 or 1 are the same ant; the rest are new spawns.
@@ -167,10 +173,11 @@ class Serve:
         destinations: set[tuple[int, int]] = set()
         held: list[tuple[int, int]] = []
         anchored: set[tuple[int, int]] = set()
-        # Economy first: claimed ants win contested squares.
-        order = sorted(range(len(ants_list)), key=lambda ai: ai not in target)
-        for ai in order:
-            ant_loc = ants_list[ai]
+        for ai, ant_loc in enumerate(ants_list):
+            if ant_loc in back:
+                # Sitter: hold the back hill, route spawns forward.
+                held.append(ant_loc)
+                continue
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
             best = target.get(ai)
             moved = False
@@ -232,6 +239,8 @@ class Serve:
         # Walk off hill: a held ant on a home hill must step off.
         hill_set = set(my_hills)
         for ant_loc in held:
+            if ant_loc in back:
+                continue
             if ant_loc in hill_set and ants.time_remaining() >= 10:
                 for direction in ("s", "e", "w", "n"):
                     if try_step(ant_loc, direction):
@@ -251,6 +260,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Serve())
+        Ants.run(Usher())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
