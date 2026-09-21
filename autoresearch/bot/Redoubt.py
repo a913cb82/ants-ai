@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Foulweather:
+class Redoubt:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,8 +27,8 @@ class Foulweather:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Foulweather: wall behind, guard ahead.
-        # Battling as Foulweather. Bulwark wall behind, hill guard
+        # Redoubt: two guards per hill.
+        # Battling as Redoubt. Bulwark wall, guard quotas, fearless
         # aggression, walk-off, food, and exploration match iteration
         # 76. Hunt always; ahead on hills, hunters skip the safety
         # filter. Closeouts need teeth, not patience.
@@ -167,6 +167,7 @@ class Foulweather:
         destinations: set[tuple[int, int]] = set()
         held: list[tuple[int, int]] = []
         anchored: set[tuple[int, int]] = set()
+        guards: dict[tuple[int, int], int] = {}
         for ai, ant_loc in enumerate(ants_list):
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
             best = target.get(ai)
@@ -180,21 +181,21 @@ class Foulweather:
                     # ant chases the same region this turn.
                     pass
             if not moved and threatened:
-                # No food or blocked: wall when behind on hills,
-                # guard the hill itself when ahead.
+                # No food or blocked: two guards per hill, the rest hunt.
                 nearest = min(threatened, key=lambda h: ants.distance(ant_loc, h))
-                behind = len(my_hills) <= len(hills)
-                if behind and nearest in anchored:
-                    screen = min(
-                        enemy_locs,
-                        key=lambda e: ants.distance(nearest, e),
-                        default=nearest,
-                    )
-                    step = first_step(ant_loc, screen)
-                else:
-                    if behind:
+                step = None
+                if guards.get(nearest, 0) < 2:
+                    guards[nearest] = guards.get(nearest, 0) + 1
+                    if nearest in anchored:
+                        screen = min(
+                            enemy_locs,
+                            key=lambda e: ants.distance(nearest, e),
+                            default=nearest,
+                        )
+                        step = first_step(ant_loc, screen)
+                    else:
                         anchored.add(nearest)
-                    step = first_step(ant_loc, nearest)
+                        step = first_step(ant_loc, nearest)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved and hills:
@@ -250,6 +251,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Foulweather())
+        Ants.run(Redoubt())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
