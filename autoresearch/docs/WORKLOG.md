@@ -682,3 +682,15 @@ Use this format.
 - what changed: Battling as Reunion in Reunion.bot + Reunion.py; fallback explores before turn 100, huddles after.
 - what you learned: Reunions went 3-2 losing twice to Huddle, won two cripple-field FFAs, and finished 7/7 in a real 7p behind Huddle itself; phase-gating changes nothing fundamental, so lb reached 21.55 against 52.15.
 - next: Intern — fallback shadows employed ants.
+
+## 56 — intern shadows employed ants (2026-09-21)
+- commit: b612633
+- start: 5475afd (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 35.76, sigma 3.60, lb 24.98
+- champion lb: 52.15
+- verdict: drop the cohesion line (bold 3 of 3)
+- games: 4-1, FFA ranks 4p:2 6p:6 10p:1
+- what changed: Battling as Intern in Intern.bot + Intern.py; fallback steps toward the nearest food-claim holder.
+- what you learned: Interns went 4-1 splitting Huddle, took 2/4, finished 6/6 in a real 6p, and won a cripple-field 10p; shadowing trails gatherers, best of a bad line, so lb reached 24.98 against 52.15.
+- next: BOLD — new line, research first.
