@@ -98,3 +98,4 @@ row. Leave the old row as it was.
 | dropped | Alarm: quorum of 2 closing. |
 | dropped | Median: closing rule at 14. |
 | trying | Doormat: refuse own-hill destinations. |
+| trying | Bodyguard: defenders may stand hills. |

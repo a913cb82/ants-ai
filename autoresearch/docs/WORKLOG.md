@@ -778,3 +778,15 @@ Use this format.
 - what changed: Battling as Doormat in Doormat.bot + Doormat.py; try_step and explore refuse own-hill destinations.
 - what you learned: Doormats went 4-1 losing to Intern, won a weak 7p, and took 4/5 and 5/8; standing on hills body-blocks razers, so full refusal loses more spawns than it saves, lb reached 26.40 against 52.15.
 - next: Bodyguard — defenders may stand hills, others refuse.
+
+## 64 — bodyguard stands threatened hills (2026-09-21)
+- commit: c5b0aa1
+- start: 093f546 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 38.71, sigma 3.55, lb 28.05
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 3-2, FFA ranks 5p:2 7p:1 8p:8
+- what changed: Battling as Bodyguard in Bodyguard.bot + Bodyguard.py; defenders marching to threatened hills may stand them, others refuse.
+- what you learned: Bodyguards went 3-2 losing to Haunt and Intern, took 2/5, won the 7p over the brawl family, then finished 8/8 behind Sluice and Median; splitting the difference splits results, so lb reached 28.05 against 52.15.
+- next: Squatter — remove walk-off, test standing.
