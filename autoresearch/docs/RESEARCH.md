@@ -99,6 +99,12 @@ Use this format.
 - evidence: Fresh-spawn mission target is a random border tile, otherwise the closest; paths recalculated with A*; interrupted ants discard missions; targets re-searched every turn when time allows, at least every 10 turns; areas come from simultaneous BFS (20-step) with borders where areas meet.
 - idea: Frontier missions for idle ants only (food/hill paths untouched); frontier equals unseen neighbors of seen squares, no full-map areas needed.
 
+## Routing around kill zones (2026-09-21)
+- source: /tmp/antsresearch/src/bots/influence_bot.py (combat_map die_locs)
+- claim: Paths should bend around squares the enemy can kill, not just refuse the last step.
+- evidence: Die_locs mark enemy reach + kill radius 2 with -150; our BFS walks the shortest path through those squares and the majority test only vetoes the destination, so ants die en route.
+- idea: Danger-aware first_step — skip tiles inside enemy attack range (goal exempt), fall back when walled off.
+
 ## Combat fields mark death squares (2026-09-20)
 - source: /tmp/antsresearch/src/bots/influence_bot.py (Whitson influence bot, cloned)
 - claim: Squares the enemy can reach-and-kill get -150, ally-supported ones +100.

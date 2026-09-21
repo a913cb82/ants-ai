@@ -64,3 +64,4 @@ row. Leave the old row as it was.
 | dropped | Seek fights: close on enemies inside 8. |
 | dropped | Supported charges: 2+ friends nearby. |
 | dropped | Favorites only: charge winning fights. |
+| trying | Danger routing: BFS skips kill zones. |

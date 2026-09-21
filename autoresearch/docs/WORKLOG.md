@@ -370,3 +370,15 @@ Use this format.
 - what changed: Battling as Bookmaker in Bookmaker.bot + Bookmaker.py; ants close on a foe inside 8 only when friends outnumber enemies around the foe.
 - what you learned: Favorites swept duels 5-0 and won the 4p and a 6p over Cavalry and Lancer, then finished 9/10 in a Berserker-led 10p ahead of only an ErrorBot; the family (37.54, 39.08, 35.74) never threatens the champion, so the line is dropped.
 - next: BOLD — new line, research first.
+
+## 30 — danger-aware routing around kill zones (2026-09-21)
+- commit: 6d0db87
+- start: 79bbd16 (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 38.50, sigma 3.73, lb 27.31
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 5-0, FFA ranks 4p:1 6p:6 10p:5
+- what changed: Battling as Detour in Detour.bot + Detour.py; BFS skips tiles inside enemy attack range (goal exempt), walled-off ants fall back.
+- what you learned: Detours swept duels 5-0 and the 4p, but finished 6/6 in a maze 6p behind Saturn and Bookmaker and 5/10; refusing paths near any enemy cowers the army off food and hills, so lb reached 27.31 against 52.15.
+- next: Brave detours — skip kill zones only en route to hills.
