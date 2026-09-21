@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Pickoff:
+class Mugger:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,8 +27,8 @@ class Pickoff:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Pickoff: hunt the weakest hill.
-        # Battling as Pickoff. Bulwark wall, weakest-hill hunting,
+        # Mugger: hunt the strongest hill.
+        # Battling as Mugger. Bulwark wall, strongest-hill hunting,
         # aggression, walk-off, food, and exploration match iteration
         # 76. Hunt always; ahead on hills, hunters skip the safety
         # filter. Closeouts need teeth, not patience.
@@ -196,11 +196,11 @@ class Pickoff:
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved and hills:
-                # Hunt the weakest hill; fearless when ahead on hills.
+                # Hunt the strongest hill; fearless when ahead on hills.
                 nearest = min(
                     hills,
                     key=lambda h: (
-                        sum(1 for e in enemy_locs if ants.distance(h, e) <= 10),
+                        -sum(1 for e in enemy_locs if ants.distance(h, e) <= 10),
                         ants.distance(ant_loc, h),
                     ),
                 )
@@ -254,6 +254,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Pickoff())
+        Ants.run(Mugger())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
