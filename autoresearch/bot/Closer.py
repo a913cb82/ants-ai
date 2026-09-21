@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Underdog:
+class Closer:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Underdog:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Underdog: nothing to lose.
-        # Battling as Underdog. Frontrunner sitting, headings,
-        # memory, aggression, walk-off, food, and exploration match
-        # iteration 75. Behind on hills, hunters skip the safety
-        # filter; desperate razing beats safe losing.
+        # Closer: press every lead.
+        # Battling as Closer. Underdog structure, headings, memory,
+        # aggression, walk-off, food, and exploration match iteration
+        # 76. Hunt always; ahead on hills, hunters skip the safety
+        # filter. Closeouts need teeth, not patience.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -184,12 +184,12 @@ class Underdog:
                 step = first_step(ant_loc, nearest)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
-            if not moved and hills and len(my_hills) <= len(hills):
-                # Hunt only when not ahead; fearless when behind.
+            if not moved and hills:
+                # Hunt always; fearless when ahead on hills.
                 nearest = min(hills, key=lambda h: ants.distance(ant_loc, h))
                 step = first_step(ant_loc, nearest)
                 if step is not None and try_step(
-                    ant_loc, step, safe=len(my_hills) >= len(hills)
+                    ant_loc, step, safe=len(my_hills) <= len(hills)
                 ):
                     moved = True
             if not moved:
@@ -237,6 +237,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Underdog())
+        Ants.run(Closer())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
