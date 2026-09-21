@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Bouncer:
+class Exorcist:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,18 +27,19 @@ class Bouncer:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Bouncer: the crowd must be close.
-        # Battling as Bouncer. Monk habits, headings, memory,
-        # walk-off, food, and exploration match iteration 46. The
-        # gate stands at 14 friends but near tightens to 6 steps;
-        # scattered crowds no longer count as backup.
+        # Exorcist: ghosts hold no hills.
+        # Battling as Exorcist. Headings, aggression, walk-off, food,
+        # and exploration match iteration 15. Remembered hills that
+        # are visible with no enemy hill are razed ghosts, dropped
+        # so no hunter marches on an empty square ever again.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
-        for hloc, _ in ants.enemy_hills():
+        foe_hills = {hloc for hloc, _ in ants.enemy_hills()}
+        for hloc in foe_hills:
             self.remembered_hills.add(hloc)
         for hloc in list(self.remembered_hills):
-            if hloc in my_set:
+            if hloc in my_set or hloc not in foe_hills and ants.visible(hloc):
                 self.remembered_hills.discard(hloc)
         pairs: list[tuple[int, int, int]] = []
         for ai, ant_loc in enumerate(ants_list):
@@ -113,11 +114,11 @@ class Bouncer:
                     continue
                 if sq_dist(nloc, f) <= attack_r2:
                     friends += 1
-                if ants.distance(nloc, f) <= 6:
+                if ants.distance(nloc, f) <= 10:
                     near += 1
             if friends + 1 > enemies:
                 return True
-            # Bouncer: 14+ friends within 6 accept equal trades.
+            # Aggressive: 14+ friends near the fight accept equal trades.
             return near >= 14 and friends + 1 >= enemies
 
         def first_step(
@@ -228,6 +229,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Bouncer())
+        Ants.run(Exorcist())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
