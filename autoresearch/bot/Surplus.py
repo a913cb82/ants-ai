@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Grinder:
+class Surplus:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Grinder:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Grinder: mutual death favors the bigger army.
-        # Battling as Grinder. Headings, memory, aggression,
-        # walk-off, food, hills, and exploration match iteration 15.
-        # The engine fights focus: 1v1 kills both, so friendless 1v1
-        # engages when our visible army is at least theirs.
+        # Surplus: trade only true surplus.
+        # Battling as Surplus. Grinder math, headings, memory,
+        # aggression, walk-off, food, hills, and exploration match
+        # iteration 66. Friendless 1v1 engages only when strictly
+        # ahead; parity trades bleed tempo, surplus trades bank it.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -120,7 +120,7 @@ class Grinder:
             # Grinder: friendless 1v1 is mutual death; take it when
             # our visible army is at least theirs.
             if enemies == 1 and friends == 0:
-                return len(ants_list) >= len(enemy_locs)
+                return len(ants_list) > len(enemy_locs)
             # Aggressive: 14+ friends near the fight accept equal trades.
             return near >= 14 and friends + 1 >= enemies
 
@@ -232,6 +232,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Grinder())
+        Ants.run(Surplus())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
