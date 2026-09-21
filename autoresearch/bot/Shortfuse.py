@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Triage:
+class Shortfuse:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,8 +27,8 @@ class Triage:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Triage: sit front only when threatened.
-        # Battling as Triage. Rearguard routing when threatened,
+        # Shortfuse: closing threats at 14.
+        # Battling as Shortfuse. Bulwark wall, later warnings,
         # aggression, walk-off, food, and exploration match iteration
         # 76. Hunt always; ahead on hills, hunters skip the safety
         # filter. Closeouts need teeth, not patience.
@@ -54,12 +54,6 @@ class Triage:
         hills = sorted(self.remembered_hills)
         my_hills = ants.my_hills()
         enemy_locs = [loc for loc, _ in ants.enemy_ants()]
-        # Triage: sitters hold the front hill only while it is
-        # threatened; safe front stays open like Bulwark.
-        sit: set[tuple[int, int]] = set()
-        front: tuple[int, int] | None = None
-        if hills and len(my_hills) > 1:
-            front = min(my_hills, key=lambda h: min(ants.distance(h, e) for e in hills))
         # Match each visible enemy to a last-turn position to read
         # its heading. Ants move one square per turn, so matches at
         # distance 0 or 1 are the same ant; the rest are new spawns.
@@ -89,12 +83,10 @@ class Triage:
             for h in my_hills
             if any(
                 ants.distance(h, e) <= 10
-                or (ants.distance(h, e) <= 16 and closing(e, h))
+                or (ants.distance(h, e) <= 14 and closing(e, h))
                 for e in enemy_locs
             )
         ]
-        if front is not None and front in threatened:
-            sit = {front}
         attack_r2 = ants.attackradius2 or 5
         rows, cols = ants.rows, ants.cols
 
@@ -176,10 +168,6 @@ class Triage:
         held: list[tuple[int, int]] = []
         anchored: set[tuple[int, int]] = set()
         for ai, ant_loc in enumerate(ants_list):
-            if ant_loc in sit:
-                # Sitter: hold the front hill, route spawns back.
-                held.append(ant_loc)
-                continue
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
             best = target.get(ai)
             moved = False
@@ -241,8 +229,6 @@ class Triage:
         # Walk off hill: a held ant on a home hill must step off.
         hill_set = set(my_hills)
         for ant_loc in held:
-            if ant_loc in sit:
-                continue
             if ant_loc in hill_set and ants.time_remaining() >= 10:
                 for direction in ("s", "e", "w", "n"):
                     if try_step(ant_loc, direction):
@@ -262,6 +248,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Triage())
+        Ants.run(Shortfuse())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
