@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Haunt:
+class Vigil:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -29,11 +29,11 @@ class Haunt:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Haunt: ghosts linger, then move on.
-        # Battling as Haunt. Exorcist pruning, headings, aggression,
-        # walk-off, food, and exploration match iteration 48. Hills
-        # seen empty 20 straight turns are dropped; fresh kills stay
-        # rally points while the blood is warm.
+        # Vigil: a short watch for ghosts.
+        # Battling as Vigil. Haunt counters, headings, aggression,
+        # walk-off, food, and exploration match iteration 49. Hills
+        # seen empty 5 straight turns are dropped; a short rally,
+        # then the hunters move on to living targets.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -46,7 +46,7 @@ class Haunt:
                 self.ghost_turns.pop(hloc, None)
             elif hloc not in foe_hills and ants.visible(hloc):
                 turns = self.ghost_turns.get(hloc, 0) + 1
-                if turns >= 20:
+                if turns >= 5:
                     self.remembered_hills.discard(hloc)
                     self.ghost_turns.pop(hloc, None)
                 else:
@@ -241,6 +241,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Haunt())
+        Ants.run(Vigil())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
