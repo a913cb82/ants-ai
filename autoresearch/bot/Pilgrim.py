@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Detour:
+class Pilgrim:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Detour:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Danger-aware routing: bend around kill zones.
-        # Battling as Detour. Headings, memory, aggression, walk-off,
-        # food, and exploration match iteration 15. BFS skips tiles
-        # inside enemy attack range (goal exempt); walled-off ants
-        # fall back instead of marching through death.
+        # Brave detours: cowardice only on hill marches.
+        # Battling as Pilgrim. Danger routing, headings, memory,
+        # aggression, walk-off, food, and exploration match iteration
+        # 30. Hill hunters bend around kill zones; food and defense
+        # stay greedy because cowering starves worse than dying.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -121,9 +121,12 @@ class Detour:
             return near >= 14 and friends + 1 >= enemies
 
         def first_step(
-            start: tuple[int, int], goal: tuple[int, int], budget: int = 250
+            start: tuple[int, int],
+            goal: tuple[int, int],
+            budget: int = 250,
+            avoid: bool = False,
         ) -> str | None:
-            # Shortest safe path around water and kill zones.
+            # Shortest path around water, and kill zones when avoiding.
             if start == goal:
                 return None
             parent: dict[tuple[int, int], tuple[tuple[int, int], str]] = {}
@@ -137,8 +140,10 @@ class Detour:
                     nxt = ants.destination(cur, d)
                     if nxt in parent or not ants.passable(nxt):
                         continue
-                    if nxt != goal and any(
-                        sq_dist(nxt, e) <= attack_r2 for e in enemy_locs
+                    if (
+                        avoid
+                        and nxt != goal
+                        and any(sq_dist(nxt, e) <= attack_r2 for e in enemy_locs)
                     ):
                         continue
                     parent[nxt] = (cur, d)
@@ -180,11 +185,16 @@ class Detour:
                     # Assigned food is blocked; keep the claim so no other
                     # ant chases the same region this turn.
                     pass
-            if not moved and (threatened or hills):
-                # No food or blocked: guard home first, else hunt.
-                targets = threatened if threatened else hills
-                nearest = min(targets, key=lambda h: ants.distance(ant_loc, h))
+            if not moved and threatened:
+                # No food or blocked: guard home first, greedy.
+                nearest = min(threatened, key=lambda h: ants.distance(ant_loc, h))
                 step = first_step(ant_loc, nearest)
+                if step is not None and try_step(ant_loc, step):
+                    moved = True
+            if not moved and hills:
+                # Hunt far hills around kill zones.
+                nearest = min(hills, key=lambda h: ants.distance(ant_loc, h))
+                step = first_step(ant_loc, nearest, avoid=True)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved:
@@ -232,6 +242,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Detour())
+        Ants.run(Pilgrim())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
