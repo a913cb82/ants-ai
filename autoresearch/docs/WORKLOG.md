@@ -1427,6 +1427,18 @@ Use this format.
 - what you learned: Longfuses went 1-4, won the 4p, took 4/6, then finished 8/10; earlier warnings mean everyone guards and nobody works, closing axis reads 14: 11.72, 16: 49.78, 18: 2.71, so lb collapsed to 2.71 against 52.15.
 - next: BOLD — new line, research first.
 
+## 121 — odds trades at 10 (2026-09-21)
+- commit: 5d0446d
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 33.00, sigma 3.46, lb 22.63
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 4-1, FFA ranks 5p:3 7p:3 8p:6
+- what changed: Battling as Odds in Odds.bot + Odds.py; equal trades at 10+ near.
+- what you learned: Oddss went 4-1 losing to Dusk, took 3/5 and 3/7, then finished 6/8; cheaper equals donate in crowds, so lb reached 22.63 against 52.15.
+- next: Evens — trades at 20.
+
 ## 105 — ram targets centroid hill (2026-09-21)
 - commit: 9283521
 - start: 6329ae1 (bold line)

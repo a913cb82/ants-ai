@@ -154,3 +154,4 @@ row. Leave the old row as it was.
 | dropped | Shortfuse: closing at 14. |
 | dropped | Counter: walk-off at enemy. |
 | dropped | Longfuse: closing at 18. |
+| trying | Odds: trades at 10. |

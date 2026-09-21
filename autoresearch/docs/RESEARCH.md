@@ -117,6 +117,12 @@ Use this format.
 - evidence: Identical code scored 52.15 at iter 15, 13.09 today (2-3 duels, 7/7 FFA). Duel foes and FFA fields are all descendants now.
 - idea: Keep hunting Bulwark-family gains; 49.78-modern needs ~2.4, and the number is regime-noisy. No re-tag without beating 52.15.
 
+## Odds: equal trades at 10 (2026-09-21)
+- source: aggression audit at iter 120 (14-rule tuned champion-era, never on wall)
+- claim: Cheaper equals mean more pressure where Bulwark is short.
+- evidence: Berserker-line set 14 on the champion base; Bulwark's wound is FFA 2nds.
+- idea: Odds — 14-rule at 10 on Bulwark base.
+
 ## Shortfuse: closing threats at 14 (2026-09-21)
 - source: defense-number audit at iter 117 (closing-16 untouched since iter 15)
 - claim: Later warnings free hunters without losing hills.
