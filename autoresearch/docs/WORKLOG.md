@@ -622,3 +622,15 @@ Use this format.
 - what changed: Battling as Vigil in Vigil.bot + Vigil.py; hills seen empty 5 straight turns are dropped instead of 20.
 - what you learned: Vigils went 3-2 losing twice to Haunt, took 3/4 behind Exorcist and Haunt, won a weak 6p, and took 4/10; any pruning loses, 5 turns is merely least-bad, so lb reached 25.52 against 52.15.
 - next: BOLD — new line, research first.
+
+## 51 — hearth eats local guards posts (2026-09-21)
+- commit: 9a7762f
+- start: 79bbd16 (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 37.50, sigma 3.58, lb 26.75
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 5-0, FFA ranks 4p:4 6p:3 10p:4
+- what changed: Battling as Hearth in Hearth.bot + Hearth.py; adaptive food reach plus ring-1 corner posts, judged as one design.
+- what you learned: Hearths swept duels 5-0 but took 4/4, 3/6, 4/10, scoring below both parents (45.78, 42.27); posts eat the spares radius frees and nobody pressures, so lb reached 26.75 against 52.15.
+- next: Hearth with hungry posts — defenders snack within 4.

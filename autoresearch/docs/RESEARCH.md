@@ -105,6 +105,12 @@ Use this format.
 - evidence: Fresh-spawn mission target is a random border tile, otherwise the closest; paths recalculated with A*; interrupted ants discard missions; targets re-searched every turn when time allows, at least every 10 turns; areas come from simultaneous BFS (20-step) with borders where areas meet.
 - idea: Frontier missions for idle ants only (food/hill paths untouched); frontier equals unseen neighbors of seen squares, no full-map areas needed.
 
+## Conservative synthesis: radius plus posts (2026-09-21)
+- source: autoresearch loss-mode analysis (Flexitarian 45.78 + Phalanx 42.27, top partials)
+- claim: The best failed ideas compose: radius concentrates the army, posts spend the freed spares.
+- evidence: Every single-mechanism line loses, but the top three all share a conservative flavor (eat local, guard posts, brave detours); radius leaves more spares, posts need spares.
+- idea: Hearth — adaptive food reach plus ring-1 corner posts, judged as one design.
+
 ## Ghost hills eat hunters forever (2026-09-21)
 - source: autoresearch/bot memory code (remembered_hills) vs xathis re-search rule
 - claim: Remembered hills are only dropped when WE own them; razed empty hills haunt memory forever.
