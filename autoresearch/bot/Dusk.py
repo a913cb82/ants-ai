@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Sundown:
+class Dusk:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -29,11 +29,11 @@ class Sundown:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Sundown: no food after turn 700.
-        # Battling as Sundown. Bulwark wall, fearless-ahead hunting,
-        # headings, memory, aggression, walk-off, and exploration
-        # match iteration 89. Late food cannot convert to board
-        # presence in time; the whole army fights at sundown.
+        # Dusk: fearless hunting after turn 700.
+        # Battling as Dusk. Bulwark wall, headings, memory, aggression,
+        # walk-off, food, hills, and exploration match iteration 89.
+        # Hunters go fearless at turn 700 even from behind; deciding
+        # fights happen late.
         self.turn += 1
         foods = ants.food()
         ants_list = ants.my_ants()
@@ -44,10 +44,9 @@ class Sundown:
             if hloc in my_set:
                 self.remembered_hills.discard(hloc)
         pairs: list[tuple[int, int, int]] = []
-        if self.turn < 700:
-            for ai, ant_loc in enumerate(ants_list):
-                for fi, food_loc in enumerate(foods):
-                    pairs.append((ants.distance(ant_loc, food_loc), ai, fi))
+        for ai, ant_loc in enumerate(ants_list):
+            for fi, food_loc in enumerate(foods):
+                pairs.append((ants.distance(ant_loc, food_loc), ai, fi))
         pairs.sort()
         target: dict[int, tuple[int, int]] = {}
         claimed_food: set[int] = set()
@@ -200,11 +199,13 @@ class Sundown:
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved and hills:
-                # Hunt always; fearless when ahead on hills.
+                # Hunt always; fearless ahead or after turn 700.
                 nearest = min(hills, key=lambda h: ants.distance(ant_loc, h))
                 step = first_step(ant_loc, nearest)
                 if step is not None and try_step(
-                    ant_loc, step, safe=len(my_hills) <= len(hills)
+                    ant_loc,
+                    step,
+                    safe=len(my_hills) <= len(hills) and self.turn < 700,
                 ):
                     moved = True
             if not moved:
@@ -252,6 +253,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Sundown())
+        Ants.run(Dusk())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
