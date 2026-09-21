@@ -598,3 +598,15 @@ Use this format.
 - what changed: Battling as Exorcist in Exorcist.bot + Exorcist.py; remembered hills visible with no enemy hill are dropped as razed ghosts.
 - what you learned: Exorcists went 3-2 losing twice to Bouncer and took 2/4, 3/6, 5/10; ghost-hunting was forward deployment, not waste, so pruning scatters pressure, lb reached 24.10 against 52.15.
 - next: Haunted — re-add ghosts after 50 turns unseen.
+
+## 49 — haunt drops ghosts after 20 turns (2026-09-21)
+- commit: 080ae78
+- start: 5a7958a (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 30.22, sigma 3.56, lb 19.53
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 4-1, FFA ranks 4p:1 6p:6 10p:5
+- what changed: Battling as Haunt in Haunt.bot + Haunt.py; hills seen empty 20 straight turns are dropped, fresh kills stay rally points.
+- what you learned: Haunts went 4-1 splitting Tariff, won the 4p, but finished 6/6 behind Exorcist itself and 5/10; lingering fails harder than purging, so lb reached 19.53 against 52.15.
+- next: Vigil — drop ghosts after 5 turns.

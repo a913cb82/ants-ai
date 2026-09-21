@@ -83,3 +83,4 @@ row. Leave the old row as it was.
 | dropped | Monk: equal-trade gate at 20. |
 | dropped | Bouncer: crowds count within 6. |
 | trying | Exorcist: drop visible-empty hills. |
+| trying | Haunt: drop ghosts after 20 turns. |
