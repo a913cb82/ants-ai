@@ -1688,4 +1688,15 @@ Use this format.
 - what changed: Battling as Relief in Relief.bot + Relief.py; fearless reinforce step.
 - what you learned: Reliefs went 3-2 losing to Cohort and Evens, finished 5/5, won the 7p, then took 3/8; fearless reinforcements die on arrival, so lb reached 22.51 against 52.15.
 - next: Farmstead — food feet plus hill fallback.
-- next: BOLD — new line, research first.
+
+## 140 — farmstead feeds and homes (2026-09-21)
+- commit: f7a6148
+- start: 67c7703 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 38.03, sigma 3.50, lb 27.52
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 3-2, FFA ranks 5p:1 7p:7 8p:1
+- what changed: Battling as Farmstead in Farmstead.bot + Farmstead.py; food walk-off plus hill fallback.
+- what you learned: Farmsteads went 3-2 losing twice to Relief, won the 5p and 8p, then finished 7/7; compatible synthesis still fails, worse than both parents, so lb reached 27.52 against 52.15.
+- next: Backstop — fallback to second hill.
