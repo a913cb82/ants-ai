@@ -104,3 +104,4 @@ row. Leave the old row as it was.
 | dropped | Surplus: 1v1 strictly ahead. |
 | dropped | Hoard: 1v1 needs 2x. |
 | trying | Peak: hills before food. |
+| trying | Glutton: fearless food. |

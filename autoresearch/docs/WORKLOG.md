@@ -850,3 +850,15 @@ Use this format.
 - what changed: Battling as Peak in Peak.bot + Peak.py; the hill branch runs before the food branch, claims persist.
 - what you learned: Peaks went 3-2 losing twice to Grinder and took 3/5, 2/7, then 7/8 behind Locavore and Surplus; hill-first starves on a strong base just like Crusader, so lb reached 21.23 against 52.15.
 - next: Fearless food — gatherers skip the safety filter.
+
+## 70 — glutton gathers without safety (2026-09-21)
+- commit: d641251
+- start: 7b55c9c (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 36.72, sigma 3.57, lb 26.03
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 3-2, FFA ranks 5p:5 7p:1 8p:1
+- what changed: Battling as Glutton in Glutton.bot + Glutton.py; food branch skips the safety filter, rest careful.
+- what you learned: Gluttons went 3-2 splitting Peak, finished 5/5 in a real 5p, and won two weak-field FFAs; fearless food recovers gathering but dies in real fights, so lb reached 26.03 against 52.15.
+- next: Daredevil — drop the safety filter everywhere.
