@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Bloodhound:
+class Screen:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Bloodhound:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Bloodhound: guards answer closing enemies only.
-        # Battling as Bloodhound. Food, headings, memory, aggression,
-        # walk-off, hills, and explore match iteration 15. The static
-        # 10-step threatened radius is dropped; only enemies closing
-        # within 16 count. Guards stop flinching at passersby.
+        # Screen: meet the razer off the hill.
+        # Battling as Screen. Headings, memory, aggression, walk-off,
+        # food, and exploration match iteration 15. Guards target the
+        # enemy nearest the threatened hill, so the hill stays
+        # spawnable and fights happen away from it.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -40,8 +40,6 @@ class Bloodhound:
         for hloc in list(self.remembered_hills):
             if hloc in my_set:
                 self.remembered_hills.discard(hloc)
-        hills = sorted(self.remembered_hills)
-        my_hills = ants.my_hills()
         pairs: list[tuple[int, int, int]] = []
         for ai, ant_loc in enumerate(ants_list):
             for fi, food_loc in enumerate(foods):
@@ -53,6 +51,8 @@ class Bloodhound:
             if ai not in target and fi not in claimed_food:
                 target[ai] = foods[fi]
                 claimed_food.add(fi)
+        hills = sorted(self.remembered_hills)
+        my_hills = ants.my_hills()
         enemy_locs = [loc for loc, _ in ants.enemy_ants()]
         # Match each visible enemy to a last-turn position to read
         # its heading. Ants move one square per turn, so matches at
@@ -81,7 +81,11 @@ class Bloodhound:
         threatened = [
             h
             for h in my_hills
-            if any(ants.distance(h, e) <= 16 and closing(e, h) for e in enemy_locs)
+            if any(
+                ants.distance(h, e) <= 10
+                or (ants.distance(h, e) <= 16 and closing(e, h))
+                for e in enemy_locs
+            )
         ]
         attack_r2 = ants.attackradius2 or 5
         rows, cols = ants.rows, ants.cols
@@ -172,10 +176,20 @@ class Bloodhound:
                     # Assigned food is blocked; keep the claim so no other
                     # ant chases the same region this turn.
                     pass
-            if not moved and (threatened or hills):
-                # No food or blocked: guard home first, else hunt.
-                targets = threatened if threatened else hills
-                nearest = min(targets, key=lambda h: ants.distance(ant_loc, h))
+            if not moved and threatened:
+                # No food or blocked: screen the razer off the hill.
+                nearest = min(threatened, key=lambda h: ants.distance(ant_loc, h))
+                screen = min(
+                    enemy_locs,
+                    key=lambda e: ants.distance(nearest, e),
+                    default=nearest,
+                )
+                step = first_step(ant_loc, screen)
+                if step is not None and try_step(ant_loc, step):
+                    moved = True
+            if not moved and hills:
+                # Else hunt the nearest remembered hill.
+                nearest = min(hills, key=lambda h: ants.distance(ant_loc, h))
                 step = first_step(ant_loc, nearest)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
@@ -224,6 +238,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Bloodhound())
+        Ants.run(Screen())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
