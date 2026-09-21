@@ -106,5 +106,6 @@ row. Leave the old row as it was.
 | dropped | Peak: hills before food. |
 | dropped | Glutton: fearless food. |
 | dropped | Daredevil: no safety anywhere. |
-| trying | Blitz: no food before turn 25. |
-| trying | Siege: eat at first blood. |
+| dropped | Blitz: no food before turn 25. |
+| dropped | Siege: eat at first blood. |
+| dropped | Hornet: swarm turns 25-60. |

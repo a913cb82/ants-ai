@@ -898,3 +898,15 @@ Use this format.
 - what changed: Battling as Siege in Siege.bot + Siege.py; food claims start at first blood or turn 25.
 - what you learned: Sieges went 3-2 losing twice to Daredevil, won the 5p, took 2/7 behind Bookmaker, then finished 7/8; first blood comes fast so it eats early anyway, lb reached 28.17 against 52.15.
 - next: Crusade — timed swarm turns 25 to 60.
+
+## 74 — hornet swarms turns 25 to 60 (2026-09-21)
+- commit: c7cec93
+- start: 64f97f5 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 26.20, sigma 3.65, lb 15.24
+- champion lb: 52.15
+- verdict: drop the blitz line (bold 3 of 3)
+- games: 3-2, FFA ranks 4p:4 6p:1 10p:7
+- what changed: Battling as Hornet in Hornet.bot + Hornet.py; no food claims from turn 25 to 60, swarm window.
+- what you learned: Hornets went 3-2 splitting Peak, finished 4/4, won a weak 6p, then finished 7/10 behind Blitz and Siege itself; timed swarms starve mid-game, so lb collapsed from 52.15 to 15.24.
+- next: BOLD — new line, research first.
