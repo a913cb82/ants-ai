@@ -1246,3 +1246,15 @@ Use this format.
 - what changed: Battling as Mugger in Mugger.bot + Mugger.py; strongest-hill hunting on Bulwark base.
 - what you learned: Muggers went 4-1 losing to Barbwire, took 4/5 and 2/7, then finished 6/8; hunters suicide into the most-defended hill, target axis reads nearest 49.78, weakest 25.51, strongest 23.67, so lb reached 23.67 against 52.15.
 - next: Sundown — no food after turn 700.
+
+## 103 — sundown stops food at 700 (2026-09-21)
+- commit: 9e771cd
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 26.17, sigma 3.57, lb 15.46
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 2-3, FFA ranks 4p:1 6p:2 10p:8
+- what changed: Battling as Sundown in Sundown.bot + Sundown.py; no food claims after turn 700.
+- what you learned: Sundowns went 2-3, won the 4p, took 2/6, then finished 8/10; games run long and late spawns replace attrition, stopping food starves the endgame, so lb fell to 15.46 against 52.15.
+- next: Dusk — fearless hunting after turn 700.
