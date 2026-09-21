@@ -970,3 +970,15 @@ Use this format.
 - what changed: Battling as Revenant in Revenant.bot + Revenant.py; visibly-empty hills forgotten, Closer pressure kept.
 - what you learned: Revenants went 3-2 losing to Underdog and Hornet, won the 4p and 6p, then finished 6/10 behind Alarm and Closer itself; ghost-forgetting wins small fields but collapses in big ones, so lb reached 33.31 against 52.15.
 - next: Overrun — ahead means no defense either.
+
+## 80 — overrun skips guards ahead (2026-09-21)
+- commit: 12075a6
+- start: e170c5f (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 33.23, sigma 3.48, lb 22.79
+- champion lb: 52.15
+- verdict: drop the press line (bold 3 of 3)
+- games: 3-2, FFA ranks 5p:4 7p:2 8p:3
+- what changed: Battling as Overrun in Overrun.bot + Overrun.py; no guards while ahead on hills.
+- what you learned: Overruns went 3-2 losing to Siege and Underdog, finished 4/5 behind Siege, took 2/7, then finished 3/8 behind Surplus and Underdog; total press bleeds, so lb fell to 22.79 against 52.15.
+- next: BOLD — new line, research first.
