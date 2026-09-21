@@ -67,3 +67,4 @@ row. Leave the old row as it was.
 | dropped | Danger routing: BFS skips kill zones. |
 | dropped | Brave detours: cowardice on hill marches only. |
 | dropped | Danger tolls: +3 a kill-zone tile. |
+| trying | Floodgates: swarm remembered hills at 15 ants. |

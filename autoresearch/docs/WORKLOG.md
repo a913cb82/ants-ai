@@ -406,3 +406,15 @@ Use this format.
 - what changed: Battling as Tariff in Tariff.bot + Tariff.py; Dijkstra charges +3 a kill-zone tile on every path, never walled off.
 - what you learned: Tolls went 3-2 losing twice to Hunter and finished 7/7 in a cell-maze 7p; bending every path makes ants late to food and fights everywhere, so lb collapsed from 52.15 to 18.43.
 - next: BOLD — new line, research first.
+
+## 33 — floodgates turtle then swarm at 15 (2026-09-21)
+- commit: 3a17be9
+- start: 79bbd16 (champion code)
+- budget: 5 duels, 3 FFA
+- score: mu 40.58, sigma 3.70, lb 29.48
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 5-0, FFA ranks 4p:3 6p:1 10p:7
+- what changed: Battling as Floodgate in Floodgate.bot + Floodgate.py; no hill-hunting below 15 ants, then every spare swarms the nearest remembered hill.
+- what you learned: Gates swept duels 5-0 and a weak 6p, but finished 7/10 behind six of its own descendants; turtling cedes the map and the swarm opens onto enemy ground, so lb reached 29.48 against 52.15.
+- next: Lower gate — swarm at 8 ants.

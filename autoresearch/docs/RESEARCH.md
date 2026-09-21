@@ -99,6 +99,12 @@ Use this format.
 - evidence: Fresh-spawn mission target is a random border tile, otherwise the closest; paths recalculated with A*; interrupted ants discard missions; targets re-searched every turn when time allows, at least every 10 turns; areas come from simultaneous BFS (20-step) with borders where areas meet.
 - idea: Frontier missions for idle ants only (food/hill paths untouched); frontier equals unseen neighbors of seen squares, no full-map areas needed.
 
+## Floodgates: mass assault on army size (2026-09-21)
+- source: autoresearch/docs/RESEARCH.md (Waves attack at ant thresholds) + iter 7 flood (lb 37.87, gate missing)
+- claim: Trickle hunting feeds razers piecemeal; a gated swarm razes and lives.
+- evidence: Unconditional flood failed because ants marched from turn 1 in ones; influence waves only march at 10+ ants with momentum; our hunters still trickle one-by-one at the nearest hill.
+- idea: No hill-hunting below 15 ants (explore instead); at 15+, every spare marches the oldest remembered hill.
+
 ## Routing around kill zones (2026-09-21)
 - source: /tmp/antsresearch/src/bots/influence_bot.py (combat_map die_locs)
 - claim: Paths should bend around squares the enemy can kill, not just refuse the last step.
