@@ -1138,3 +1138,15 @@ Use this format.
 - what changed: Battling as Trawl in Trawl.bot + Trawl.py; Dragnet screen with fearless-ahead hunting.
 - what you learned: Trawls went 2-3 swept by Bloodhound, won the 4p, took 4/6 and 4/10; teeth do not transplant, the anchor was the essential partner, so lb reached 21.89 against 52.15.
 - next: Fairweather — wall ahead, guard behind.
+
+## 94 — fairweather walls only ahead (2026-09-21)
+- commit: 3ec3625
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 37.85, sigma 3.50, lb 27.35
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 2-3, FFA ranks 4p:1 6p:4 10p:1
+- what changed: Battling as Fairweather in Fairweather.bot + Fairweather.py; wall ahead, hill-guard behind.
+- what you learned: Fairweathers went 2-3 losing to Anchor and Tariff twice, won the 4p and the 10p, took 4/6; switching modes dithers, the wall pays from behind too, so lb reached 27.35 against 52.15.
+- next: Foulweather — wall behind, guard ahead.

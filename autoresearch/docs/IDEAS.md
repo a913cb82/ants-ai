@@ -128,3 +128,4 @@ row. Leave the old row as it was.
 | dropped | Rampart: fearless wall. |
 | dropped | Palisade: safe hunt + fearless wall. |
 | trying | Trawl: fearless Dragnet. |
+| trying | Fairweather: wall ahead. |
