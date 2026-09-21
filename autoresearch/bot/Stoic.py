@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Raider:
+class Stoic:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Raider:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Raider: pressure wins ties.
-        # Battling as Raider. Purser ordering, headings, memory,
-        # aggression, walk-off, food, hills, and exploration match
-        # iteration 58. Hunters move first and food last; gatherers
-        # route around instead of blocking the pressure.
+        # Stoic: worry later, not never.
+        # Battling as Stoic. Headings, memory, aggression, walk-off,
+        # food, hills, and exploration match iteration 15. A hill
+        # counts threatened at 12 steps when an enemy is closing on
+        # it, else 10; the loss tapes say 16 panics and 10 sleeps.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -83,7 +83,7 @@ class Raider:
             for h in my_hills
             if any(
                 ants.distance(h, e) <= 10
-                or (ants.distance(h, e) <= 16 and closing(e, h))
+                or (ants.distance(h, e) <= 12 and closing(e, h))
                 for e in enemy_locs
             )
         ]
@@ -164,10 +164,7 @@ class Raider:
 
         destinations: set[tuple[int, int]] = set()
         held: list[tuple[int, int]] = []
-        raid_order = [ai for ai in range(len(ants_list)) if ai not in target]
-        raid_order += [ai for ai in range(len(ants_list)) if ai in target]
-        for ai in raid_order:
-            ant_loc = ants_list[ai]
+        for ai, ant_loc in enumerate(ants_list):
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
             best = target.get(ai)
             moved = False
@@ -231,6 +228,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Raider())
+        Ants.run(Stoic())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
