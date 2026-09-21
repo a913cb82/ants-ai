@@ -1581,3 +1581,15 @@ Use this format.
 - what changed: Battling as Legion in Legion.bot + Legion.py; fearless ahead or grown-growing.
 - what you learned: Legions went 4-1 splitting Avenge, took 2/4, then finished 6/6 and 9/10; the floor death-spirals (shrink, play safe, shrink), so lb fell to 6.61 against 52.15.
 - next: Cohort — floor at five.
+
+## 131 — cohort floors at five (2026-09-21)
+- commit: a82ad16
+- start: a0590d9 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 30.71, sigma 3.54, lb 20.08
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 2-3, FFA ranks 4p:4 6p:1 10p:3
+- what changed: Battling as Cohort in Cohort.bot + Cohort.py; floor at five.
+- what you learned: Cohorts went 2-3, finished 4/4, won the 6p, then took 3/10; lower floor milder spiral, yet lb reached only 20.08 against 52.15.
+- next: Guerrilla — sneak while small.

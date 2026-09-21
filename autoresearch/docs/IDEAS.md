@@ -164,3 +164,4 @@ row. Leave the old row as it was.
 | dropped | Entrench: turtle bleeding. |
 | dropped | Recruit: press while growing. |
 | trying | Legion: floor at ten. |
+| trying | Cohort: floor at five. |
