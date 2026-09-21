@@ -105,6 +105,12 @@ Use this format.
 - evidence: Fresh-spawn mission target is a random border tile, otherwise the closest; paths recalculated with A*; interrupted ants discard missions; targets re-searched every turn when time allows, at least every 10 turns; areas come from simultaneous BFS (20-step) with borders where areas meet.
 - idea: Frontier missions for idle ants only (food/hill paths untouched); frontier equals unseen neighbors of seen squares, no full-map areas needed.
 
+## Trawl: Dragnet grows teeth (2026-09-21)
+- source: Bulwark 6329ae1 wounds (both FFA 2nds behind Dragnet 35daee3)
+- claim: Pack-screening plus fearless-ahead hunting beats either alone.
+- evidence: Dragnet 39.80 (safe hunt + pack screen) beat Bulwark 49.78 head-to-head twice; fearless-ahead is the load-bearing half of every wall.
+- idea: Trawl — Dragnet base with fearless-ahead hunting.
+
 ## Anchor: safe hunt behind the wall (2026-09-21)
 - source: Bulwark 6329ae1 ablation (fearless-ahead cost 7 on champion base)
 - claim: The wall works; fearlessness may be dead weight on it.

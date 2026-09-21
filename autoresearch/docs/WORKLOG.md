@@ -1126,3 +1126,15 @@ Use this format.
 - what changed: Battling as Palisade in Palisade.bot + Palisade.py; safe hunt with fearless wall.
 - what you learned: Palisades went 2-3 losing twice to Anchor, won the 4p and the 10p, took 3/6; wall matrix completes (safe/safe 15.33, fearless/fearless 23.97, safe/fearless 29.55, fearless/safe 49.78), fearless hunting is the load-bearing half, so lb reached 29.55 against 52.15.
 - next: BOLD — new line, research first.
+
+## 93 — trawl adds fearless hunt (2026-09-21)
+- commit: 415d843
+- start: 35daee3 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 32.12, sigma 3.41, lb 21.89
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 2-3, FFA ranks 4p:1 6p:4 10p:4
+- what changed: Battling as Trawl in Trawl.bot + Trawl.py; Dragnet screen with fearless-ahead hunting.
+- what you learned: Trawls went 2-3 swept by Bloodhound, won the 4p, took 4/6 and 4/10; teeth do not transplant, the anchor was the essential partner, so lb reached 21.89 against 52.15.
+- next: Fairweather — wall ahead, guard behind.

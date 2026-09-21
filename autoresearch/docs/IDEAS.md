@@ -127,3 +127,4 @@ row. Leave the old row as it was.
 | dropped | Anchor: safe hunt + wall. |
 | dropped | Rampart: fearless wall. |
 | dropped | Palisade: safe hunt + fearless wall. |
+| trying | Trawl: fearless Dragnet. |
