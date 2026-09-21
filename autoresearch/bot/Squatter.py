@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Bodyguard:
+class Squatter:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Bodyguard:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Bodyguard: stand the hill that matters.
-        # Battling as Bodyguard. Doormat refusal, headings, memory,
-        # aggression, food, hills, and exploration match iteration
-        # 63. Defenders marching to threatened hills may stand them;
-        # everyone else keeps off to leave the spawn clear.
+        # Squatter: standing is good, test maximum standing.
+        # Battling as Squatter. Headings, memory, aggression, food,
+        # hills, and exploration match iteration 15, minus walk-off.
+        # If body-blocking beats spawn-blocking, held ants stay put;
+        # the stand axis ends here, one way or the other.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -53,7 +53,6 @@ class Bodyguard:
                 claimed_food.add(fi)
         hills = sorted(self.remembered_hills)
         my_hills = ants.my_hills()
-        hill_set = set(my_hills)
         enemy_locs = [loc for loc, _ in ants.enemy_ants()]
         # Match each visible enemy to a last-turn position to read
         # its heading. Ants move one square per turn, so matches at
@@ -150,13 +149,10 @@ class Bodyguard:
                 node = parent[node][0]
             return parent[node][1]
 
-        def try_step(
-            ant_loc: tuple[int, int], direction: str, guard: bool = False
-        ) -> bool:
+        def try_step(ant_loc: tuple[int, int], direction: str) -> bool:
             new_loc = ants.destination(ant_loc, direction)
             if (
                 new_loc not in destinations
-                and (guard or new_loc not in hill_set)
                 and ants.passable(new_loc)
                 and ants.unoccupied(new_loc)
                 and is_safe(new_loc, ant_loc)
@@ -182,11 +178,10 @@ class Bodyguard:
                     pass
             if not moved and (threatened or hills):
                 # No food or blocked: guard home first, else hunt.
-                # Defenders may stand threatened hills to body-block.
                 targets = threatened if threatened else hills
                 nearest = min(targets, key=lambda h: ants.distance(ant_loc, h))
                 step = first_step(ant_loc, nearest)
-                if step is not None and try_step(ant_loc, step, nearest in threatened):
+                if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved:
                 # No hill move: explore least-visited squares first.
@@ -198,7 +193,6 @@ class Bodyguard:
                     new_loc = ants.destination(ant_loc, direction)
                     if (
                         new_loc not in destinations
-                        and new_loc not in hill_set
                         and ants.passable(new_loc)
                         and ants.unoccupied(new_loc)
                         and is_safe(new_loc, ant_loc)
@@ -212,12 +206,6 @@ class Bodyguard:
             # check if we still have time left to calculate more orders
             if ants.time_remaining() < 10:
                 break
-        # Walk off hill: a held ant on a home hill must step off.
-        for ant_loc in held:
-            if ant_loc in hill_set and ants.time_remaining() >= 10:
-                for direction in ("s", "e", "w", "n"):
-                    if try_step(ant_loc, direction):
-                        break
 
 
 if __name__ == "__main__":
@@ -233,6 +221,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Bodyguard())
+        Ants.run(Squatter())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
