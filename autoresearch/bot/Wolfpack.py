@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Flexitarian:
+class Wolfpack:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Flexitarian:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Flexitarian: the belt loosens as the army grows.
-        # Battling as Flexitarian. Nibbler habits, headings, memory,
-        # aggression, walk-off, and exploration match iteration 40.
-        # Food claims reach 8 + army size: concentrate while weak,
-        # harvest with numbers once the swarm can afford the walk.
+        # Pack hunter: nobody fights alone, nobody waits either.
+        # Battling as Wolfpack. Headings, memory, aggression,
+        # walk-off, food, and exploration match iteration 15. Ants
+        # gang the foe with the most friends near it; equal trades
+        # go when a buddy already committed to the same foe.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -40,13 +40,10 @@ class Flexitarian:
         for hloc in list(self.remembered_hills):
             if hloc in my_set:
                 self.remembered_hills.discard(hloc)
-        reach = 8 + len(ants_list)
         pairs: list[tuple[int, int, int]] = []
         for ai, ant_loc in enumerate(ants_list):
             for fi, food_loc in enumerate(foods):
-                d = ants.distance(ant_loc, food_loc)
-                if d <= reach:
-                    pairs.append((d, ai, fi))
+                pairs.append((ants.distance(ant_loc, food_loc), ai, fi))
         pairs.sort()
         target: dict[int, tuple[int, int]] = {}
         claimed_food: set[int] = set()
@@ -100,7 +97,11 @@ class Flexitarian:
             dc = min(dc, cols - dc) if cols else dc
             return dr * dr + dc * dc
 
-        def is_safe(nloc: tuple[int, int], self_loc: tuple[int, int]) -> bool:
+        def is_safe(
+            nloc: tuple[int, int],
+            self_loc: tuple[int, int],
+            foe: tuple[int, int] | None = None,
+        ) -> bool:
             enemies = 0
             for e in enemy_locs:
                 if sq_dist(nloc, e) <= attack_r2:
@@ -121,7 +122,10 @@ class Flexitarian:
             if friends + 1 > enemies:
                 return True
             # Aggressive: 14+ friends near the fight accept equal trades.
-            return near >= 14 and friends + 1 >= enemies
+            # Pack: equal trades go when a buddy already committed.
+            return friends + 1 >= enemies and (
+                near >= 14 or (foe is not None and pack.get(foe, 0) >= 1)
+            )
 
         def first_step(
             start: tuple[int, int], goal: tuple[int, int], budget: int = 250
@@ -152,13 +156,17 @@ class Flexitarian:
                 node = parent[node][0]
             return parent[node][1]
 
-        def try_step(ant_loc: tuple[int, int], direction: str) -> bool:
+        def try_step(
+            ant_loc: tuple[int, int],
+            direction: str,
+            foe: tuple[int, int] | None = None,
+        ) -> bool:
             new_loc = ants.destination(ant_loc, direction)
             if (
                 new_loc not in destinations
                 and ants.passable(new_loc)
                 and ants.unoccupied(new_loc)
-                and is_safe(new_loc, ant_loc)
+                and is_safe(new_loc, ant_loc, foe)
             ):
                 ants.issue_order((ant_loc, direction))
                 destinations.add(new_loc)
@@ -167,6 +175,7 @@ class Flexitarian:
 
         destinations: set[tuple[int, int]] = set()
         held: list[tuple[int, int]] = []
+        pack: dict[tuple[int, int], int] = {}
         for ai, ant_loc in enumerate(ants_list):
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
             best = target.get(ai)
@@ -179,10 +188,38 @@ class Flexitarian:
                     # Assigned food is blocked; keep the claim so no other
                     # ant chases the same region this turn.
                     pass
-            if not moved and (threatened or hills):
-                # No food or blocked: guard home first, else hunt.
-                targets = threatened if threatened else hills
-                nearest = min(targets, key=lambda h: ants.distance(ant_loc, h))
+            if not moved and threatened:
+                # No food or blocked: guard home first.
+                nearest = min(threatened, key=lambda h: ants.distance(ant_loc, h))
+                step = first_step(ant_loc, nearest)
+                if step is not None and try_step(ant_loc, step):
+                    moved = True
+            if not moved and enemy_locs:
+                # Pack hunter: gang the foe with the most friends near
+                # it inside 12; buddies committed this turn join equal
+                # trades through the safety filter.
+                prey = None
+                prey_key = (-1, 0)
+                for e in enemy_locs:
+                    d = ants.distance(ant_loc, e)
+                    if d > 12:
+                        continue
+                    buds = sum(
+                        1
+                        for f in ants_list
+                        if f != ant_loc and ants.distance(f, e) <= 10
+                    )
+                    if (buds, -d) > prey_key:
+                        prey_key = (buds, -d)
+                        prey = e
+                if prey is not None:
+                    step = first_step(ant_loc, prey)
+                    if step is not None and try_step(ant_loc, step, prey):
+                        moved = True
+                        pack[prey] = pack.get(prey, 0) + 1
+            if not moved and hills:
+                # No fight: hunt remembered hills.
+                nearest = min(hills, key=lambda h: ants.distance(ant_loc, h))
                 step = first_step(ant_loc, nearest)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
@@ -231,6 +268,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Flexitarian())
+        Ants.run(Wolfpack())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
