@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Intern:
+class Marshal:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Intern:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Intern: follow the employed.
-        # Battling as Intern. Reunion shadowing, headings, memory,
-        # aggression, walk-off, food, and hills match iteration 55.
-        # Fallback ants step toward the nearest food-claim holder,
-        # not the nearest idler; exploring only finds the work.
+        # Marshal: danger moves first.
+        # Battling as Marshal. Headings, memory, aggression,
+        # walk-off, food, hills, and exploration match iteration 15.
+        # Movers sort by nearest-enemy distance, closest first, so
+        # ants in danger get first pick of contested destinations.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -164,7 +164,15 @@ class Intern:
 
         destinations: set[tuple[int, int]] = set()
         held: list[tuple[int, int]] = []
-        for ai, ant_loc in enumerate(ants_list):
+        danger_order = sorted(
+            range(len(ants_list)),
+            key=lambda i: min(
+                (ants.distance(ants_list[i], e) for e in enemy_locs),
+                default=1 << 30,
+            ),
+        )
+        for ai in danger_order:
+            ant_loc = ants_list[ai]
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
             best = target.get(ai)
             moved = False
@@ -183,23 +191,8 @@ class Intern:
                 step = first_step(ant_loc, nearest)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
-            if not moved and (hills or foods):
-                # Intern: shadow the nearest employed ant.
-                bud = None
-                bud_d = 1 << 30
-                for bi, f in enumerate(ants_list):
-                    if f == ant_loc or bi not in target:
-                        continue
-                    d = ants.distance(ant_loc, f)
-                    if d < bud_d:
-                        bud_d = d
-                        bud = f
-                if bud is not None:
-                    step = first_step(ant_loc, bud)
-                    if step is not None and try_step(ant_loc, step):
-                        moved = True
             if not moved:
-                # No huddle: explore least-visited squares first.
+                # No hill move: explore least-visited squares first.
                 dirs = sorted(
                     ("n", "e", "s", "w"),
                     key=lambda d: self.visits.get(ants.destination(ant_loc, d), 0),
@@ -243,6 +236,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Intern())
+        Ants.run(Marshal())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
