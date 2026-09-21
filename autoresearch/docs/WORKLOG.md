@@ -490,3 +490,15 @@ Use this format.
 - what changed: Battling as Locavore in Locavore.bot + Locavore.py; food pairs claim only within 15 steps, distant food waits.
 - what you learned: Locavores went 4-1 losing a duel to Sentry, won a 7p over Bookmaker and the militia family, and took 4/8 behind Boone and Pilgrim; concentration works in crowds but cedes too much elsewhere, so lb reached 41.12 against 52.15.
 - next: Nibbler — tighten the radius to 10.
+
+## 40 — nibblers eat within 10 steps (2026-09-21)
+- commit: 9786ff7
+- start: 7d05034 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 36.76, sigma 3.66, lb 25.77
+- champion lb: 52.15
+- verdict: discard (bold 2 of 3)
+- games: 4-1, FFA ranks 4p:3 6p:1 10p:6
+- what changed: Battling as Nibbler in Nibbler.bot + Nibbler.py; the forage radius tightens from 15 to 10.
+- what you learned: Nibblers went 4-1 losing another duel to Sentry, won a weak 6p, but finished 3/4 and 6/10 in the militia fields; tighter starves, so lb fell from 52.15 to 25.77.
+- next: Flexitarian — radius grows with the army.

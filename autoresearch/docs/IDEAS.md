@@ -74,3 +74,4 @@ row. Leave the old row as it was.
 | dropped | Volunteers: duty drafts from spares only. |
 | dropped | Sentry: 2 volunteers per hill. |
 | trying | Locavores: food claims within 15. |
+| trying | Nibblers: radius tightens to 10. |
