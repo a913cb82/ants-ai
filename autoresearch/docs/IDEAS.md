@@ -130,3 +130,4 @@ row. Leave the old row as it was.
 | dropped | Trawl: fearless Dragnet. |
 | dropped | Fairweather: wall ahead. |
 | dropped | Foulweather: wall behind. |
+| trying | Redoubt: 2 guards per hill. |

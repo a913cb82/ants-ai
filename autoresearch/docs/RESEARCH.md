@@ -105,6 +105,12 @@ Use this format.
 - evidence: Fresh-spawn mission target is a random border tile, otherwise the closest; paths recalculated with A*; interrupted ants discard missions; targets re-searched every turn when time allows, at least every 10 turns; areas come from simultaneous BFS (20-step) with borders where areas meet.
 - idea: Frontier missions for idle ants only (food/hill paths untouched); frontier equals unseen neighbors of seen squares, no full-map areas needed.
 
+## Redoubt: two guards per hill (2026-09-21)
+- source: guard-branch audit at iter 95 (unbounded pile-on since iter 4)
+- claim: The third guard on a hill is a wasted hunter.
+- evidence: Every foodless ant marches on the nearest threatened hill; over-defense starves pressure while one razer ties down five ants.
+- idea: Redoubt — max 2 guards per threatened hill per turn, the rest hunt.
+
 ## Trawl: Dragnet grows teeth (2026-09-21)
 - source: Bulwark 6329ae1 wounds (both FFA 2nds behind Dragnet 35daee3)
 - claim: Pack-screening plus fearless-ahead hunting beats either alone.

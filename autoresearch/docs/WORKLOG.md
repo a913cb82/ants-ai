@@ -1162,3 +1162,15 @@ Use this format.
 - what changed: Battling as Foulweather in Foulweather.bot + Foulweather.py; wall behind, hill-guard ahead.
 - what you learned: Foulweathers went 3-2, won the 4p, took 2/6, then finished 9/10; screening while losing donates, hills fall, so lb reached 20.71 against 52.15.
 - next: BOLD — new line, research first.
+
+## 96 — redoubt caps guards at two (2026-09-21)
+- commit: d61c0dc
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 33.10, sigma 3.49, lb 22.62
+- champion lb: 52.15
+- verdict: discard (bold 1 of 3)
+- games: 3-2, FFA ranks 5p:2 7p:2 8p:7
+- what changed: Battling as Redoubt in Redoubt.bot + Redoubt.py; max 2 guards per hill, rest hunt.
+- what you learned: Redoubts went 3-2, took 2/5 and 2/7, then finished 7/8; quotas thin defense fatally, freed hunters do not compensate, so lb reached 22.62 against 52.15.
+- next: Storm — full-fearless hunt on the wall.
