@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Dragnet:
+class Onslaught:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,11 +27,11 @@ class Dragnet:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Dragnet: packs dragged away, loners die on the hill.
-        # Battling as Dragnet. Sieve structure, headings, memory,
-        # aggression, walk-off, food, hills, and exploration match
-        # iteration 85. Two or more enemies near the hill get
-        # intercepted; a lone razer meets the hill guard.
+        # Onslaught: fearless hunt meets interception.
+        # Battling as Onslaught. Closer hunting, Screen defense,
+        # aggression, walk-off, food, and exploration match iteration
+        # 76. Hunt always; ahead on hills, hunters skip the safety
+        # filter. Closeouts need teeth, not patience.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -149,13 +149,15 @@ class Dragnet:
                 node = parent[node][0]
             return parent[node][1]
 
-        def try_step(ant_loc: tuple[int, int], direction: str) -> bool:
+        def try_step(
+            ant_loc: tuple[int, int], direction: str, safe: bool = True
+        ) -> bool:
             new_loc = ants.destination(ant_loc, direction)
             if (
                 new_loc not in destinations
                 and ants.passable(new_loc)
                 and ants.unoccupied(new_loc)
-                and is_safe(new_loc, ant_loc)
+                and (not safe or is_safe(new_loc, ant_loc))
             ):
                 ants.issue_order((ant_loc, direction))
                 destinations.add(new_loc)
@@ -177,22 +179,23 @@ class Dragnet:
                     # ant chases the same region this turn.
                     pass
             if not moved and threatened:
-                # No food or blocked: packs get dragged away from the
-                # hill; a lone razer meets the guard on it.
+                # No food or blocked: screen the razer off the hill.
                 nearest = min(threatened, key=lambda h: ants.distance(ant_loc, h))
-                pack = [e for e in enemy_locs if ants.distance(nearest, e) <= 16]
-                if len(pack) >= 2:
-                    dest = min(pack, key=lambda e: ants.distance(nearest, e))
-                else:
-                    dest = nearest
-                step = first_step(ant_loc, dest)
+                screen = min(
+                    enemy_locs,
+                    key=lambda e: ants.distance(nearest, e),
+                    default=nearest,
+                )
+                step = first_step(ant_loc, screen)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved and hills:
-                # Else hunt the nearest remembered hill.
+                # Hunt always; fearless when ahead on hills.
                 nearest = min(hills, key=lambda h: ants.distance(ant_loc, h))
                 step = first_step(ant_loc, nearest)
-                if step is not None and try_step(ant_loc, step):
+                if step is not None and try_step(
+                    ant_loc, step, safe=len(my_hills) <= len(hills)
+                ):
                     moved = True
             if not moved:
                 # No hill move: explore least-visited squares first.
@@ -239,6 +242,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Dragnet())
+        Ants.run(Onslaught())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
