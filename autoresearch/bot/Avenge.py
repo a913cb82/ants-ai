@@ -7,12 +7,13 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class LoneWolf:
+class Avenge:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
         self.remembered_hills: set[tuple[int, int]] = set()
         self.prev_enemies: list[tuple[int, int]] = []
+        self.most_hills = 0
 
     # do_setup is run once at the start of the game
     # after the bot has received the game settings
@@ -22,13 +23,14 @@ class LoneWolf:
         self.visits = {}
         self.remembered_hills = set()
         self.prev_enemies = []
+        self.most_hills = 0
 
     # do turn is run once per turn
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # LoneWolf: fearless alone, safe in packs.
-        # Battling as LoneWolf. Escort structure, solo fearlessness,
+        # Avenge: total press when bleeding.
+        # Battling as Avenge. Bulwark wall, bleeding triggers press,
         # aggression, walk-off, food, and exploration match iteration
         # 76. Hunt always; ahead on hills, hunters skip the safety
         # filter. Closeouts need teeth, not patience.
@@ -196,18 +198,15 @@ class LoneWolf:
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved and hills:
-                # Hunt always; fearless ahead when alone.
-                buds = sum(
-                    1
-                    for f in ants_list
-                    if f != ant_loc and ants.distance(ant_loc, f) <= 10
-                )
+                # Hunt always; fearless ahead or when bleeding hills.
+                self.most_hills = max(self.most_hills, len(my_hills))
                 nearest = min(hills, key=lambda h: ants.distance(ant_loc, h))
                 step = first_step(ant_loc, nearest)
                 if step is not None and try_step(
                     ant_loc,
                     step,
-                    safe=len(my_hills) <= len(hills) or buds >= 3,
+                    safe=len(my_hills) <= len(hills)
+                    and len(my_hills) >= self.most_hills,
                 ):
                     moved = True
             if not moved:
@@ -255,6 +254,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(LoneWolf())
+        Ants.run(Avenge())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
