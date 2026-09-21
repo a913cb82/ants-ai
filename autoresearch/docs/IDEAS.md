@@ -145,5 +145,6 @@ row. Leave the old row as it was.
 | dropped | Harrier: fearless split. |
 | dropped | Majority: ant-count gate. |
 | dropped | Seine: ant-gated split. |
-| trying | Elastic: adaptive food + wall. |
-| trying | Draft: fighters first. |
+| dropped | Elastic: adaptive food + wall. |
+| dropped | Draft: fighters first. |
+| dropped | Serve: gatherers first. |

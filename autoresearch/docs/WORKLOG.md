@@ -1343,6 +1343,18 @@ Use this format.
 - what you learned: Drafts went 2-3 losing twice to Oracle-today, took 2/4, won the 6p, then finished 5/10; fighters-first leaves gatherers blocked, so lb reached 25.40 against 52.15.
 - next: Serve — gatherers move first.
 
+## 114 — serve moves gatherers first (2026-09-21)
+- commit: 479aa34
+- start: 6329ae1 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 22.51, sigma 3.51, lb 11.98
+- champion lb: 52.15
+- verdict: drop the elastic line (bold 3 of 3)
+- games: 4-1, FFA ranks 5p:3 7p:7 8p:5
+- what changed: Battling as Serve in Serve.bot + Serve.py; claimed ants move first.
+- what you learned: Serves went 4-1 losing to Harrier, took 3/5, finished 7/7, then finished 5/8; order axis reads engine 49.78, fighters 25.40, gatherers 11.98, default order is load-bearing, so lb fell to 11.98 against 52.15.
+- next: BOLD — new line, research first.
+
 ## 105 — ram targets centroid hill (2026-09-21)
 - commit: 9283521
 - start: 6329ae1 (bold line)
