@@ -33,3 +33,12 @@ One entry per iteration:
 - what changed: first FFA spread widened from 1.5 to 2.0 sigma.
 - what you learned: wins by 2.75 with seeds 1/3/4 improving (seed 1 down 11), but seed 2 regressed 8.8; the width optimum differs per seed, gradient still descends overall.
 - next: 2.5 bound to find the top of the gradient.
+
+## 3 — bound 2.5 then 0.5 (2026-10-03)
+- commit: c0d2e7b
+- score: mean 317.8334 over seeds 0-4 (286.6899, 380.7460, 367.9831, 246.7392, 307.0087)
+- champion mean: 316.7159 (c05a544)
+- verdict: discard
+- what changed: first FFA spread widened from 2.0 to 2.5 sigma.
+- what you learned: cost about 1.12 with seeds 1/2 regressing while seed 3 hit a round-best 246.74; width optimum sits between 2.0 and 2.5 and differs per seed.
+- next: interleaved bulk retest from the archive trawl.
