@@ -1705,3 +1705,9 @@ One entry per iteration:
 - Verdict: DISCARD. Shared yardstick fails: closer must personalize; seed-specific drift is the load, not noise.
 - Learned: librarian family closed (authority needs plumbing; cohort/survey dead as proxies).
 - Next: iter 184 known-good calibration game-2 (crypto S2).
+
+## Iter 184: calibration game-2 (crypto S2)
+- Score: sel 250.3945 vs champ 197.7410 (+52.65). All seeds regress.
+- Verdict: DISCARD. Bot-independent game-2 burns the re-aim window; calibration without targeting is noise.
+- Learned: every game must target the bot; bot-independence only works for the census skeleton.
+- Next: iter 185 scheduled re-widen 2.0 (control S1) + period review at 185.
