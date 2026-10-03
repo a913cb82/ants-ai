@@ -915,3 +915,12 @@ One entry per iteration:
 - verdict: fresh tie (rival by 0.13, 3 of 5 seeds); selection under the current closer favors 1.25 by 7.34. Incumbent holds on disagreement.
 - what you learned: game-2 1.25-1.5 is flat on fresh seeds; the 1.25 edge lives in selection sets.
 - next: iteration 95 micros or a new-mechanism hunt.
+
+## 95 — game-3 at 1.5 last ladder cell (2026-10-03)
+- commit: 0ef1ef6
+- score: mean 219.2739 over seeds 0-4 (178.0474, 237.9156, 371.1181, 126.9078, 182.3804)
+- champion mean: 216.0193 selection, 205.7881 pooled (fde75b9)
+- verdict: discard
+- what changed: third bulk 10p narrowed from 1.875 to 1.5 sigma.
+- what you learned: cost about 3.25 with seed 3 regressing hard; the game-3 ladder is complete (1.25/1.5/1.625 lose below, 1.9375/2.0/2.5 lose above).
+- next: opener 4.0625 micro or accept convergence.
