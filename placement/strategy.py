@@ -34,24 +34,13 @@ def _spread(
     dist = NormalDist(bot.mu, max(width * bot.sigma, 0.5))
     targets = [dist.inv_cdf((j + 1) / (k + 1)) for j in range(k)]
     pool = _established(ratings, k)
-    rest = [c for c in range(len(ratings)) if c not in pool]
     picked: list[int] = []
     used: set[int] = set()
-    limit = max(bot.sigma, 1.0)
     for t in targets:
         i = min(
             (c for c in pool if c not in used),
             key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c),
         )
-        if abs(ratings[i].mu - t) > limit:
-            free = [c for c in rest if c not in used]
-            if free:
-                j = min(
-                    free,
-                    key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c),
-                )
-                if abs(ratings[j].mu - t) < abs(ratings[i].mu - t):
-                    i = j
         used.add(i)
         picked.append(i)
     return picked
@@ -67,7 +56,7 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Exp (iter 35): duels first, sparsity-fallback spread FFAs.
+    # Champion (iter 25): duels first, 1.0-sigma FFA then 0.5-sigma FFA.
     if budget_left > 20:
         return [_closest(bot, ratings)]
     if budget_left > 10:

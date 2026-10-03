@@ -318,3 +318,12 @@ One entry per iteration:
 - what changed: 3 duels, wide 10p, 2 repositioning duels, narrow 10p.
 - what you learned: missed by 0.009 with seeds 0/3/4 level and 1/2 worse; 5 positioning duels total is what matters, split or upfront.
 - next: first-duel versus established median, or pool-service game.
+
+## 35 — sparsity fallback in spread (2026-10-03)
+- commit: 2e64e03
+- score: mean 16.2028 over seeds 0-4 (15.7610, 17.4979, 18.4609, 13.7258, 15.5682)
+- champion mean: 14.8370 (067b331)
+- verdict: discard
+- what changed: per threshold, took a closer unrated pool member when the nearest anchor sat farther than 1 sigma.
+- what you learned: cost about 1.37 with every seed regressing; unrated mus are unreliable thresholds even when nearer, so anchor reliability beats proximity.
+- next: first-duel versus established median, or pool-service game.
