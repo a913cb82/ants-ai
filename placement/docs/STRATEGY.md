@@ -18,16 +18,17 @@ falls as a bot plays more games.
 
 ## The top plan
 
-Iteration 34 holds the top. It scored 0.9930 on seeds 0 to 4. It
-scored 0.9932 on seeds 5 to 9. It scored 0.9935 on seeds 10 to 14.
-The mean over all 15 seeds is 0.9932.
+Iteration 43 holds the top. It scored 0.9932 on seeds 0 to 4. It
+scored 0.9939 on seeds 5 to 9. It scored 0.9939 on seeds 10 to 14.
+The mean over all 15 seeds is 0.9937.
 
 The plan has three parts:
 
 1. First game, 10 players: the 9 opponents sit at evenly spaced ranks
    of the older bots. Crowded ranks get more opponents.
-2. Second game, 6 players: the 5 opponents sit near the bot. All 5
-   are trusted rulers.
+2. Second game, 6 players: the 5 opponents split across three groups.
+   Below the bot, near the bot, above the bot. Crowded groups get
+   more opponents. All 5 are trusted rulers.
 3. Last 7 games, 2 players each: each opponent is the bot that teaches
    the most. Teaching power means a close score plus high uncertainty.
 
