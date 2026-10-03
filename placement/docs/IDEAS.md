@@ -62,7 +62,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Game-3 at 1.625: bisect 1.5 and 1.75. |
 | dropped | Game-2 at 1.375: re-check from above. |
 | dropped | Joint game-2+3 at 1.375/1.625: diagonal interaction (bold 13). |
-| trying | Joint game-2+3 at 1.125/1.875: steeper valley. |
+| dropped | Joint game-2+3 at 1.125/1.875: steeper valley. |
 | dropped | Quartile anchors retest (cleaner thresholds for hard seeds). |
 | dropped | 3p opening: 2x3p closest-pair instead of 3x2p (same 6 slots). |
 | dropped | 4p mid game: bot plus above, below, closest replaces bracket pair. |

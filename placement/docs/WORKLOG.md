@@ -753,3 +753,12 @@ One entry per iteration:
 - what changed: games 2 and 3 moved together to 1.375/1.625 sigma.
 - what you learned: won selection by 4.67 but lost held-out by 7.25 with seeds 6/7 collapsing; no interaction, singles already price the joint.
 - next: opposite diagonal (1.125/1.875) or opener micro under confirmed shape.
+
+## 80 — joint 1.125 1.875 steeper valley (2026-10-03)
+- commit: e7dd7e3
+- score: mean 220.0122 over seeds 0-4 (177.6236, 261.4079, 364.0918, 113.5016, 183.4359)
+- champion mean: 217.5528 selection, 207.6291 pooled (f8ba828)
+- verdict: discard
+- what changed: games 2 and 3 moved apart to 1.125/1.875 sigma.
+- what you learned: cost about 2.46 with seed 1 regressing hard; both diagonals dead and the valley stands at 1.25/1.75.
+- next: judge bold 13; opener micro under confirmed shape.
