@@ -147,3 +147,9 @@
 - Score: corr 0.9871 (-0.003).
 - Verdict: DISCARD. Bold 7 judged: refuted. Mid re-positioning wastes slots; the refine wants the post-census posterior directly.
 - Misses: 6.
+
+## Iter 24: likely-ruler hard-50 refine
+- Census + 6p at 1.0 from 50 lowest-sigma of last-400 + 7 duels.
+- Score: corr 0.9894 (-0.0007, 4/5 regress).
+- Verdict: DISCARD. Tertile breadth beats the hard screen; marginal rulers still teach.
+- Misses: 7.
