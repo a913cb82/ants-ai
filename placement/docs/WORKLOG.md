@@ -1791,3 +1791,9 @@ One entry per iteration:
 - Verdict: DISCARD per overturn rule (4th fresh veto: 153/160/166/177/197 family pattern).
 - Learned: triple replication of iter-160 to 2 decimals on all 3 sets — clipping is a no-op at match level (175 mechanism confirmed). Undercut direction irreparably seed-fragile; control family closed.
 - Next: iter 198 mu-gated closer under census (archivist2 S4, closes routing).
+
+## Iter 198: mu-gated closer under census (archivist2 S4)
+- Score: sel 197.5742 vs champ 197.7410 (-0.17 tie); seeds 0/1/2 regress (+9.3/+2.6/+4.7), 3/4 improve.
+- Verdict: DISCARD. Tie keeps incumbent; gate merely redistributes error across seeds.
+- Learned: routing dead under BOTH regimes (0-for-6: 116/119/130/159/mu-gate/Kelly). Retire ALL gates with no further variants.
+- Next: iter 199 split closer under census (archivist2 S5, last size cell).
