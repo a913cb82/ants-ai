@@ -624,3 +624,13 @@ One entry per iteration:
 - what changed: third bulk 10p widened from 2.0 to 2.5 sigma.
 - what you learned: won selection by 1.87 but lost held-out by 0.13 (seed 8 regressed 4.1); game-3 wants 2.0 and the incumbent holds ties.
 - next: game-3 at 1.5 under the 1.5-second shape (narrow closer).
+
+## 67 — game-3 at 1.5 with confirmation (2026-10-03)
+- commit: e6e67e6
+- score: selection mean 218.2927 over seeds 0-4 (175.9532, 256.0168, 364.1397, 111.7475, 183.6062)
+- champion selection mean: 221.8680 (43b260f)
+- confirmation: 204.5965 over seeds 5-9 (153.9223, 249.9861, 239.3522, 214.6594, 165.0626) vs champion held-out 202.0228
+- verdict: discard
+- what changed: third bulk 10p narrowed from 2.0 to 1.5 sigma.
+- what you learned: won selection by 3.58 but lost held-out by 2.57 with only seed 8 improving; selection wins keep fitting selection-set quirks. Game-3 wants 2.0.
+- next: opener anchor re-check under 4.0/1.5/2.0, then an outside-schedule hunt.
