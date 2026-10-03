@@ -574,3 +574,7 @@
 - Champion 396b8f0 (nearest-mu decile snap) vs best tie-rival b896659 (iter-70 calibrated-snap: lowest-sigma within 0.15 mu).
 - Design: head-to-head on 15 FRESH seeds (15-29), paired per seed. Criterion pre-registered: adopt rival iff mean(rival) - mean(champ) > +0.0003 on seeds 15-29; any smaller margin (either direction) proves CONVERGED at 3x the selection ruler and the loop stops shaping.
 - Rationale (auditor): 50 misses, ties-everywhere at +-0.0001 vs seed SE ~0.0009; the only remaining prize is an effect in (0.0000, 0.0005], and the shootout prices exactly that band with fresh eyes.
+
+## Iter 94: shootout leg 1 (seeds 15-17)
+- Champion: 0.9912, 0.9946, 0.9942 (mean 0.99333). Rival: 0.9910, 0.9945, 0.9942 (mean 0.99323).
+- Rival trails by 0.0001. 12 seeds to go.
