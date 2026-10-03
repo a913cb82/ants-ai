@@ -4,64 +4,11 @@ import math
 from dataclasses import dataclass
 from statistics import NormalDist
 
-try:
-    from openskill.models import BradleyTerryFull as _BT
-
-    _MODEL = _BT()
-except ImportError:  # pragma: no cover
-    _MODEL = None
-
 
 @dataclass
 class Rating:
     mu: float
     sigma: float
-
-
-def _mk(mu: float, sigma: float):
-    return _MODEL.rating(mu=mu, sigma=sigma)
-
-
-def _draw(bot: Rating, field: list[int], ratings: list[Rating], c: int) -> float:
-    teams = [[_mk(bot.mu, bot.sigma)]]
-    sig = bot.sigma
-    for i in field + [c]:
-        teams.append([_mk(ratings[i].mu, ratings[i].sigma)])
-        sig += ratings[i].sigma
-    return _MODEL.predict_draw(teams) + 0.02 * sig
-
-
-def _near40(bot: Rating, ratings: list[Rating], skip: set[int]) -> list[int]:
-    order = sorted(
-        (c for c in range(len(ratings)) if c not in skip),
-        key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
-    )
-    return order[:40]
-
-
-def _info_duel(bot: Rating, ratings: list[Rating]) -> list[int]:
-    """Old-exam duel: argmax predict_draw + 0.02 sigma, deterministic."""
-    cands = _near40(bot, ratings, set())
-    if not cands:
-        return [_closest(bot, ratings)]
-    return [max(cands, key=lambda c: (_draw(bot, [], ratings, c), c))]
-
-
-def _info_ffa(bot: Rating, ratings: list[Rating], n: int) -> list[int]:
-    """Old-exam FFA: seed bot, greedy info picks, deterministic."""
-    cands = _near40(bot, ratings, set())
-    field: list[int] = []
-    while len(field) < n and cands:
-        i = max(cands, key=lambda c: (_draw(bot, field, ratings, c), c))
-        field.append(i)
-        cands.remove(i)
-    if len(field) < n:
-        rest = sorted(
-            (c for c in range(len(ratings)) if c not in set(field)),
-            key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
-        )
-        field += rest[: n - len(field)]
-    return field
 
 
 def _established(ratings: list[Rating], k: int, exclude: int = 0) -> list[int]:
@@ -346,13 +293,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 10 (corr): full old-exam port, 5 info duels + 4/6/10 propose FFAs.
+    # Bold 3 (corr): MAE-champion verbatim revival, 5 closest duels + 1.0/0.5.
     if budget_left > 20:
-        return _info_duel(bot, ratings)
-    if budget_left > 16:
-        n = min(3, budget_left - 1, len(ratings))
-    elif budget_left > 10:
-        n = min(5, budget_left - 1, len(ratings))
-    else:
+        return [_closest(bot, ratings)]
+    if budget_left > 10:
         n = min(9, budget_left - 1, len(ratings))
-    return _info_ffa(bot, ratings, n)
+        return _spread(bot, ratings, n, 1.0)
+    n = min(9, budget_left - 1, len(ratings))
+    return _spread(bot, ratings, n, 0.5)
