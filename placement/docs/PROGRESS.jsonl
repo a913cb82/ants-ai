@@ -91,3 +91,4 @@
 {"date": "2026-10-04", "commit": "iter91", "corr": 0.993, "seeds": [0.9935, 0.992, 0.9899, 0.995, 0.9948], "champion": "396b8f0", "note": "sqrt quota ties; exponent free"}
 {"date": "2026-10-04", "commit": "iter92", "corr": 0.993, "seeds": [0.9931, 0.9914, 0.9902, 0.9953, 0.9949], "champion": "396b8f0", "note": "mass-blind -0.0002; mass quota real"}
 {"date": "2026-10-04", "commit": "iter93", "corr": 0.9924, "seeds": [0.9932, 0.9913, 0.9884, 0.9945, 0.9947], "champion": "396b8f0", "note": "calibrated tail -0.0008; info prices quality already"}
+{"date": "2026-10-04", "commit": "iter98", "corr": 0.9925, "seeds": [0.9945, 0.9924, 0.9963], "champion": "396b8f0", "note": "SHOOTOUT final: rival +0.00007 over seeds 15-29, bar missed; CONVERGED proven"}

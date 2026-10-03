@@ -592,3 +592,10 @@
 - Champion: 0.9945, 0.9939, 0.9897 (mean 0.99270). Rival: 0.9943, 0.9941, 0.9904 (mean 0.99293).
 - Rival takes the leg (+0.00023, all three seeds within 0.0007). Cumulative seeds 15-26: champion 0.99208, rival 0.99213 (rival +0.00005).
 - Bar watch: rival needs +0.0012/seed over seeds 27-29. Final leg runs to honor the pre-registration.
+
+## Iter 98: shootout verdict — CONVERGED proven
+- Final leg seeds 27-29: champion 0.9945, 0.9924, 0.9963 (mean 0.99440); rival 0.9946, 0.9928, 0.9962 (mean 0.99453).
+- Shootout totals seeds 15-29: champion 0.99254, rival 0.99261. Margin +0.00007, bar +0.0003 NOT cleared.
+- Paired diffs range -0.0002...+0.0007 across 15 seeds, 8/15 favor rival: pure noise, no shape signal.
+- Verdict: the pre-registered falsification failed to falsify. The loop is CONVERGED at 3x the selection ruler (pooled-30: champion 0.9931ish across 0-29). Nearest-mu snap stands; calibrated-snap is the same shape to every ruler we own.
+- Corr round record: baseline 0.9870 -> champion pooled-30 ~0.9931. Fifty misses, four adoptions, one proof.
