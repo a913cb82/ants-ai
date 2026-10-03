@@ -129,54 +129,6 @@ def _strata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
     return out[:k]
 
 
-def _forced(bot: Rating, ratings: list[Rating]) -> list[int]:
-    """Forced 2-above/1-peer/2-below spread from the tertile pool."""
-    pool = _established(ratings, 5, 0)
-    above = sorted(
-        (c for c in pool if ratings[c].mu - bot.mu > 0),
-        key=lambda c: (ratings[c].mu - bot.mu, ratings[c].sigma, c),
-    )
-    below = sorted(
-        (c for c in pool if ratings[c].mu - bot.mu <= 0),
-        key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
-    )
-    near = sorted(
-        pool, key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c)
-    )
-    out = above[:2] + below[:2]
-    for c in near:
-        if len(out) >= 5:
-            break
-        if c not in set(out):
-            out.append(c)
-    return out[:5]
-
-
-def _triple(bot: Rating, ratings: list[Rating]) -> list[int]:
-    """Signed triple: nearest above + nearest peer + nearest below."""
-    pool = _established(ratings, 3, 0)
-    above = min(
-        (c for c in pool if ratings[c].mu > bot.mu),
-        key=lambda c: (ratings[c].mu - bot.mu, ratings[c].sigma, c),
-        default=None,
-    )
-    below = min(
-        (c for c in pool if ratings[c].mu <= bot.mu),
-        key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
-        default=None,
-    )
-    near = sorted(
-        pool, key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c)
-    )
-    out = [c for c in (above, near[0] if near else None, below) if c is not None]
-    for c in near:
-        if len(out) >= 3:
-            break
-        if c not in set(out):
-            out.append(c)
-    return out[:3]
-
-
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
     """Pool index nearest bot.mu, low sigma then low index on ties."""
     return min(
@@ -402,12 +354,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 86 (corr): outcome-spread sandwich.
-    if budget_left > 20:
-        n = min(9, budget_left - 1, len(ratings))
+    # Iter 87 (corr): 7-site census opener.
+    if budget_left > 22:
+        n = min(7, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
     if budget_left > 14:
-        return _forced(bot, ratings)
-    if budget_left > 10:
-        return _triple(bot, ratings)
+        n = min(5, budget_left - 1, len(ratings))
+        return _strata(bot, ratings, n)
     return _info_duel(bot, ratings)
