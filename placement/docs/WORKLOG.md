@@ -479,3 +479,12 @@ One entry per iteration:
 - what changed: second bulk 10p widened from 2.0 to 2.5 under the 4.0 opener.
 - what you learned: cost about 10.19 with every seed regressing; the second bulk wants 2.0 under mixed anchors too.
 - next: third-10p 1.5 under mixed anchors, then docket triage.
+
+## 52 — widths 4.0 2.0 1.5 mixed anchors (2026-10-03)
+- commit: d64947b
+- score: mean 224.3975 over seeds 0-4 (183.2662, 271.7627, 357.3339, 117.7020, 191.9227)
+- champion mean: 222.4811 (0d52b79)
+- verdict: discard
+- what changed: third bulk 10p narrowed from 2.0 to 1.5 sigma.
+- what you learned: cost about 1.92 with seed 2 regressing 12.5 while seed 0 improved; the third bulk wants 2.0, completing the width grid under mixed anchors.
+- next: docket triage, then a fresh probe for the remaining error.
