@@ -10,9 +10,9 @@ class Rating:
     sigma: float
 
 
-def _established(ratings: list[Rating], k: int) -> list[int]:
-    """Pool indices in the low-sigma tertile, or the full pool if too few."""
-    cutoff = sorted(r.sigma for r in ratings)[len(ratings) // 3]
+def _established(ratings: list[Rating], k: int, div: int = 3) -> list[int]:
+    """Pool indices in the low-sigma 1/div slice, or full pool if too few."""
+    cutoff = sorted(r.sigma for r in ratings)[len(ratings) // div]
     pool = [c for c in range(len(ratings)) if ratings[c].sigma <= cutoff]
     if len(pool) < k:
         pool = list(range(len(ratings)))
@@ -33,11 +33,12 @@ def _spread(
     k: int,
     width: float = 1.0,
     anchors: bool = True,
+    div: int = 3,
 ) -> list[int]:
     """k distinct opponents nearest quantiles of N(mu, w*sigma)."""
     dist = NormalDist(bot.mu, max(width * bot.sigma, 0.5))
     targets = [dist.inv_cdf((j + 1) / (k + 1)) for j in range(k)]
-    pool = _established(ratings, k) if anchors else list(range(len(ratings)))
+    pool = _established(ratings, k, div) if anchors else list(range(len(ratings)))
     picked: list[int] = []
     used: set[int] = set()
     for t in targets:
@@ -60,9 +61,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Champion (iter 65, MSE): widths 4.0/1.5/2.0.
+    # Exp (iter 73, MSE): half-pool anchors games 2+3 (bold 12).
     if budget_left > 20:
         return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 4.0, False)
     if budget_left > 10:
-        return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.5)
-    return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.0)
+        return _spread(
+            bot, ratings, min(9, budget_left - 1, len(ratings)), 1.5, True, 2
+        )
+    return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.0, True, 2)
