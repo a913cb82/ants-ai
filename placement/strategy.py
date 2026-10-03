@@ -274,29 +274,15 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     if not ratings or budget_left < 2:
         return []
     # Champion (iter 133, MSE): census opener, recent-tertile 1.25/1.875.
-    if budget_left > 20:
-        return _census(ratings, min(9, budget_left - 1, len(ratings)))
-    if budget_left > 10:
+    # Iter 192 (E1 risk-parity): 8p skeleton (7 sites) + 10 + 10 + duel.
+    if budget_left > 22:
+        return _census(ratings, min(7, budget_left - 1, len(ratings)))
+    if budget_left > 12:
         n = min(9, budget_left - 1, len(ratings))
-        return _spread(
-            bot,
-            ratings,
-            n,
-            1.25,
-            True,
-            False,
-            False,
-            False,
-            False,
-            False,
-            False,
-            False,
-            False,
-            False,
-            -1,
-            False,
-            False,
-            True,
-        )
-    n = min(9, budget_left - 1, len(ratings))
-    return _spread(bot, ratings, n, 1.875)
+        return _spread(bot, ratings, n, 1.25)
+    if budget_left > 2:
+        n = min(9, budget_left - 1, len(ratings))
+        return _spread(bot, ratings, n, 1.875)
+    pool = _established(ratings, 1)
+    i = min(pool, key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c))
+    return [i]
