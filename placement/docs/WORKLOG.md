@@ -515,3 +515,12 @@ One entry per iteration:
 - what changed: unfiltered opener widened from 4.0 to 4.25 sigma.
 - what you learned: wins by 0.90 with seeds 0/2/4 improving while seeds 1/3 regressed slightly; gradient top is flattening near the seed-generalization floor.
 - next: opener at 4.375 to bisect the top.
+
+## 56 — full-pool opener at 4.375 (2026-10-03)
+- commit: 569703d
+- score: mean 226.7590 over seeds 0-4 (196.4257, 274.2454, 354.6921, 115.1684, 193.2632)
+- champion mean: 221.5778 (9b38f80)
+- verdict: discard
+- what changed: unfiltered opener widened from 4.25 to 4.375 sigma.
+- what you learned: cost about 5.18 with seed 2 regressing 15 while seed 3 improved to 115.17; the top sits at 4.25, overshoot clips edges. Bold 8 judged refuted (iter 53).
+- next: game-2 width micro-probe at 2.25, then accept the shape.
