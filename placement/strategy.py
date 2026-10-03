@@ -181,6 +181,24 @@ def _strata(
     return out[:k]
 
 
+def _bounty(bot: Rating, ratings: list[Rating]) -> list[int]:
+    """Max-sigma ruler in the peer band over the last-400 window."""
+    n = len(ratings)
+    lo = max(0, n - 400)
+    band = max(bot.sigma, 0.5)
+    elig = [c for c in range(lo, n) if abs(ratings[c].mu - bot.mu) <= band] or list(
+        range(lo, n)
+    )
+    if not elig:
+        return []
+    return [
+        max(
+            elig,
+            key=lambda c: (ratings[c].sigma, -abs(ratings[c].mu - bot.mu), -c),
+        )
+    ]
+
+
 def _credpin(bot: Rating, ratings: list[Rating]) -> list[int]:
     """Lowest sigma among 10 nearest rulers (credible pin)."""
     order = sorted(
@@ -419,13 +437,13 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 118 (camp D3): 5 info duels + 2 closest closers.
+    # Iter 119 (camp D4): 6 info duels + bounty closer.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
         return _strata(bot, ratings, n)
-    if budget_left > 4:
+    if budget_left > 2:
         return _info_duel(bot, ratings, 0, 40)
-    return [_closest(bot, ratings)]
+    return _bounty(bot, ratings)
