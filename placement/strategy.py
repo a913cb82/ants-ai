@@ -354,8 +354,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Bold 13 (corr): quantile skeleton + 10 info duels, no refine.
-    if budget_left > 20:
-        n = min(9, budget_left - 1, len(ratings))
+    # Iter 52 (corr): slim 7-site skeleton + 5-strata + 8 duels.
+    if budget_left > 22:
+        n = min(7, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
+    if budget_left > 16:
+        n = min(5, budget_left - 1, len(ratings))
+        return _strata(bot, ratings, n)
     return _info_duel(bot, ratings)
