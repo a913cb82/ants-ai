@@ -1604,3 +1604,12 @@ One entry per iteration:
 - what changed: census opener, tertile 4.0 game-2, 1.5 closer.
 - what you learned: cost about 38.55 with zero of five improving; wide stays redundant with settled rulers too.
 - next: judge bold 29 after 171; double-tap under census.
+
+## 169 — double-tap census (2026-10-03)
+- commit: c103203
+- score: mean 256.4387 over seeds 0-4 (242.5555, 315.0962, 358.7818, 145.5765, 220.1833)
+- champion mean: 197.7410 selection, 187.4788 pooled (5faf0b0)
+- verdict: discard
+- what changed: census opener, full-pool 4.0 game-2, 1.25 closer.
+- what you learned: cost about 58.70 with every seed regressing; the second wide re-observes clones under census too.
+- next: judge bold 29 after 171; halo game-2 under census.
