@@ -1300,3 +1300,12 @@ One entry per iteration:
 - what changed: anchor window widened from last-400 to last-600.
 - what you learned: cost about 1.80 with two of five improving; 600 dilutes recency and 400 stands as the window.
 - next: census-site count for small pools (tuning 126e); then misses force bold 23.
+
+## 136 — game-2 1.5 census regime (2026-10-03)
+- commit: 7b7eac4
+- score: mean 199.7993 over seeds 0-4 (158.6921, 232.6396, 317.6425, 115.1030, 174.9193)
+- champion mean: 197.7410 selection, 187.4788 pooled (5faf0b0)
+- verdict: discard
+- what changed: game-2 widened from 1.25 to 1.5 under the census opener.
+- what you learned: cost about 2.06 with two of five improving; the rest optimum did not shift and 1.25 stands under census too.
+- next: closer re-resolution under census (tuning 133e); then misses force bold 23.

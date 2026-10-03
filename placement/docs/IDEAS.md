@@ -177,7 +177,7 @@ A refinement is a new row. Leave old rows as they were.
 | done | Recency-filtered tertile last-400 (epi D4; champion). |
 | dropped | Recency window 200 (tuning 133b; starves anchors). |
 | dropped | Recency window 600 (tuning 133c; dilutes recency). |
-| trying | Game-2 1.5 under census regime (tuning 133d). |
+| dropped | Game-2 1.5 under census regime (tuning 133d). |
 | open | Chase-combining repeat-wide 4.0/4.0/1.5 (info; diversity-combine before zoom). |
 | open | Double-tap opener 4.0/4.0/1.25 (adversary; second wide after recentering, full-pool G2 untested at 4.0). |
 | open | Split-middle 10+5+5+10 valley halves (info/poker; mid-schedule re-aim, halves sandwiched not late). |
