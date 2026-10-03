@@ -788,3 +788,12 @@ One entry per iteration:
 - verdict: rival wins fresh by 3.71 (4 of 5 seeds); but pooled-15 still favors champion 199.3272 vs 199.7266.
 - rule: overturn iff pooled and unbiased-fresh agree (as in the 4.0 correction); here they disagree, so the incumbent holds. Game-3 width 1.75-2.0 is an unresolved flat region.
 - next: hunt genuinely new mechanisms; width/anchor/size grids are priced.
+
+## 83 — tertile opener bold 14 (2026-10-03)
+- commit: 19de5fa
+- score: mean 231.2862 over seeds 0-4 (212.7246, 269.8169, 309.8821, 146.1475, 217.8597)
+- champion mean: 217.5528 selection, 207.6291 pooled (f8ba828)
+- verdict: discard
+- what changed: opener drew from low-sigma tertile instead of the full pool.
+- what you learned: cost about 13.73 with only seed 2 improving; the wild pool still binds tails and the anchor factorial holds under the confirmed shape.
+- next: game-2 full-pool under confirmed shape (last factorial flip).
