@@ -600,14 +600,17 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 131 (camp G1): 3-stage depth retest (6p + 4p strata + 5 duels).
+    # Iter 132 (camp G2): 4-stage micro-layer retest.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
-    if budget_left > 14:
-        n = min(5, budget_left - 1, len(ratings))
+    if budget_left > 16:
+        n = min(3, budget_left - 1, len(ratings))
         return _strata(bot, ratings, n)
-    if budget_left > 10:
+    if budget_left > 12:
+        n = min(3, budget_left - 1, len(ratings))
+        return _strata(bot, ratings, n)
+    if budget_left > 8:
         n = min(3, budget_left - 1, len(ratings))
         return _strata(bot, ratings, n)
     return _info_duel(bot, ratings, 0, 40, 0)
