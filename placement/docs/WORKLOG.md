@@ -1520,3 +1520,14 @@ One entry per iteration:
 - what changed: pools under 90 opened 1.5 tertile instead of census.
 - what you learned: cost about 10.23 with three of five improving but seed 0 annihilated plus 55; early census for small pools matters and tight-early poisons the foundation.
 - next: judge bold 27 after 160; undercut rest under census (retest).
+
+## 160 — undercut census retest (2026-10-03)
+- commit: a8629f6
+- score: selection mean 190.5645 (153.9065, 216.8040, 315.7089, 118.4350, 147.9681)
+- champion selection mean: 197.7410 (5faf0b0)
+- confirmation: 175.8423 over seeds 5-9 (140.6238, 194.3027, 232.4284, 165.1034, 146.7532) vs champion held-out 177.2165
+- fresh audit: 159.9654 over seeds 10-14 (101.3035, 177.1042, 115.6635, 154.2468, 251.5089) vs champion fresh 158.5081
+- verdict: discard
+- what changed: rest widths pushed to 0.75 then 2.75 sigma.
+- what you learned: selection won 7.18 and held-out won 1.37 but fresh lost 1.46 with seeds 7/10/11 regressing hard; pooled-15 wins 2.36 yet fresh vetoes. The exaggerated valley is seed-fragile. Bold 27 judged refuted (iter 157).
+- next: overcut rest under census (retest); then misses force bold 28.
