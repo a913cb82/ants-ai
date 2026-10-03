@@ -134,13 +134,13 @@ A refinement is a new row. Leave old rows as they were.
 | parked | Satellite lock-up: duels-only once settled (poker; needs sigma rule). |
 | parked | Shot-taking directional FFA for extremes (poker; one-sided refuted). |
 | dropped | Tail-chasing one-sided spread for tail bots (bold 2). |
-| open | Game-3 1.8125 with two-set judging (archivist; iter 91 lost 0.07 selection-only, rules demand held-out). |
-| open | Cross-bulk no-rematch valley (sports/bayes/epi/archivist consensus; disjoint ruler sets, zero slot cost). |
-| open | Flat-mid rest 1.5625/1.5625 (auctioneer; missing shape-matrix cell). |
-| open | Game-2 1.125 under 1.875 closer (archivist; iter 75 sel +6.62 priced under 2.0-closer only). |
-| open | Per-quantile mixed anchors: inner-5 tertile, outer-4 full-pool (auctioneer; hollow without amputating center). |
-| open | Opener 3.75 under valley rest (archivist; iter 62 pooled tie priced under 2.0/2.0 rest). |
-| open | Closer 2.5 under 1.25-second (archivist; iter 66 held-out -0.13, thinnest cell). |
+| dropped | Game-3 1.8125 with two-set judging (archivist; iter 91 lost 0.07 selection-only, rules demand held-out). [tested iters 101]. |
+| dropped | Cross-bulk no-rematch valley (sports/bayes/epi/archivist consensus; disjoint ruler sets, zero slot cost). [tested iters 102/151]. |
+| dropped | Flat-mid rest 1.5625/1.5625 (auctioneer; missing shape-matrix cell). [tested iters 103/155]. |
+| dropped | Game-2 1.125 under 1.875 closer (archivist; iter 75 sel +6.62 priced under 2.0-closer only). [duplicate of iter 80 (caught iter 104)]. |
+| dropped | Per-quantile mixed anchors: inner-5 tertile, outer-4 full-pool (auctioneer; hollow without amputating center). [tested iters 105/158]. |
+| dropped | Opener 3.75 under valley rest (archivist; iter 62 pooled tie priced under 2.0/2.0 rest). [tested iter 106]. |
+| dropped | Closer 2.5 under 1.25-second (archivist; iter 66 held-out -0.13, thinnest cell). [tested iter 107]. |
 | dropped | Game-3 1.8125 with two-set judging (archivist revival). |
 | dropped | Cross-bulk no-rematch valley (consensus structural). |
 | dropped | Flat-mid rest 1.5625/1.5625 (auctioneer shape cell). |
@@ -210,34 +210,34 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Edge-dense closer under census (retest; fresh vetoes). |
 | dropped | F1 anchor ladder census/half/tertile (duplicate of iter 150). |
 | dropped | Chase-combining under census (bold 29). |
-| open | Chase-combining repeat-wide 4.0/4.0/1.5 (info; diversity-combine before zoom). |
+| dropped | Chase-combining repeat-wide 4.0/4.0/1.5 (info; diversity-combine before zoom). [tested iters 108/168]. |
 | open | Double-tap opener 4.0/4.0/1.25 (adversary; second wide after recentering, full-pool G2 untested at 4.0). |
-| open | Split-middle 10+5+5+10 valley halves (info/poker; mid-schedule re-aim, halves sandwiched not late). |
-| open | Ratio upshift 1.5/2.25 rest (info; +20% power at fixed 2:3 shaping ratio). |
+| dropped | Split-middle 10+5+5+10 valley halves (info/poker; mid-schedule re-aim, halves sandwiched not late). [tested iters 114/154]. |
+| dropped | Ratio upshift 1.5/2.25 rest (info; +20% power at fixed 2:3 shaping ratio). [tested iters 115/156]. |
 | open | Game-2 halo mixture 5x1.25 + 4x2.5 (adversary; narrow core plus wide halo in one 10p). |
-| open | Game-3 mixture 5x1.25 + 4x2.5 model-averaged closer (bayes; straddle the flat). |
-| open | F1 Q2-half anchor ladder full/half/tertile (sports; interior anchor order untested). |
-| open | Stratified 3-3-3 closer relative to bot (sports/epi; forced below/peer/above balance). |
-| open | Tight early-position pool-gated opener (poker; pools <90 open 1.5 tertile, inverse of failed bolds). |
-| open | Closest-cluster ring closer (poker/epi; nine nearest tertile rulers, width limit test). |
-| open | Mu-gated closer 2.5/1.5 on |mu-25|>25 (poker; two-sided hero-state routing). |
-| open | Undercut 0.75/2.75 rest (race; exaggerated valley at unpriced widths). |
-| open | Overcut 3.0/1.0 rest (race; inverted valley at unpriced widths). |
+| dropped | Game-3 mixture 5x1.25 + 4x2.5 model-averaged closer (bayes; straddle the flat). [tested iters 113/153]. |
+| dropped | F1 Q2-half anchor ladder full/half/tertile (sports; interior anchor order untested). [duplicate of iter 150 (caught iter 167)]. |
+| dropped | Stratified 3-3-3 closer relative to bot (sports/epi; forced below/peer/above balance). [tested iters 111/152]. |
+| dropped | Tight early-position pool-gated opener (poker; pools <90 open 1.5 tertile, inverse of failed bolds). [tested iters 117/159]. |
+| dropped | Closest-cluster ring closer (poker/epi; nine nearest tertile rulers, width limit test). [tested iters 118/165]. |
+| dropped | Mu-gated closer 2.5/1.5 on |mu-25|>25 (poker; two-sided hero-state routing). [tested iter 119; routing dead]. |
+| dropped | Undercut 0.75/2.75 rest (race; exaggerated valley at unpriced widths). [tested iters 120/160]. |
+| dropped | Overcut 3.0/1.0 rest (race; inverted valley at unpriced widths). [tested iters 121/161]. |
 | open | Quintile game-2 0.875 + 1.0 closer (race; strictest rulers, below-ladder widths). |
-| open | Fixed absolute-site opener tracts (epi; expected kill, census not case-centered). |
+| dropped | Fixed absolute-site opener tracts (epi; expected kill, census not case-centered). [tested iter 126; superseded by census]. |
 | dropped | Recency-filtered tertile refine last-400 (epi; superseded by champion row). |
-| open | Edge-dense closer grid 0.05..0.95 (adversary; doubled edge pins, core untouched). |
-| open | Senior-tertile anchors exclude 50 most recent (adversary; quarantine confident-wrong rulers). |
-| open | Jittered-grid diagnostic one-uniform-jitter (bayes/epi; retire grid-phase on tie). |
-| open | Positional adaptive cluster |mu-median|>1sigma trigger (epi; full-pool wide rest on ~10-15%). |
-| open | Mark-recapture closer 4 recaptures + 5 fresh (epi/bayes; paired-quadrat game-3). |
-| open | DPP repulsion de-collision delta 1.0 (bayes; same targets, repair pass). |
-| open | HARQ sigma-gated closer 2.5/1.5 (info; redundancy only on NACK). |
-| open | Repechage positional rescue 2.5 full-pool closer (sports; |mu-median|>1sigma trigger). |
-| open | 8p-band sizes 8+8+8+6 (auctioneer; expected kill, prices refresh-vs-depth). |
-| open | Valley-repriced closing duel 10+10+8+2 (auctioneer; expected kill, closes duel book). |
-| open | Triage rapids 2+2+2+10+10+4 (epi; expected kill, prior-conditioning duels). |
-| open | NYSE close 2.25 tertile (auctioneer; wide re-open after narrow game-2). |
+| dropped | Edge-dense closer grid 0.05..0.95 (adversary; doubled edge pins, core untouched). [tested iters 123/166]. |
+| dropped | Senior-tertile anchors exclude 50 most recent (adversary; quarantine confident-wrong rulers). [tested iters 124/148]. |
+| dropped | Jittered-grid diagnostic one-uniform-jitter (bayes/epi; retire grid-phase on tie). [tested iter 125; grid-phase dead]. |
+| dropped | Positional adaptive cluster |mu-median|>1sigma trigger (epi; full-pool wide rest on ~10-15%). [tested iter 130; routing dead]. |
+| dropped | Mark-recapture closer 4 recaptures + 5 fresh (epi/bayes; paired-quadrat game-3). [tested iters 131/164]. |
+| dropped | DPP repulsion de-collision delta 1.0 (bayes; same targets, repair pass). [tested iters 132/163]. |
+| dropped | HARQ sigma-gated closer 2.5/1.5 (info; redundancy only on NACK). [tested iter 116; routing dead]. |
+| dropped | Repechage positional rescue 2.5 full-pool closer (sports; |mu-median|>1sigma trigger). [duplicate of iter 130]. |
+| dropped | 8p-band sizes 8+8+8+6 (auctioneer; expected kill, prices refresh-vs-depth). [tested iter 137; sizes dead]. |
+| dropped | Valley-repriced closing duel 10+10+8+2 (auctioneer; expected kill, closes duel book). [tested iter 140; duels dead]. |
+| dropped | Triage rapids 2+2+2+10+10+4 (epi; expected kill, prior-conditioning duels). [tested iter 141; duels dead]. |
+| dropped | NYSE close 2.25 tertile (auctioneer; wide re-open after narrow game-2). [tested iter 139]. |
 
 ## Bold lines
 
