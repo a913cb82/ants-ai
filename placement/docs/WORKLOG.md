@@ -309,3 +309,12 @@ One entry per iteration:
 - what changed: first late FFA at 0.5 sigma, second at 1.0 sigma.
 - what you learned: inverted order cost about 0.48 with seeds 1/3/4 regressing; bound-then-refine beats refine-then-bound, so the wide game must come first.
 - next: first-duel versus established median, or candidates-track alternates.
+
+## 34 — interleaved bulk 3d 10p 2d 10p (2026-10-03)
+- commit: 09ab49e
+- score: mean 14.8462 over seeds 0-4 (13.4802, 15.7403, 16.9839, 13.8977, 14.1287)
+- champion mean: 14.8370 (067b331)
+- verdict: discard
+- what changed: 3 duels, wide 10p, 2 repositioning duels, narrow 10p.
+- what you learned: missed by 0.009 with seeds 0/3/4 level and 1/2 worse; 5 positioning duels total is what matters, split or upfront.
+- next: first-duel versus established median, or pool-service game.
