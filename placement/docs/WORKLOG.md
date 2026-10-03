@@ -545,3 +545,9 @@
 - Score: corr 0.9933 (+0.0001, tie; one +0.0010 seed spike offset by regress elsewhere).
 - Verdict: DISCARD (tie keeps incumbent). Window ladder complete: 200 loses, 800 ties, 400 stands as cheapest correct. Last inherited-only constant now corr-priced.
 - Misses: 46.
+
+## Iter 90 (bold 40): re-census schedule
+- 10p quantile + 10p live-shifted quantile + 5 info duels.
+- Score: corr 0.9896 (-0.0036).
+- Verdict: DISCARD. Bold 40 judged: refuted hard. A re-aimed skeleton cannot substitute bot-centered strata personalization, and 5 duels starve the finish. Skeleton-refresh family closed schedule-wide.
+- Misses: 47.
