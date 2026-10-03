@@ -797,3 +797,12 @@ One entry per iteration:
 - what changed: opener drew from low-sigma tertile instead of the full pool.
 - what you learned: cost about 13.73 with only seed 2 improving; the wild pool still binds tails and the anchor factorial holds under the confirmed shape.
 - next: game-2 full-pool under confirmed shape (last factorial flip).
+
+## 84 — game-2 full-pool factorial flip (2026-10-03)
+- commit: 29f04b1
+- score: mean 227.3810 over seeds 0-4 (172.3783, 251.5764, 436.6887, 99.7779, 176.4835)
+- champion mean: 217.5528 selection, 207.6291 pooled (f8ba828)
+- verdict: discard
+- what changed: second 10p spread from the full pool instead of tertile anchors.
+- what you learned: cost about 9.83 with seed 2 annihilated plus 71; game-2 needs rulers and the factorial holds everywhere.
+- next: judge bold 14; then price the last micro (game-3 at 1.875).
