@@ -975,3 +975,13 @@ One entry per iteration:
 - pooled-20: 198.2581 (selection 216.0193, held-out 195.5568, fresh-10-14 178.6823, virgin 202.7739)
 - verdict: unbiased estimate sits inside the historical band; no correction indicated.
 - take stock at 100: baseline 323.15 to 198.26 pooled (−39%). All grids priced. Loop continues on micros.
+
+## 101 — game-3 1.8125 two-set judging (2026-10-03)
+- commit: a0fb27f
+- score: selection mean 216.0851, bit-identical to iter 91 (determinism revalidated)
+- champion selection mean: 216.0193 (fde75b9)
+- confirmation: 196.9430 over seeds 5-9 (145.3681, 229.0438, 233.5192, 213.8992, 162.8847) vs champion held-out 195.5568
+- verdict: discard
+- what changed: nothing new, iter 91 re-run with the held-out judging it never got.
+- what you learned: selection tie (+0.07) plus held-out loss (-1.39, seed 7 regresses 9); the flat floor stands under two-set judging.
+- next: cross-bulk no-rematch valley (consensus structural candidate).
