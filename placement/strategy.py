@@ -129,6 +129,28 @@ def _strata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
     return out[:k]
 
 
+def _calib(ratings: list[Rating], k: int) -> list[int]:
+    """Uniform-range sites snapped to recency-tertile rulers only."""
+    lo = min(r.mu for r in ratings)
+    hi = max(r.mu for r in ratings)
+    if hi - lo < 1e-9:
+        return list(range(min(k, len(ratings))))
+    sites = [lo + (hi - lo) * (j + 1) / (k + 1) for j in range(k)]
+    pool = _established(ratings, k, 0)
+    picked: list[int] = []
+    used: set[int] = set()
+    for t in sites:
+        cands = [c for c in pool if c not in used] or [
+            c for c in range(len(ratings)) if c not in used
+        ]
+        if not cands:
+            break
+        i = min(cands, key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c))
+        used.add(i)
+        picked.append(i)
+    return picked
+
+
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
     """Pool index nearest bot.mu, low sigma then low index on ties."""
     return min(
@@ -354,10 +376,10 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 47 (corr): bell-projection census under duel tail.
+    # Iter 48 (corr): calibration-anchored opener.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
-        return _census(ratings, n, mode="bell")
+        return _calib(ratings, n)
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
         return _strata(bot, ratings, n)
