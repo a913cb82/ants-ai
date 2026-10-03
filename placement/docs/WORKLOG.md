@@ -201,3 +201,12 @@ One entry per iteration:
 - what changed: bold line 2 test, 10 closest-mu duels then a single spread 10p on the last 10 slots.
 - what you learned: halving bulk cost about 2.55 mean error and the seed-2 gap widened to 20.65, so depth cannot replace the second bulk update; bold line 2 is refuted.
 - next: judge bold 2 after iter 23, meanwhile duel-opponent offsets or rematch breadth.
+
+## 22 — stricter tertile anchors (2026-10-03)
+- commit: d792747
+- score: mean 15.1426 over seeds 0-4 (14.0574, 16.9858, 16.4868, 13.2970, 14.8860)
+- champion mean: 15.1426 (d792747, new best; prior 15.8333 2d70af7)
+- verdict: keep (new champion)
+- what changed: FFA anchor pool tightened from the low-sigma half to the low-sigma tertile.
+- what you learned: cleaner thresholds gained about 0.69 mean error with seed 2 collapsing from 19.26 to 16.49; hard seeds were poisoned by mid-sigma opponents.
+- next: even stricter anchors (quartile), and judge bold 2 after iter 23.
