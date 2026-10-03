@@ -129,19 +129,23 @@ def _strata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
     return out[:k]
 
 
-def _heavy(ratings: list[Rating], k: int) -> list[int]:
-    """Shaped sites [12..88] of pool mu, full-pool snap."""
+def _calsnap(ratings: list[Rating], k: int, tol: float = 0.15) -> list[int]:
+    """Decile sites; lowest-sigma snap within tol, else nearest."""
     n = len(ratings)
     pool = sorted(r.mu for r in ratings)
-    pct = (0.12, 0.22, 0.32, 0.41, 0.50, 0.59, 0.68, 0.78, 0.88)[:k]
-    sites = [pool[min(int(n * f), n - 1)] for f in pct]
+    sites = [pool[min(int(n * (j + 1) / (k + 1)), n - 1)] for j in range(k)]
     picked: list[int] = []
     used: set[int] = set()
     for t in sites:
         cands = [c for c in range(n) if c not in used]
         if not cands:
             break
-        i = min(cands, key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c))
+        near = [c for c in cands if abs(ratings[c].mu - t) <= tol]
+        src = near or cands
+        if near:
+            i = min(src, key=lambda c: (ratings[c].sigma, abs(ratings[c].mu - t), c))
+        else:
+            i = min(src, key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c))
         used.add(i)
         picked.append(i)
     return picked
@@ -372,10 +376,10 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Bold 19 (corr): heavy-middle quantile opener.
+    # Iter 70 (corr): calibrated-snap deciles.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
-        return _heavy(ratings, n)
+        return _calsnap(ratings, n)
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
         return _strata(bot, ratings, n)
