@@ -22,6 +22,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Approach 1 pipeline retest (tightest seed spread under MAE). |
 | done | Twin-wide 10ps 2.0/2.0, no narrow refine (bold 1). |
 | dropped | Symmetric pairs recheck under MSE (0.5/0.5, 1.0/1.0). |
+| trying | Tail-skewed two-sided grid toward bot tail side (bold 7). |
 | dropped | Quartile anchors retest (cleaner thresholds for hard seeds). |
 | dropped | 3p opening: 2x3p closest-pair instead of 3x2p (same 6 slots). |
 | dropped | 4p mid game: bot plus above, below, closest replaces bracket pair. |
@@ -122,5 +123,11 @@ keep 3.0 after. Predicts early-bot tails improve without hurting
 late bots. Judge after iteration 41.
 Judged: refuted at iteration 39 (242.9232, seeds 0/1 regress hard);
 pool size misconditions width.
+
+Nineteen misses in a row (iters 23-41) force bold line 7 (2026-10-03):
+tail-skewed two-sided grid. Bold 2 failed binary (one side only);
+this keeps both-side coverage but shifts grid mass 0.05 toward the
+bot's tail side versus the anchor median. Predicts tails gain
+without the bound collapse. Judge after iteration 44.
 | done | Interleaved bulk retest (3d, wide 10p, 2d, narrow 10p): lost MAE by 0.009; mid re-positioning may cut tails. |
 | done | Bracket duels retest (closest 1-3, then above/below): deliberate tail insurance. |
