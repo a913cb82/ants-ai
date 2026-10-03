@@ -82,6 +82,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Opener 3.9375: bisect 3.875 and 4.0. |
 | dropped | Game-3 at 1.5: last ladder cell. |
 | dropped | Hollow opener under valley rest: division of labor (bold 17). |
+| trying | Edge-heavy opener grid: dense edges, sparse middle. |
 | dropped | Quartile anchors retest (cleaner thresholds for hard seeds). |
 | dropped | 3p opening: 2x3p closest-pair instead of 3x2p (same 6 slots). |
 | dropped | 4p mid game: bot plus above, below, closest replaces bracket pair. |
@@ -249,6 +250,8 @@ binds tails with 8 edges plus a center pin, narrow rest refines
 mids. Bold 8 failed this under twin-wide; the valley rest may
 complement it. Predicts tails bind and mids hold, or middle
 thresholds load-bearing again. Judge after iteration 97.
+Judged: refuted at iteration 96 (271.4244, every seed regressed);
+middle load-bearing under every rest shape.
 
 Three misses in a row (iters 89-91) force bold line 16 (2026-10-03):
 flat wide rest. Both rest games at 1.875: the rest may do one job
