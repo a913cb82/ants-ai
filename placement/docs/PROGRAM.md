@@ -24,10 +24,11 @@ It must be deterministic and fast (~10k calls per full run).
 
 ## Goal
 
-Minimize mean squared error `(mu minus mu_true)^2` over 1000 bots,
-averaged over seeds 0 to 4. Low wins. Champion is the lowest mean.
-Squared error weights tail bots heavily: extremes dominate, so
-stability across seeds beats typical-bot level.
+Maximize corr(recorded mu, mu_true) over 1000 bots, averaged over
+seeds 0 to 4. Higher wins. Champion is the highest mean correlation.
+Correlation grades orders, not levels: the loop keeps champions by
+comparison, so rank truth beats level truth. Doubt shuffles ranks
+even when estimates sit near truth.
 
 ## One iteration
 
@@ -42,8 +43,8 @@ stability across seeds beats typical-bot level.
    `for s in 0 1 2 3 4; do .venv/bin/python placement/evaluate.py --bots 1000 --seed $s; done`.
    Score is the mean of the 5 means. Report all 5.
 7. Append one line to `placement/docs/PROGRESS.jsonl`:
-   `date`, `commit`, `mean`, `champion` (best prior commit or null).
-   `mean` is the mean squared error. Never edit old lines.
+   `date`, `commit`, `corr`, `champion` (best prior commit or null).
+   `corr` is the mean correlation over seeds 0 to 4. Never edit old lines.
 8. Retag: `git tag -f champion/placement` on a new best, else on the
    best row's commit. Tags stay local. Keep every commit.
 9. Log one `WORKLOG.md` entry. Commit notes with

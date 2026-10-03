@@ -33,14 +33,13 @@ Do not use mu_true for selection.
 Select each next game after the last result.
 
 ## Error
-Measure error as (mu minus mu_true)^2.
-Measure it at the end of placement.
-Later games do not change the recorded error.
+Record mu at the end of placement.
+Later games do not change the recorded value.
 
 ## Evaluation
-Score the run as the sum of all 1000 errors.
+Score the run as corr(recorded mu, mu_true) across all 1000 bots.
 Repeat for 5 seeds.
-Report the mean score.
+Report the mean correlation. Higher wins.
 
 ## Running the agent
 Start your coding agent in this repo.

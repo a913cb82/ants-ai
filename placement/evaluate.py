@@ -6,6 +6,7 @@ import argparse
 import importlib
 import importlib.util
 import random
+import statistics
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -51,13 +52,13 @@ def load_strategy(spec: str) -> Select:
     return getattr(mod, func)
 
 
-def run(n_bots: int, seed: int, select: Select) -> tuple[float, float]:
-    """Add n_bots in order. Return (sum_error, mean_error)."""
+def run(n_bots: int, seed: int, select: Select) -> float:
+    """Add n_bots in order. Return corr(recorded mu, mu_true)."""
     rng = random.Random(seed)
     model = BradleyTerryFull()
     ratings: list[Rating] = []
     trues: list[float] = []
-    errors: list[float] = []
+    mus: list[float] = []
     for _ in range(n_bots):
         mu_true = rng.uniform(TRUE_LOW, TRUE_HIGH)
         bot = Rating(PRIOR_MU, PRIOR_SIGMA)
@@ -81,11 +82,15 @@ def run(n_bots: int, seed: int, select: Select) -> tuple[float, float]:
             for j, i in enumerate(picks, start=1):
                 ratings[i] = Rating(new_teams[j][0].mu, new_teams[j][0].sigma)
             slots += len(field)
-        errors.append((bot.mu - mu_true) ** 2)
         ratings.append(bot)
         trues.append(mu_true)
-    total = sum(errors)
-    return total, total / n_bots if n_bots else 0.0
+        mus.append(bot.mu)
+    if len(mus) < 2:
+        return 0.0
+    try:
+        return statistics.correlation(mus, trues)
+    except statistics.StatisticsError:
+        return 0.0
 
 
 def main() -> None:
@@ -96,11 +101,8 @@ def main() -> None:
     parser.add_argument("--strategy", default=default)
     args = parser.parse_args()
     select = load_strategy(args.strategy)
-    total, mean = run(args.bots, args.seed, select)
-    print(
-        f"bots={args.bots} seed={args.seed} strategy={args.strategy} "
-        f"sum={total:.2f} mean={mean:.4f}"
-    )
+    corr = run(args.bots, args.seed, select)
+    print(f"bots={args.bots} seed={args.seed} strategy={args.strategy} corr={corr:.4f}")
 
 
 if __name__ == "__main__":
