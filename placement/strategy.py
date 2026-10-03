@@ -98,7 +98,6 @@ def _spread(
     disjoint_shares: bool = False,
     antiwindup: bool = False,
     senior: bool = False,
-    hightile: bool = False,
 ) -> list[int]:
     """k distinct opponents nearest quantiles of N(mu, w*sigma)."""
     center = bot.mu
@@ -144,16 +143,9 @@ def _spread(
         targets = [dist.inv_cdf((j + 1) / (k + 1)) for j in range(k)]
     pool = (
         _established(ratings, k, 25 if senior else 0)
-        if anchors and not hightile
+        if anchors
         else list(range(len(ratings)))
     )
-    if hightile:
-        start = max(0, len(ratings) - 400)
-        recent = ratings[start:]
-        cut = sorted(r.sigma for r in recent)[2 * len(recent) // 3]
-        pool = [c for c in range(start, len(ratings)) if ratings[c].sigma >= cut]
-        if len(pool) < k:
-            pool = list(range(len(ratings)))
     if antiwindup and ratings:
         plo = min(r.mu for r in ratings)
         phi = max(r.mu for r in ratings)
@@ -301,11 +293,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Bold 1 (corr): drunk-witness closer, high-sigma-tertile G3.
+    # Iter 5 (corr): Fisher-peak narrow valley 1.0/1.5.
     if budget_left > 20:
         return _census(ratings, min(9, budget_left - 1, len(ratings)))
     if budget_left > 10:
         n = min(9, budget_left - 1, len(ratings))
-        return _spread(bot, ratings, n, 1.25)
+        return _spread(bot, ratings, n, 1.0)
     n = min(9, budget_left - 1, len(ratings))
-    return _spread(bot, ratings, n, 1.875, hightile=True)
+    return _spread(bot, ratings, n, 1.5)
