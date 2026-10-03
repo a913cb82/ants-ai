@@ -24,4 +24,4 @@ One 10-player game buys 9 pairwise looks for 10 slots; duels buy 1 look
 per 2 slots. Test the size-axis endpoint first (all FFA-10), then mix.
 Judge after iteration 5.
 | done | Duels first, then FFA with late budget. |
-| open | Size from `budget_left`: big games early, duels late. |
+| trying | Size from `budget_left`: big games early, duels late. |

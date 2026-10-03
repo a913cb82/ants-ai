@@ -19,8 +19,8 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Exp: duels first, then FFA with late budget.
+    # Exp: big games early, duels late (mirror schedule).
     order = sorted(range(len(ratings)), key=lambda i: (abs(ratings[i].mu - bot.mu), i))
-    if budget_left > 20:
-        return order[:1]
-    return order[: min(9, budget_left - 1, len(order))]
+    if budget_left > 10:
+        return order[: min(9, budget_left - 1, len(order))]
+    return order[:1]
