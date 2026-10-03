@@ -56,9 +56,16 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Champion (iter 25): duels first, 1.0-sigma FFA then 0.5-sigma FFA.
+    # Exp (bold 3, iter 39): wide FFA services the 2 highest-sigma members.
     if budget_left > 20:
         return [_closest(bot, ratings)]
     if budget_left > 10:
-        return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.0)
+        picks = _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.0)
+        if len(picks) >= 9:
+            svc = sorted(
+                (c for c in range(len(ratings)) if c not in picks),
+                key=lambda c: (-ratings[c].sigma, c),
+            )[:2]
+            picks = picks[:7] + svc
+        return picks
     return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 0.5)

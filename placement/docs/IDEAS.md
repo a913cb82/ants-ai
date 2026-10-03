@@ -57,6 +57,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Factorial S0xB1: champion sizes, no anchor filter. |
 | dropped | Factorial S1xB1: 3d+4p+10p+10p, no anchor filter. |
 | dropped | First duel versus pool median anchor. |
+| trying | Pool-service game: wide FFA rates 2 highest-sigma members (bold 3). |
 | open | Approach 2: zooming bracket 10p/5p/5p/2p x5, spread mu+-k·sigma, low-sigma anchors. |
 | open | Approach 3: 10p/6p/2p x7, quantile spread at 1.0 sigma, large-first coarse-to-fine. |
 | done | Champion order with spread FFA opponents (quantiles of N(mu, sigma), low-sigma ties). |
@@ -84,6 +85,12 @@ to the extremes before a single full-size spread FFA corrects it.
 Predicts the seed-2 gap narrows. Judge after iteration 23.
 Judged: refuted at iteration 21 (18.38, seed-2 gap widened). Depth
 cannot replace the second bulk update.
+
+Thirteen misses in a row (iters 26-38) force bold line 3
+(2026-10-03): pool-service. Rating high-`sigma` stragglers inside
+the wide FFA costs the current bot 2 of 9 thresholds but calibrates
+the pool for all future bots; compounding beats single-bot cost.
+Judge after iteration 41.
 | done | Duels first, then FFA with late budget. |
 | dropped | Size from `budget_left`: big games early, duels late. |
 
