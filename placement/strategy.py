@@ -129,6 +129,22 @@ def _strata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
     return out[:k]
 
 
+def _side_duel(bot: Rating, ratings: list[Rating], rank: int) -> list[int]:
+    """Nearest ruler strictly above (even) or below (odd) bot mu."""
+    side = 1 if rank % 2 == 0 else -1
+    cands = [
+        c for c in range(len(ratings)) if (ratings[c].mu - bot.mu) * side > 0
+    ] or list(range(len(ratings)))
+    if not cands:
+        return []
+    return [
+        min(
+            cands,
+            key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
+        )
+    ]
+
+
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
     """Pool index nearest bot.mu, low sigma then low index on ties."""
     return min(
@@ -354,11 +370,12 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 52 (corr): slim 7-site skeleton + 5-strata + 8 duels.
-    if budget_left > 22:
-        n = min(7, budget_left - 1, len(ratings))
+    # Iter 53 (corr): above/below alternating tail duels.
+    if budget_left > 20:
+        n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
-    if budget_left > 16:
+    if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
         return _strata(bot, ratings, n)
-    return _info_duel(bot, ratings)
+    d = (14 - budget_left) // 2
+    return _side_duel(bot, ratings, d)
