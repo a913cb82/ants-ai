@@ -1446,3 +1446,12 @@ One entry per iteration:
 - what changed: games 2 and 3 banned rematches via a module-global used-set.
 - what you learned: cost about 5.73 with only seed 2 improving (minus 88 there); banning the shared skeleton starves refinement and replicates stay informative.
 - next: misses force bold 26; stratified closer under census (retest).
+
+## 152 — stratified closer census bold 26 (2026-10-03)
+- commit: 8db12b0
+- score: mean 206.8766 over seeds 0-4 (163.2668, 235.0701, 334.6076, 131.5662, 169.8723)
+- champion mean: 197.7410 selection, 187.4788 pooled (5faf0b0)
+- verdict: discard
+- what changed: game-3 forced 3 below plus 3 above current mu, filled to 9 with nearest.
+- what you learned: cost about 9.14 with only seed 4 improving; greed stands and forced balance loses with fresh anchors too.
+- next: judge bold 26 after 155; halo mixture game-3 under census (retest).
