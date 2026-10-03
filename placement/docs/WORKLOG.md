@@ -1203,3 +1203,12 @@ One entry per iteration:
 - what changed: per-bot grid phase shift from hashed mu/sigma.
 - what you learned: selection tied plus 0.63 but held-out lost 6.83 with one of five; pooled loses too. Grid phase retires as a non-axis.
 - next: fixed absolute-site opener (expected kill); then misses force bold 22.
+
+## 126 — fixed-site opener (2026-10-03)
+- commit: 34222d4
+- score: mean 219.3309 over seeds 0-4 (206.3181, 250.9592, 337.9293, 122.5391, 178.9089)
+- champion mean: 216.0193 selection, 205.7881 pooled (fde75b9)
+- verdict: tuning (per persistence rule: big change, wild seed split, needs repairs before judging)
+- what changed: game-1 matched fixed absolute sites across [-50,100] instead of case-centered 4.0 spread.
+- what you learned: seed 2 improves 28 but seed 0 regresses 31; fixed [-50,100] wastes pulls on empty extremes when the pool is small. Repair first: span sites to the observed pool range.
+- next: pool-range census sites (tuning 126b).
