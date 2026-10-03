@@ -132,3 +132,12 @@ One entry per iteration:
 - what changed: all 30 slots as ten 3p games with the closest pair.
 - what you learned: cost about 504 with every seed catastrophic; sequential updates cannot replace threshold coverage, and unspread fields let tails drift to pool edges.
 - next: judge bold 1 (confirmed by adoption, fragile lead); judge bold 2 (refuted).
+
+## 14 — adaptive refine width by sigma (2026-10-03)
+- commit: 752442e
+- score: mean 302.9460 over seeds 0-4 (268.5222, 354.2697, 352.7147, 246.8385, 292.3848)
+- champion mean: 302.2418 (07e94d0)
+- verdict: discard (null experiment)
+- what changed: second 10p at 2.0 iff refine-time sigma above 6.5 else 0.5.
+- what you learned: bit-identical to champion on all 5 seeds; a sigma probe showed refine-time sigma averages 3.9 (209 of 211 below 6.5), so the threshold never bites and the branch is dead code.
+- next: adaptive refine at 4.0, or bounty sniper from the docket.
