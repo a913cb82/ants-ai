@@ -354,11 +354,10 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 49 (corr): full-pool grid refine, one-shot retest.
+    # Iter 50 (corr): range census + strata + info (control).
     if budget_left > 20:
-        n = min(9, budget_left - 1, len(ratings))
-        return _census(ratings, n, mode="quantile")
+        return _census(ratings, min(9, budget_left - 1, len(ratings)))
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
-        return _spread(bot, ratings, n, 1.0, anchors=False)
+        return _strata(bot, ratings, n)
     return _info_duel(bot, ratings)
