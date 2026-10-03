@@ -1047,3 +1047,12 @@ One entry per iteration:
 - what changed: second 10p widened from 1.25 to 4.0 tertile, closer narrowed to 1.5.
 - what you learned: cost about 31.23 with only seed 2 improving; the second wide is redundant power and narrow game-2 precision is load-bearing.
 - next: double-tap opener 4.0/4.0/1.25 (adversary S3).
+
+## 109 — double-tap 4.0 4.0 1.25 (2026-10-03)
+- commit: b4c1d90
+- score: mean 266.9304 over seeds 0-4 (244.5168, 329.4581, 378.3816, 150.8265, 231.4689)
+- champion mean: 216.0193 selection, 205.7881 pooled (fde75b9)
+- verdict: discard
+- what changed: second 10p widened to full-pool 4.0, closer narrowed to 1.25.
+- what you learned: cost about 50.91 with every seed regressing; the second wide re-observes clones and the closer stays load-bearing for mids.
+- next: judge bold 19 after 110; F1 Q2-half anchor ladder.
