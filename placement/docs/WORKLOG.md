@@ -1803,3 +1803,12 @@ One entry per iteration:
 - Verdict: DISCARD. Last open size cell under census loses big.
 - Learned: sizes settled under census for good (5p/6p/8p/duels/splits dead in every position; no further size proposals without an MSE reason).
 - Next: iter 200 senior-25 quarantine (final; dose-response closes anchors).
+
+## Iter 200: senior-25 quarantine (archivist2 S3) + CONVERGENCE
+- Score: sel 206.2744 (173.71, 241.81, 351.83, 103.15, 160.87) vs champ 197.7410 (+8.53).
+- Verdict: DISCARD. Quarantine dose 25 loses (dose 50 tied at 148: null, not signal). Anchor family closed.
+- CONVERGENCE (iters 101-200, 100-iteration loop complete): 2 champions (127 census, 133 recency-400),
+  5 fresh/held-out vetoes upheld (160/166/177/185/197 pattern + 176/138/153 history), 3 stillborns killed pre-run.
+  Every family closed: geometry, widths, anchors, sizes, routing, crossing, mixtures, crews, shares, calibration.
+  Champion iter-133 (census + recency-400 + 1.25/1.875) verified bit-identical on restore (seed 0: 148.5257).
+  Backlog zero open rows. Tag champion/placement on 5faf0b0 stands. MSE pooled-15 177.82 (-45% from 323.15 baseline).
