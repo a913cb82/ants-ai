@@ -56,9 +56,13 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Champion (iter 25): duels first, 1.0-sigma FFA then 0.5-sigma FFA.
+    # Exp (iter 44): duels rotate closest/2nd/3rd, rest champion.
     if budget_left > 20:
-        return [_closest(bot, ratings)]
+        order = sorted(
+            range(len(ratings)),
+            key=lambda i: (abs(ratings[i].mu - bot.mu), ratings[i].sigma, i),
+        )
+        return [order[((30 - budget_left) // 2) % max(1, min(3, len(order)))]]
     if budget_left > 10:
         return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.0)
     return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 0.5)
