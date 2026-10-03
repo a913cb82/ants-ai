@@ -156,6 +156,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Game-3 mixture 5x1.25 plus 4x2.5 (bayes P3). |
 | dropped | Split-middle 10+5+5+10 valley halves (info/poker). |
 | dropped | Ratio upshift 1.5/2.25 rest (info P4). |
+| trying | HARQ sigma-gated closer 2.5/1.5 (bold 20). |
 | open | Chase-combining repeat-wide 4.0/4.0/1.5 (info; diversity-combine before zoom). |
 | open | Double-tap opener 4.0/4.0/1.25 (adversary; second wide after recentering, full-pool G2 untested at 4.0). |
 | open | Split-middle 10+5+5+10 valley halves (info/poker; mid-schedule re-aim, halves sandwiched not late). |
@@ -322,6 +323,13 @@ grids were the outage, or the second wide is redundant power. Judge
 after iteration 110.
 Judged: refuted at iteration 108 (247.2454, only seed 2 improved);
 the second wide is redundant power.
+
+Five misses in a row (iters 111-115) force bold line 20 (2026-10-03):
+HARQ sigma-gated closer. Game-3 plays 2.5 sigma iff the bot's live
+sigma after game-2 exceeds 4.0 (NACK), else 1.5; wide redundancy only
+where uncertainty remains. Predicts the gate spends wide on the
+right bots, or sigma carries no routable signal. Judge after
+iteration 119.
 
 Three misses in a row (iters 89-91) force bold line 16 (2026-10-03):
 flat wide rest. Both rest games at 1.875: the rest may do one job
