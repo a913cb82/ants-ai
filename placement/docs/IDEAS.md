@@ -24,6 +24,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Bookend FFAs: 10p opener, 5 duels, 10p closer. |
 | dropped | Deep positioning: 10 duels then one spread 10p (bold 2). |
 | done | Stricter anchors: low-sigma tertile cutoff. |
+| trying | Even stricter anchors: low-sigma quartile cutoff. |
 | open | Approach 2: zooming bracket 10p/5p/5p/2p x5, spread mu+-k·sigma, low-sigma anchors. |
 | open | Approach 3: 10p/6p/2p x7, quantile spread at 1.0 sigma, large-first coarse-to-fine. |
 | done | Champion order with spread FFA opponents (quantiles of N(mu, sigma), low-sigma ties). |
@@ -49,6 +50,8 @@ Five misses in a row (iters 16-20) force bold line 2 (2026-10-03):
 positioning depth beats bulk count. Ten sequential duels walk `mu`
 to the extremes before a single full-size spread FFA corrects it.
 Predicts the seed-2 gap narrows. Judge after iteration 23.
+Judged: refuted at iteration 21 (18.38, seed-2 gap widened). Depth
+cannot replace the second bulk update.
 | done | Duels first, then FFA with late budget. |
 | dropped | Size from `budget_left`: big games early, duels late. |
 
