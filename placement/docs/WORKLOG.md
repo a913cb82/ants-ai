@@ -135,3 +135,9 @@
 - Score: corr 0.9872 (-0.0029).
 - Verdict: DISCARD. The 6p/7-duel split is confirmed from both sides (8p/6d ties, 4p/8d and 0p/10d lose).
 - Misses: 4.
+
+## Iter 22: duel rank rotation in the tail
+- Census + 6p at 1.0 + 7 duels at d-th nearest (d = duel index).
+- Score: corr 0.9900, tie (-0.0001).
+- Verdict: DISCARD (tie keeps incumbent). Forced rotation adds nothing; live-mu re-aim already varies opponents.
+- Misses: 5.
