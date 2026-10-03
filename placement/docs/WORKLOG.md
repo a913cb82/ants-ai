@@ -793,3 +793,7 @@
 - Even arrivals <200 get 2 recomputed-census-nearest + 3 fresh strata in G2.
 - Score: corr 0.9933 (+0.0001, tie).
 - Verdict: recapture ties fresh even for young bots. Next: window-300 odd-parity (H4).
+
+## Iter 139 (camp H4): recapture-early at window 300, odd parity
+- Score: corr 0.9932 (+0.0001, tie).
+- Verdict: window and parity both free. Next: late-window span legs (H5).
