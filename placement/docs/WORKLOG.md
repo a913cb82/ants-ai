@@ -1383,3 +1383,12 @@ One entry per iteration:
 - what changed: census sites clustered to the middle 40 percent of the pool range.
 - what you learned: cost about 184, worst spacing result on record; abandons the range coverage that drives the win. Spacing triptych complete: uniform wins, both extremes fail.
 - next: judge bold 24 after 145; bookend skeleton census games 1+3.
+
+## 145 — bookend skeleton census 1 3 (2026-10-03)
+- commit: 568f2a7
+- score: mean 223.4607 over seeds 0-4 (186.9383, 234.7910, 382.0785, 136.9044, 176.5911)
+- champion mean: 197.7410 selection, 187.4788 pooled (5faf0b0)
+- verdict: discard
+- what changed: game-3 played pool-range census instead of 1.875 spread.
+- what you learned: cost about 25.72 with zero of five improving; the closer must personalize and a skeleton close wastes the refine. Bold 24 judged refuted (iter 142).
+- next: census-plus-personal blend opener (tuning 126h); then misses force bold 25.

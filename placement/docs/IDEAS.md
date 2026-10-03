@@ -186,7 +186,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Recency-without-census ablation (bold 24). |
 | dropped | Edge-dense census sites (tuning 126f). |
 | dropped | Center-dense census sites (mirror test). |
-| trying | Bookend skeleton census games 1+3 (tuning 126g). |
+| dropped | Bookend skeleton census games 1+3 (tuning 126g). |
 | open | Chase-combining repeat-wide 4.0/4.0/1.5 (info; diversity-combine before zoom). |
 | open | Double-tap opener 4.0/4.0/1.25 (adversary; second wide after recentering, full-pool G2 untested at 4.0). |
 | open | Split-middle 10+5+5+10 valley halves (info/poker; mid-schedule re-aim, halves sandwiched not late). |
