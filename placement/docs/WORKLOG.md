@@ -244,3 +244,9 @@
 - Score: corr 0.9919 (-0.0011).
 - Verdict: DISCARD. The 7-duel count stands under quantile regime too.
 - Misses: 5.
+
+## Iter 40 (bold 11): slim 7-site skeleton + 8p refine
+- 8p quantile skeleton + 8p (7 rulers) at 1.0 + 7 info duels.
+- Score: corr 0.9909 (-0.0021).
+- Verdict: DISCARD. Bold 11 judged: refuted. Nine skeleton looks are load-bearing even mass-spaced.
+- Misses: 6.
