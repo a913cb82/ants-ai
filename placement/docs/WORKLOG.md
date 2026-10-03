@@ -186,3 +186,12 @@ One entry per iteration:
 - what changed: 4 opening duels and a closing duel replaced the mid bracket pair.
 - what you learned: cost about 37.6 with seed 2 catastrophic at 533; the mid bracket pair is load-bearing and extra opening depth cannot replace mid re-positioning.
 - next: World Cup pots (cross-pot FFA fields).
+
+## 20 — bulk-only three 10ps bold 3 (2026-10-03)
+- commit: bd32cd8
+- score: mean 290.3357 over seeds 0-4 (258.7701, 324.0591, 375.1257, 229.4492, 264.2746)
+- champion mean: 302.2418 (07e94d0)
+- verdict: keep
+- what changed: all duels removed; three spread 10ps at 2.0 sigma from the prior.
+- what you learned: wins by 11.91 with seeds 0/1/3/4 improving (seeds 1/4 down ~30/28) while seed 2 regressed 22.4; wide fields bound directly from the prior and positioning duels are expendable under MSE.
+- next: bulk-only width sweep (first 10p at 2.5).

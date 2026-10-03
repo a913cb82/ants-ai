@@ -38,7 +38,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Forward bracketing: duel 1 closest, duels 2-3 above/below (archive). |
 | dropped | Median anchors under twin-wide 2.0 spreads (archive). |
 | dropped | Positioning depth 6/7 duels with twin bulk kept (archive). |
-| trying | Bulk-only: three 10ps at 2.0, zero duels (bold 3). |
+| done | Bulk-only: three 10ps at 2.0, zero duels (bold 3). |
 | open | Equal-bits ladder 2+4+6+8+10, spread 1.0 throughout (info). |
 | open | Zoom widths: 1 duel, 9p at 2.0, 9p at 1.0, 10p at 0.5 (info). |
 | open | Split-budget recenter: 2+3+10 then 5+10 halves (info). |
