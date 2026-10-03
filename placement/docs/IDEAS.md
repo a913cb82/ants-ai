@@ -208,6 +208,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Mark-recapture under census (retest). |
 | dropped | Ring closer under census (retest). |
 | dropped | Edge-dense closer under census (retest; fresh vetoes). |
+| trying | F1 anchor ladder census/half/tertile (bold 29). |
 | open | Chase-combining repeat-wide 4.0/4.0/1.5 (info; diversity-combine before zoom). |
 | open | Double-tap opener 4.0/4.0/1.25 (adversary; second wide after recentering, full-pool G2 untested at 4.0). |
 | open | Split-middle 10+5+5+10 valley halves (info/poker; mid-schedule re-aim, halves sandwiched not late). |
@@ -444,6 +445,13 @@ Predicts the skeleton changes what wide-second sees, or wide
 re-observe stays redundant. Judge after iteration 165.
 Judged: refuted at iteration 162 (259.3278, every seed regressed);
 wide re-observe stays redundant.
+
+Two misses in a row (iters 165-166) force bold line 29
+(2026-10-03): F1 anchor ladder under census. Census opener, then
+half anchors at 1.25, then recent-tertile at 1.875; anchor strictness
+ramps while widths trace the valley. Predicts progressive focus
+beats fixed tertile, or tertile stands exact. Judge after
+iteration 170.
 
 Two misses in a row (iters 145-146) force bold line 25
 (2026-10-03): ancient-tertile anchors. Tertile drawn from the
