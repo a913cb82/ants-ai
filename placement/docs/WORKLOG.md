@@ -347,3 +347,9 @@
 - Score: corr 0.9932 (+0.0000, exact tie).
 - Verdict: DISCARD (tie keeps incumbent). Bold 15 judged: refuted as gain, priced as trade — the mid layer costs exactly what 2 duels buy. Depth closed at 30 slots.
 - Misses: 13.
+
+## Iter 57: peer-pinned skeleton (bookkeeper D1)
+- 8 deciles + nearest-tertile pin + champion rest.
+- Score: corr 0.9913 (-0.0019).
+- Verdict: DISCARD. The top-decile pin binds extremes; trading it for a peer pin loses. Skeleton-pin family closed.
+- Misses: 14.
