@@ -1,12 +1,37 @@
 """Placement strategy. Optimise select_next_game."""
 
 from dataclasses import dataclass
+from statistics import NormalDist
 
 
 @dataclass
 class Rating:
     mu: float
     sigma: float
+
+
+def _closest(bot: Rating, ratings: list[Rating]) -> int:
+    """Pool index nearest bot.mu, low sigma then low index on ties."""
+    return min(
+        range(len(ratings)),
+        key=lambda i: (abs(ratings[i].mu - bot.mu), ratings[i].sigma, i),
+    )
+
+
+def _spread(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
+    """k distinct pool opponents nearest the quantiles of N(mu, sigma)."""
+    dist = NormalDist(bot.mu, max(bot.sigma, 0.5))
+    targets = [dist.inv_cdf((j + 1) / (k + 1)) for j in range(k)]
+    picked: list[int] = []
+    used: set[int] = set()
+    for t in targets:
+        i = min(
+            (c for c in range(len(ratings)) if c not in used),
+            key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c),
+        )
+        used.add(i)
+        picked.append(i)
+    return picked
 
 
 def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> list[int]:
@@ -19,8 +44,8 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Champion (iter 4): duels first, then FFA with late budget.
-    order = sorted(range(len(ratings)), key=lambda i: (abs(ratings[i].mu - bot.mu), i))
+    # Exp: champion order (duels first) with spread FFA opponents.
     if budget_left > 20:
-        return order[:1]
-    return order[: min(9, budget_left - 1, len(order))]
+        return [_closest(bot, ratings)]
+    k = min(9, budget_left - 1, len(ratings))
+    return _spread(bot, ratings, k)
