@@ -812,3 +812,8 @@
 - Bounty eligible band +-1.5 sigma instead of +-1.0.
 - Score: corr 0.9931 (-0.0001, tie).
 - Verdict: band width free. Next: mid-tail audit at duel 3 (I3).
+
+## Iter 143 (camp I3): mid-tail audit at duel 3
+- Duel 3 = max-sigma of 10 nearest; rest flat info.
+- Score: corr 0.9931 (-0.0001, tie).
+- Verdict: audit position 3 ties like position 4. Next: audit at duel 5 (I4).
