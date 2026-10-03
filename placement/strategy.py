@@ -98,6 +98,7 @@ def _spread(
     disjoint_shares: bool = False,
     antiwindup: bool = False,
     senior: bool = False,
+    cap: int = 0,
 ) -> list[int]:
     """k distinct opponents nearest quantiles of N(mu, w*sigma)."""
     center = bot.mu
@@ -146,6 +147,14 @@ def _spread(
         if anchors
         else list(range(len(ratings)))
     )
+    if cap:
+        start = max(0, len(ratings) - 400)
+        screen = sorted(
+            range(start, len(ratings)),
+            key=lambda c: (ratings[c].sigma, c),
+        )[:cap]
+        if len(screen) >= k:
+            pool = screen
     if antiwindup and ratings:
         plo = min(r.mu for r in ratings)
         phi = max(r.mu for r in ratings)
@@ -293,12 +302,10 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Bold 7 (corr): interleave, census + 3d + 6p + 4d.
+    # Iter 24 (corr): likely-ruler hard-50 refine under duel tail.
     if budget_left > 20:
         return _census(ratings, min(9, budget_left - 1, len(ratings)))
     if budget_left > 14:
-        return [_closest(bot, ratings)]
-    if budget_left > 8:
         n = min(5, budget_left - 1, len(ratings))
-        return _spread(bot, ratings, n, 1.0)
+        return _spread(bot, ratings, n, 1.0, cap=50)
     return [_closest(bot, ratings)]
