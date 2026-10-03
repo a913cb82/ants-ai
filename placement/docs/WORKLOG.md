@@ -438,3 +438,12 @@ One entry per iteration:
 - what changed: unfiltered opener widened from 3.5 to 4.0 sigma.
 - what you learned: wins by 1.33 with seeds 2/3/4 improving (seed 2 down 20, seed 3 at 117.03) while seeds 0/1 regressed; gradient diminishing, top near.
 - next: full-pool opener at 4.5.
+
+## 48 — full-pool opener at 4.5 (2026-10-03)
+- commit: f03d99e
+- score: mean 226.5758 over seeds 0-4 (193.2400, 273.4025, 352.9703, 121.5482, 191.7182)
+- champion mean: 222.4811 (0d52b79)
+- verdict: discard
+- what changed: unfiltered opener widened from 4.0 to 4.5 sigma.
+- what you learned: cost about 4.09 with every seed regressing slightly; unfiltered optimum sits at 4.0, overshoot clips pool edges uniformly.
+- next: held-out validation on seeds 5-9, then reassess the docket.
