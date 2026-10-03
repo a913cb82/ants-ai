@@ -87,3 +87,12 @@ One entry per iteration:
 - what changed: refine 10p widened from 0.5 to 2.0 sigma (twin-wide bulk).
 - what you learned: wins by 0.70 with seeds 0/1/3 improving but seed 2 regressing 13.5; the refine pulls weight on hard seeds, so this lead is fragile.
 - next: quartile anchors retest for cleaner thresholds.
+
+## 9 — quartile anchors retest (2026-10-03)
+- commit: 3e4db33
+- score: mean 305.3390 over seeds 0-4 (280.7635, 349.6873, 372.7065, 248.9563, 274.5812)
+- champion mean: 302.2418 (07e94d0)
+- verdict: discard
+- what changed: anchor cutoff from low-sigma tertile to quartile.
+- what you learned: cost about 3.10 with every seed but seed 4 regressing; stricter rulers thin the pool too far and wide targets overshoot sparser anchors.
+- next: symmetric pairs recheck under MSE.
