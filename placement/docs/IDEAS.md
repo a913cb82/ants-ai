@@ -161,6 +161,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Closest-cluster ring closer (poker/epi). |
 | dropped | Mu-gated closer 2.5/1.5 on |mu-25|>25 (poker P4). |
 | dropped | Undercut 0.75/2.75 rest (race A). |
+| trying | Overcut 3.0/1.0 rest (bold 21). |
 | open | Chase-combining repeat-wide 4.0/4.0/1.5 (info; diversity-combine before zoom). |
 | open | Double-tap opener 4.0/4.0/1.25 (adversary; second wide after recentering, full-pool G2 untested at 4.0). |
 | open | Split-middle 10+5+5+10 valley halves (info/poker; mid-schedule re-aim, halves sandwiched not late). |
@@ -336,6 +337,12 @@ right bots, or sigma carries no routable signal. Judge after
 iteration 119.
 Judged: refuted at iteration 116 (219.2764, only seed 2 improved);
 the gate misfires.
+
+Three misses in a row (iters 117-119 plus 120) force bold line 21
+(2026-10-03): overcut 3.0/1.0 rest. Inverts the valley entirely, wide
+game-2 then narrow closer; tests whether the dip direction or only
+its existence matters. Predicts symmetry breaks toward the valley,
+or inversion wins somewhere. Judge after iteration 124.
 
 Three misses in a row (iters 89-91) force bold line 16 (2026-10-03):
 flat wide rest. Both rest games at 1.875: the rest may do one job
