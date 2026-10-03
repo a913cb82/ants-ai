@@ -18,18 +18,17 @@ class Rating:
     sigma: float
 
 
-def _info_duel(bot: Rating, ratings: list[Rating], side: int = 0) -> list[int]:
+def _info_duel(bot: Rating, ratings: list[Rating]) -> list[int]:
     """Tail duel: argmax predict_draw + 0.02 sigma over 40 nearest."""
     order = sorted(
         range(len(ratings)),
         key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
     )[:40]
-    gated = [c for c in order if (ratings[c].mu - bot.mu) * side > 0] or order
-    if not gated:
+    if not order:
         return []
-    best = gated[0]
+    best = order[0]
     best_v = None
-    for c in gated:
+    for c in order:
         teams = [[_MODEL.rating(mu=bot.mu, sigma=bot.sigma)]]
         sig = bot.sigma
         for i in (c,):
@@ -128,6 +127,28 @@ def _strata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
         )
         out += rest[: k - len(out)]
     return out[:k]
+
+
+def _bounty(bot: Rating, ratings: list[Rating]) -> list[int]:
+    """Max-sigma ruler in the peer band over the last-400 window."""
+    n = len(ratings)
+    lo = max(0, n - 400)
+    band = max(bot.sigma, 0.5)
+    elig = [c for c in range(lo, n) if abs(ratings[c].mu - bot.mu) <= band] or list(
+        range(lo, n)
+    )
+    if not elig:
+        return []
+    return [
+        max(
+            elig,
+            key=lambda c: (
+                ratings[c].sigma,
+                -abs(ratings[c].mu - bot.mu),
+                -c,
+            ),
+        )
+    ]
 
 
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
@@ -355,12 +376,13 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 76 (corr): front-loaded upsets, first 3 duels above-only.
+    # Iter 77 (corr): terminal bounty duel.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
         return _strata(bot, ratings, n)
-    d = (14 - budget_left) // 2
-    return _info_duel(bot, ratings, 1 if d < 3 else 0)
+    if budget_left == 2:
+        return _bounty(bot, ratings)
+    return _info_duel(bot, ratings)
