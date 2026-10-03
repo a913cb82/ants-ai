@@ -689,3 +689,8 @@
 - Last duel = nearest-mu opponent; first 6 flat info.
 - Score: corr 0.9932 (+0.0000, exact tie).
 - Verdict: retest CONFIRMS the tie. Next: credible-pin closer (D2).
+
+## Iter 117 (camp D2): 6 info + credible-pin closer retest
+- Last duel = lowest-sigma of 10 nearest; first 6 flat info.
+- Score: corr 0.9933 (+0.0001, tie).
+- Verdict: retest CONFIRMS the tie. Next: 5 info + 2 closest closers (D3).
