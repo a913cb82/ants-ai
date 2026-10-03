@@ -3,7 +3,9 @@
 Doctrine: squared error weights tails. Extremes dominate: under the
 old champion a [75,100] bot errs ~28 (weight ~784) against ~25 for a
 mid bot. Stability across seeds beats typical-bot level. Bound wide,
-refine tight, rulers calibrated. Prior round record lives in
+refine tight, rulers calibrated. Confirmation rule (2026-10-03):
+selection margins under ~2.0 must validate on seeds 5-9; the
+4.25-over-4.0 margin (0.90) was noise and cost a correction. Prior round record lives in
 `placement/archive/mae-round/`; do not relitigate settled cells
 without an MSE reason.
 

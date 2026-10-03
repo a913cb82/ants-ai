@@ -560,3 +560,9 @@ One entry per iteration:
 - what changed: second 10p drew from low-sigma quartile instead of tertile.
 - what you learned: cost about 4.38 with seeds 0/4 regressing hard; game-2 wants tertile too, per-game strictness buys nothing. Bold 9 judged refuted (iter 58).
 - next: third validation (4.25 champion vs 4.0 rival) on seeds 5-9.
+
+## Validation — 4.25 champion vs 4.0 rival, seeds 5-9 (2026-10-03)
+- champion 9b38f80 (4.25): 166.3530, 256.0795, 244.2667, 222.0000, 188.2779, mean 215.3954
+- rival 0d52b79 (4.0): 156.2611, 245.6530, 242.9705, 222.0143, 177.3267, mean 208.8451
+- verdict: rival wins by 6.55 on unseen seeds (4 of 5 seeds, seed 8 ties); the 0.90 selection margin was noise.
+- pooled 10-seed means: 4.0 = 215.6631, 4.25 = 218.4866. Reverting champion to 4.0 on all available evidence.
