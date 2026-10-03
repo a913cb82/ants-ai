@@ -323,3 +323,9 @@
 - Score: corr 0.9897 (-0.0034).
 - Verdict: DISCARD. Extra tail cannot pay for lost skeleton density; 9 opener looks irreplaceable.
 - Misses: 9.
+
+## Iter 53: above/below alternating tail duels
+- Champion shape with side-forced (above/below) tail targeting.
+- Score: corr 0.9932 (+0.0001, exact tie).
+- Verdict: DISCARD (tie keeps incumbent). Info targeting already balances sides; forcing adds nothing.
+- Misses: 10.
