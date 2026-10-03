@@ -20,6 +20,7 @@ A refinement is a new row. Leave old rows as they were.
 | done | Champion order with spread FFA opponents (quantiles of N(mu, sigma), low-sigma ties). |
 | dropped | Approach 3 schedule exact: 10p, 6p, then duels, all spread. |
 | dropped | Sandwich: duels, one spread FFA-10, precision duels last. |
+| trying | Champion spread width 0.5 sigma (tighter late thresholds). |
 | dropped | Champion split: 3 duels then FFA bulk (boundary 24). |
 | done | Full-budget FFA-10 versus closest mus (bold: 3 updates per bot). |
 
