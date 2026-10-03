@@ -153,3 +153,9 @@
 - Score: corr 0.9894 (-0.0007, 4/5 regress).
 - Verdict: DISCARD. Tertile breadth beats the hard screen; marginal rulers still teach.
 - Misses: 7.
+
+## Iter 25: senior-25 refine
+- Census + 6p at 1.0 from tertile-minus-25 + 7 duels.
+- Score: corr 0.9894 (-0.0007, 4/5 regress).
+- Verdict: DISCARD. Same loss as hard-50; fresh-ruler quarantine loses twice. Recency direction stands.
+- Misses: 8.
