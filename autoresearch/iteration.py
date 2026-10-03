@@ -4,9 +4,9 @@ The schedule is the placement champion (iter 43, corr 0.9931 over
 30 seeds): one 10-player census over full-pool mass, one 6-player
 refine over bot-centered below/peer/above bins by mass quota from
 the low-sigma tertile of the last 400, then seven duels at the best
-draw odds + 0.02 sigma over the 40 nearest rulers. Recency comes
-from the append-only log: the window is the last 400 pool members
-by last appearance. Duels stay flat-info.
+draw odds + 0.02 sigma over the 40 nearest rulers. Recency is
+commit order, oldest first: the window is the last 400 pool
+members by commit. Duels stay flat-info.
 
 Every game enters league/games.jsonl. The harness rebuilds the ratings
 from that log at the start, so the log is the single source of truth.
@@ -48,6 +48,7 @@ from matchmake import (  # noqa: E402
 from play import play_match  # noqa: E402
 from pool import (  # noqa: E402
     WORKBASE,
+    all_commits,
     bot_id,
     content_hash,
     engine_on_main,
@@ -158,15 +159,12 @@ def census_opponents(bid: str, cands: list[str], ratings: dict, k: int) -> list[
     return picked
 
 
-def recency_order(records: list[dict], cands: list[str]) -> list[str]:
-    """Pool oldest first by last appearance in the append-only log.
-    Never played counts as now: a fresh bot is a recent arrival."""
-    last: dict[str, int] = {}
-    for i, r in enumerate(records):
-        for b in r["field"]:
-            last[b] = i
-    now = len(records)
-    return sorted(cands, key=lambda c: (last.get(c, now), c))
+def recency_order(cands: list[str], commits: list[str]) -> list[str]:
+    """Pool oldest first by commit order. Unknown shas count as now:
+    an uncommitted bot is a recent arrival."""
+    rank = {sha: i for i, sha in enumerate(commits)}
+    now = len(commits)
+    return sorted(cands, key=lambda c: (rank.get(parse_id(c)[1], now), c))
 
 
 def strata_opponents(bid: str, ordered: list[str], ratings: dict, k: int) -> list[str]:
@@ -473,7 +471,7 @@ def main(argv=None) -> int:
     prune_replays(runs, int(args.max_replay_gb * 1e9), protect={str(runs / sha)})
     rng = random.Random(f"{SEED}:{bid}:{done['duels']}:{sum(done['ffa'].values())}")
     model = new_model()
-    ordered = recency_order(records, [c for c in pool if c != bid])
+    ordered = recency_order([c for c in pool if c != bid], all_commits(root))
     used = {r["map"] for r in records if bid in r["field"]}
 
     with open(GAMES_LOG, "a") as fh:

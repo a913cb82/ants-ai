@@ -282,7 +282,7 @@ def test_main_plays_records_and_never_replays(tmp_path, monkeypatch):
     monkeypatch.setattr(iteration, "engine_on_main", lambda root: True)
     monkeypatch.setattr(iteration, "main_merged", lambda root: True)
     bid = iteration.candidate_id(iteration.ROOT, iteration.DEFAULT_BOT)
-    rivals = [f"rival{i}" for i in range(9)]
+    rivals = [f"rival{i}-abc1234" for i in range(9)]
     monkeypatch.setattr(
         iteration, "pool_ids", lambda root, ratings=None: [bid] + rivals
     )
@@ -433,3 +433,20 @@ def test_previous_budget_rows_are_ignored(tmp_path):
     )
     row, prior, appended = iteration.record_report("new-2", 30.0, 5.0, 30.0, 8, path=p)
     assert appended and prior is None
+
+
+def test_recency_order_uses_commit_order_oldest_first():
+    from iteration import recency_order
+
+    cands = ["b-ccc", "a-aaa", "c-bbb"]
+    assert recency_order(cands, ["aaa", "bbb", "ccc"]) == [
+        "a-aaa",
+        "c-bbb",
+        "b-ccc",
+    ]
+
+
+def test_recency_order_puts_unknown_shas_last():
+    from iteration import recency_order
+
+    assert recency_order(["new-zzz", "old-aaa"], ["aaa"]) == ["old-aaa", "new-zzz"]

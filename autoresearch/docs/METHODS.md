@@ -73,8 +73,8 @@ and `timeout`). In an FFA game the index in `result` is the rank.
   spanning full-pool mass, nearest snap. Mass decides the sites.
 - The 6p game is a refine: the candidate plus bot-centered
   below/peer/above rulers by mass quota (min 1 each) from the
-  low-sigma tertile of the last 400 pool members by last appearance
-  in the append-only log. Quota allocates, proximity binds.
+  low-sigma tertile of the last 400 pool members by commit order,
+  oldest first. Quota allocates, proximity binds.
 - The information score is `predict_draw + 0.02 * sum(sigma)`.
   Duels score the candidate plus one opponent.
 - The maps are random and different in one iteration.
