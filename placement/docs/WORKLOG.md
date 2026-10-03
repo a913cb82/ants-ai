@@ -506,3 +506,12 @@ One entry per iteration:
 - what changed: third 10p spread from the full pool instead of tertile anchors.
 - what you learned: cost about 45.33 with every seed regressing; only the opener wants the wild pool, later games need rulers everywhere.
 - next: opener at 4.25 (gradient-top micro-probe).
+
+## 55 — full-pool opener at 4.25 (2026-10-03)
+- commit: 9b38f80
+- score: mean 221.5778 over seeds 0-4 (186.5514, 274.5606, 339.4188, 120.5184, 186.8396)
+- champion mean: 222.4811 (0d52b79)
+- verdict: keep
+- what changed: unfiltered opener widened from 4.0 to 4.25 sigma.
+- what you learned: wins by 0.90 with seeds 0/2/4 improving while seeds 1/3 regressed slightly; gradient top is flattening near the seed-generalization floor.
+- next: opener at 4.375 to bisect the top.
