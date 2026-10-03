@@ -26,3 +26,4 @@
 {"date": "2026-10-04", "commit": "iter26", "corr": 0.9893, "seeds": [0.9885, 0.9851, 0.988, 0.9941, 0.9907], "champion": "732059c", "note": "bold8 double refine 6p+4p+5d; -0.0008; tail length beats refine depth"}
 {"date": "2026-10-04", "commit": "iter27", "corr": 0.9902, "seeds": [0.9898, 0.986, 0.9899, 0.993, 0.9922], "champion": "732059c", "note": "comp-pick refine ties +0.0001; grids == comps"}
 {"date": "2026-10-04", "commit": "iter28", "corr": 0.9906, "seeds": [0.9908, 0.9897, 0.9876, 0.9912, 0.9939], "champion": "732059c", "note": "BF split-center refine; sel +0.0006 but fresh -0.0002; discard"}
+{"date": "2026-10-04", "commit": "iter29", "corr": 0.9863, "seeds": [0.9854, 0.9883, 0.98, 0.9886, 0.9894], "champion": "732059c", "note": "bold9 census rematch+5d; -0.0037; personalization beats replicates"}

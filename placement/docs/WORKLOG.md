@@ -178,3 +178,9 @@
 - Held-out 5-9: 0.99026 vs 0.99050 (-0.0002). Pooled-10 +0.0002 but fresh disagrees.
 - Verdict: DISCARD per overturn rule. The posterior needs no reserve; G2 personalization is not chasing noise.
 - Misses: 11.
+
+## Iter 29 (bold 9): census rematch + 5-duel tail
+- Census opener repeated verbatim (replicate), then 5 closest duels.
+- Score: corr 0.9863 (-0.0037).
+- Verdict: DISCARD. Bold 9 judged: refuted. Replicate-averaging loses to personalization; the refine's fresh thresholds matter.
+- Misses: 12.
