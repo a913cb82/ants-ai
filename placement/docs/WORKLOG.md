@@ -539,3 +539,9 @@
 - Score: corr 0.9929 (-0.0003, 3/5 seeds down).
 - Verdict: DISCARD. Narrower recency starves ruler choice; 400 stands so far. Window 800 next.
 - Misses: 45.
+
+## Iter 89: refine window 800
+- Refine pool = low-sigma tertile of last 800.
+- Score: corr 0.9933 (+0.0001, tie; one +0.0010 seed spike offset by regress elsewhere).
+- Verdict: DISCARD (tie keeps incumbent). Window ladder complete: 200 loses, 800 ties, 400 stands as cheapest correct. Last inherited-only constant now corr-priced.
+- Misses: 46.
