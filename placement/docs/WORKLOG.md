@@ -375,3 +375,12 @@ One entry per iteration:
 - what changed: third 10p narrowed to 1.0 for bots at or below sigma 4.0.
 - what you learned: cost about 12.57 with seed 1 blowing up 59 while seeds 0/3 improved; narrowing for settled bots destabilizes hard seeds.
 - next: judge bold 6 (refuted); symmetric pairs recheck under bulk-only.
+
+## 41 — uniform 2.0 bulk no wide opener (2026-10-03)
+- commit: 142897a
+- score: mean 290.3357 over seeds 0-4 (258.7701, 324.0591, 375.1257, 229.4492, 264.2746)
+- champion mean: 235.2613 (04eeed2)
+- verdict: discard (duplicate)
+- what changed: intended as the untested uniform cell, but it replays iteration 20 exactly.
+- what you learned: bit-identical to iteration 20 on all 5 seeds, revalidating determinism; the 3.0 opener buys 55 points over uniform 2.0. Bold 6 judged refuted (iter 39).
+- next: stop grid-filling; only probe-driven or docket-novel ideas.
