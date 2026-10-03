@@ -68,21 +68,6 @@ def _census(ratings: list[Rating], k: int, mode: str = "range") -> list[int]:
     return picked
 
 
-def _alibi(bot: Rating, ratings: list[Rating], k: int, width: float) -> list[int]:
-    """k-1 spread targets plus the farthest established ruler."""
-    out = _spread(bot, ratings, max(k - 1, 1), width)
-    if len(out) >= k:
-        return out[:k]
-    pool = _established(ratings, k, 0)
-    rest = [c for c in pool if c not in set(out)] or [
-        c for c in range(len(ratings)) if c not in set(out)
-    ]
-    if not rest:
-        return out
-    far = max(rest, key=lambda c: (abs(ratings[c].mu - bot.mu), -ratings[c].sigma, -c))
-    return out + [far]
-
-
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
     """Pool index nearest bot.mu, low sigma then low index on ties."""
     return min(
@@ -308,11 +293,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 12 (corr): lone alibi pin closer.
+    # Iter 13 (corr): bad-cop/good-cop anchors at flat 1.5.
     if budget_left > 20:
         return _census(ratings, min(9, budget_left - 1, len(ratings)))
     if budget_left > 10:
         n = min(9, budget_left - 1, len(ratings))
-        return _spread(bot, ratings, n, 1.25)
+        return _spread(bot, ratings, n, 1.5, anchors=False)
     n = min(9, budget_left - 1, len(ratings))
-    return _alibi(bot, ratings, n, 1.875)
+    return _spread(bot, ratings, n, 1.5)
