@@ -718,3 +718,8 @@
 ## Iter 122 (camp E2): below-first side alternation
 - Score: corr 0.9933 (+0.0002, tie; seed-2 +0.0015 spike, seeds 0/1 -0.0005 each).
 - Verdict: parity direction free. SIGNATURE NOTE: B4/B5/E1/E2 all spike seed 2 (+0.0008..+0.0015) while regressing seeds 0/1 — reshaped tails help seed-2's pool geometry but hurt 0/1. Breadth rule holds: spikes without breadth are noise. Next: low-to-high gated sweep (E3).
+
+## Iter 123 (camp E3): low-to-high gated sweep
+- Duels 1-2 below-only info, 3-5 peer-only, 6-7 above-only.
+- Score: corr 0.9932 (+0.0000, exact tie; mixed seed signs, no pattern).
+- Verdict: sweep direction carries nothing. Next: gates at width 60 (E4).
