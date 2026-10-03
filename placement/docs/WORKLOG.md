@@ -1056,3 +1056,12 @@ One entry per iteration:
 - what changed: second 10p widened to full-pool 4.0, closer narrowed to 1.25.
 - what you learned: cost about 50.91 with every seed regressing; the second wide re-observes clones and the closer stays load-bearing for mids.
 - next: judge bold 19 after 110; F1 Q2-half anchor ladder.
+
+## 110 — F1 Q2-half anchor ladder (2026-10-03)
+- commit: 741d1c4
+- score: mean 224.7467 over seeds 0-4 (176.6317, 231.6618, 417.2515, 111.0835, 187.1049)
+- champion mean: 216.0193 selection, 205.7881 pooled (fde75b9)
+- verdict: discard
+- what changed: second 10p drew from low-sigma half instead of tertile.
+- what you learned: cost about 8.73 with seed 2 annihilated plus 51; half-pool destabilizes hard seeds and tertile stands exact everywhere. Bold 19 judged refuted (iter 108).
+- next: stratified 3-3-3 closer (sports pots variant).
