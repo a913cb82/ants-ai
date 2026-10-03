@@ -73,3 +73,10 @@
 - Score: corr 0.9644 (-0.0226, every seed regressed).
 - Verdict: DISCARD. Bold 3 judged: refuted. Duel openers dead under corr in all three targeting flavors (high-sigma, info-score, closest). Family closed.
 - Misses: 10.
+
+## Iter 12: lone alibi pin closer
+- Census + 1.25 tertile + (8 at 1.875 + farthest established ruler).
+- Selection: corr 0.9870, exact mean tie (3/5 seeds improve).
+- Held-out 5-9: 0.98804 vs 0.98868 (-0.0006). Pooled-10 loses.
+- Verdict: DISCARD. The pin is pure noise; one-pin axis closed.
+- Misses: 11.
