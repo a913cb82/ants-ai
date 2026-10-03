@@ -190,3 +190,9 @@
 - Selection: corr 0.9904 (+0.0003, 3/5). Held-out 5-9: 0.9910 (+0.0005). Fresh 10-14: 0.9919. Pooled-15: 0.9911.
 - Verdict: ADOPT. Info targeting helps positioned tails; it hurt openers (iter 10) but sharpens finishers.
 - Misses reset to 0.
+
+## Iter 31: pure-draw tail (sigma weight 0)
+- Champion shape with predict_draw-only tail targeting.
+- Score: corr 0.9896 (-0.0009).
+- Verdict: DISCARD. The 0.02 sigma weight carries signal; pure closeness under-targets uncertainty in tails.
+- Misses: 1.
