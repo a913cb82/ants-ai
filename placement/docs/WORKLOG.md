@@ -1252,3 +1252,12 @@ One entry per iteration:
 - what changed: game-3 played full-pool 2.5 when the bot sat over one pool-sigma from the pool median.
 - what you learned: cost about 33.20 with every seed regressing; routing stays dead under census too and position carries no routable signal.
 - next: judge bold 22 after 133; mark-recapture closer.
+
+## 131 — mark-recapture closer (2026-10-03)
+- commit: 4c8a1d4
+- score: mean 235.8667 over seeds 0-4 (203.8758, 282.8012, 389.6561, 111.8930, 191.1075)
+- champion mean: 199.7520 selection, 190.0544 pooled (73f8050)
+- verdict: discard
+- what changed: game-3 took 4 nearest tertile rulers plus 5 fresh outside-tertile beats.
+- what you learned: cost about 36.11 with only seed 3 improving; fresh beats are noisy and the quantile grid stays load-bearing.
+- next: judge bold 22 after 133; DPP repulsion de-collision.

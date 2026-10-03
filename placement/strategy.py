@@ -38,34 +38,6 @@ def _census(ratings: list[Rating], k: int) -> list[int]:
     return picked
 
 
-def _markrecap(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
-    """Recaptured tertile rulers plus fresh outside-tertile beats."""
-    anchors = set(_established(ratings, k))
-
-    def near(cands: list[int]) -> list[int]:
-        return sorted(
-            cands, key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c)
-        )
-
-    recap_n = min(4, k)
-    picks = near(list(anchors))[:recap_n]
-    used = set(picks)
-    fresh_pool = [c for c in range(len(ratings)) if c not in anchors]
-    for c in near(fresh_pool):
-        if len(picks) >= k:
-            break
-        if c not in used:
-            used.add(c)
-            picks.append(c)
-    for c in near(list(range(len(ratings)))):
-        if len(picks) >= k:
-            break
-        if c not in used:
-            used.add(c)
-            picks.append(c)
-    return picks[:k]
-
-
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
     """Pool index nearest bot.mu, low sigma then low index on ties."""
     return min(
@@ -107,9 +79,9 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Exp (iter 131, MSE): mark-recapture closer.
+    # Champion (iter 127, MSE): pool-range census opener, 1.25/1.875 rest.
     if budget_left > 20:
         return _census(ratings, min(9, budget_left - 1, len(ratings)))
     if budget_left > 10:
         return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.25)
-    return _markrecap(bot, ratings, min(9, budget_left - 1, len(ratings)))
+    return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.875)
