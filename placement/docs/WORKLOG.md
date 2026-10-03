@@ -232,3 +232,9 @@
 - Score: corr 0.9855 (-0.0075).
 - Verdict: DISCARD. Bold 10 judged: refuted. Early skeleton timing stands under duel tails too.
 - Misses: 3.
+
+## Iter 38: census-panel refine
+- Quantile opener + (2 census recaptures + fresh at 1.0) + info tail.
+- Score: corr 0.9927 (-0.0002, 4/5 regress).
+- Verdict: DISCARD. Recaptures add nothing; fresh thresholds win every time.
+- Misses: 4.
