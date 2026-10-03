@@ -97,38 +97,6 @@ def _census(ratings: list[Rating], k: int, mode: str = "range") -> list[int]:
     return picked
 
 
-def _drawsnap(ratings: list[Rating], k: int) -> list[int]:
-    """Decile sites; per site argmax draw over 5 nearest vs prior bot."""
-    pool = sorted(r.mu for r in ratings)
-    n = len(pool)
-    sites = [pool[min(int(n * (j + 1) / (k + 1)), n - 1)] for j in range(k)]
-    prior = _MODEL.rating(mu=25.0, sigma=8.33)
-    picked: list[int] = []
-    used: set[int] = set()
-    for t in sites:
-        near = sorted(
-            (c for c in range(len(ratings)) if c not in used),
-            key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c),
-        )[:5]
-        if not near:
-            break
-        i = max(
-            near,
-            key=lambda c: (
-                _MODEL.predict_draw(
-                    [
-                        [prior],
-                        [_MODEL.rating(mu=ratings[c].mu, sigma=ratings[c].sigma)],
-                    ]
-                ),
-                c,
-            ),
-        )
-        used.add(i)
-        picked.append(i)
-    return picked
-
-
 def _strata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
     """k rulers across below/peer/above bins, quota by bin mass."""
     pool = _established(ratings, k, 0)
@@ -159,6 +127,51 @@ def _strata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
         )
         out += rest[: k - len(out)]
     return out[:k]
+
+
+def _gridstrata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
+    """Mass-quota bins; within-bin picks spread on a Gaussian grid."""
+    pool = _established(ratings, k, 0)
+    s = max(bot.sigma, 0.5)
+    bins: list[list[int]] = [[], [], []]
+    for c in pool:
+        d = ratings[c].mu - bot.mu
+        bins[0 if d < -s else (2 if d > s else 1)].append(c)
+    masses = [len(b) for b in bins]
+    total = sum(masses) or 1
+    quota = [max(1 if m else 0, round(k * m / total)) for m in masses]
+    while sum(quota) > k:
+        j = max(range(3), key=lambda j: quota[j] - k * masses[j] / total)
+        quota[j] -= 1
+    while sum(quota) < k:
+        j = max(range(3), key=lambda j: k * masses[j] / total - quota[j])
+        quota[j] += 1
+    grid = NormalDist(bot.mu, s)
+    picked: list[int] = []
+    used: set[int] = set()
+    for b, q in zip(bins, quota, strict=True):
+        if not b or q <= 0:
+            continue
+        lo = min(ratings[c].mu for c in b)
+        hi = max(ratings[c].mu for c in b)
+        for i in range(q):
+            t = min(max(grid.inv_cdf((i + 1) / (q + 1)), lo), hi)
+            cands = [c for c in b if c not in used]
+            if not cands:
+                break
+            pick = min(
+                cands,
+                key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c),
+            )
+            used.add(pick)
+            picked.append(pick)
+    if len(picked) < k:
+        rest = sorted(
+            (c for c in pool if c not in used),
+            key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
+        )
+        picked += rest[: k - len(picked)]
+    return picked[:k]
 
 
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
@@ -386,11 +399,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 84 (corr): draw-snapped deciles opener.
+    # Iter 85 (corr): grid-inside-strata refine.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
-        return _drawsnap(ratings, n)
+        return _census(ratings, n, mode="quantile")
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
-        return _strata(bot, ratings, n)
+        return _gridstrata(bot, ratings, n)
     return _info_duel(bot, ratings)
