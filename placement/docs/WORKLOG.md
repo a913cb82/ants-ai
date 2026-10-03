@@ -826,3 +826,8 @@
 - 9th census seat = max-sigma last-400 ruler.
 - Score: corr 0.9929 (-0.0003).
 - Verdict: TRACK I CLOSED. Five legs: +0.0000/-0.0001/-0.0001/+0.0000/-0.0003. Herding dead at terminal, mid-tail, and census positions; pool-rent never exceeds own-cost. Axis closed for good.
+
+## Iter 146 (camp J1): recent-400 decile opener retest
+- Decile sites from last-400 mus, snapped to full pool.
+- Score: corr 0.9932 (+0.0000, exact tie).
+- Verdict: retest CONFIRMS window==history for the opener. Next: window-800 census (J2).
