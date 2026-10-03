@@ -1712,3 +1712,9 @@ Use this format.
 - what changed: the harness, not the bot. Each iteration now plays 3 games of 10 players: census skeleton, then 1.25 and 1.875 spreads off recent low-sigma rulers. The recorded score is mu, not mu-3sigma. Validation (6 seeds, faithful 30-slot shapes) ranks the new exam truer, 0.964 vs 0.962, winning 5 of 6 seeds.
 - what you learned: old champions keep their lines but not their crown. The next recorded score under the new tag sets the baseline.
 - next: continue the bot loop under the new exam.
+
+## Harness note — mu scoring on the old exam (2026-10-04)
+- verdict: new score from this line on. Exam unchanged. Old-lb rows stay filed, ignored for champion.
+- what changed: the harness records mu instead of mu-3sigma, under budget tag score=mu. The 5-duel plus FFA exam stands: it ranks truest with mu scoring (0.9655, tied best over 6 seeds), and the sigma-discount ladder falls monotonically under both exams.
+- what you learned: doubt belongs in the exam, not the score. The next recorded mu under the new tag sets the baseline.
+- next: continue the bot loop under mu scoring.
