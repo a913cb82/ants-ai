@@ -1401,3 +1401,12 @@ One entry per iteration:
 - what changed: game-1 mixed 5 census sites with 4 case-centered 4.0 pulls.
 - what you learned: cost about 73 with seed 2 annihilated plus 215; personal pulls re-poison the skeleton and pure census stands.
 - next: misses force bold 25; senior-tertile under census (retest).
+
+## 147 — ancient-tertile bold 25 (2026-10-03)
+- commit: 67c33f8
+- score: mean 202.9325 over seeds 0-4 (149.8157, 230.3329, 327.3526, 130.2190, 176.9423)
+- champion mean: 197.7410 selection, 187.4788 pooled (5faf0b0)
+- verdict: discard
+- what changed: tertile anchors drawn from the first 400 arrivals.
+- what you learned: cost about 5.19 with zero of five improving; recency direction is real and old anchors calcify.
+- next: judge bold 25 after 150; senior-tertile under census (retest).

@@ -11,10 +11,11 @@ class Rating:
 
 
 def _established(ratings: list[Rating], k: int) -> list[int]:
-    """Oldest low-sigma tertile (first 400), or full pool if too few."""
-    recent = ratings[:400]
+    """Recent low-sigma tertile (last 400), or full pool if too few."""
+    start = max(0, len(ratings) - 400)
+    recent = ratings[start:]
     cutoff = sorted(r.sigma for r in recent)[len(recent) // 3]
-    pool = [c for c in range(min(400, len(ratings))) if ratings[c].sigma <= cutoff]
+    pool = [c for c in range(start, len(ratings)) if ratings[c].sigma <= cutoff]
     if len(pool) < k:
         pool = list(range(len(ratings)))
     return pool
@@ -80,7 +81,7 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Exp (iter 147, MSE): ancient-tertile (bold 25).
+    # Champion (iter 133, MSE): census opener, recent-tertile 1.25/1.875.
     if budget_left > 20:
         return _census(ratings, min(9, budget_left - 1, len(ratings)))
     if budget_left > 10:
