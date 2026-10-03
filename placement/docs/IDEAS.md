@@ -34,8 +34,16 @@ A refinement is a new row. Leave old rows as they were.
 | open | Adaptive refine width: 2.0 iff mid sigma above 6.5 else 0.5. |
 | open | Tail-chasing spread: one-sided thresholds toward the bot tail. |
 | open | Closing duel: 8p refine plus a final closest duel (28+2 slots). |
+| trying | Tail-chasing one-sided spread for tail bots (bold 2). |
 
 ## Bold lines
+
+Two misses in a row (iters 9-10) force bold line 2 (2026-10-03):
+tail-chasing spread. Bots a full `sigma` from the pool median get
+one-sided FFA thresholds on their tail side only; all 9 looks
+concentrate where squared error lives. Predicts extreme-bot error
+falls enough to pay for lost two-sided bounds. Judge after
+iteration 14.
 
 Two misses in a row (iters 6-7) force bold line 1 (2026-10-03):
 coverage-maximalist. Under MSE the refine 10p polishes typical bots

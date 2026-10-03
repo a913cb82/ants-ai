@@ -19,6 +19,18 @@ def _established(ratings: list[Rating], k: int) -> list[int]:
     return pool
 
 
+def _side(bot: Rating, ratings: list[Rating]) -> int:
+    """+1/-1 when bot.mu is a full sigma above/below anchor median."""
+    pool = _established(ratings, 1)
+    mus = sorted(ratings[c].mu for c in pool)
+    med = mus[len(mus) // 2]
+    if bot.mu - med > bot.sigma:
+        return 1
+    if med - bot.mu > bot.sigma:
+        return -1
+    return 0
+
+
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
     """Pool index nearest bot.mu, low sigma then low index on ties."""
     return min(
@@ -28,11 +40,21 @@ def _closest(bot: Rating, ratings: list[Rating]) -> int:
 
 
 def _spread(
-    bot: Rating, ratings: list[Rating], k: int, width: float = 1.0
+    bot: Rating,
+    ratings: list[Rating],
+    k: int,
+    width: float = 1.0,
+    side: int = 0,
 ) -> list[int]:
-    """k distinct established opponents nearest quantiles of N(mu, w*sigma)."""
+    """k distinct established opponents nearest quantiles of N(mu, w*sigma).
+    side +1/-1 restricts targets to the upper/lower half."""
     dist = NormalDist(bot.mu, max(width * bot.sigma, 0.5))
-    targets = [dist.inv_cdf((j + 1) / (k + 1)) for j in range(k)]
+    qs = [(j + 1) / (k + 1) for j in range(k)]
+    if side > 0:
+        qs = [0.5 + 0.5 * q for q in qs]
+    elif side < 0:
+        qs = [0.5 * (1.0 - q) for q in qs]
+    targets = [dist.inv_cdf(q) for q in qs]
     pool = _established(ratings, k)
     picked: list[int] = []
     used: set[int] = set()
@@ -56,11 +78,17 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Champion (iter 8, MSE): 3d, twin-wide 10ps, bracket pair (bold 1).
+    # Exp (iter 11, MSE): tail-chasing one-sided spread (bold 2).
     if budget_left > 24:
         return [_closest(bot, ratings)]
     if budget_left > 14:
-        return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.0)
+        return _spread(
+            bot,
+            ratings,
+            min(9, budget_left - 1, len(ratings)),
+            2.0,
+            _side(bot, ratings),
+        )
     if budget_left > 10:
         order = sorted(
             range(len(ratings)),
@@ -75,4 +103,10 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
                 if ratings[i].mu < bot.mu:
                     return [i]
         return [order[0]]
-    return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.0)
+    return _spread(
+        bot,
+        ratings,
+        min(9, budget_left - 1, len(ratings)),
+        2.0,
+        _side(bot, ratings),
+    )
