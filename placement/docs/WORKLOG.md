@@ -75,3 +75,12 @@ One entry per iteration:
 - what changed: kept duels-first order but picked FFA opponents at quantiles of N(mu, sigma) with low-sigma tiebreaks instead of closest mus.
 - what you learned: threshold spread gained about 0.57 mean error; 4 of 5 seeds improved, so spread opponents bound mu better than a clustered field.
 - next: full Approach 3 schedule (10p, 6p, then duels) with spread opponents.
+
+## 8 — Approach 3 schedule exact with spread opponents (2026-10-03)
+- commit: 490e97a
+- score: mean 19.7573 over seeds 0-4 (19.4066, 19.1767, 24.2760, 18.1491, 17.7780)
+- champion mean: 16.0723 (f2a2568)
+- verdict: discard
+- what changed: large-first 10p then 6p with quantile-spread opponents, duels last.
+- what you learned: large-first loses with or without spread (19.76 vs 16.07) and seed 2 blew up to 24.28 again; duels-first ordering is confirmed, so the outside advice optimises a different objective (final sigma, not mu error).
+- next: Approach 2 schedule (10p, 5p, 5p, then duels) or refine champion duel count/spread width.
