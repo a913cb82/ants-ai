@@ -569,3 +569,8 @@
 - Score: corr 0.9924 (-0.0008).
 - Verdict: DISCARD. Duels need fresh/high-sigma targets; the info score already prices ruler quality, and quarantining the candidate set starves it. Pool-asymmetry confirmed: refine wants calibrated rulers, tail wants the full pool.
 - Misses: 50.
+
+## Iters 94-98 (pre-registered): equivalence shootout
+- Champion 396b8f0 (nearest-mu decile snap) vs best tie-rival b896659 (iter-70 calibrated-snap: lowest-sigma within 0.15 mu).
+- Design: head-to-head on 15 FRESH seeds (15-29), paired per seed. Criterion pre-registered: adopt rival iff mean(rival) - mean(champ) > +0.0003 on seeds 15-29; any smaller margin (either direction) proves CONVERGED at 3x the selection ruler and the loop stops shaping.
+- Rationale (auditor): 50 misses, ties-everywhere at +-0.0001 vs seed SE ~0.0009; the only remaining prize is an effect in (0.0000, 0.0005], and the shootout prices exactly that band with fresh eyes.
