@@ -524,3 +524,12 @@ One entry per iteration:
 - what changed: unfiltered opener widened from 4.25 to 4.375 sigma.
 - what you learned: cost about 5.18 with seed 2 regressing 15 while seed 3 improved to 115.17; the top sits at 4.25, overshoot clips edges. Bold 8 judged refuted (iter 53).
 - next: game-2 width micro-probe at 2.25, then accept the shape.
+
+## 57 — widths 4.25 2.25 2.0 (2026-10-03)
+- commit: 59100c7
+- score: mean 228.1484 over seeds 0-4 (193.9969, 273.3836, 352.7951, 128.6346, 191.9318)
+- champion mean: 221.5778 (9b38f80)
+- verdict: discard
+- what changed: second bulk 10p widened from 2.0 to 2.25 sigma.
+- what you learned: cost about 6.57 with seed 2 regressing 13; game-2 wants exactly 2.0, micro-wider fails the same way macro-wider did.
+- next: accept the shape (4.25/2.0/2.0, full/tertile/tertile) or find genuinely new data.
