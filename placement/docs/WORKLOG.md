@@ -1672,3 +1672,9 @@ One entry per iteration:
 - Verdict: DISCARD. Outward kick extrapolates past tails; integrator windup in the open loop too.
 - Learned: spread CENTER must stay on bot mu (outward dead); inward receiver-centering (seismo S4) is the remaining center cell.
 - Next: iter 179 receiver-centered closer.
+
+## Iter 179: receiver-centered closer (seismo S4)
+- Score: sel 198.3764 vs 197.7410 (+0.64); seed 1 -16.5 but seed 2 +20.3, seeds 0/3 regress.
+- Verdict: DISCARD. Recenter chases noise; no drift-correction signal in G2 landing.
+- Learned: spread-center axis closed (outward 178, receiver 179). Center stays on bot mu.
+- Next: iter 180 antipodal closer (period review at 180).
