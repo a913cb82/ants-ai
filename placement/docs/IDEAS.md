@@ -15,7 +15,7 @@ A refinement is a new row. Leave old rows as they were.
 | status | idea |
 |---|---|
 | done | MAE champion carried as baseline (5 duels, 1.0/0.5 10ps, tertile). |
-| trying | Wide bound retest (1.5 then 0.5): seed-2 fixer under MAE, likely winner under MSE. |
+| done | Wide bound retest (1.5 then 0.5): seed-2 fixer under MAE, likely winner under MSE. |
 | open | Edge-conditional narrow bound (failed rarely under MAE; extremes weigh more now). |
 | open | Approach 1 pipeline retest (tightest seed spread under MAE). |
 | open | Symmetric pairs recheck under MSE (0.5/0.5, 1.0/1.0). |
