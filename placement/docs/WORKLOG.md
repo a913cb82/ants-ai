@@ -1549,3 +1549,12 @@ One entry per iteration:
 - what changed: census opener, full-pool 4.0 game-2, 1.5 closer.
 - what you learned: cost about 61.59 with every seed regressing; wide re-observe stays redundant after any skeleton.
 - next: judge bold 28 after 165; double-tap census under census (retest).
+
+## 163 — DPP census retest (2026-10-03)
+- commit: a275e19
+- score: mean 199.0069 over seeds 0-4 (172.4176, 236.3517, 302.8221, 118.7453, 165.6980)
+- champion mean: 197.7410 selection, 187.4788 pooled (5faf0b0)
+- verdict: discard
+- what changed: games 2 and 3 excluded rulers within 1.0 mu of already-picked ones.
+- what you learned: cost about 1.27 with three of five improving but seeds 0/1 regressing hard; de-collision still displaces needed thresholds. Note: 200-bot quick matched iter-132 code bit-identically (game-1 rarely binds differently at small pools); full runs diverge properly.
+- next: judge bold 28 after 165; mark-recapture under census (retest).
