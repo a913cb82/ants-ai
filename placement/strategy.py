@@ -129,40 +129,6 @@ def _strata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
     return out[:k]
 
 
-def _masstrata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
-    """k rulers from pool-tertile bins, quota by bin mass."""
-    pool = _established(ratings, k, 0)
-    mus = sorted(ratings[c].mu for c in pool)
-    n = len(mus)
-    c1, c2 = mus[n // 3], mus[2 * n // 3]
-    bins: list[list[int]] = [[], [], []]
-    for c in pool:
-        m = ratings[c].mu
-        bins[0 if m < c1 else (2 if m >= c2 else 1)].append(c)
-    masses = [len(b) for b in bins]
-    total = sum(masses) or 1
-    quota = [max(1 if m else 0, round(k * m / total)) for m in masses]
-    while sum(quota) > k:
-        j = max(range(3), key=lambda j: quota[j] - k * masses[j] / total)
-        quota[j] -= 1
-    while sum(quota) < k:
-        j = max(range(3), key=lambda j: k * masses[j] / total - quota[j])
-        quota[j] += 1
-    out: list[int] = []
-    for b, q in zip(bins, quota, strict=True):
-        near = sorted(
-            b, key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c)
-        )
-        out += near[: max(q, 0)]
-    if len(out) < k:
-        rest = sorted(
-            (c for c in pool if c not in set(out)),
-            key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
-        )
-        out += rest[: k - len(out)]
-    return out[:k]
-
-
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
     """Pool index nearest bot.mu, low sigma then low index on ties."""
     return min(
@@ -388,11 +354,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 65 (corr): mass-anchored strata edges.
-    if budget_left > 20:
-        n = min(9, budget_left - 1, len(ratings))
+    # Bold 18 (corr): 8+6+16, tail fed from skeleton.
+    if budget_left > 22:
+        n = min(7, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
-    if budget_left > 14:
+    if budget_left > 16:
         n = min(5, budget_left - 1, len(ratings))
-        return _masstrata(bot, ratings, n)
+        return _strata(bot, ratings, n)
     return _info_duel(bot, ratings)
