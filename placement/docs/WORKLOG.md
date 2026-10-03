@@ -1282,3 +1282,12 @@ One entry per iteration:
 - what changed: tertile anchors drawn from the last 400 arrivals only.
 - what you learned: all three sets agree, 13 of 15 seeds, pooled-15 177.8219 vs 180.6270. Old rulers go stale as anchors; the pool skeleton keeps improving while settled mus calcify. Bold 22 judged refuted (iter 130); repechage filed as its duplicate without running.
 - next: recency-window tuning (200/600); census-site count for small pools.
+
+## 134 — recency window 200 (2026-10-03)
+- commit: 4ff2b08
+- score: mean 229.6038 over seeds 0-4 (192.1119, 215.5058, 380.8239, 181.1587, 178.4189)
+- champion mean: 197.7410 selection, 187.4788 pooled (5faf0b0)
+- verdict: discard
+- what changed: anchor window narrowed from last-400 to last-200.
+- what you learned: cost about 31.86 with only seed 1 improving and seed 2 annihilated plus 61; 200 starves the anchor pool on hard seeds.
+- next: recency window 600 (tuning 133c).
