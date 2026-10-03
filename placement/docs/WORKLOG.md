@@ -300,3 +300,12 @@ One entry per iteration:
 - what changed: duels 1-3 stayed closest-mu, duels 4-5 bracketed with the nearest above then below.
 - what you learned: bracketing cost about 0.18 with seeds 1/2/4 regressing; symmetric closest duels position better than forced asymmetry.
 - next: accept the extreme floor, or candidates-promoted alternates.
+
+## 33 — inverted widths narrow then wide (2026-10-03)
+- commit: 23ca1c6
+- score: mean 15.3179 over seeds 0-4 (14.3032, 16.5516, 16.3780, 14.1952, 15.1617)
+- champion mean: 14.8370 (067b331)
+- verdict: discard
+- what changed: first late FFA at 0.5 sigma, second at 1.0 sigma.
+- what you learned: inverted order cost about 0.48 with seeds 1/3/4 regressing; bound-then-refine beats refine-then-bound, so the wide game must come first.
+- next: first-duel versus established median, or candidates-track alternates.
