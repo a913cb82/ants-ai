@@ -100,18 +100,21 @@ def _census(ratings: list[Rating], k: int, mode: str = "range") -> list[int]:
     return picked
 
 
-def _calsnap(ratings: list[Rating], k: int, tol: float = 0.15) -> list[int]:
+def _calsnap(
+    ratings: list[Rating], k: int, tol: float = 0.15, mid: bool = False
+) -> list[int]:
     """Decile sites; lowest-sigma snap within tol, else nearest."""
     n = len(ratings)
     pool = sorted(r.mu for r in ratings)
     sites = [pool[min(int(n * (j + 1) / (k + 1)), n - 1)] for j in range(k)]
     picked: list[int] = []
     used: set[int] = set()
-    for t in sites:
+    for j, t in enumerate(sites):
         cands = [c for c in range(n) if c not in used]
         if not cands:
             break
-        near = [c for c in cands if abs(ratings[c].mu - t) <= tol]
+        extreme = mid and (j == 0 or j == len(sites) - 1)
+        near = [] if extreme else [c for c in cands if abs(ratings[c].mu - t) <= tol]
         src = near or cands
         if near:
             i = min(src, key=lambda c: (ratings[c].sigma, abs(ratings[c].mu - t), c))
@@ -403,10 +406,10 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 114 (camp C4): calibrated-snap tolerance 0.30.
+    # Iter 115 (camp C5): middle-only quality snap (extremes nearest-mu).
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
-        return _calsnap(ratings, n, 0.30)
+        return _calsnap(ratings, n, 0.30, mid=True)
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
         return _strata(bot, ratings, n)
