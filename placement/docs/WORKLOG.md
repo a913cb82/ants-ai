@@ -778,3 +778,8 @@
 - 10p + 6p strata + 4p narrow-peer strata + 5 info duels.
 - Score: corr 0.9934 (+0.0003; seeds 0/2/3 up, seed 1 -0.0010).
 - Verdict: TRACK G CLOSED. Five legs: +0.0000/-0.0001/-0.0003/-0.0004/+0.0003. Depth never pays for the 7th duel except a spiky G5 that fails breadth (seed-1 hard regress). C4 stays camp leader on breadth. 10+6+14 shape stands.
+
+## Iter 136 (camp H1): range-grid early window retest
+- Even arrivals <200 get range census + full-pool 1.5 refine; crossover estimable.
+- Score: corr 0.9932 (+0.0000, exact tie).
+- Verdict: retest CONFIRMS regime-robustness. Next: FFA-heavy early, zero duels (H2).
