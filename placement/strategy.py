@@ -600,14 +600,14 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 135 (camp G5): 6p strata + narrow-peer 4p second look + 5 duels.
+    # Iter 136 (camp H1): range-grid early window retest.
+    early = len(ratings) < 200 and len(ratings) % 2 == 0
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
-        return _census(ratings, n, mode="quantile")
+        return _census(ratings, n, mode="range" if early else "quantile")
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
+        if early:
+            return _spread(bot, ratings, n, width=1.5, anchors=False)
         return _strata(bot, ratings, n)
-    if budget_left > 10:
-        n = min(3, budget_left - 1, len(ratings))
-        return _strata(bot, ratings, n, edge=0.5)
     return _info_duel(bot, ratings, 0, 40, 0)
