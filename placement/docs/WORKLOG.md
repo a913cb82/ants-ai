@@ -147,3 +147,12 @@ One entry per iteration:
 - what changed: spread FFA opponents must come from the low-sigma half of the pool, falling back to the full pool when too few qualify.
 - what you learned: established anchors gained about 0.24 mean error; seeds 0/3/4 improved clearly while seed 2 barely moved, so anchor quality helps typical bots most.
 - next: low-sigma-only duel opponents, or Approach 2 schedule.
+
+## 16 — low-sigma-only duel opponents (2026-10-03)
+- commit: bb12e0b
+- score: mean 16.5232 over seeds 0-4 (16.3568, 17.0247, 18.7203, 15.0118, 15.5025)
+- champion mean: 15.8333 (2d70af7)
+- verdict: discard
+- what changed: restricted duel opponents to the low-sigma half of the pool, same as the FFA anchors.
+- what you learned: duel anchors cost about 0.69 mean error; early positioning needs mu-closeness more than anchor certainty, while late thresholds need the reverse.
+- next: mid-size late games (4x5p instead of 2x10p).

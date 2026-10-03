@@ -20,10 +20,9 @@ def _established(ratings: list[Rating], k: int) -> list[int]:
 
 
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
-    """Established pool index nearest bot.mu, low sigma then index."""
-    pool = _established(ratings, 1)
+    """Pool index nearest bot.mu, low sigma then low index on ties."""
     return min(
-        pool,
+        range(len(ratings)),
         key=lambda i: (abs(ratings[i].mu - bot.mu), ratings[i].sigma, i),
     )
 
@@ -55,7 +54,7 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Exp (iter 16): duels first, established anchors everywhere.
+    # Champion (iter 15): duels first, established-anchor spread FFAs.
     if budget_left > 20:
         return [_closest(bot, ratings)]
     return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)))
