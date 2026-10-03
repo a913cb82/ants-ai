@@ -357,3 +357,12 @@ One entry per iteration:
 - what changed: third bulk shrunk to 8p at 2.0 plus a final closest duel.
 - what you learned: cost about 27.73 with every seed regressing; the 2 lost bulk looks outweigh one precision duel, full 10ps stand.
 - next: adaptive refine at 4.0 (probe says refine-time sigma mean is 3.9).
+
+## 39 — pool-size-adaptive opener bold 6 (2026-10-03)
+- commit: 760b114
+- score: mean 242.9232 over seeds 0-4 (227.6190, 322.6718, 287.4612, 151.3065, 225.5575)
+- champion mean: 235.2613 (04eeed2)
+- verdict: discard
+- what changed: first 10p at 4.0 sigma while pool under 200, else 3.0.
+- what you learned: cost about 7.66 with seeds 2/3/4 improving (seed 3 down 10) but seeds 0/1 regressing hard; pool size misconditions width, overshoot hurts more than reach helps.
+- next: adaptive refine at 4.0 (probe-calibrated threshold).
