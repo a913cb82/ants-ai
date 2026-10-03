@@ -384,3 +384,12 @@ One entry per iteration:
 - what changed: intended as the untested uniform cell, but it replays iteration 20 exactly.
 - what you learned: bit-identical to iteration 20 on all 5 seeds, revalidating determinism; the 3.0 opener buys 55 points over uniform 2.0. Bold 6 judged refuted (iter 39).
 - next: stop grid-filling; only probe-driven or docket-novel ideas.
+
+## 42 — tail-skewed two-sided grid bold 7 (2026-10-03)
+- commit: b44e155
+- score: mean 255.4596 over seeds 0-4 (219.1812, 333.5048, 302.8655, 256.1983, 165.5483)
+- champion mean: 235.2613 (04eeed2)
+- verdict: discard
+- what changed: spread grid mass shifted 0.05 toward the bot tail side, both sides kept.
+- what you learned: cost about 20.20 with every seed regressing; even soft skew displaces load-bearing median-side thresholds, symmetric grids stand.
+- next: mixed anchors per game (full-pool opener, tertile rest).

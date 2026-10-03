@@ -19,27 +19,6 @@ def _established(ratings: list[Rating], k: int) -> list[int]:
     return pool
 
 
-def _skewed(bot: Rating, ratings: list[Rating], k: int, width: float) -> list[int]:
-    """Spread with grid mass shifted 0.05 toward the bot tail side."""
-    pool = _established(ratings, k)
-    mus = sorted(ratings[c].mu for c in pool)
-    med = mus[len(mus) // 2]
-    up = bot.mu >= med
-    qs = [(2 * j + 3) / 20.0 if up else (2 * j + 1) / 20.0 for j in range(k)]
-    dist = NormalDist(bot.mu, max(width * bot.sigma, 0.5))
-    targets = [dist.inv_cdf(q) for q in qs]
-    picked: list[int] = []
-    used: set[int] = set()
-    for t in targets:
-        cands = [c for c in pool if c not in used]
-        if not cands:
-            break
-        i = min(cands, key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c))
-        used.add(i)
-        picked.append(i)
-    return picked
-
-
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
     """Pool index nearest bot.mu, low sigma then low index on ties."""
     return min(
@@ -80,7 +59,7 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Exp (iter 42, MSE): tail-skewed grids, 3.0/2.0/2.0 (bold 7).
+    # Champion (iter 22, MSE): bulk-only, first 10p at 3.0.
     if budget_left > 20:
-        return _skewed(bot, ratings, min(9, budget_left - 1, len(ratings)), 3.0)
-    return _skewed(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.0)
+        return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 3.0)
+    return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.0)
