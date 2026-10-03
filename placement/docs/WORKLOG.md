@@ -1083,3 +1083,13 @@ One entry per iteration:
 - what changed: game-2 matched 5 inner targets at 1.25 sigma and 4 extreme targets at 2.5 sigma.
 - what you learned: cost about 16.62 with only seed 2 improving; the halo widens too early and precision timing stays load-bearing.
 - next: game-3 mixture 5x1.25 plus 4x2.5 (bayes P3).
+
+## 113 — game-3 mixture 1.25 2.5 (2026-10-03)
+- commit: 43f3e80
+- score: selection mean 217.1112 (184.0853, 251.1838, 353.8683, 112.9795, 183.4390)
+- champion selection mean: 216.0193 (fde75b9)
+- confirmation: 198.4788 over seeds 5-9 (153.0889, 236.8875, 227.4818, 203.5922, 171.3436) vs champion held-out 195.5568
+- verdict: discard
+- what changed: closer matched 5 inner targets at 1.25 sigma and 4 extreme targets at 2.5 sigma.
+- what you learned: thin selection margin triggered held-out, which lost by 2.92 (only seed 8 improved); pooled loses too. Mixtures dilute both regimes instead of averaging them.
+- next: split-middle 10+5+5+10 valley halves (info/poker consensus).

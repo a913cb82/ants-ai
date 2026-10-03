@@ -19,26 +19,6 @@ def _established(ratings: list[Rating], k: int) -> list[int]:
     return pool
 
 
-def _halo(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
-    """Narrow core targets plus wide halo targets, tertile rulers."""
-    pool = _established(ratings, k)
-    core = NormalDist(bot.mu, max(1.25 * bot.sigma, 0.5))
-    halo = NormalDist(bot.mu, max(2.5 * bot.sigma, 0.5))
-    inner = [core.inv_cdf((j + 1) / 10) for j in range(2, 7)]
-    outer = [halo.inv_cdf((j + 1) / 10) for j in (0, 1, 7, 8)]
-    targets = sorted(inner + outer, key=lambda t: abs(t - bot.mu))
-    picked: list[int] = []
-    used: set[int] = set()
-    for t in targets[:k]:
-        cands = [c for c in pool if c not in used] or [
-            c for c in range(len(ratings)) if c not in used
-        ]
-        i = min(cands, key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c))
-        used.add(i)
-        picked.append(i)
-    return picked
-
-
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
     """Pool index nearest bot.mu, low sigma then low index on ties."""
     return min(
@@ -80,9 +60,9 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Exp (iter 113, MSE): game-3 mixture.
+    # Champion (iter 85, MSE): widths 4.0/1.25/1.875.
     if budget_left > 20:
         return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 4.0, False)
     if budget_left > 10:
         return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.25)
-    return _halo(bot, ratings, min(9, budget_left - 1, len(ratings)))
+    return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.875)
