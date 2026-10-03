@@ -317,3 +317,9 @@
 - Score: corr 0.9911 (-0.0021).
 - Verdict: DISCARD. Bold 13 judged: refuted. The strata refine matters under info tails too.
 - Misses: 8.
+
+## Iter 52: slim 7-site skeleton + 5-strata + 8 duels
+- 8p quantile skeleton + 6p strata + 8 info duels.
+- Score: corr 0.9897 (-0.0034).
+- Verdict: DISCARD. Extra tail cannot pay for lost skeleton density; 9 opener looks irreplaceable.
+- Misses: 9.

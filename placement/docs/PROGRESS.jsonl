@@ -49,3 +49,4 @@
 {"date": "2026-10-04", "commit": "iter49", "corr": 0.9924, "seeds": [0.9926, 0.9903, 0.9907, 0.9945, 0.9938], "champion": "396b8f0", "note": "full-pool refine; -0.0008; one-shot spent, rulers matter"}
 {"date": "2026-10-04", "commit": "iter50", "corr": 0.9924, "seeds": [0.9934, 0.9904, 0.9888, 0.9946, 0.9947], "champion": "396b8f0", "note": "range+strata+info control; -0.0008; quantile stands"}
 {"date": "2026-10-04", "commit": "iter51", "corr": 0.9911, "seeds": [0.9925, 0.9906, 0.9865, 0.9929, 0.9931], "champion": "396b8f0", "note": "bold13 no-refine+10 info duels; -0.0021; refine matters"}
+{"date": "2026-10-04", "commit": "iter52", "corr": 0.9897, "seeds": [0.9829, 0.9908, 0.9862, 0.9941, 0.9947], "champion": "396b8f0", "note": "slim skeleton+8d; -0.0034; skeleton density irreplaceable"}
