@@ -76,7 +76,9 @@ SIGMA_WEIGHT = 0.02
 
 # One tag for one budget. PROGRESS.jsonl is append-only; rows with an
 # older tag stay in the file and are ignored for the champion.
-BUDGET = f"duels={DUELS},ffa={len(FFA_SETS[0])},turns={TURNS}"
+# score=mu ports the placement finding: the recorded score ranks truer
+# without the sigma discount (corr 0.9655 vs 0.9619 on the old exam).
+BUDGET = f"duels={DUELS},ffa={len(FFA_SETS[0])},turns={TURNS},score=mu"
 
 
 def candidate_id(root: str | Path, botfile: str, rev: str | None = None) -> str:
@@ -150,9 +152,10 @@ def pick_maps(rng: random.Random, candidates: list[str], k: int) -> list[str]:
 
 
 def score(ratings: dict, bid: str) -> tuple[float, float, float]:
-    """The objective: mu - 3 sigma, the conservative ordinal."""
+    """The objective: mu, the estimated skill. The exam already prices
+    uncertainty into the measurement, so no sigma discount."""
     e = R.for_id(ratings, bid)
-    return e["mu"], e["sigma"], e["mu"] - 3 * e["sigma"]
+    return e["mu"], e["sigma"], e["mu"]
 
 
 def result_line(rec: dict, bid: str | None = None) -> str:
@@ -210,13 +213,15 @@ def read_progress(path: str | Path | None = None) -> list[dict]:
             continue
         try:
             row = json.loads(line)
+            # Legacy rows recorded lb; the score column carries both.
+            sc = row.get("score", row.get("lb"))
             rows.append(
                 {
                     "date": row["date"],
                     "bot": row["bot"],
                     "mu": float(row["mu"]),
                     "sigma": float(row["sigma"]),
-                    "lb": float(row["lb"]),
+                    "score": float(sc),
                     "games": int(row["games"]),
                     "champion": row["champion"],
                     "budget": row.get("budget"),
@@ -231,7 +236,7 @@ def record_report(
     bid: str,
     mu: float,
     sigma: float,
-    lb: float,
+    sc: float,
     games: int,
     path: str | Path | None = None,
 ) -> tuple[dict, dict | None, bool]:
@@ -240,7 +245,7 @@ def record_report(
     p = Path(path) if path is not None else PROGRESS
     rows = read_progress(p)
     same = [r for r in rows if r["budget"] == BUDGET]
-    prior = max(same, key=lambda r: r["lb"]) if same else None
+    prior = max(same, key=lambda r: r["score"]) if same else None
     for r in rows:
         if r["bot"] == bid:
             return r, prior, False
@@ -249,7 +254,7 @@ def record_report(
         "bot": bid,
         "mu": mu,
         "sigma": sigma,
-        "lb": lb,
+        "score": sc,
         "games": games,
         "champion": prior["bot"] if prior else None,
         "budget": BUDGET,
@@ -373,11 +378,11 @@ def main(argv=None) -> int:
                 R.save(RATINGS_PATH, ratings)
                 rank = rec["result"].index(bid) + 1
                 outcome = "WIN" if rank == 1 else "LOSS"
-                mu, sigma, lb = score(ratings, bid)
+                mu, sigma, sc = score(ratings, bid)
                 print(
                     f"duel {done['duels']}/{DUELS} "
                     f"{Path(map_rel).name} {result_line(rec, bid)} -> {outcome}"
-                    f"  cand mu {mu:.1f} sigma {sigma:.2f} lb {lb:.1f}",
+                    f"  cand mu {mu:.1f} sigma {sigma:.2f} score {sc:.1f}",
                     flush=True,
                 )
 
@@ -410,28 +415,35 @@ def main(argv=None) -> int:
             ratings = R.update(ratings, rec["field"], rec["result"])
             R.save(RATINGS_PATH, ratings)
             rank = rec["result"].index(bid) + 1
-            mu, sigma, lb = score(ratings, bid)
+            mu, sigma, sc = score(ratings, bid)
             print(
                 f"ffa {n}p {Path(map_rel).name} {result_line(rec, bid)} "
-                f"-> rank {rank}/{n}  cand mu {mu:.1f} sigma {sigma:.2f} lb {lb:.1f}",
+                f"-> rank {rank}/{n}  cand mu {mu:.1f} sigma {sigma:.2f} score {sc:.1f}",
                 flush=True,
             )
 
-    mu, sigma, lb = score(ratings, bid)
+    mu, sigma, sc = score(ratings, bid)
     games = done["duels"] + sum(done["ffa"].values())
-    row, prior, appended = record_report(bid, mu, sigma, lb, games)
-    print(f"score {bid}  mu {mu:.1f}  sigma {sigma:.2f}  lb {lb:.1f}", flush=True)
+    row, prior, appended = record_report(bid, mu, sigma, sc, games)
+    print(f"score {bid}  mu {mu:.1f}  sigma {sigma:.2f}  score {sc:.1f}", flush=True)
     if not appended:
         best = prior or row
         print(
-            f"recorded earlier; best is {best['bot']} lb {best['lb']:.1f}", flush=True
+            f"recorded earlier; best is {best['bot']} score {best['score']:.1f}",
+            flush=True,
         )
     elif prior is None:
         print("report: first recorded score for this budget (baseline)", flush=True)
-    elif lb > prior["lb"]:
-        print(f"report: beats champion {prior['bot']} lb {prior['lb']:.1f}", flush=True)
+    elif sc > prior["score"]:
+        print(
+            f"report: beats champion {prior['bot']} score {prior['score']:.1f}",
+            flush=True,
+        )
     else:
-        print(f"report: below champion {prior['bot']} lb {prior['lb']:.1f}", flush=True)
+        print(
+            f"report: below champion {prior['bot']} score {prior['score']:.1f}",
+            flush=True,
+        )
     print(iteration_summary(read_log(GAMES_LOG), bid), flush=True)
     return 0
 

@@ -54,7 +54,7 @@ Rules:
 ## Goal
 
 The goal is to maximize the iteration score. The score is
-`lb = mu - 3 * sigma`, measured after the fixed budget of games.
+`mu`, the skill estimate after the fixed budget of games.
 The harness writes it to `autoresearch/docs/PROGRESS.jsonl` when the
 budget ends. Every fresh bot gets 8 games, 5 duels and 3 FFA, against
 fairly chosen opponents, so the comparison is fair. A bot's live

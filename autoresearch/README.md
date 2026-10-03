@@ -37,7 +37,7 @@ part-way plays the games that remain.
 
 ## Score
 
-The score is the snapshot `mu - 3 * sigma` at the end of the budget.
+The score is `mu`, the skill estimate at the end of the budget.
 The harness writes one JSON line for each completed iteration to
 `docs/PROGRESS.jsonl`. Every fresh bot gets 8 games, 5 duels and
 3 FFA, against fairly chosen opponents, so the comparison is fair.

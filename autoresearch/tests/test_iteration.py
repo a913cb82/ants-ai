@@ -76,18 +76,18 @@ def test_pick_maps_caps_at_pool_size():
     assert len(pick_maps(random.Random(0), maps, 5)) == 2
 
 
-def test_score_is_mu_minus_three_sigma():
+def test_score_is_mu():
     from iteration import score
 
     ratings = {"x": {"mu": 30.0, "sigma": 4.0, "games": 10}}
-    assert score(ratings, "x") == (30.0, 4.0, 18.0)
+    assert score(ratings, "x") == (30.0, 4.0, 30.0)
 
 
 def test_unseen_bot_scores_at_the_prior():
     from iteration import score
 
-    mu, sigma, lb = score({}, "fresh")
-    assert sigma == 25 / 3 and abs(lb - (25 - 25)) < 1e-9
+    mu, sigma, sc = score({}, "fresh")
+    assert (mu, sigma, sc) == (25.0, 25.0 / 3, 25.0)
 
 
 def test_candidate_id_is_path_plus_sha():
@@ -105,11 +105,10 @@ def test_short_name_labels_main_manifests_by_dir():
     assert short_name("tools/sample_bots/python/GreedyBot.bot-abc1234") == "GreedyBot"
 
 
-def test_budget_is_five_duels_and_three_ffa():
-    from iteration import DUELS, FFA_SETS
+def test_budget_tags_the_score():
+    from iteration import BUDGET
 
-    assert DUELS == 5
-    assert FFA_SETS == ((4, 6, 10), (5, 7, 8))
+    assert "score=mu" in BUDGET
 
 
 def test_ffa_sizes_for_is_stable_and_from_the_sets():
@@ -153,16 +152,42 @@ def test_progress_roundtrip_and_champion(tmp_path):
     from iteration import read_progress, record_report
 
     p = tmp_path / "PROGRESS.jsonl"
-    row, prior, appended = record_report("a-1", 30.0, 3.0, 21.0, 8, path=p)
-    assert appended and prior is None and row["lb"] == 21.0
-    row, prior, appended = record_report("b-2", 35.0, 4.0, 23.0, 8, path=p)
+    row, prior, appended = record_report("a-1", 30.0, 3.0, 30.0, 8, path=p)
+    assert appended and prior is None and row["score"] == 30.0
+    row, prior, appended = record_report("b-2", 35.0, 4.0, 35.0, 8, path=p)
     assert appended and prior is not None
     assert prior["bot"] == "a-1"
-    row, prior, appended = record_report("b-2", 1.0, 1.0, -2.0, 8, path=p)
-    assert not appended and row["lb"] == 23.0 and prior is not None
+    row, prior, appended = record_report("b-2", 1.0, 1.0, 1.0, 8, path=p)
+    assert not appended and row["score"] == 35.0 and prior is not None
     assert prior["bot"] == "b-2"
     rows = read_progress(p)
     assert [r["bot"] for r in rows] == ["a-1", "b-2"]
+
+
+def test_progress_reads_legacy_lb_rows(tmp_path):
+    import json
+
+    from iteration import read_progress
+
+    p = tmp_path / "PROGRESS.jsonl"
+    p.write_text(
+        json.dumps(
+            {
+                "bot": "old",
+                "mu": 30.0,
+                "sigma": 3.0,
+                "lb": 21.0,
+                "games": 8,
+                "champion": None,
+                "date": "2026-01-01",
+                "budget": "duels=5,ffa=3,turns=1000",
+            }
+        )
+        + "\n"
+    )
+    rows = read_progress(p)
+    assert [r["bot"] for r in rows] == ["old"]
+    assert rows[0]["score"] == 21.0
 
 
 def test_progress_skips_bad_lines(tmp_path):

@@ -26,13 +26,13 @@ One iteration has 8 games for each candidate commit:
 
 ## Score
 
-The score is the snapshot `lb = mu - 3 * sigma` at the end of the
+The score is `mu`, the skill estimate at the end of the
 budget. The model is OpenSkill BradleyTerryFull. A high score is good.
 The harness appends the score to `autoresearch/docs/PROGRESS.jsonl` and
 never changes that line. The file is append-only. The champion is the
 best recorded score for the current budget.
 
-The harness prints the candidate's live `mu`, `sigma`, and `lb` after
+The harness prints the candidate's live `mu`, `sigma`, and score after
 each game, then the recorded score at the end.
 
 A bot keeps playing after its iteration, so its live rating moves.
@@ -49,7 +49,7 @@ iteration. The object has these keys:
 | `bot` | the bot id (`path-sha`) |
 | `mu` | the rating mean |
 | `sigma` | the rating deviation |
-| `lb` | `mu - 3 * sigma` |
+| `score` | the recorded score (`mu` under the current budget) |
 | `games` | the number of games in the budget |
 | `champion` | the best bot id before this line, or `null` |
 | `budget` | the budget tag (`duels=5,ffa=3,turns=1000`) |
