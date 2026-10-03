@@ -60,16 +60,7 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Exp (iter 49, MSE): game 2 reaches full-pool iff off-median.
+    # Champion (iter 47, MSE): full-pool opener at 4.0.
     if budget_left > 20:
         return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 4.0, False)
-    if budget_left > 10:
-        pool = _established(ratings, 1)
-        mus = sorted(ratings[c].mu for c in pool)
-        med = mus[len(mus) // 2]
-        if abs(bot.mu - med) > bot.sigma:
-            return _spread(
-                bot, ratings, min(9, budget_left - 1, len(ratings)), 2.5, False
-            )
-        return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.0)
     return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.0)

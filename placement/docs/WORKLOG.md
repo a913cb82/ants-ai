@@ -452,3 +452,12 @@ One entry per iteration:
 - champion 0d52b79 (4.0 opener): 156.2611, 245.6530, 242.9705, 222.0143, 177.3267, mean 208.8451
 - rival iter-46 replica (3.5 opener): 156.8524, 252.1356, 261.8108, 206.1967, 175.6301, mean 210.5251
 - verdict: champion wins by 1.68 on unseen seeds (selection margin was 1.33); 4.0 over 3.5 generalizes, no overfit. Only seed 8 flips.
+
+## 49 — game-2 conditional reach off-median (2026-10-03)
+- commit: 85cd81f
+- score: mean 239.6201 over seeds 0-4 (193.5417, 282.4494, 384.7677, 121.7424, 215.5992)
+- champion mean: 222.4811 (0d52b79)
+- verdict: discard
+- what changed: second 10p went full-pool at 2.5 whenever bot mu sat a full sigma from the anchor median.
+- what you learned: cost about 17.14 with every seed regressing (seed 2 up 40); conditional reach destabilizes mid-schedule, only the opener wants the wild pool.
+- next: quartile anchors under the 4.0-opener shape.
