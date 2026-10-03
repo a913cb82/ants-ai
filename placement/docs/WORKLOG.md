@@ -129,3 +129,12 @@ One entry per iteration:
 - what changed: bold test of the full outside pipeline: percentile duels, 5p cluster, decile 10p, tight 5p, precision duels.
 - what you learned: tightest seed spread yet (18.07 to 19.85) but about 2.87 worse in level; uncentered percentile/decile opponents waste the positioning that centered spreads exploit. Process: ruff-format can fail a commit after reformatting, so verify HEAD moved and re-commit.
 - next: Approach 2 schedule, or low-sigma-only FFA anchors.
+
+## 14 — champion with 5th duel moved late (2026-10-03)
+- commit: b84ad7f
+- score: mean 16.3484 over seeds 0-4 (16.0680, 16.8062, 19.6667, 14.3478, 14.8534)
+- champion mean: 16.0723 (f2a2568)
+- verdict: discard
+- what changed: 4 early duels, two spread 10ps, then 1 closest-mu duel on the last 2 slots.
+- what you learned: moving the 5th duel late cost about 0.28 mean error with seed 2 regressing to 19.67; all 5 positioning duels belong up front.
+- next: low-sigma-only FFA anchors, or Approach 2 schedule.
