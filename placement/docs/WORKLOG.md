@@ -184,3 +184,9 @@
 - Score: corr 0.9863 (-0.0037).
 - Verdict: DISCARD. Bold 9 judged: refuted. Replicate-averaging loses to personalization; the refine's fresh thresholds matter.
 - Misses: 12.
+
+## Iter 30: info-targeted tail duels — CHAMPION
+- Census + 6p at 1.0 tertile + 7 tail duels by argmax predict_draw+0.02s over 40 nearest.
+- Selection: corr 0.9904 (+0.0003, 3/5). Held-out 5-9: 0.9910 (+0.0005). Fresh 10-14: 0.9919. Pooled-15: 0.9911.
+- Verdict: ADOPT. Info targeting helps positioned tails; it hurt openers (iter 10) but sharpens finishers.
+- Misses reset to 0.
