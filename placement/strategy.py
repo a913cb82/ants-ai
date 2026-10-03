@@ -406,11 +406,13 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 115 (camp C5): middle-only quality snap (extremes nearest-mu).
+    # Iter 116 (camp D1): 6 info duels + closest closer retest.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
-        return _calsnap(ratings, n, 0.30, mid=True)
+        return _census(ratings, n, mode="quantile")
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
         return _strata(bot, ratings, n)
-    return _info_duel(bot, ratings, 0, 40)
+    if budget_left > 2:
+        return _info_duel(bot, ratings, 0, 40)
+    return [_closest(bot, ratings)]
