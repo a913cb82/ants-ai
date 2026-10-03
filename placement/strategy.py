@@ -372,12 +372,12 @@ def _rescue(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
     return out[:k]
 
 
-def _dec400(ratings: list[Rating], k: int) -> list[int]:
-    """Decile sites from last-400 mus, snapped to full pool."""
+def _dec400(ratings: list[Rating], k: int, win: int = 400) -> list[int]:
+    """Decile sites from last-win mus, snapped to full pool."""
     n = len(ratings)
-    win = sorted(r.mu for r in ratings[max(0, n - 400) :])
-    m = len(win)
-    sites = [win[min(int(m * (j + 1) / (k + 1)), m - 1)] for j in range(k)]
+    winmus = sorted(r.mu for r in ratings[max(0, n - win) :])
+    m = len(winmus)
+    sites = [winmus[min(int(m * (j + 1) / (k + 1)), m - 1)] for j in range(k)]
     picked: list[int] = []
     used: set[int] = set()
     for t in sites:
@@ -663,10 +663,10 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 146 (camp J1): recent-400 decile opener retest.
+    # Iter 147 (camp J2): window-800 decile opener.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
-        return _dec400(ratings, n)
+        return _dec400(ratings, n, 800)
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
         return _strata(bot, ratings, n)
