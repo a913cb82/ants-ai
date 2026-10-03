@@ -173,6 +173,8 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Positional adaptive cluster (bold 22). |
 | dropped | Mark-recapture closer 4 recaptures plus 5 fresh (epi/bayes). |
 | dropped | DPP repulsion de-collision delta 1.0 (bayes P4). |
+| dropped | Repechage positional rescue (duplicate of bold 22 iter 130). |
+| trying | Recency-filtered tertile last-400 (epi D4). |
 | open | Chase-combining repeat-wide 4.0/4.0/1.5 (info; diversity-combine before zoom). |
 | open | Double-tap opener 4.0/4.0/1.25 (adversary; second wide after recentering, full-pool G2 untested at 4.0). |
 | open | Split-middle 10+5+5+10 valley halves (info/poker; mid-schedule re-aim, halves sandwiched not late). |
@@ -363,6 +365,8 @@ iff the bot sits more than one pool-sigma from the pool median,
 else champion 1.875; off-center bots get a wide re-open. Predicts
 position routes better than sigma did, or routing stays dead. Judge
 after iteration 133.
+Judged: refuted at iteration 130 (232.9551, every seed regressed);
+routing stays dead.
 
 Three misses in a row (iters 89-91) force bold line 16 (2026-10-03):
 flat wide rest. Both rest games at 1.875: the rest may do one job
