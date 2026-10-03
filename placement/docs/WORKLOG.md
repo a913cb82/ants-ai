@@ -1410,3 +1410,12 @@ One entry per iteration:
 - what changed: tertile anchors drawn from the first 400 arrivals.
 - what you learned: cost about 5.19 with zero of five improving; recency direction is real and old anchors calcify.
 - next: judge bold 25 after 150; senior-tertile under census (retest).
+
+## 148 — senior-tertile census retest (2026-10-03)
+- commit: ebeeb5f
+- score: mean 197.7251 over seeds 0-4 (149.3191, 222.2601, 320.3183, 124.2503, 172.4779)
+- champion mean: 197.7410 selection, 187.4788 pooled (5faf0b0)
+- verdict: discard as tie
+- what changed: recent-tertile anchors excluded the 50 most recent arrivals.
+- what you learned: margin 0.02 with two of five improving; quarantine changes nothing under census either and ties keep the incumbent.
+- next: judge bold 25 after 150; quintile anchors under census (retest).
