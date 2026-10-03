@@ -617,14 +617,14 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 139 (camp H4): recapture-early at window 300, odd parity.
-    early = len(ratings) < 300 and len(ratings) % 2 == 1
+    # Iter 140 (camp H5): span legs for late arrivals (n>=800, even).
+    late = len(ratings) >= 800 and len(ratings) % 2 == 0
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
-        return _census(ratings, n, mode="quantile")
+        return _census(ratings, n, mode="range" if late else "quantile")
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
-        if early:
-            return _rescue(bot, ratings, n)
+        if late:
+            return _spread(bot, ratings, n, width=1.5, anchors=False)
         return _strata(bot, ratings, n)
     return _info_duel(bot, ratings, 0, 40, 0)
