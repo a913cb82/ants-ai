@@ -73,6 +73,7 @@ A refinement is a new row. Leave old rows as they were.
 | done | Game-3 at 1.875: last micro. |
 | dropped | Game-3 at 1.9375: bisect 1.875 and 2.0. |
 | dropped | Game-2 at 1.375 under the 1.875 closer. |
+| trying | Zoom-down rest 1.875/1.25: coarse-to-fine (bold 15). |
 | dropped | Quartile anchors retest (cleaner thresholds for hard seeds). |
 | dropped | 3p opening: 2x3p closest-pair instead of 3x2p (same 6 slots). |
 | dropped | 4p mid game: bot plus above, below, closest replaces bracket pair. |
@@ -224,6 +225,12 @@ Predicts the valley wants flattening, or singles already price
 the joint. Judge after iteration 81.
 Judged: refuted at iteration 79 (212.8835 sel, 204.9540 held-out);
 singles already price the joint.
+
+Two misses in a row (iters 86-87) force bold line 15 (2026-10-03):
+zoom-down rest. Swap the valley to 1.875 then 1.25: classic
+coarse-to-fine, the canonical MAE shape never tested under MSE.
+Predicts monotone zoom beats the valley, or the valley shape is
+real. Judge after iteration 89.
 
 Two misses in a row (iters 81-82) force bold line 14 (2026-10-03):
 tertile opener under the confirmed shape. The anchor factorial
