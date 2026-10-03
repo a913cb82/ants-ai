@@ -377,3 +377,9 @@
 - Score: corr 0.9932 (+0.0000, exact tie).
 - Verdict: DISCARD (tie keeps incumbent). Explore-then-pin phases tie flat info; no 5+2 escalation.
 - Misses: 18.
+
+## Iter 62: 6 info + credible-pin closer
+- 6 info duels + lowest-sigma-of-10-nearest closer.
+- Score: corr 0.9933 (+0.0001, exact tie).
+- Verdict: DISCARD (tie keeps incumbent). J3 and J4 both tie: proximity and credibility coincide too often to matter. Closing-specialist family closed; flat info stands.
+- Misses: 19.
