@@ -91,6 +91,7 @@ def _spread(
     moveout: bool = False,
     checksum: bool = False,
     rewarp: bool = False,
+    disjoint_shares: bool = False,
 ) -> list[int]:
     """k distinct opponents nearest quantiles of N(mu, w*sigma)."""
     center = bot.mu
@@ -135,6 +136,11 @@ def _spread(
     else:
         targets = [dist.inv_cdf((j + 1) / (k + 1)) for j in range(k)]
     pool = _established(ratings, k) if anchors else list(range(len(ratings)))
+    if disjoint_shares:
+        g2 = _spread(bot, ratings, k, 1.25)
+        other = [c for c in pool if c not in set(g2)]
+        if len(other) >= k:
+            pool = other
     if moveout:
         g2 = _spread(bot, ratings, k, 1.25)
         near = sorted(
@@ -274,10 +280,31 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     if not ratings or budget_left < 2:
         return []
     # Champion (iter 133, MSE): census opener, recent-tertile 1.25/1.875.
+    # Iter 196 (crypto S1): G3 = same 1.25 grid on disjoint ruler set.
     if budget_left > 20:
         return _census(ratings, min(9, budget_left - 1, len(ratings)))
     if budget_left > 10:
         n = min(9, budget_left - 1, len(ratings))
         return _spread(bot, ratings, n, 1.25)
     n = min(9, budget_left - 1, len(ratings))
-    return _spread(bot, ratings, n, 1.875)
+    return _spread(
+        bot,
+        ratings,
+        n,
+        1.25,
+        True,
+        False,
+        False,
+        False,
+        False,
+        False,
+        False,
+        False,
+        False,
+        False,
+        -1,
+        False,
+        False,
+        False,
+        True,
+    )
