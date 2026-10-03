@@ -86,6 +86,7 @@ def _spread(
     cohort: bool = False,
     survey: bool = False,
     derby: bool = False,
+    homeaway: bool = False,
 ) -> list[int]:
     """k distinct opponents nearest quantiles of N(mu, w*sigma)."""
     center = bot.mu
@@ -112,6 +113,25 @@ def _spread(
     else:
         targets = [dist.inv_cdf((j + 1) / (k + 1)) for j in range(k)]
     pool = _established(ratings, k) if anchors else list(range(len(ratings)))
+    if homeaway:
+        fresh_cut = max(0, len(ratings) - 50)
+        away = [c for c in pool if c >= fresh_cut]
+        home = [c for c in pool if c < fresh_cut]
+        if home and away:
+            picked4: list[int] = []
+            used4: set[int] = set()
+            for j, t in enumerate(targets):
+                first, second = (home, away) if j % 2 == 0 else (away, home)
+                cands = [c for c in first if c not in used4] or [
+                    c for c in second if c not in used4
+                ]
+                i = min(
+                    cands,
+                    key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c),
+                )
+                used4.add(i)
+                picked4.append(i)
+            return picked4
     if survey:
         start = max(0, len(ratings) - 400)
         cands = sorted(
@@ -208,7 +228,22 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
         return _census(ratings, min(9, budget_left - 1, len(ratings)))
     if budget_left > 10:
         n = min(9, budget_left - 1, len(ratings))
-        return _spread(bot, ratings, n, 1.25)
+        return _spread(
+            bot,
+            ratings,
+            n,
+            1.25,
+            True,
+            False,
+            False,
+            False,
+            False,
+            False,
+            False,
+            False,
+            False,
+            True,
+        )
     n = min(9, budget_left - 1, len(ratings))
     return _spread(
         bot,
@@ -216,6 +251,7 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
         n,
         1.875,
         True,
+        False,
         False,
         False,
         False,
