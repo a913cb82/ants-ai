@@ -684,3 +684,8 @@
 - Score: corr 0.9933 (+0.0001, tie).
 - C4 held seeds 5-9: 0.9961, 0.9919, 0.9927, 0.9939, 0.9955 (mean 0.99402) vs champion 0.99392 (+0.0001, 3/5). Pooled-10: C4 0.99373 vs champ 0.99355 (+0.0002).
 - Verdict: TRACK C CLOSED. Five legs: +0.0001/+0.0001/+0.0001/+0.0003/+0.0001. C4 is CAMP LEADER (consistent lean-positive over 10 seeds) but pooled +0.0002 does not clear adoption; overturn rule holds the incumbent. Final track-winner validation at camp end.
+
+## Iter 116 (camp D1): 6 info + closest closer retest
+- Last duel = nearest-mu opponent; first 6 flat info.
+- Score: corr 0.9932 (+0.0000, exact tie).
+- Verdict: retest CONFIRMS the tie. Next: credible-pin closer (D2).

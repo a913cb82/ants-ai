@@ -108,3 +108,4 @@
 {"date": "2026-10-04", "commit": "iter113", "corr": 0.9933, "seeds": [0.9944, 0.9931, 0.9894, 0.9946, 0.9948], "champion": "396b8f0", "note": "camp C3 tol-0.10 ties +0.0001; tolerance free 0.10-0.25"}
 {"date": "2026-10-04", "commit": "iter114", "corr": 0.9934, "seeds": [0.9941, 0.9927, 0.9904, 0.9947, 0.9953], "champion": "396b8f0", "note": "camp C4 tol-0.30 leads +0.0003 (4/5); strongest camp signal, needs held if C5 confirms family"}
 {"date": "2026-10-04", "commit": "iter115", "corr": 0.9933, "seeds": [0.9941, 0.9929, 0.99, 0.9944, 0.9952], "champion": "396b8f0", "note": "camp C5 middle-only ties +0.0001; C4 held +0.0001/+0.0002 pooled, CAMP LEADER, no adoption"}
+{"date": "2026-10-04", "commit": "iter116", "corr": 0.9932, "seeds": [0.994, 0.9922, 0.9902, 0.9944, 0.9952], "champion": "396b8f0", "note": "camp D1 closest-closer retest exact tie"}
