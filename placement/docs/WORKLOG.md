@@ -1011,3 +1011,12 @@ One entry per iteration:
 - what changed: nothing, this schedule is iter 80 (joint 1.125/1.875); the archivist misfiled it as unrun.
 - what you learned: determinism catches duplicates for free; the 1.125 cell stands priced under both closers. Distrust revival claims without checking WORKLOG first.
 - next: per-quantile mixed anchors (auctioneer S2).
+
+## 105 — per-quantile mixed anchors (2026-10-03)
+- commit: 94cf582
+- score: mean 240.7458 over seeds 0-4 (210.9220, 288.2975, 382.4147, 123.6773, 198.4175)
+- champion mean: 216.0193 selection, 205.7881 pooled (fde75b9)
+- verdict: discard
+- what changed: games 2 and 3 matched inner-5 targets to tertile rulers and outer-4 to the full pool.
+- what you learned: cost about 24.73 with every seed regressing; even anchor-mixing disturbs the center and per-game tertile stands exact.
+- next: opener 3.75 under valley rest (archivist revival).
