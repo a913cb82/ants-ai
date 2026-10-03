@@ -120,6 +120,7 @@ pollster, MAT matchmaker, ARC archivist-3.
 | open | FFA-heavy early window: even arrivals <200 get 10+10+10 (MID S2). |
 | open | Recapture-spine early window (MID S3; regime-flip signature). |
 | open | Re-census early window: fresh skeleton from live beliefs (MID S4). |
+| open | Refine-pool window ladder 200/400/800 (MET: only inherited-only constant). |
 | open | Equivalence shootout: champion vs iter-70 on seeds 15-29 pooled-30 (AUD; convergence proof, run last). |
 | open | Fresh-voice anchors: least-played tertile rulers (AUD; needs usage plumbing, parked until harness allows). |
 | open | Antipodal info tail: max-min-distance-from-refine tail (AUD; redundancy axis, untested under corr). |
