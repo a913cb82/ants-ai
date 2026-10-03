@@ -40,6 +40,34 @@ def _census(ratings: list[Rating], k: int) -> list[int]:
     return picked
 
 
+def _stratified(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
+    """Forced below/above balance from recency rulers."""
+    pool = _established(ratings, k)
+    used: set[int] = set()
+    picks: list[int] = []
+
+    def nearest(cands: list[int]) -> list[int]:
+        return sorted(
+            cands, key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c)
+        )
+
+    below = [c for c in pool if ratings[c].mu < bot.mu]
+    above = [c for c in pool if ratings[c].mu > bot.mu]
+    third = k // 3
+    for g in (nearest(below)[:third], nearest(above)[:third]):
+        for c in g:
+            if c not in used:
+                used.add(c)
+                picks.append(c)
+    for c in nearest(pool):
+        if len(picks) >= k:
+            break
+        if c not in used:
+            used.add(c)
+            picks.append(c)
+    return picks[:k]
+
+
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
     """Pool index nearest bot.mu, low sigma then low index on ties."""
     return min(
@@ -81,9 +109,9 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Champion (iter 133, MSE): census opener, recent-tertile 1.25/1.875.
+    # Exp (iter 152, MSE): stratified closer under census (bold 26).
     if budget_left > 20:
         return _census(ratings, min(9, budget_left - 1, len(ratings)))
     if budget_left > 10:
         return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.25)
-    return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.875)
+    return _stratified(bot, ratings, min(9, budget_left - 1, len(ratings)))
