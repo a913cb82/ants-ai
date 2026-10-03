@@ -733,3 +733,13 @@ One entry per iteration:
 - what changed: third bulk 10p narrowed from 1.75 to 1.625 sigma.
 - what you learned: cost about 1.07 with seed 2 regressing hard; game-3 optimum stays 1.75, interior-confirmed against 1.5/1.625 below and 2.0/2.5 above.
 - next: game-2 at 1.375 under the 1.75-closer shape.
+
+## 78 — game-2 at 1.375 with confirmation (2026-10-03)
+- commit: 9ad6487
+- score: selection mean 215.0672 over seeds 0-4 (181.9557, 233.8812, 365.3330, 108.9731, 185.1932)
+- champion selection mean: 217.5528 (f8ba828)
+- confirmation: 204.7727 over seeds 5-9 (148.1683, 241.0943, 246.7642, 218.9360, 168.9006) vs champion held-out 197.7054
+- verdict: discard
+- what changed: second bulk 10p widened from 1.25 to 1.375 sigma.
+- what you learned: won selection by 2.49 but lost held-out by 7.07 with only seed 5 improving; game-2 stays 1.25 on both sets.
+- next: opener micro re-check (3.875/4.125) under the confirmed shape, then a fresh hunt.
