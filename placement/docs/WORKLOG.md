@@ -285,3 +285,12 @@ One entry per iteration:
 - what changed: 5 opening duels walking outward by closeness rank, then 3.0 and 2.0 10ps.
 - what you learned: cost about 74.26 with every seed regressing; duels cost a whole bulk and outward walks spend games on ever-worse opponents.
 - next: successive-halving duel tournament with FFA confirmation.
+
+## 31 — shrinking zoom bold 4 (2026-10-03)
+- commit: f353b7f
+- score: mean 327.2455 over seeds 0-4 (351.1262, 281.1943, 516.0806, 219.9872, 267.8392)
+- champion mean: 235.2613 (04eeed2)
+- verdict: discard
+- what changed: duel plus 9p at 2.0, 9p at 1.0, 10p at 0.5.
+- what you learned: cost about 91.98 with seed 2 at 516.08; size and width zoom have no redeeming interaction, uniform wide bulk stands.
+- next: successive-halving duel tournament with FFA confirmation.

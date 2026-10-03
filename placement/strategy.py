@@ -59,11 +59,7 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Exp (iter 31, MSE): shrinking zoom duel/9p/9p/10p (bold 4).
-    if budget_left > 28:
-        return [_closest(bot, ratings)]
-    if budget_left > 19:
-        return _spread(bot, ratings, min(8, budget_left - 1, len(ratings)), 2.0)
-    if budget_left > 10:
-        return _spread(bot, ratings, min(8, budget_left - 1, len(ratings)), 1.0)
-    return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 0.5)
+    # Champion (iter 22, MSE): bulk-only, first 10p at 3.0.
+    if budget_left > 20:
+        return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 3.0)
+    return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.0)
