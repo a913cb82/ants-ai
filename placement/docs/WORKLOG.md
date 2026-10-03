@@ -827,3 +827,13 @@ One entry per iteration:
 - what changed: third bulk 10p widened from 1.875 to 1.9375 sigma.
 - what you learned: won selection by 1.54 but lost held-out by 2.63 with only seed 8 improving; game-3 stays 1.875 on both sets.
 - next: game-2 re-verification at 1.25 under the 1.875 closer, then a fresh hunt.
+
+## 87 — game-2 1.375 under 1.875 closer (2026-10-03)
+- commit: 7d96fbc
+- score: selection mean 213.9205 over seeds 0-4 (177.3174, 240.0184, 360.7257, 107.1993, 184.3415)
+- champion selection mean: 216.0193 (fde75b9)
+- confirmation: 205.3343 over seeds 5-9 (147.4663, 244.4770, 240.6447, 222.9550, 171.1286) vs champion held-out 195.5568
+- verdict: discard
+- what changed: second bulk 10p widened from 1.25 to 1.375 sigma under the 1.875 closer.
+- what you learned: won selection by 2.10 but lost held-out by 9.78 with every seed regressing; game-2 stays 1.25 with no closer interaction.
+- next: hunt outside the priced grids; misses at 86-87 need bold 15 after one more miss.
