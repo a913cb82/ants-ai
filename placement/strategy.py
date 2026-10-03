@@ -34,7 +34,7 @@ def _info_duel(bot: Rating, ratings: list[Rating]) -> list[int]:
         for i in (c,):
             teams.append([_MODEL.rating(mu=ratings[i].mu, sigma=ratings[i].sigma)])
             sig += ratings[i].sigma
-        v = _MODEL.predict_draw(teams) + 0.02 * sig
+        v = _MODEL.predict_draw(teams)
         if best_v is None or v > best_v:
             best, best_v = c, v
     return [best]
@@ -322,7 +322,7 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 30 (corr): info-targeted tail duels.
+    # Iter 31 (corr): pure-draw tail, no sigma weight.
     if budget_left > 20:
         return _census(ratings, min(9, budget_left - 1, len(ratings)))
     if budget_left > 14:
