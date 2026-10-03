@@ -7,7 +7,7 @@ from ants import Ants
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Backstop:
+class Flood:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -27,8 +27,8 @@ class Backstop:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Backstop: fallback to second hill.
-        # Battling as Backstop. Homeward structure, wide fallback,
+        # Flood: move a group of ants to one target.
+        # Battling as Flood. Homeward structure, wide fallback,
         # aggression, walk-off, food, and exploration match iteration
         # 76. Hunt always; ahead on hills, hunters skip the safety
         # filter. Closeouts need teeth, not patience.
@@ -196,9 +196,14 @@ class Backstop:
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved and hills:
-                # Hunt always; fearless when ahead on hills.
-                nearest = min(hills, key=lambda h: ants.distance(ant_loc, h))
-                step = first_step(ant_loc, nearest)
+                # Flood: the group marches on one target, the hill
+                # nearest the army as a whole. Hunt always; fearless
+                # when ahead on hills.
+                muster = min(
+                    hills,
+                    key=lambda h: sum(ants.distance(a, h) for a in ants_list),
+                )
+                step = first_step(ant_loc, muster)
                 if step is not None and try_step(
                     ant_loc, step, safe=len(my_hills) <= len(hills)
                 ):
@@ -255,6 +260,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Backstop())
+        Ants.run(Flood())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
