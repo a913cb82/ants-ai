@@ -383,3 +383,9 @@
 - Score: corr 0.9933 (+0.0001, exact tie).
 - Verdict: DISCARD (tie keeps incumbent). J3 and J4 both tie: proximity and credibility coincide too often to matter. Closing-specialist family closed; flat info stands.
 - Misses: 19.
+
+## Iter 63 (bold 17): 4-stage micro-layers
+- Quantile + three 4p strata + 4 info duels.
+- Score: corr 0.9931 (-0.0001, exact tie, expected kill missed).
+- Verdict: DISCARD (tie keeps incumbent). Bold 17 judged: refuted as kill, priced as trade. 2/3/4 stages all tie: meso granularity is free, the refine's existence is load-bearing. Depth closed for good.
+- Misses: 20.
