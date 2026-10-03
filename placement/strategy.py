@@ -18,12 +18,14 @@ class Rating:
     sigma: float
 
 
-def _info_duel(bot: Rating, ratings: list[Rating], side: int = 0) -> list[int]:
-    """Tail duel: argmax predict_draw + 0.02 sigma over 40 nearest."""
+def _info_duel(
+    bot: Rating, ratings: list[Rating], side: int = 0, width: int = 40
+) -> list[int]:
+    """Tail duel: argmax predict_draw + 0.02 sigma over width nearest."""
     order = sorted(
         range(len(ratings)),
         key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
-    )[:40]
+    )[:width]
     gated = [c for c in order if (ratings[c].mu - bot.mu) * side > 0] or order
     if not gated:
         return []
@@ -355,7 +357,7 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 103 (camp A3): front-loaded upsets, first 4 duels above-only.
+    # Iter 104 (camp A4): front-3 above-only at width 60, flat rest at 40.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
@@ -363,4 +365,6 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
         n = min(5, budget_left - 1, len(ratings))
         return _strata(bot, ratings, n)
     d = (14 - budget_left) // 2
-    return _info_duel(bot, ratings, 1 if d < 4 else 0)
+    if d < 3:
+        return _info_duel(bot, ratings, 1, 60)
+    return _info_duel(bot, ratings, 0, 40)
