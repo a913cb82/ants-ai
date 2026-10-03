@@ -37,6 +37,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Game-3 full-pool: last anchor-factorial cell (full, tertile, full). |
 | done | Full-pool opener at 4.25: gradient-top micro-probe. |
 | dropped | Full-pool opener at 4.375: bisect the top. |
+| trying | Widths 4.25/2.25/2.0: game-2 micro-probe. |
 | dropped | Quartile anchors retest (cleaner thresholds for hard seeds). |
 | dropped | 3p opening: 2x3p closest-pair instead of 3x2p (same 6 slots). |
 | dropped | 4p mid game: bot plus above, below, closest replaces bracket pair. |
