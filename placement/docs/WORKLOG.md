@@ -406,3 +406,9 @@
 - Staging identical to iter 52 bit-for-bit; results identical (0.9897).
 - Verdict: stillborn duplicate, no information. MIS S3 stands answered by iter 52. Bold 18 unspent.
 - Misses: 23.
+
+## Iter 67: winsorized-range opener
+- Uniform sites over [p10, p90] + champion rest.
+- Score: corr 0.9844 (-0.0088, all regress).
+- Verdict: DISCARD. Mass beats evenness everywhere; the outlier sites were binding value, not tax.
+- Misses: 24.

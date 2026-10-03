@@ -64,3 +64,4 @@
 {"date": "2026-10-04", "commit": "iter64", "corr": 0.9934, "seeds": [0.9942, 0.9931, 0.9895, 0.9949, 0.9951], "champion": "396b8f0", "note": "4-bin signed-peer; sel +0.0002 but lead seed-driven, held ties; discard"}
 {"date": "2026-10-04", "commit": "iter65", "corr": 0.9921, "seeds": [0.9929, 0.9922, 0.989, 0.9926, 0.994], "champion": "396b8f0", "note": "mass-anchored edges; -0.0010; bot-centered wins"}
 {"date": "2026-10-04", "commit": "iter66", "corr": 0.9897, "seeds": [0.9829, 0.9908, 0.9862, 0.9941, 0.9947], "champion": "396b8f0", "note": "DUPLICATE of iter52 bit-identical; MIS S3 answered by iter52"}
+{"date": "2026-10-04", "commit": "iter67", "corr": 0.9844, "seeds": [0.9885, 0.9868, 0.978, 0.9825, 0.986], "champion": "396b8f0", "note": "winsorized opener; -0.0088 all regress; mass wins"}
