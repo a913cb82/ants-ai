@@ -1329,3 +1329,12 @@ One entry per iteration:
 - what changed: closer narrowed from 1.875 to 1.75 under the census opener.
 - what you learned: selection and held-out both favored 1.75 thinly but fresh lost 1.87 with one of five; pooled-15 loses 0.28. Fresh vetoes per the overturn rule; 1.875 stands under census too.
 - next: judge bold 23 after 140; NYSE-close 2.25 tertile.
+
+## 139 — NYSE-close 2.25 (2026-10-03)
+- commit: 5d56ee8
+- score: mean 198.3079 over seeds 0-4 (155.2421, 222.7220, 331.7847, 115.9131, 165.8777)
+- champion mean: 197.7410 selection, 187.4788 pooled (5faf0b0)
+- verdict: discard
+- what changed: closer widened from 1.875 to 2.25 tertile.
+- what you learned: cost about 0.57 with three of five improving but seed 2 regressing 12; wide re-open after narrow game-2 loses on hard seeds.
+- next: judge bold 23 after 140; valley-repriced closing duel (expected kill).
