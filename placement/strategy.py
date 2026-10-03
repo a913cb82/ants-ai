@@ -107,7 +107,9 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
         return []
     # Champion (iter 133, MSE): census opener, recent-tertile 1.25/1.875.
     if budget_left > 20:
-        return _census(ratings, min(9, budget_left - 1, len(ratings)), "bell")
+        return _census(ratings, min(9, budget_left - 1, len(ratings)))
     if budget_left > 10:
-        return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.25)
-    return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.875)
+        n = min(9, budget_left - 1, len(ratings))
+        return _spread(bot, ratings, n, 1.0)
+    n = min(9, budget_left - 1, len(ratings))
+    return _spread(bot, ratings, n, 2.375)
