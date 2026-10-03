@@ -1193,3 +1193,13 @@ One entry per iteration:
 - what changed: tertile anchors excluded the 50 most recent arrivals.
 - what you learned: cost about 3.21 with only seed 2 improving; recent rulers carry live information and quarantine starves coverage. Bold 21 judged refuted (iter 121).
 - next: jittered-grid diagnostic; then misses force bold 22.
+
+## 125 — jittered-grid diagnostic (2026-10-03)
+- commit: 651ce90
+- score: selection mean 216.6464 (183.9223, 240.9799, 360.6715, 116.9437, 180.7148)
+- champion selection mean: 216.0193 (fde75b9)
+- confirmation: 202.3828 over seeds 5-9 (155.8424, 238.1242, 243.9655, 209.4249, 164.5570) vs champion held-out 195.5568
+- verdict: discard
+- what changed: per-bot grid phase shift from hashed mu/sigma.
+- what you learned: selection tied plus 0.63 but held-out lost 6.83 with one of five; pooled loses too. Grid phase retires as a non-axis.
+- next: fixed absolute-site opener (expected kill); then misses force bold 22.

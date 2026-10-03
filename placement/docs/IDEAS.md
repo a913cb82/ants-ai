@@ -165,7 +165,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Quintile game-2 0.875 plus 1.0 closer (race D). |
 | dropped | Edge-dense closer grid (adversary S1). |
 | dropped | Senior-tertile anchors exclude 50 most recent (adversary S4). |
-| trying | Jittered-grid diagnostic per-bot phase (bayes/epi). |
+| dropped | Jittered-grid diagnostic per-bot phase (bayes/epi). |
 | open | Chase-combining repeat-wide 4.0/4.0/1.5 (info; diversity-combine before zoom). |
 | open | Double-tap opener 4.0/4.0/1.25 (adversary; second wide after recentering, full-pool G2 untested at 4.0). |
 | open | Split-middle 10+5+5+10 valley halves (info/poker; mid-schedule re-aim, halves sandwiched not late). |
