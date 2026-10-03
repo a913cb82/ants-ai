@@ -198,9 +198,11 @@ def _bounty(bot: Rating, ratings: list[Rating]) -> list[int]:
     ]
 
 
-def _side_duel(bot: Rating, ratings: list[Rating], rank: int) -> list[int]:
-    """Nearest ruler strictly above (even) or below (odd) bot mu."""
-    side = 1 if rank % 2 == 0 else -1
+def _side_duel(
+    bot: Rating, ratings: list[Rating], rank: int, first: int = 1
+) -> list[int]:
+    """Nearest ruler strictly above/below bot mu, parity from first."""
+    side = first if rank % 2 == 0 else -first
     cands = [
         c for c in range(len(ratings)) if (ratings[c].mu - bot.mu) * side > 0
     ] or list(range(len(ratings)))
@@ -452,7 +454,7 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 121 (camp E1): nearest side-alternating tail retest.
+    # Iter 122 (camp E2): below-first side alternation.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
@@ -460,4 +462,4 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
         n = min(5, budget_left - 1, len(ratings))
         return _strata(bot, ratings, n)
     d = (14 - budget_left) // 2
-    return _side_duel(bot, ratings, d)
+    return _side_duel(bot, ratings, d, -1)
