@@ -171,7 +171,7 @@ def strata_opponents(bid: str, ordered: list[str], ratings: dict, k: int) -> lis
     """Bot-centered below/peer/above rulers by mass quota from the
     low-sigma tertile of the last 400. Exact port of the refine."""
     me = R.for_id(ratings, bid)
-    window = [c for c in ordered[max(0, len(ordered) - 400) :] if c != bid]
+    window = [c for c in ordered[-400:] if c != bid]
     sigmas = sorted(R.for_id(ratings, c)["sigma"] for c in window)
     if not sigmas:
         return []
