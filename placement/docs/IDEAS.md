@@ -191,6 +191,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Ancient-tertile anchors first-400 (bold 25). |
 | dropped | Senior-tertile under census (retest; tie). |
 | dropped | Quintile game-2 anchors under census (retest). |
+| trying | Half game-2 anchors under census (retest). |
 | open | Chase-combining repeat-wide 4.0/4.0/1.5 (info; diversity-combine before zoom). |
 | open | Double-tap opener 4.0/4.0/1.25 (adversary; second wide after recentering, full-pool G2 untested at 4.0). |
 | open | Split-middle 10+5+5+10 valley halves (info/poker; mid-schedule re-aim, halves sandwiched not late). |
@@ -399,6 +400,8 @@ gain. Predicts the ablation splits the difference, or one
 ingredient dominates. Judge after iteration 145.
 Judged: refuted at iteration 142 (213.7231, only seed 3 improved);
 census carries the gain.
+Judged: refuted at iteration 147 (202.9325, zero of five improved);
+recency direction is real.
 
 Two misses in a row (iters 145-146) force bold line 25
 (2026-10-03): ancient-tertile anchors. Tertile drawn from the
