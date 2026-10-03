@@ -165,3 +165,9 @@
 - Score: corr 0.9893 (-0.0008).
 - Verdict: DISCARD. Bold 8 judged: refuted. Tail length beats refine depth; 2 extra duels out-teach a second small refine.
 - Misses: 9.
+
+## Iter 27: comp-pick refine
+- Census + 5 nearest tertile rulers (no grid) + 7 duels.
+- Score: corr 0.9902 (+0.0001, exact tie).
+- Verdict: DISCARD (tie keeps incumbent). Quantile grids and comp-picks are equivalent targeting; density adapts either way.
+- Misses: 10.
