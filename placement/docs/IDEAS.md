@@ -56,7 +56,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Sparsity fallback: unrated member when anchors farther than 1 sigma. |
 | dropped | Factorial S0xB1: champion sizes, no anchor filter. |
 | dropped | Factorial S1xB1: 3d+4p+10p+10p, no anchor filter. |
-| trying | First duel versus pool median anchor. |
+| dropped | First duel versus pool median anchor. |
 | open | Approach 2: zooming bracket 10p/5p/5p/2p x5, spread mu+-k·sigma, low-sigma anchors. |
 | open | Approach 3: 10p/6p/2p x7, quantile spread at 1.0 sigma, large-first coarse-to-fine. |
 | done | Champion order with spread FFA opponents (quantiles of N(mu, sigma), low-sigma ties). |

@@ -345,3 +345,12 @@ One entry per iteration:
 - what changed: factorial cell S1xB1, 3 duels plus 4p bridge plus two 10ps with no anchor filter.
 - what you learned: completes the square (14.837, 16.227 / 15.238, 16.395); the no-filter penalty is +1.39 under S0 but +1.16 under S1, so the dimensions are near-orthogonal and single-side sweeps stay valid.
 - next: first-duel versus established median, or pool-service game.
+
+## 38 — first duel versus median anchor (2026-10-03)
+- commit: 94b0359
+- score: mean 15.0615 over seeds 0-4 (14.1481, 16.8617, 16.5148, 12.8330, 14.9497)
+- champion mean: 14.8370 (067b331)
+- verdict: discard
+- what changed: opening duel played the pool median instead of the closest mu, rest champion.
+- what you learned: cost about 0.22 with seeds 1/2/4 regressing; the closest opener positions better than any fixed anchor.
+- next: pool-service game, the last bold candidate.
