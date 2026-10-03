@@ -1649,3 +1649,14 @@ One entry per iteration:
 - Verdict: DISCARD. Opener site geometry closed: uniform 197.74 > quantile 209.96 > bell 210.63 > sinh 214.79.
 - Learned: cartographer family done save re-projected game-2 (different axis: timing not geometry).
 - Next: iter 175 mercy-rule clipping (referee S2, novel axis).
+
+## Iter 175: mercy-rule clipping (referee S2) — STILLBORN
+- Bind rate 3.5% of targets yet greedy match bit-identical to iter-174 on seeds 0 and 2.
+- Verdict: STILLBORN per 167 rule (reverted, no full runs). Used-set already spreads void looks; clipping adds nothing.
+- Learned: discrete matching absorbs small target shifts; target-side micro-fixes are dead unless they change matches.
+
+## Iter 176: damped undercut 1.0/2.375 (archivist2 S1)
+- Score: sel 196.5615 vs 197.7410 (-1.18, seeds 0/2 regress +7.6/+5.5); held 177.6734 vs 177.2165 (+0.46).
+- Verdict: DISCARD. Confirmation fails; undercut direction seed-fragile at both amplitudes.
+- Learned: undercut family closed (0.75 and 1.0 both vetoed); valley dip direction settled at 1.25.
+- Next: iter 177 halo-lite closer.
