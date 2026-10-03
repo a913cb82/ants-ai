@@ -97,29 +97,6 @@ def _census(ratings: list[Rating], k: int, mode: str = "range") -> list[int]:
     return picked
 
 
-def _panel(bot: Rating, ratings: list[Rating], k: int, width: float) -> list[int]:
-    """2 nearest census rulers recaptured plus fresh 1.0 targets."""
-    g1 = _census(ratings, min(9, len(ratings)))
-    near = sorted(g1, key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c))[
-        :2
-    ]
-    used = set(near)
-    dist = NormalDist(bot.mu, max(width * bot.sigma, 0.5))
-    pool = _established(ratings, k, 0)
-    out = list(near)
-    for j in range(k - len(near)):
-        t = dist.inv_cdf((j + 1) / (k - len(near) + 1))
-        cands = [c for c in pool if c not in used] or [
-            c for c in range(len(ratings)) if c not in used
-        ]
-        if not cands:
-            break
-        i = min(cands, key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c))
-        used.add(i)
-        out.append(i)
-    return out
-
-
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
     """Pool index nearest bot.mu, low sigma then low index on ties."""
     return min(
@@ -345,11 +322,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 38 (corr): census-panel refine under quantile regime.
+    # Iter 39 (corr): 8p refine + 6 info duels under quantile regime.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
-    if budget_left > 14:
-        n = min(5, budget_left - 1, len(ratings))
-        return _panel(bot, ratings, n, 1.0)
+    if budget_left > 12:
+        n = min(7, budget_left - 1, len(ratings))
+        return _spread(bot, ratings, n, 1.0)
     return _info_duel(bot, ratings)
