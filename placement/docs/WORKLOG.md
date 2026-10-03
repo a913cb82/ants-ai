@@ -1660,3 +1660,9 @@ One entry per iteration:
 - Verdict: DISCARD. Confirmation fails; undercut direction seed-fragile at both amplitudes.
 - Learned: undercut family closed (0.75 and 1.0 both vetoed); valley dip direction settled at 1.25.
 - Next: iter 177 halo-lite closer.
+
+## Iter 177: halo-lite closer (archivist2 S2)
+- Score: sel 195.4937 vs 197.7410 (-2.25) but seed 2 regresses +10.3; held 177.8594 vs 177.2165 (+0.64).
+- Verdict: DISCARD. Held-out vetoes; easy-seed gains fund hard-seed losses, the 160/166 disease.
+- Learned: mixture/edge family closed (153 halo, 166 edge, 177 halo-lite all vetoed). No further mixture variants.
+- Next: iter 178 integral residual closer (control S2, novel center axis).
