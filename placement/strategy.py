@@ -101,7 +101,7 @@ def _census(ratings: list[Rating], k: int, mode: str = "range") -> list[int]:
 
 
 def _strata(
-    bot: Rating, ratings: list[Rating], k: int, split: bool = False
+    bot: Rating, ratings: list[Rating], k: int, split: bool = False, five: bool = False
 ) -> list[int]:
     """k rulers across bins by mass quota (3-bin, or 4-bin signed-peer)."""
     pool = _established(ratings, k, 0)
@@ -110,7 +110,11 @@ def _strata(
     for c in pool:
         d = ratings[c].mu - bot.mu
         bins[0 if d < -s else (2 if d > s else 1)].append(c)
-    if split:
+    if five:
+        ordered = sorted(bins[1], key=lambda c: ratings[c].mu)
+        t1, t2 = len(ordered) // 3, 2 * len(ordered) // 3
+        bins = [bins[0], ordered[:t1], ordered[t1:t2], ordered[t2:], bins[2]]
+    elif split:
         bins = [
             bins[0],
             [c for c in bins[1] if ratings[c].mu < bot.mu],
@@ -367,11 +371,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 106 (camp B1): 4-bin signed-peer strata retest.
+    # Iter 107 (camp B2): 5-bin peer-tertile strata.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
-        return _strata(bot, ratings, n, split=True)
+        return _strata(bot, ratings, n, five=True)
     return _info_duel(bot, ratings, 0, 40)
