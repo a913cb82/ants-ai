@@ -19,6 +19,32 @@ def _established(ratings: list[Rating], k: int) -> list[int]:
     return pool
 
 
+def _pot_spread(
+    bot: Rating,
+    ratings: list[Rating],
+    k: int,
+    width: float,
+) -> list[int]:
+    """Spread targets, thirds of targets drawn from mu thirds."""
+    dist = NormalDist(bot.mu, max(width * bot.sigma, 0.5))
+    targets = [dist.inv_cdf((j + 1) / (k + 1)) for j in range(k)]
+    pool = sorted(_established(ratings, k), key=lambda c: ratings[c].mu)
+    n = len(pool)
+    pots = [pool[: n // 3], pool[n // 3 : 2 * n // 3], pool[2 * n // 3 :]]
+    picked: list[int] = []
+    used: set[int] = set()
+    for j, t in enumerate(targets):
+        pot = [c for c in pots[min(2, j * 3 // k)] if c not in used]
+        if not pot:
+            pot = [c for c in pool if c not in used]
+        if not pot:
+            break
+        i = min(pot, key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c))
+        used.add(i)
+        picked.append(i)
+    return picked
+
+
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
     """Pool index nearest bot.mu, low sigma then low index on ties."""
     return min(
@@ -59,7 +85,7 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Champion (iter 22, MSE): bulk-only, first 10p at 3.0.
+    # Exp (iter 26, MSE): World Cup pots under bulk-only champion.
     if budget_left > 20:
-        return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 3.0)
-    return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.0)
+        return _pot_spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 3.0)
+    return _pot_spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.0)
