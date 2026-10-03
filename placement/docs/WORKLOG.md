@@ -195,3 +195,12 @@ One entry per iteration:
 - what changed: all duels removed; three spread 10ps at 2.0 sigma from the prior.
 - what you learned: wins by 11.91 with seeds 0/1/3/4 improving (seeds 1/4 down ~30/28) while seed 2 regressed 22.4; wide fields bound directly from the prior and positioning duels are expendable under MSE.
 - next: bulk-only width sweep (first 10p at 2.5).
+
+## 21 — bulk-only first 10p at 2.5 (2026-10-03)
+- commit: 9e87b2c
+- score: mean 253.2682 over seeds 0-4 (220.9625, 319.0903, 301.0831, 168.8851, 256.3198)
+- champion mean: 290.3357 (bd32cd8)
+- verdict: keep
+- what changed: first of three bulk 10ps widened from 2.0 to 2.5 sigma.
+- what you learned: wins by 37.07 with every seed improving (seeds 2/3 down 74/61); first-10p width is the big lever once duels are gone.
+- next: first 10p at 3.0 to trace the new gradient.
