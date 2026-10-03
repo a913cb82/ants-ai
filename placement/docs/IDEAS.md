@@ -81,6 +81,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Game-2 at 1.5 under the 1.875 closer: last interaction cell. |
 | dropped | Opener 3.9375: bisect 3.875 and 4.0. |
 | dropped | Game-3 at 1.5: last ladder cell. |
+| trying | Hollow opener under valley rest: division of labor (bold 17). |
 | dropped | Quartile anchors retest (cleaner thresholds for hard seeds). |
 | dropped | 3p opening: 2x3p closest-pair instead of 3x2p (same 6 slots). |
 | dropped | 4p mid game: bot plus above, below, closest replaces bracket pair. |
@@ -240,6 +241,14 @@ Predicts monotone zoom beats the valley, or the valley shape is
 real. Judge after iteration 89.
 Judged: refuted at iteration 88 (225.9928, every seed regressed);
 the valley shape is real.
+
+Three misses in a row (iters 93-95) force bold line 17 (2026-10-03):
+hollow opener under the valley rest. Fresh probe shows mids solved
+(16-134) and tails bleeding (200-800): division of labor, opener
+binds tails with 8 edges plus a center pin, narrow rest refines
+mids. Bold 8 failed this under twin-wide; the valley rest may
+complement it. Predicts tails bind and mids hold, or middle
+thresholds load-bearing again. Judge after iteration 97.
 
 Three misses in a row (iters 89-91) force bold line 16 (2026-10-03):
 flat wide rest. Both rest games at 1.875: the rest may do one job
