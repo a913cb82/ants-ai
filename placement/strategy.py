@@ -97,6 +97,37 @@ def _census(ratings: list[Rating], k: int, mode: str = "range") -> list[int]:
     return picked
 
 
+def _balanced(bot: Rating, ratings: list[Rating], k: int, width: float) -> list[int]:
+    """1.0-quantile targets snapped side-constrained (below/above mu)."""
+    dist = NormalDist(bot.mu, max(width * bot.sigma, 0.5))
+    tg = [dist.inv_cdf((j + 1) / (k + 1)) for j in range(k)]
+    below = [t for t in tg if t < bot.mu]
+    above = [t for t in tg if t >= bot.mu]
+    seq = []
+    for j in range(max(len(below), len(above))):
+        if j < len(below):
+            seq.append((below[j], -1))
+        if j < len(above):
+            seq.append((above[j], 1))
+    pool = _established(ratings, k, 0)
+    picked: list[int] = []
+    used: set[int] = set()
+    for t, side in seq[:k]:
+        cands = [
+            c for c in pool if c not in used and (ratings[c].mu - bot.mu) * side >= 0
+        ]
+        if not cands:
+            cands = [c for c in pool if c not in used] or [
+                c for c in range(len(ratings)) if c not in used
+            ]
+        if not cands:
+            break
+        i = min(cands, key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c))
+        used.add(i)
+        picked.append(i)
+    return picked
+
+
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
     """Pool index nearest bot.mu, low sigma then low index on ties."""
     return min(
@@ -322,11 +353,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Bold 11 (corr): slim 7-site skeleton + 8p refine + tail.
-    if budget_left > 22:
-        n = min(7, budget_left - 1, len(ratings))
+    # Iter 41 (corr): colour-balance refine.
+    if budget_left > 20:
+        n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
     if budget_left > 14:
-        n = min(7, budget_left - 1, len(ratings))
-        return _spread(bot, ratings, n, 1.0)
+        n = min(5, budget_left - 1, len(ratings))
+        return _balanced(bot, ratings, n, 1.0)
     return _info_duel(bot, ratings)
