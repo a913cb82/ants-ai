@@ -67,3 +67,9 @@
 - Score: corr 0.9617 (-0.025, every seed regressed).
 - Verdict: DISCARD. The old exam's league-harness ranking power (0.9655) does not live in the 30-slot shape; it needs the longitudinal pool structure. Component rows stay as priced (iters 2/3).
 - Misses: 9.
+
+## Iter 11 (bold 3): MAE-champion verbatim revival
+- 5 closest-mu duels + 1.0/0.5 tertile 10ps.
+- Score: corr 0.9644 (-0.0226, every seed regressed).
+- Verdict: DISCARD. Bold 3 judged: refuted. Duel openers dead under corr in all three targeting flavors (high-sigma, info-score, closest). Family closed.
+- Misses: 10.
