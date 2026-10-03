@@ -329,3 +329,9 @@
 - Score: corr 0.9932 (+0.0001, exact tie).
 - Verdict: DISCARD (tie keeps incumbent). Info targeting already balances sides; forcing adds nothing.
 - Misses: 10.
+
+## Iter 54: 4p strata + 8 info duels
+- Quantile opener + 4p (3 rulers) strata + 8 info duels.
+- Score: corr 0.9926 (-0.0006).
+- Verdict: DISCARD. The 6p/7-duel split re-confirmed under strata targeting.
+- Misses: 11. Second brainstorm wave launched (miser/taxonomist/locksmith/physicist/jeweler/bookkeeper).
