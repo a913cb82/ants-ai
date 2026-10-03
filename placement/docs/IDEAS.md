@@ -70,6 +70,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Opener 3.875: last opener micro. |
 | dropped | Tertile opener under the confirmed shape (bold 14). |
 | dropped | Game-2 full-pool: last factorial flip. |
+| trying | Game-3 at 1.875: last micro. |
 | dropped | Quartile anchors retest (cleaner thresholds for hard seeds). |
 | dropped | 3p opening: 2x3p closest-pair instead of 3x2p (same 6 slots). |
 | dropped | 4p mid game: bot plus above, below, closest replaces bracket pair. |
@@ -228,6 +229,8 @@ gave full-opener a mild 7-point edge under the old shape; the
 narrower rest may have shifted it. Predicts the wild pool still
 binds tails, or rulers suffice from game one. Judge after
 iteration 85.
+Judged: refuted at iteration 83 (231.2862, only seed 2 improved);
+the wild pool still binds tails.
 
 Nineteen misses in a row (iters 23-41) force bold line 7 (2026-10-03):
 tail-skewed two-sided grid. Bold 2 failed binary (one side only);
