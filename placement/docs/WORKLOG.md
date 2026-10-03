@@ -1309,3 +1309,12 @@ One entry per iteration:
 - what changed: game-2 widened from 1.25 to 1.5 under the census opener.
 - what you learned: cost about 2.06 with two of five improving; the rest optimum did not shift and 1.25 stands under census too.
 - next: closer re-resolution under census (tuning 133e); then misses force bold 23.
+
+## 137 — 8p-band sizes bold 23 (2026-10-03)
+- commit: 0349827
+- score: mean 268.3113 over seeds 0-4 (242.5680, 323.6615, 364.5916, 182.4328, 228.3025)
+- champion mean: 197.7410 selection, 187.4788 pooled (5faf0b0)
+- verdict: discard
+- what changed: four slimmer games (7+7+7+5 opponents) at champion widths.
+- what you learned: cost about 70.57 with every seed regressing; per-game pull density wins and rhythm loses.
+- next: judge bold 23 after 140; closer re-resolution under census (tuning 133e).
