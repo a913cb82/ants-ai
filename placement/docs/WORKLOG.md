@@ -1613,3 +1613,12 @@ One entry per iteration:
 - what changed: census opener, full-pool 4.0 game-2, 1.25 closer.
 - what you learned: cost about 58.70 with every seed regressing; the second wide re-observes clones under census too.
 - next: judge bold 29 after 171; halo game-2 under census.
+
+## 170 — halo game-2 census (2026-10-03)
+- commit: 81ae84a
+- score: mean 220.8627 over seeds 0-4 (174.4641, 272.7090, 329.0324, 128.6227, 199.4855)
+- champion mean: 197.7410 selection, 187.4788 pooled (5faf0b0)
+- verdict: discard
+- what changed: game-2 matched 5 inner targets at 1.25 sigma and 4 extreme targets at 2.5 sigma.
+- what you learned: cost about 23.12 with zero of five improving; the halo widens too early under census too.
+- next: judge bold 29 after 171; quintile-0.875 combo under census (last open row).

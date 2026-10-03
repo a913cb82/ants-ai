@@ -211,12 +211,12 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | F1 anchor ladder census/half/tertile (duplicate of iter 150). |
 | dropped | Chase-combining under census (bold 29). |
 | dropped | Double-tap under census (census/4.0/1.25). |
-| trying | Halo game-2 under census (5x1.25 plus 4x2.5). |
+| dropped | Halo game-2 under census (5x1.25 plus 4x2.5). |
 | dropped | Chase-combining repeat-wide 4.0/4.0/1.5 (info; diversity-combine before zoom). [tested iters 108/168]. |
 | dropped | Double-tap opener 4.0/4.0/1.25 (adversary; tested iters 109/169). |
 | dropped | Split-middle 10+5+5+10 valley halves (info/poker; mid-schedule re-aim, halves sandwiched not late). [tested iters 114/154]. |
 | dropped | Ratio upshift 1.5/2.25 rest (info; +20% power at fixed 2:3 shaping ratio). [tested iters 115/156]. |
-| open | Game-2 halo mixture 5x1.25 + 4x2.5 (adversary; narrow core plus wide halo in one 10p). |
+| dropped | Game-2 halo mixture 5x1.25 + 4x2.5 (adversary; tested iters 112/170). |
 | dropped | Game-3 mixture 5x1.25 + 4x2.5 model-averaged closer (bayes; straddle the flat). [tested iters 113/153]. |
 | dropped | F1 Q2-half anchor ladder full/half/tertile (sports; interior anchor order untested). [duplicate of iter 150 (caught iter 167)]. |
 | dropped | Stratified 3-3-3 closer relative to bot (sports/epi; forced below/peer/above balance). [tested iters 111/152]. |
