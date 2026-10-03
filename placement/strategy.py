@@ -129,22 +129,20 @@ def _strata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
     return out[:k]
 
 
-def _asym(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
-    """3 bins at -1.25s/+0.75s edges, quota by bin mass."""
+def _bins2(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
+    """k rulers across below/above mu halves, quota by bin mass."""
     pool = _established(ratings, k, 0)
-    s = max(bot.sigma, 0.5)
-    bins: list[list[int]] = [[], [], []]
+    bins: list[list[int]] = [[], []]
     for c in pool:
-        d = ratings[c].mu - bot.mu
-        bins[0 if d < -1.25 * s else (2 if d > 0.75 * s else 1)].append(c)
+        bins[0 if ratings[c].mu < bot.mu else 1].append(c)
     masses = [len(b) for b in bins]
     total = sum(masses) or 1
     quota = [max(1 if m else 0, round(k * m / total)) for m in masses]
     while sum(quota) > k:
-        j = max(range(3), key=lambda j: quota[j] - k * masses[j] / total)
+        j = max(range(2), key=lambda j: quota[j] - k * masses[j] / total)
         quota[j] -= 1
     while sum(quota) < k:
-        j = max(range(3), key=lambda j: k * masses[j] / total - quota[j])
+        j = max(range(2), key=lambda j: k * masses[j] / total - quota[j])
         quota[j] += 1
     out: list[int] = []
     for b, q in zip(bins, quota, strict=True):
@@ -386,11 +384,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 71 (corr): asymmetric strata -1.25/+0.75.
+    # Iter 72 (corr): 2-bin median-split strata.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
-        return _asym(bot, ratings, n)
+        return _bins2(bot, ratings, n)
     return _info_duel(bot, ratings)
