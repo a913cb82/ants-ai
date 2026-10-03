@@ -274,3 +274,9 @@
 - Score: corr 0.9931 (-0.0001, exact tie).
 - Verdict: DISCARD (tie keeps incumbent). Bin width carries nothing; mass already concentrates in the peer bin.
 - Misses: 1.
+
+## Iter 45: pure proportional strata (no floor)
+- Champion shape with min-1-per-bin removed.
+- Score: corr 0.9930 (-0.0001, exact tie).
+- Verdict: DISCARD (tie keeps incumbent). The floor costs nothing and buys tail insurance; keep it.
+- Misses: 2.
