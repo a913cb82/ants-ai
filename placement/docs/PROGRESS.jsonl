@@ -2,3 +2,4 @@
 {"date": "2026-10-04", "commit": "iter2", "corr": 0.9557, "seeds": [0.9544, 0.9539, 0.9526, 0.9774, 0.9403], "champion": null, "note": "5 uncertainty duels + 1.25/1.875; discard, every seed regressed"}
 {"date": "2026-10-04", "commit": "iter3", "corr": 0.9874, "seeds": [0.9883, 0.9855, 0.9871, 0.9872, 0.9891], "champion": null, "note": "seeded refines; sel +0.0004 but held-out 5-9 vetoes (0.98836 vs 0.98868); discard"}
 {"date": "2026-10-04", "commit": "iter4", "corr": 0.987, "seeds": [0.9864, 0.9845, 0.9829, 0.9914, 0.9897], "champion": null, "note": "bold1 drunk-witness G3; ties baseline, seed variance up = pure noise; discard, axis closed"}
+{"date": "2026-10-04", "commit": "iter5", "corr": 0.986, "seeds": [0.9868, 0.9855, 0.9855, 0.984, 0.9884], "champion": null, "note": "Fisher 1.0/1.5 valley; -0.0010, 4/5 regress; discard"}

@@ -30,3 +30,9 @@
 - Score: corr 0.9870 (0.9864, 0.9845, 0.9829, 0.9914, 0.9897). Baseline 0.9870.
 - Verdict: DISCARD. Dead tie on mean with seed variance up = the predicted pure-noise signature. Full high-sigma-anchor axis closed; 7+2 dose row stays open (smaller claim).
 - Bold 1 judged: refuted. Misses: 3.
+
+## Iter 5: Fisher-peak narrow valley 1.0/1.5
+- Census + 1.0 tertile + 1.5 tertile.
+- Score: corr 0.9860 (-0.0010, only seed 4 improves).
+- Verdict: DISCARD per row falsification. The MSE valley widths are not tail-weight overhead; reach separates ranks too.
+- Misses: 4.
