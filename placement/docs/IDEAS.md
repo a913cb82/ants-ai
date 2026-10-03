@@ -38,6 +38,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | 3 duels plus 4p bridge plus two 10ps (2p,2p,2p,4p,10p,10p). |
 | dropped | Dim-2 sweep B: 6 duels plus 8p plus 10p (fixed opponent rules). |
 | dropped | Dim-2 sweep C: 6 duels plus 10p plus 8p (fixed opponent rules). |
+| trying | Edge-conditional narrow bound (0.5 when outside anchor range). |
 | open | Approach 2: zooming bracket 10p/5p/5p/2p x5, spread mu+-k·sigma, low-sigma anchors. |
 | open | Approach 3: 10p/6p/2p x7, quantile spread at 1.0 sigma, large-first coarse-to-fine. |
 | done | Champion order with spread FFA opponents (quantiles of N(mu, sigma), low-sigma ties). |
