@@ -57,3 +57,12 @@ One entry per iteration:
 - what changed: two FFA-10s on the first 20 slots, then closest-mu duels on the last 10 (mirror of iteration 4).
 - what you learned: order matters more than the mix; unpositioned early FFAs waste comparisons and seed 2 blew up to 30.96, so late bulk updates need an already-placed mu.
 - next: judge bold line 1 and refine the champion split (duel/FFA slot boundary).
+
+## 6 — champion split with 3 duels then FFA bulk (2026-10-03)
+- commit: ff659d3
+- score: mean 17.4371 over seeds 0-4 (16.8072, 18.0924, 21.3628, 14.9999, 15.9230)
+- champion mean: 16.6448 (7e70bcb)
+- verdict: discard
+- what changed: cut the duel phase to 3 games (boundary 24), leaving 24 slots for FFA bulk.
+- what you learned: fewer positioning duels cost about 0.79 mean error and seed 2 regressed to 21.36, so 5 duels position mu better than 3.
+- next: champion split with 7 duels then FFA bulk (boundary 16).
