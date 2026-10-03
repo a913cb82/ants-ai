@@ -408,3 +408,8 @@ One entry per iteration:
 - what changed: autoresearch epsilon as deterministic rotation, duels cycling closest, 2nd, 3rd.
 - what you learned: cost about 0.19 with seeds 1/2/4 regressing; with only 5 duels every one must be on-peak, so breadth needs many more games to pay.
 - next: autoresearch transfer complete; only accept floor or find new data.
+
+## Validation — held-out seeds 5-9 (2026-10-03, measurement only)
+- champion (067b331): 13.7206, 14.2285, 15.9721, 14.2507, 13.8010, mean 14.3946
+- rival iter-34 replica: 13.7155, 16.1703, 16.5425, 15.0984, 13.8009, mean 15.0655
+- verdict: champion wins by 0.67 on unseen seeds (wider than the 0.009 selection margin); no overfit, floor near 14.4-14.8 is real.
