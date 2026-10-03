@@ -36,7 +36,12 @@ def _spread(
 ) -> list[int]:
     """k distinct opponents nearest quantiles of N(mu, w*sigma)."""
     dist = NormalDist(bot.mu, max(width * bot.sigma, 0.5))
-    targets = [dist.inv_cdf((j + 1) / (k + 1)) for j in range(k)]
+    # Exp (iter 125, MSE): per-bot grid phase shift (diagnostic).
+    frac = (bot.mu * 12.9898 + bot.sigma * 78.233) % 1.0
+    shift = (frac - 0.5) * 0.5
+    targets = [
+        dist.inv_cdf(min(0.98, max(0.02, (j + 1 + shift) / (k + 1)))) for j in range(k)
+    ]
     pool = _established(ratings, k) if anchors else list(range(len(ratings)))
     picked: list[int] = []
     used: set[int] = set()
@@ -60,7 +65,7 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Champion (iter 85, MSE): widths 4.0/1.25/1.875.
+    # Exp (iter 125, MSE): jittered-grid diagnostic.
     if budget_left > 20:
         return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 4.0, False)
     if budget_left > 10:
