@@ -390,3 +390,12 @@ One entry per iteration:
 - what changed: intended as the untested symmetric-wide cell, but it replays iteration 22 exactly (uniform 1.0 spread under tertile anchors).
 - what you learned: bit-identical scores to iteration 22 across all 5 seeds, which validates harness determinism; the width grid was already complete and asymmetry wins every cell.
 - next: stop grid-filling; only probe-driven or bold ideas from here.
+
+## 43 — greedy predict_draw FFA fields (2026-10-03)
+- commit: fe590f4
+- score: mean 16.2027 over seeds 0-4 (14.7786, 19.2395, 16.4696, 14.2925, 16.2334)
+- champion mean: 14.8370 (067b331)
+- verdict: discard
+- what changed: borrowed autoresearch info_score, greedy max-draw-probability fields from 40 nearest anchors, deterministic (no epsilon).
+- what you learned: cost about 1.37 with seed 1 at 19.24; evenness-maximizing clusters picks and kills threshold coverage, so forced quantile spread is the point.
+- next: deterministic breadth rotation among top-k, or accept the floor.

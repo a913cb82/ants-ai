@@ -1,13 +1,7 @@
 """Placement strategy. Optimise select_next_game."""
 
 from dataclasses import dataclass
-from statistics import NormalDist  # noqa: F401 (kept for width experiments)
-
-from openskill.models import BradleyTerryFull
-
-_MODEL = BradleyTerryFull()
-_SIGMA_WEIGHT = 0.02
-_PREFILTER = 40
+from statistics import NormalDist
 
 
 @dataclass
@@ -23,34 +17,6 @@ def _established(ratings: list[Rating], k: int) -> list[int]:
     if len(pool) < k:
         pool = list(range(len(ratings)))
     return pool
-
-
-def _draw_field(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
-    """Greedy predict_draw field: seed bot, add max draw prob each step."""
-    pool = _established(ratings, k)
-    near = sorted(
-        pool, key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c)
-    )[:_PREFILTER]
-    field: list[int] = []
-    avail = set(near)
-    while len(field) < k and avail:
-        base = [bot] + [ratings[c] for c in field]
-        teams = [[_MODEL.rating(mu=r.mu, sigma=r.sigma)] for r in base]
-        best, best_key = None, None
-        for c in avail:
-            r = ratings[c]
-            cand = [[_MODEL.rating(mu=r.mu, sigma=r.sigma)]]
-            s = _MODEL.predict_draw(teams + cand) + _SIGMA_WEIGHT * r.sigma
-            if best_key is None or (-s, c) < best_key:
-                best, best_key = c, (-s, c)
-        field.append(best)
-        avail.discard(best)
-    for c in near:
-        if len(field) >= k:
-            break
-        if c not in field:
-            field.append(c)
-    return field[:k]
 
 
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
@@ -90,7 +56,9 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Exp (iter 43): duels first, greedy predict_draw FFA fields.
+    # Champion (iter 25): duels first, 1.0-sigma FFA then 0.5-sigma FFA.
     if budget_left > 20:
         return [_closest(bot, ratings)]
-    return _draw_field(bot, ratings, min(9, budget_left - 1, len(ratings)))
+    if budget_left > 10:
+        return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.0)
+    return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 0.5)
