@@ -18,7 +18,7 @@ A refinement is a new row. Leave old rows as they were.
 | done | Wide bound retest (1.5 then 0.5): seed-2 fixer under MAE, likely winner under MSE. |
 | done | Wider still (2.0 then 0.5): trace the bound-width gradient. |
 | dropped | Bound 2.5 then 0.5: find the top of the gradient. |
-| trying | Edge-conditional narrow bound (failed rarely under MAE; extremes weigh more now). |
+| dropped | Edge-conditional narrow bound (failed rarely under MAE; extremes weigh more now). |
 | open | Approach 1 pipeline retest (tightest seed spread under MAE). |
 | open | Symmetric pairs recheck under MSE (0.5/0.5, 1.0/1.0). |
 | open | Quartile anchors retest (cleaner thresholds for hard seeds). |

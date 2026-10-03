@@ -60,3 +60,12 @@ One entry per iteration:
 - what changed: mid duel pair changed from closest to nearest-above then nearest-below.
 - what you learned: wins by 8.26 with every seed improving (seeds 2/3/4 down about 11 each); deliberate two-sided tests beat closest rematches under MSE.
 - next: edge-conditional narrow bound for extreme bots.
+
+## 6 — edge conditional narrow bound (2026-10-03)
+- commit: 253157d
+- score: mean 302.9460 over seeds 0-4 (268.5222, 354.2697, 352.7147, 246.8385, 292.3848)
+- champion mean: 302.9460 (814c58d)
+- verdict: discard
+- what changed: wide FFA narrows to 0.5 sigma when bot mu lies outside the anchor mu range.
+- what you learned: bit-identical to champion on all 5 seeds; the tertile always spans bot mu so the trigger never fires, and one-sided pools pick identically anyway.
+- next: Approach 1 pipeline retest for seed stability.
