@@ -969,3 +969,9 @@ One entry per iteration:
 - what changed: unfiltered opener widened from 4.0 to 4.0625 sigma.
 - what you learned: cost about 4.38 with only seed 4 improving; opener 4.0 interior-confirmed at plus-minus 0.0625. Bold 18 judged refuted (iter 98).
 - next: coronation audit on seeds 15-19, then take stock at 100.
+
+## Coronation — champion on virgin seeds 15-19 (2026-10-03)
+- champion fde75b9 (4.0/1.25/1.875): 250.8330, 126.2147, 151.3831, 135.2721, 350.1666, mean 202.7739
+- pooled-20: 198.2581 (selection 216.0193, held-out 195.5568, fresh-10-14 178.6823, virgin 202.7739)
+- verdict: unbiased estimate sits inside the historical band; no correction indicated.
+- take stock at 100: baseline 323.15 to 198.26 pooled (−39%). All grids priced. Loop continues on micros.
