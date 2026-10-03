@@ -1338,3 +1338,12 @@ One entry per iteration:
 - what changed: closer widened from 1.875 to 2.25 tertile.
 - what you learned: cost about 0.57 with three of five improving but seed 2 regressing 12; wide re-open after narrow game-2 loses on hard seeds.
 - next: judge bold 23 after 140; valley-repriced closing duel (expected kill).
+
+## 140 — closing duel 10 10 8 2 (2026-10-03)
+- commit: c6ee93d
+- score: mean 205.3830 over seeds 0-4 (166.5029, 242.1317, 335.0699, 121.8061, 161.4042)
+- champion mean: 197.7410 selection, 187.4788 pooled (5faf0b0)
+- verdict: discard
+- what changed: closer split into 7-pull 1.875 plus a final closest duel.
+- what you learned: cost about 7.64 with only seed 4 improving; the duel book closes again and 9-pull closer density is load-bearing. Bold 23 judged refuted (iter 137).
+- next: triage rapids 2+2+2+10+10+4 (expected kill).
