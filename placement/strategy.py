@@ -4,11 +4,40 @@ import math
 from dataclasses import dataclass
 from statistics import NormalDist
 
+try:
+    from openskill.models import BradleyTerryFull as _BT
+
+    _MODEL = _BT()
+except ImportError:  # pragma: no cover
+    _MODEL = None
+
 
 @dataclass
 class Rating:
     mu: float
     sigma: float
+
+
+def _info_duel(bot: Rating, ratings: list[Rating]) -> list[int]:
+    """Tail duel: argmax predict_draw + 0.02 sigma over 40 nearest."""
+    order = sorted(
+        range(len(ratings)),
+        key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
+    )[:40]
+    if not order:
+        return []
+    best = order[0]
+    best_v = None
+    for c in order:
+        teams = [[_MODEL.rating(mu=bot.mu, sigma=bot.sigma)]]
+        sig = bot.sigma
+        for i in (c,):
+            teams.append([_MODEL.rating(mu=ratings[i].mu, sigma=ratings[i].sigma)])
+            sig += ratings[i].sigma
+        v = _MODEL.predict_draw(teams) + 0.02 * sig
+        if best_v is None or v > best_v:
+            best, best_v = c, v
+    return [best]
 
 
 def _established(ratings: list[Rating], k: int, exclude: int = 0) -> list[int]:
@@ -293,9 +322,10 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Bold 9 (corr): census rematch, then 5-duel tail.
+    # Iter 30 (corr): info-targeted tail duels.
     if budget_left > 20:
         return _census(ratings, min(9, budget_left - 1, len(ratings)))
-    if budget_left > 10:
-        return _census(ratings, min(9, budget_left - 1, len(ratings)))
-    return [_closest(bot, ratings)]
+    if budget_left > 14:
+        n = min(5, budget_left - 1, len(ratings))
+        return _spread(bot, ratings, n, 1.0)
+    return _info_duel(bot, ratings)
