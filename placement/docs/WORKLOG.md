@@ -1020,3 +1020,12 @@ One entry per iteration:
 - what changed: games 2 and 3 matched inner-5 targets to tertile rulers and outer-4 to the full pool.
 - what you learned: cost about 24.73 with every seed regressing; even anchor-mixing disturbs the center and per-game tertile stands exact.
 - next: opener 3.75 under valley rest (archivist revival).
+
+## 106 — opener 3.75 valley rest (2026-10-03)
+- commit: 85017db
+- score: mean 221.2858 over seeds 0-4 (182.2724, 247.5781, 367.0126, 119.6627, 189.9031)
+- champion mean: 216.0193 selection, 205.7881 pooled (fde75b9)
+- verdict: discard
+- what changed: unfiltered opener narrowed from 4.0 to 3.75 sigma under the valley rest.
+- what you learned: cost about 5.27 with every seed regressing; 3.75 stays buried under valley rest too.
+- next: closer 2.5 under 1.25-second (thinnest cell).
