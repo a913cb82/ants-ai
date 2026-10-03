@@ -10,11 +10,11 @@ class Rating:
     sigma: float
 
 
-def _established(ratings: list[Rating], k: int) -> list[int]:
-    """Recent low-sigma tertile (last 400), or full pool if too few."""
+def _established(ratings: list[Rating], k: int, div: int = 3) -> list[int]:
+    """Recent low-sigma 1/div slice (last 400), or full pool if too few."""
     start = max(0, len(ratings) - 400)
     recent = ratings[start:]
-    cutoff = sorted(r.sigma for r in recent)[len(recent) // 3]
+    cutoff = sorted(r.sigma for r in recent)[len(recent) // div]
     pool = [c for c in range(start, len(ratings)) if ratings[c].sigma <= cutoff]
     if len(pool) < k:
         pool = list(range(len(ratings)))
@@ -54,11 +54,12 @@ def _spread(
     k: int,
     width: float = 1.0,
     anchors: bool = True,
+    div: int = 3,
 ) -> list[int]:
     """k distinct opponents nearest quantiles of N(mu, w*sigma)."""
     dist = NormalDist(bot.mu, max(width * bot.sigma, 0.5))
     targets = [dist.inv_cdf((j + 1) / (k + 1)) for j in range(k)]
-    pool = _established(ratings, k) if anchors else list(range(len(ratings)))
+    pool = _established(ratings, k, div) if anchors else list(range(len(ratings)))
     picked: list[int] = []
     used: set[int] = set()
     for t in targets:
@@ -81,9 +82,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Champion (iter 133, MSE): census opener, recent-tertile 1.25/1.875.
+    # Exp (iter 171, MSE): quintile-0.875 combo under census.
     if budget_left > 20:
         return _census(ratings, min(9, budget_left - 1, len(ratings)))
     if budget_left > 10:
-        return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.25)
-    return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.875)
+        return _spread(
+            bot, ratings, min(9, budget_left - 1, len(ratings)), 0.875, True, 5
+        )
+    return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.0)

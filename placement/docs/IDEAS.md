@@ -212,6 +212,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Chase-combining under census (bold 29). |
 | dropped | Double-tap under census (census/4.0/1.25). |
 | dropped | Halo game-2 under census (5x1.25 plus 4x2.5). |
+| trying | Quintile-0.875 plus 1.0 under census. |
 | dropped | Chase-combining repeat-wide 4.0/4.0/1.5 (info; diversity-combine before zoom). [tested iters 108/168]. |
 | dropped | Double-tap opener 4.0/4.0/1.25 (adversary; tested iters 109/169). |
 | dropped | Split-middle 10+5+5+10 valley halves (info/poker; mid-schedule re-aim, halves sandwiched not late). [tested iters 114/154]. |
@@ -454,6 +455,8 @@ Two misses in a row (iters 165-166) force bold line 29
 4.0 game-2, 1.5 closer; wide re-observe with settled rulers after a
 bot-independent skeleton. Predicts ruler quality saves wide-second,
 or wide stays redundant. Judge after iteration 171.
+Judged: refuted at iteration 168 (236.2941, zero of five improved);
+wide stays redundant.
 
 (F1 ladder stillborn at iteration 167:
 the schedule duplicates iter 150 (census is full-pool); bit-identical
