@@ -447,3 +447,8 @@ One entry per iteration:
 - what changed: unfiltered opener widened from 4.0 to 4.5 sigma.
 - what you learned: cost about 4.09 with every seed regressing slightly; unfiltered optimum sits at 4.0, overshoot clips pool edges uniformly.
 - next: held-out validation on seeds 5-9, then reassess the docket.
+
+## Validation — held-out seeds 5-9 (2026-10-03, measurement only)
+- champion 0d52b79 (4.0 opener): 156.2611, 245.6530, 242.9705, 222.0143, 177.3267, mean 208.8451
+- rival iter-46 replica (3.5 opener): 156.8524, 252.1356, 261.8108, 206.1967, 175.6301, mean 210.5251
+- verdict: champion wins by 1.68 on unseen seeds (selection margin was 1.33); 4.0 over 3.5 generalizes, no overfit. Only seed 8 flips.
