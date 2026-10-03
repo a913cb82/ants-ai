@@ -174,3 +174,12 @@ One entry per iteration:
 - what changed: kept 5 duels and the first 10p, but split the second 10p into two spread 5ps.
 - what you learned: splitting only the second 10p cost about 0.26 mean error; every 10p split tried so far hurts, so full-size late bulk is the stable optimum.
 - next: 6p/8p spot checks, or sigma-triggered duel-to-FFA switch.
+
+## 19 — sigma-triggered duel-to-FFA switch (2026-10-03)
+- commit: 1fcf6d5
+- score: mean 28.6144 over seeds 0-4 (29.2866, 29.7541, 27.9897, 27.6633, 28.3783)
+- champion mean: 15.8333 (2d70af7)
+- verdict: discard
+- what changed: dueled while bot sigma stayed above 5.0, spread FFA otherwise, with no budget boundary.
+- what you learned: sigma almost never falls below 5.0, so this played near-all-duels (28.61 vs all-duel baseline 28.97); thresholds need measured sigma trajectories, not guesses.
+- next: probe sigma after N duels, then retry the trigger at a measured level.
