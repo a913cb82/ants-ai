@@ -951,3 +951,12 @@ One entry per iteration:
 - what changed: third 10p split into two 5p spreads at 1.875 sigma.
 - what you learned: cost about 42.25 with only seed 1 improving; 5p looks stay weak and the mid-schedule update does not compensate.
 - next: split game-2 (5p+5p mid) or judge bold 18 after 100.
+
+## 99 — split game-2 5p 5p (2026-10-03)
+- commit: 228a606
+- score: mean 289.0826 over seeds 0-4 (270.3518, 345.4033, 398.0208, 177.0332, 254.6039)
+- champion mean: 216.0193 selection, 205.7881 pooled (fde75b9)
+- verdict: discard
+- what changed: second 10p split into two 5p spreads at 1.25 sigma.
+- what you learned: cost about 73.06 with every seed regressing; the split family is dead in both positions.
+- next: judge bold 18; iteration 100 should be commemorative micros.
