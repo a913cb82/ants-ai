@@ -256,3 +256,9 @@
 - Score: corr 0.9929 (-0.0001, exact tie).
 - Verdict: DISCARD (tie keeps incumbent). Greedy snap already balances sides; forced alternation displaces nothing and gains nothing.
 - Misses: 7.
+
+## Iter 42: micro-dithered refine
+- Quantile opener + +-0.15 sigma jittered 1.0 refine + info tail.
+- Score: corr 0.9929 (-0.0001, exact tie).
+- Verdict: DISCARD (tie keeps incumbent). Sub-threshold jitter moves no snaps that matter; tie entropy is not the lever.
+- Misses: 8.

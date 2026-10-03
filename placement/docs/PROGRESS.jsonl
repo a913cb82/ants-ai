@@ -39,3 +39,4 @@
 {"date": "2026-10-04", "commit": "iter39", "corr": 0.9919, "seeds": [0.9919, 0.99, 0.9904, 0.9943, 0.9929], "champion": "10b3c72", "note": "8p+6d under quantile; -0.0011; 7 stands"}
 {"date": "2026-10-04", "commit": "iter40", "corr": 0.9909, "seeds": [0.9918, 0.9909, 0.9873, 0.9916, 0.9928], "champion": "10b3c72", "note": "bold11 slim skeleton 7+8p; -0.0021; 9 looks load-bearing"}
 {"date": "2026-10-04", "commit": "iter41", "corr": 0.9929, "seeds": [0.993, 0.991, 0.9912, 0.9948, 0.9946], "champion": "10b3c72", "note": "colour-balance refine ties; greed balances"}
+{"date": "2026-10-04", "commit": "iter42", "corr": 0.9929, "seeds": [0.993, 0.9913, 0.9908, 0.9949, 0.9946], "champion": "10b3c72", "note": "micro-dither refine ties; tie entropy is not the lever"}
