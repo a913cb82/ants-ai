@@ -994,3 +994,12 @@ One entry per iteration:
 - what changed: games 2 and 3 banned rematches of earlier games via a module-global used-set.
 - what you learned: cost about 14.50 with only seed 2 improving; rematches are informative replicates and ruler-noise averaging beats novelty (audit showed 1.25/3.32 dups in games 2/3).
 - next: flat-mid rest 1.5625 (shape-matrix cell).
+
+## 103 — flat-mid rest 1.5625 (2026-10-03)
+- commit: 8e7810c
+- score: mean 219.7002 over seeds 0-4 (182.6892, 256.8485, 361.6279, 110.9494, 186.3858)
+- champion mean: 216.0193 selection, 205.7881 pooled (fde75b9)
+- verdict: discard
+- what changed: games 2 and 3 both at 1.5625 sigma (valley midpoint).
+- what you learned: cost about 3.68 with seeds 0/1 regressing hard; the valley dip is real and the shape book closes (flat-narrow, flat-mid, flat-wide, zoom all lose).
+- next: game-2 1.125 under 1.875 closer (archivist revival).
