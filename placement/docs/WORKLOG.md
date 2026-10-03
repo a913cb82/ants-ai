@@ -24,3 +24,12 @@ One entry per iteration:
 - what changed: first FFA spread widened from 1.0 to 1.5 sigma; duels and 0.5 refine unchanged.
 - what you learned: wins by 3.68 with seeds 0/2/3 improving and seed 2 fixed as predicted, but seeds 1/4 regressed; wider bounds trade typical precision for tail coverage.
 - next: wider still (2.0 bound) to trace the gradient.
+
+## 2 — wider bound 2.0 then 0.5 (2026-10-03)
+- commit: c05a544
+- score: mean 316.7159 over seeds 0-4 (287.7754, 367.1452, 364.8904, 257.6713, 306.0971)
+- champion mean: 319.4704 (ed16e2d)
+- verdict: keep
+- what changed: first FFA spread widened from 1.5 to 2.0 sigma.
+- what you learned: wins by 2.75 with seeds 1/3/4 improving (seed 1 down 11), but seed 2 regressed 8.8; the width optimum differs per seed, gradient still descends overall.
+- next: 2.5 bound to find the top of the gradient.
