@@ -390,6 +390,24 @@ def _dec400(ratings: list[Rating], k: int, win: int = 400) -> list[int]:
     return picked
 
 
+def _heavy(ratings: list[Rating], k: int) -> list[int]:
+    """Shaped sites [12..88] of pool mu, full-pool snap."""
+    mus = sorted(r.mu for r in ratings)
+    n = len(mus)
+    pct = (0.12, 0.22, 0.32, 0.41, 0.50, 0.59, 0.68, 0.78, 0.88)[:k]
+    sites = [mus[min(int(n * f), n - 1)] for f in pct]
+    picked: list[int] = []
+    used: set[int] = set()
+    for t in sites:
+        i = min(
+            (c for c in range(n) if c not in used),
+            key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c),
+        )
+        used.add(i)
+        picked.append(i)
+    return picked
+
+
 def _survseat(ratings: list[Rating], k: int) -> list[int]:
     """Quantile census with 9th seat = max-sigma ruler of last-400."""
     seats = _census(ratings, k, mode="quantile")
@@ -663,10 +681,10 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 147 (camp J2): window-800 decile opener.
+    # Iter 148 (camp J3): heavy-middle shaped opener retest.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
-        return _dec400(ratings, n, 800)
+        return _heavy(ratings, n)
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
         return _strata(bot, ratings, n)
