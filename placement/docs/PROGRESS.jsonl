@@ -171,3 +171,4 @@
 {"date":"2026-10-03","commit":"cdac921","mean":204.8743,"champion":"5faf0b0"}
 {"iter": 172, "idea": "Equal-area census: opener sites at pool deciles", "sel": [174.8982, 232.3688, 347.2354, 110.7516, 184.5367], "sel_mean": 209.9581, "champion_sel": 197.741, "verdict": "discard", "lesson": "Mass-spacing loses to uniform spacing; only seed 3 improves.", "commit": "HEAD"}
 {"iter": 173, "idea": "Sinh-warped census (tail resolution, center kept)", "sel": [181.6923, 231.5051, 347.8087, 133.0873, 179.8616], "sel_mean": 214.791, "champion_sel": 197.741, "verdict": "discard", "lesson": "Smooth tail emphasis also loses; uniform spacing exact.", "commit": "HEAD"}
+{"iter": 174, "idea": "Bell-projection census (parametric prior sites)", "sel": [165.2274, 235.8329, 341.3819, 128.3067, 182.4057], "sel_mean": 210.6309, "champion_sel": 197.741, "verdict": "discard", "lesson": "Site geometry closed: uniform > quantile > bell > sinh.", "commit": "HEAD"}

@@ -1643,3 +1643,9 @@ One entry per iteration:
 - Verdict: DISCARD. Even center-preserving tail emphasis loses; uniform-of-range exact.
 - Learned: opener site geometry closed (uniform > quantile > sinh); try bell-projection then move on.
 - Next: iter 174 bell-projection census.
+
+## Iter 174: bell-projection census (carto S3)
+- Score: sel 210.6309 (165.23, 235.83, 341.38, 128.31, 182.41) vs champ 197.7410 (+12.89).
+- Verdict: DISCARD. Opener site geometry closed: uniform 197.74 > quantile 209.96 > bell 210.63 > sinh 214.79.
+- Learned: cartographer family done save re-projected game-2 (different axis: timing not geometry).
+- Next: iter 175 mercy-rule clipping (referee S2, novel axis).

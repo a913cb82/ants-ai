@@ -41,6 +41,15 @@ def _census(ratings: list[Rating], k: int, mode: str = "range") -> list[int]:
                 mid + half * math.sinh(w * (2 * (j + 1) / (k + 1) - 1)) / s
                 for j in range(k)
             ]
+        elif mode == "bell":
+            import statistics as _st
+
+            med = _st.median(r.mu for r in ratings)
+            sd = _st.pstdev([r.mu for r in ratings]) or (hi - lo) / 6 or 1.0
+            bell = NormalDist(med, sd)
+            sites = [
+                min(max(bell.inv_cdf((j + 1) / (k + 1)), lo), hi) for j in range(k)
+            ]
         else:
             sites = [lo + (hi - lo) * (j + 1) / (k + 1) for j in range(k)]
     picked: list[int] = []
@@ -98,7 +107,7 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
         return []
     # Champion (iter 133, MSE): census opener, recent-tertile 1.25/1.875.
     if budget_left > 20:
-        return _census(ratings, min(9, budget_left - 1, len(ratings)), "sinh")
+        return _census(ratings, min(9, budget_left - 1, len(ratings)), "bell")
     if budget_left > 10:
         return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.25)
     return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.875)
