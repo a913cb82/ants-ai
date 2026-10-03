@@ -26,6 +26,7 @@ A refinement is a new row. Leave old rows as they were.
 | done | Stricter anchors: low-sigma tertile cutoff. |
 | dropped | Even stricter anchors: low-sigma quartile cutoff. |
 | dropped | 4 early + 1 late duel retest under tertile anchors. |
+| trying | Wide-then-narrow late FFAs (1.0 sigma, then 0.5 sigma). |
 | open | Approach 2: zooming bracket 10p/5p/5p/2p x5, spread mu+-k·sigma, low-sigma anchors. |
 | open | Approach 3: 10p/6p/2p x7, quantile spread at 1.0 sigma, large-first coarse-to-fine. |
 | done | Champion order with spread FFA opponents (quantiles of N(mu, sigma), low-sigma ties). |

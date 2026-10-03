@@ -27,9 +27,11 @@ def _closest(bot: Rating, ratings: list[Rating]) -> int:
     )
 
 
-def _spread(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
-    """k distinct established opponents nearest quantiles of N(mu, sigma)."""
-    dist = NormalDist(bot.mu, max(bot.sigma, 0.5))
+def _spread(
+    bot: Rating, ratings: list[Rating], k: int, width: float = 1.0
+) -> list[int]:
+    """k distinct established opponents nearest quantiles of N(mu, w*sigma)."""
+    dist = NormalDist(bot.mu, max(width * bot.sigma, 0.5))
     targets = [dist.inv_cdf((j + 1) / (k + 1)) for j in range(k)]
     pool = _established(ratings, k)
     picked: list[int] = []
@@ -54,7 +56,9 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Champion (iter 22): duels first, tertile-anchor spread FFAs.
+    # Exp (iter 25): duels first, wide FFA then narrow FFA.
     if budget_left > 20:
         return [_closest(bot, ratings)]
-    return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)))
+    if budget_left > 10:
+        return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.0)
+    return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 0.5)
