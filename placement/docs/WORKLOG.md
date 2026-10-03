@@ -1637,3 +1637,9 @@ One entry per iteration:
 - Verdict: DISCARD. Uniform-of-range spacing stands; pool-mass spacing wastes looks in clumps.
 - Learned: opener geometry settled further; try sinh-warp next (keeps uniform base, smooth tail emphasis).
 - Next: iter 173 sinh-warped census.
+
+## Iter 173: sinh-warped census (carto S2)
+- Score: sel 214.7910 (181.69, 231.51, 347.81, 133.09, 179.86) vs champ 197.7410 (+17.05). All seeds regress.
+- Verdict: DISCARD. Even center-preserving tail emphasis loses; uniform-of-range exact.
+- Learned: opener site geometry closed (uniform > quantile > sinh); try bell-projection then move on.
+- Next: iter 174 bell-projection census.
