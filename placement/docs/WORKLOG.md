@@ -1120,3 +1120,12 @@ One entry per iteration:
 - what changed: game-3 played 2.5 sigma iff live bot sigma exceeded 4.0, else 1.5.
 - what you learned: cost about 3.26 with only seed 2 improving; the gate misfires and sigma carries no routable signal at this threshold.
 - next: judge bold 20 after 119; tight early-position pool-gated opener.
+
+## 117 — tight early-position opener (2026-10-03)
+- commit: 29b60dc
+- score: mean 229.0410 over seeds 0-4 (227.7676, 261.1941, 333.8154, 122.8509, 199.5769)
+- champion mean: 216.0193 selection, 205.7881 pooled (fde75b9)
+- verdict: discard
+- what changed: pools under 90 opened 1.5 tertile instead of 4.0 full-pool.
+- what you learned: cost about 13.02 with only seed 2 improving; early tight poisons the first 90 rulers and wide-first is load-bearing for the whole pool.
+- next: judge bold 20 after 119; closest-cluster ring closer.
