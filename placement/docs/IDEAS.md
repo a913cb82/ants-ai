@@ -15,53 +15,95 @@ lives in `placement/archive/mae-round/`; MSE record lives in
 `placement/archive/mse-round/`. Do not relitigate settled cells
 without a corr reason.
 
-What the archives say for corr. MAE killed precision schedules for
-accuracy reasons that do not transfer: duels-first won MAE outright,
-and approaches 2/3 explicitly minimized final sigma, which is exactly
-what ranking rewards. MSE killed duels (iters 30/33: duels cost ~74),
-routing, mixtures, and displacement — those kills transfer, because
-none of them teach per game. MSE priced widths under tail weights;
-corr reprices them without. The main-branch exam (info-score duels
-plus propose FFA) ranks at 0.9655 with mu scoring and is the package
-to beat alongside the baseline.
+Corr verdicts so far: iter 2 uncertainty-hunting duels (5 closest
+high-sigma-half duels + valley) scored 0.9557 vs baseline 0.9870,
+every seed regressed. Duel openers cost ranking power much as they
+cost MSE. Closest-mu (not high-sigma) duel variants keep one shot
+each; high-sigma duel targeting is closed.
 
 ## Backlog
 
 Status is `open`, `trying`, `done`, `dropped`, or `parked`.
 A refinement is a new row. Leave old rows as they were.
+Source tags: PSY psychometrician, ARB chess-arbiter, SIG
+signal-processor, DET detective, ACT actuary, SCO scout, POL
+pollster, MAT matchmaker, ARC archivist-3.
 
 | status | idea |
 |---|---|
 | trying | Baseline: corr of the MSE-champion shape over seeds 0-4. |
-| open | Uncertainty-hunting opener: 5 closest high-sigma duels, then 1.25/1.875 tertile 10ps (info-score flavor under corr). |
+| dropped | Uncertainty-hunting opener: 5 closest high-sigma duels, then 1.25/1.875 tertile 10ps (iter 2: 0.9557, every seed regressed). |
 | open | Mixed exam: census skeleton game 1, info-greedy refine games 2-3 within tertile anchors. |
 | open | Wider refine under corr: 1.5/2.0 rest, re-priced without MSE tail weights. |
+| open | Deferred propose-commit 1.5/1.875 rest (MAT S3; near-neighbor of champion, stability bet). |
+| open | Fisher-peak narrow valley 1.0/1.5 rest (PSY S1; item information peaks near theta). |
+| open | Assortative narrow closer 1.25/1.0 (MAT S1; only the closer narrows, not flat-narrow). |
+| open | Twin-narrow 1.25/1.25 parallel forms, disjoint rulers (PSY S4; closer reach as MSE overhead). |
+| open | CAT gradient 10+10+6+4 at 1.5/1.0/0.75 (PSY S3; scheduled narrowing, peak-info testlets). |
+| open | Audit-kicker 10+10+6+4 at 1.25/1.875/1.875 (ACT S2; audit frequency vs pull density). |
 | open | Fresh-voice anchors: least-played rulers inside the tertile (recency direction, new axis). |
-| open | Duel-heavy schedule retest: duels-first shapes priced dead under MSE may rank well under corr. |
-| open | MAE duels-first revival: 5 closest-mu duels + 1.0/0.5 tertile 10ps (MAE champion, untested under corr). |
+| open | Likely-ruler hard-50 closer: 50 lowest-sigma of last-400 at 1.875 (POL S2; count not fraction). |
+| open | Kalman senior-25 closer: tertile minus 25 most recent at 1.875 (SIG S2; untested interior dose). |
+| open | Equating spine: 3 fixed 25/50/75 rulers recaptured G2+G3 + 6 adaptive each (PSY S2; common-item link). |
+| open | Tracking panel: 3 nearest G2 rulers re-polled in G3 + 6 fresh (POL S3; local first-difference). |
+| open | Skeleton re-ask: 3 census rulers nearest post-G2 mu + 6 fresh at 1.875 (DET S5; drift survey). |
+| open | Split-vintage witnesses: G2 tertile of arrivals [N-400,N-200), G3 of [N-200,N) (DET S1; decorrelated eras). |
+| open | Vintage quota on all three games (MAT S4; schedule-wide diversity, not closer-only cartel). |
+| open | Lone alibi pin: 8 at 1.875 + 1 farthest established ruler (DET S2; one-pin consensus break). |
+| open | Bad-cop/good-cop anchors at flat 1.5: full-pool G2 then tertile G3 (DET S3; trust pairing, width held). |
+| open | BF prior-weighted closer: 5 targets from census centroid + 5 from live mu at 1.875 (ACT S4; reserve vs chase). |
+| open | Credibility 7+2 blend closer: 7 tertile + 2 high-sigma-half at 1.875 (ACT S1; priced dose, dose ladder starts here). |
+| open | Drunk-witness closer: full high-sigma tertile at 1.875 (DET S4; bimodal bet, closes axis on clean fail). |
+| open | Density tie-break closer: same 1.875 grid, near-tie snaps toward denser bins (POL S1; mass decides collisions). |
+| open | Proportional-strata closer: picks across below/peer/above bins by pool mass, min 1 each (POL S4; not 3-3-3). |
+| open | Comp-pick mode-seeking game-2: 9 nearest tertile rulers, no Gaussian grid (SCO S3; aim at ruler mass). |
+| open | Elite separator game-2: 9 rulers from top mu decile + valley closer (SCO S1; rank probe at one end). |
+| open | Weak separator game-2: mirror at bottom decile (SCO S2; pair with elite, keep at most one). |
+| open | Colour-balance alternation: strict above/below target pairing G2+G3 (ARB S1; no float streaks). |
+| open | Micro-dithered closer: per-target +-0.15 sigma jitter before snap, grid exact (SIG S3; tie entropy, not phase). |
+| open | D-optimal antipodal closer: max-min distance from G2 picks at 1.875 (SIG S1/MAT S2; non-redundant thresholds). |
+| open | Crossover valley order: even arrivals valley, odd arrivals inverted, contrast decides (ACT S3; open-loop direction test). |
+| open | Cross-check twin 5s mid-split: disjoint even/odd rulers at 1.25, full census + closer kept (SCO S4; middle-only split). |
+| open | MAE duels-first revival: 5 closest-mu duels + 1.0/0.5 tertile 10ps (ARB S4; iter 2 killed high-sigma targeting, closest untested). |
 | open | Bracket-duel opener: closest duel, then above/below pair, then valley bulks (deliberate tail insurance). |
 | open | Interleaved bulk: 3 duels, wide 10p, 2 duels, narrow 10p (mid re-positioning for tails). |
-| open | Approach 2 revival: zooming bracket 10p/5p/5p/duels, sigma-minimizing by design (corr-native objective). |
-| open | Approach 3 revival: 10p/6p then seven duels at 1.0 sigma, large-first coarse-to-fine. |
-| open | Greedy predict_draw FFA fields (main-branch propose rule, dropped under MAE only). |
-| open | Info-score duel opener: predict_draw + 0.02 sigma, deterministic top-1 (main rule minus epsilon). |
-| open | Highest-sigma-seeded FFA: propose shape with candidate plus greedy info picks (main rule). |
+| open | Approach 2 revival: zooming bracket 10p/5p/5p/duels at 1.6/1.0/1.0, tertile anchors (ARC R1). |
+| open | Approach 3 revival: 10p/6p then seven duels at 1.0, large-first coarse-to-fine (ARC R2). |
+| open | Shrinking-zoom revival: duel + 9p/9p/10p at 2.0/1.0/0.5, tertile anchors (ARC R4). |
+| open | D-screen opener: 4 duels at mu +- {0.5, 1.5} sigma + valley bulks + closing duel (SIG S4; Fisher-per-slot probe). |
+| open | Info-score duel opener: predict_draw + 0.02 sigma, deterministic top-1 (main rule minus epsilon; one shot after iter 2). |
+| open | Highest-sigma-seeded FFA: propose shape with greedy info picks inside tertile (main rule). |
 | open | FFA size set {4,6,10} schedule: 10p census + 6p + 4p refines (main sizes, density gradient). |
-| open | Sigma-triggered duel-to-FFA switch: duels while sigma above 5.0, then bulks (MAE row, corr-relevant). |
-| open | Bounty sniper opener: 1 max-sigma duel, then census + valley rest (uncertainty-first stake). |
-| open | Deterministic UCB rotation: score -dist + 0.5 sigma, cycle top 6 (exploration with a floor). |
 | open | D-optimal 4-duel screen at mu +- {0.5, 1.5} sigma, then valley bulks (designed experiment opener). |
 | open | Rank-entropy 4p mid-game: census + 4p + valley closer (mid-size information frontier). |
 | open | Twin mid-bulk: 5 duels, 6p, 2 duels, 6p, narrow closer (MAE-parked, rhythm vs density under corr). |
-| open | Narrow valley re-price: 1.0/1.5 rest (MAE-winning widths, killed under MSE tail weights). |
-| open | Full-pool refine retest: unfiltered spreads priced under MSE duels; corr may forgive noise. |
+| open | Full-pool refine retest: unfiltered spreads priced under MSE duels; corr may forgive noise (one shot). |
 | open | Calibration-anchored opener: established-ruler pool across mu (Approach 2/3 calibration pool). |
 | open | 4p frontier schedule: 10p census + two 4p refines + duel closer (per-slot information peak). |
-| parked | MSE-settled kills that transfer: routing, mixtures, displacement, rematch bans, link surgery (see mse-round IDEAS.md). No variants without a corr reason. |
-| parked | Game-count anchor axes (authority/usage): Rating is mu/sigma-only; needs harness plumbing. |
+| parked | MSE-settled kills that transfer: routing/gating, mixtures, displacement, rematch bans, link surgery (transfer-kills below). No variants without a corr reason. |
+| parked | Accelerated-Swiss tail gate (ARB S2; gated wide spend, routing family). |
+| parked | SB +0.5 sigma closer shift (ARB S3; soft skew, bold-7 family). |
+| parked | Sigma-triggered duel-to-FFA switch (gated routing per ARC). |
+| parked | Game-count anchor axes (authority/usage): Rating is mu/sigma-only, evaluate.py frozen; proxies listed as open rows. |
+
+## Transfer-kills (ARC; metric-independent, do not revive)
+
+Failed because they never teach per game, displace load-bearing
+thresholds, or route on signal-free gates. Corr does not repair them.
+Routing/gating (116/119/130/HARQ/mu-gate/positional/push-fold/
+satellite/sigma-trigger); mixtures/hollow/edge (112/170, 113/153,
+105/158, 53/96 bolds 8/17, 123/166, 177, index-dither); displacement/
+one-sided/asymmetric (bold 2 iter 11, bold 7 iter 42, gatekeeper,
+3-3-3 twice 111/152); structural no-ops (no-rematch 102/151/196,
+checksum 190, DPP 132/163, mark-recapture 131/164, antipodal-RECAPTURE
+180/181/189 vs antipodal-CLOSER open row above, recenter 179);
+size settles (8p-band 137, splits 98/114/154, mop-up 63, Augusta,
+closing duels 140/192/193); anchor settles (quartile/half/median/
+senior-25/50, ancient-tertile bold 25, full-pool rest 34/142 except
+the one-shot row above).
 
 ## Bold lines
 
 Two misses in a row force a bold idea from research. Record the line
 3 iterations before judgement, judge on selection + held-out + fresh
-agreement. First bold due after two consecutive corr misses.
+agreement. Misses: 1 (iter 2). First bold due after one more miss.
