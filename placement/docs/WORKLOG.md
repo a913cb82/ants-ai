@@ -1576,3 +1576,14 @@ One entry per iteration:
 - what changed: game-3 took the 9 nearest recency rulers to current mu.
 - what you learned: cost about 9.26 with only seed 3 improving; proximity stays an echo chamber under census. Bold 28 judged refuted (iter 162).
 - next: edge-dense closer under census (retest); then misses force bold 29.
+
+## 166 — edge-dense closer census retest (2026-10-03)
+- commit: be1f83a
+- score: selection mean 196.4037 (154.9306, 219.8363, 328.9402, 115.9324, 162.3789)
+- champion selection mean: 197.7410 (5faf0b0)
+- confirmation: 176.4300 over seeds 5-9 (138.8372, 193.8538, 223.0692, 175.9542, 150.4354) vs champion held-out 177.2165
+- fresh audit: 159.0896 over seeds 10-14 (90.5502, 172.3770, 117.5565, 151.9718, 262.9923) vs champion fresh 158.5081
+- verdict: discard
+- what changed: closer targets doubled edge pins instead of uniform deciles.
+- what you learned: selection and held-out both favored edge pins thinly but fresh lost 0.58 with seed 11 regressing 6; pooled-15 wins 0.51 yet fresh vetoes. Fourth fresh veto; uniform grid stands confirmed.
+- next: misses force bold 29; F1 Q2-half ladder under census (retest).
