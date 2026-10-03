@@ -473,3 +473,9 @@
 - Score: corr 0.9932 (+0.0000, exact tie).
 - Verdict: DISCARD (tie keeps incumbent). Pool-rent invisible at 1-slot dose; S2/S4 parked per stop rules, S3 (mid-tail repair position) runs next.
 - Misses: 34.
+
+## Iter 78: mid-tail audit duel (shepherd S3)
+- Duel 4 = max-sigma of 10 nearest; repair duels after + champion rest.
+- Score: corr 0.9932 (+0.0001, tie).
+- Verdict: DISCARD (tie keeps incumbent). Terminal and mid-tail herding both tie; pool-rent undetectable at any single-slot position. Herding axis closed, S2/S4 stay parked.
+- Misses: 35.
