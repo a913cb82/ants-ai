@@ -19,6 +19,21 @@ def _established(ratings: list[Rating], k: int) -> list[int]:
     return pool
 
 
+def _census(ratings: list[Rating], k: int) -> list[int]:
+    """Nearest ruler to each fixed absolute site."""
+    sites = [-50.0 + 150.0 * (j + 1) / (k + 1) for j in range(k)]
+    picked: list[int] = []
+    used: set[int] = set()
+    for t in sites:
+        i = min(
+            (c for c in range(len(ratings)) if c not in used),
+            key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c),
+        )
+        used.add(i)
+        picked.append(i)
+    return picked
+
+
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
     """Pool index nearest bot.mu, low sigma then low index on ties."""
     return min(
@@ -60,9 +75,9 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Champion (iter 85, MSE): widths 4.0/1.25/1.875.
+    # Exp (iter 126, MSE): fixed-site opener.
     if budget_left > 20:
-        return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 4.0, False)
+        return _census(ratings, min(9, budget_left - 1, len(ratings)))
     if budget_left > 10:
         return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.25)
     return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.875)
