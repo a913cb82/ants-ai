@@ -39,3 +39,12 @@ One entry per iteration:
 - what changed: every game takes the 9 closest-mu pool opponents, spending 30 slots on 3 ten-player games.
 - what you learned: comparison efficiency beats update count by about 8.58 mean error; seed spread (18.02 to 23.08) is wider than the baseline, so later mixes should chase stability too.
 - next: duels first, then FFA with late budget.
+
+## 4 — duels first, then FFA with late budget (2026-10-03)
+- commit: 7e70bcb
+- score: mean 16.6448 over seeds 0-4 (16.0763, 17.9013, 18.6619, 14.4283, 16.1560)
+- champion mean: 16.6448 (7e70bcb, new best; prior 20.3876 295530c)
+- verdict: keep (new champion)
+- what changed: 5 closest-mu duels on the first 10 slots, then two FFA-10s against the 9 closest opponents.
+- what you learned: positioning mu with early sequential duels before bulk FFA updates gained about 3.74 mean error over pure FFA-10.
+- next: size from budget_left — big games early, duels late (mirror schedule).
