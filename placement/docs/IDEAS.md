@@ -188,6 +188,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Center-dense census sites (mirror test). |
 | dropped | Bookend skeleton census games 1+3 (tuning 126g). |
 | dropped | Census-plus-personal blend opener (tuning 126h). |
+| trying | Ancient-tertile anchors first-400 (bold 25). |
 | open | Chase-combining repeat-wide 4.0/4.0/1.5 (info; diversity-combine before zoom). |
 | open | Double-tap opener 4.0/4.0/1.25 (adversary; second wide after recentering, full-pool G2 untested at 4.0). |
 | open | Split-middle 10+5+5+10 valley halves (info/poker; mid-schedule re-aim, halves sandwiched not late). |
@@ -396,6 +397,13 @@ gain. Predicts the ablation splits the difference, or one
 ingredient dominates. Judge after iteration 145.
 Judged: refuted at iteration 142 (213.7231, only seed 3 improved);
 census carries the gain.
+
+Two misses in a row (iters 145-146) force bold line 25
+(2026-10-03): ancient-tertile anchors. Tertile drawn from the
+FIRST 400 arrivals instead of the last; tests whether recency
+direction matters or only staleness-quarantine shape. Predicts
+stable old anchors beat fresh ones, or recency direction is real.
+Judge after iteration 150.
 
 Three misses in a row (iters 89-91) force bold line 16 (2026-10-03):
 flat wide rest. Both rest games at 1.875: the rest may do one job
