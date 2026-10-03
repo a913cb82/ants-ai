@@ -418,3 +418,9 @@
 - Score: corr 0.9932 (+0.0000, exact tie).
 - Verdict: DISCARD (tie keeps incumbent). Live-window mass ties full-history mass; fossil mus warp nothing.
 - Misses: 25.
+
+## Iter 69 (bold 19): heavy-middle quantile opener
+- Shaped sites 12..88 + champion rest.
+- Score: corr 0.9931 (-0.0000, exact tie).
+- Verdict: DISCARD (tie keeps incumbent). Uniform mass stands over shaped placement; shaping buys nothing.
+- Misses: 26.
