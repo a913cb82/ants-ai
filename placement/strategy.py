@@ -18,17 +18,18 @@ class Rating:
     sigma: float
 
 
-def _info_duel(bot: Rating, ratings: list[Rating]) -> list[int]:
+def _info_duel(bot: Rating, ratings: list[Rating], side: int = 0) -> list[int]:
     """Tail duel: argmax predict_draw + 0.02 sigma over 40 nearest."""
     order = sorted(
         range(len(ratings)),
         key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
     )[:40]
-    if not order:
+    gated = [c for c in order if (ratings[c].mu - bot.mu) * side > 0] or order
+    if not gated:
         return []
-    best = order[0]
+    best = gated[0]
     best_v = None
-    for c in order:
+    for c in gated:
         teams = [[_MODEL.rating(mu=bot.mu, sigma=bot.sigma)]]
         sig = bot.sigma
         for i in (c,):
@@ -123,31 +124,6 @@ def _strata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
     if len(out) < k:
         rest = sorted(
             (c for c in pool if c not in set(out)),
-            key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
-        )
-        out += rest[: k - len(out)]
-    return out[:k]
-
-
-def _soft(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
-    """Max-sigma rulers within +-1 sigma, outside the low-sigma tertile."""
-    band = max(bot.sigma, 0.5)
-    end = len(ratings)
-    start = max(0, end - 400)
-    recent = ratings[start:end] or ratings
-    cutoff = sorted(r.sigma for r in recent)[len(recent) // 3]
-    cands = [
-        c
-        for c in range(len(ratings))
-        if abs(ratings[c].mu - bot.mu) <= band and ratings[c].sigma > cutoff
-    ] or [c for c in range(len(ratings)) if abs(ratings[c].mu - bot.mu) <= band]
-    cands = sorted(
-        cands, key=lambda c: (-ratings[c].sigma, abs(ratings[c].mu - bot.mu), c)
-    )
-    out = cands[:k]
-    if len(out) < k:
-        rest = sorted(
-            (c for c in range(len(ratings)) if c not in set(out)),
             key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
         )
         out += rest[: k - len(out)]
@@ -379,11 +355,13 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 82 (corr): soft-witness refine.
+    # Iter 83 (corr): strata-gated tail.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
-        return _soft(bot, ratings, n)
-    return _info_duel(bot, ratings)
+        return _strata(bot, ratings, n)
+    d = (14 - budget_left) // 2
+    gate = [0, -1, 1, 0, -1, 1, 0][d] if 0 <= d < 7 else 0
+    return _info_duel(bot, ratings, gate)
