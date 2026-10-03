@@ -100,6 +100,28 @@ def _census(ratings: list[Rating], k: int, mode: str = "range") -> list[int]:
     return picked
 
 
+def _calsnap(ratings: list[Rating], k: int, tol: float = 0.15) -> list[int]:
+    """Decile sites; lowest-sigma snap within tol, else nearest."""
+    n = len(ratings)
+    pool = sorted(r.mu for r in ratings)
+    sites = [pool[min(int(n * (j + 1) / (k + 1)), n - 1)] for j in range(k)]
+    picked: list[int] = []
+    used: set[int] = set()
+    for t in sites:
+        cands = [c for c in range(n) if c not in used]
+        if not cands:
+            break
+        near = [c for c in cands if abs(ratings[c].mu - t) <= tol]
+        src = near or cands
+        if near:
+            i = min(src, key=lambda c: (ratings[c].sigma, abs(ratings[c].mu - t), c))
+        else:
+            i = min(src, key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c))
+        used.add(i)
+        picked.append(i)
+    return picked
+
+
 def _strata(
     bot: Rating,
     ratings: list[Rating],
@@ -381,11 +403,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 110 (camp B5): 4-bin center-split with sqrt mass quota.
+    # Iter 111 (camp C1): calibrated-snap opener retest.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
-        return _census(ratings, n, mode="quantile")
+        return _calsnap(ratings, n)
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
-        return _strata(bot, ratings, n, split=True, root=True)
+        return _strata(bot, ratings, n)
     return _info_duel(bot, ratings, 0, 40)
