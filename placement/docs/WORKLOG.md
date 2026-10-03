@@ -389,3 +389,9 @@
 - Score: corr 0.9931 (-0.0001, exact tie, expected kill missed).
 - Verdict: DISCARD (tie keeps incumbent). Bold 17 judged: refuted as kill, priced as trade. 2/3/4 stages all tie: meso granularity is free, the refine's existence is load-bearing. Depth closed for good.
 - Misses: 20.
+
+## Iter 64: 4-bin signed-peer strata
+- Champion shape with peer bin split by sign.
+- Selection: corr 0.9934 (+0.0002, 4/5). Held-out 5-9: tie.
+- Verdict: DISCARD per row falsification: drop-best-seed kills the lead (flex-tax noise). 3 bins stand.
+- Misses: 21.
