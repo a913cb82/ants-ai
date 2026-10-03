@@ -26,6 +26,7 @@ A refinement is a new row. Leave old rows as they were.
 | done | Mixed anchors: full-pool opener, tertile later bulks. |
 | dropped | Full-pool first two 10ps, tertile last: extend the reach. |
 | dropped | Inverted mix: tertile opener, full-pool rest (factorial cell). |
+| trying | Full-pool opener at 3.5: re-sweep width unfiltered. |
 | dropped | Quartile anchors retest (cleaner thresholds for hard seeds). |
 | dropped | 3p opening: 2x3p closest-pair instead of 3x2p (same 6 slots). |
 | dropped | 4p mid game: bot plus above, below, closest replaces bracket pair. |
