@@ -1531,3 +1531,12 @@ One entry per iteration:
 - what changed: rest widths pushed to 0.75 then 2.75 sigma.
 - what you learned: selection won 7.18 and held-out won 1.37 but fresh lost 1.46 with seeds 7/10/11 regressing hard; pooled-15 wins 2.36 yet fresh vetoes. The exaggerated valley is seed-fragile. Bold 27 judged refuted (iter 157).
 - next: overcut rest under census (retest); then misses force bold 28.
+
+## 161 — overcut census retest (2026-10-03)
+- commit: 52e5559
+- score: mean 230.8843 over seeds 0-4 (202.7991, 276.5662, 330.4988, 136.1680, 208.3893)
+- champion mean: 197.7410 selection, 187.4788 pooled (5faf0b0)
+- verdict: discard
+- what changed: rest widths inverted to 3.0 then 1.0 sigma.
+- what you learned: cost about 33.14 with zero of five improving; inversion loses under census too and dip direction stands confirmed.
+- next: misses force bold 28; chase-combining under census (retest).
