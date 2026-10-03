@@ -1261,3 +1261,13 @@ One entry per iteration:
 - what changed: game-3 took 4 nearest tertile rulers plus 5 fresh outside-tertile beats.
 - what you learned: cost about 36.11 with only seed 3 improving; fresh beats are noisy and the quantile grid stays load-bearing.
 - next: judge bold 22 after 133; DPP repulsion de-collision.
+
+## 132 — DPP repulsion games 2 3 (2026-10-03)
+- commit: d5067b5
+- score: selection mean 193.5777 (157.8178, 246.3507, 294.7531, 111.8003, 157.1667)
+- champion selection mean: 199.7520 (73f8050)
+- confirmation: 185.7001 over seeds 5-9 (153.3610, 200.3117, 232.6634, 173.4521, 168.7121) vs champion held-out 180.3568
+- verdict: discard
+- what changed: games 2 and 3 excluded rulers within 1.0 mu of already-picked ones.
+- what you learned: selection won 6.17 on three seeds but held-out lost 5.34 with two of five; pooled ties plus 0.42. Same seed-2-driven signature; de-collision displaces needed thresholds.
+- next: judge bold 22 after 133; repechage positional rescue.
