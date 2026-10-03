@@ -1475,3 +1475,12 @@ One entry per iteration:
 - what changed: game-2 split into two 4-opponent halves at 1.25 sigma.
 - what you learned: cost about 75.78 with every seed regressing; halves starve the re-aim under census too and 9-pull density stands.
 - next: judge bold 26 after 155; flat-mid rest under census (retest).
+
+## 155 — flat-mid census retest (2026-10-03)
+- commit: cc679fe
+- score: mean 204.2161 over seeds 0-4 (166.4686, 226.1975, 338.8368, 117.2543, 172.3232)
+- champion mean: 197.7410 selection, 187.4788 pooled (5faf0b0)
+- verdict: discard
+- what changed: games 2 and 3 both at 1.5625 sigma.
+- what you learned: cost about 6.48 with only seed 3 improving; the valley dip is real under census too. Bold 26 judged refuted (iter 152).
+- next: ratio upshift under census (retest); then misses force bold 27.
