@@ -460,3 +460,10 @@
 - Score: corr 0.9931 (-0.0001, exact tie).
 - Verdict: DISCARD (tie keeps incumbent). Mass quota does the work; within-bin pick rule is free.
 - Misses: 32.
+
+## Iter 76: front-loaded upset duels (glazier G4 variant)
+- First 3 tail duels info-argmax over above-mu rulers only; last 4 flat info.
+- Score: sel corr 0.9934 (+0.0002, 4/5 seeds) escalated to held seeds 5-9.
+- Held: exp 0.9938 vs champion 0.9939 (champion wins 4/5, +0.0002). Pooled-10 exact tie.
+- Verdict: DISCARD (overturn rule: fresh disagrees with selection). Front-loaded upsets add nothing; sequencing/instrument axis closed.
+- Misses: 33.
