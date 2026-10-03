@@ -292,6 +292,15 @@ def _gridstrata(
     return picked[:k]
 
 
+def _comp(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
+    """k nearest established rulers, no bins, no grid."""
+    pool = _established(ratings, k, 0)
+    near = sorted(
+        pool, key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c)
+    )
+    return near[:k]
+
+
 def _side_duel(
     bot: Rating, ratings: list[Rating], rank: int, first: int = 1
 ) -> list[int]:
@@ -548,11 +557,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 127 (camp F2): grid-inside-strata at width 1.5.
+    # Iter 128 (camp F3): pure comp-pick refine, no bins.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
-        return _gridstrata(bot, ratings, n, 1.5)
+        return _comp(bot, ratings, n)
     return _info_duel(bot, ratings, 0, 40, 0)
