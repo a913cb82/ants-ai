@@ -643,3 +643,13 @@ One entry per iteration:
 - what changed: game-2 drew full-pool when the pool was under 300, tertile otherwise.
 - what you learned: cost about 4.13 with seed 2 destabilized plus 53; pool age does not matter, young full-pool adds noise. Also caught an inverted anchors flag before scoring.
 - next: game-2 at 1.0 (narrow-side gradient step).
+
+## 69 — game-2 at 1.0 with confirmation (2026-10-03)
+- commit: a42f8be
+- score: selection mean 219.5651 over seeds 0-4 (181.3488, 254.2048, 369.6941, 111.3997, 181.1781)
+- champion selection mean: 221.8680 (43b260f)
+- confirmation: 204.4396 over seeds 5-9 (153.3340, 239.1761, 251.0751, 217.3397, 161.2729) vs champion held-out 202.0228
+- verdict: discard
+- what changed: second bulk 10p narrowed from 1.5 to 1.0 sigma.
+- what you learned: won selection by 2.30 but lost held-out by 2.42 with only seed 9 improving; the narrow trend stops at 1.5 and game-2 optimum is interior.
+- next: judge bold 11; opener width re-check under 4.0/1.5/2.0.
