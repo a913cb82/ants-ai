@@ -874,3 +874,12 @@ One entry per iteration:
 - what changed: third bulk 10p narrowed from 1.875 to 1.8125 sigma.
 - what you learned: cost about 0.07, a pure tie with seeds 0 and 3 canceling; game-3 1.75-1.875 is a flat floor and the incumbent holds.
 - next: bold 16 territory (three straight misses at 89-91); hunt outside priced space.
+
+## 92 — flat wide rest bold 16 (2026-10-03)
+- commit: 186baa6
+- score: mean 224.1766 over seeds 0-4 (186.6358, 267.6313, 357.4990, 121.7213, 187.3958)
+- champion mean: 216.0193 selection, 205.7881 pooled (fde75b9)
+- verdict: discard
+- what changed: second bulk 10p widened from 1.25 to 1.875 sigma, matching the closer.
+- what you learned: cost about 8.16 with only seed 2 improving; the valley dip is load-bearing and the shape matrix is complete.
+- next: game-2 at 1.5 under the 1.875 closer (last interaction cell).
