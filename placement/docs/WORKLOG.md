@@ -806,3 +806,14 @@ One entry per iteration:
 - what changed: second 10p spread from the full pool instead of tertile anchors.
 - what you learned: cost about 9.83 with seed 2 annihilated plus 71; game-2 needs rulers and the factorial holds everywhere.
 - next: judge bold 14; then price the last micro (game-3 at 1.875).
+
+## 85 — game-3 at 1.875 with confirmation (2026-10-03)
+- commit: fde75b9
+- score: selection mean 216.0193 over seeds 0-4 (175.6384, 247.2637, 366.3196, 106.9506, 183.9240)
+- prior champion selection mean: 217.5528 (f8ba828)
+- confirmation: 195.5568 over seeds 5-9 (143.2776, 232.2666, 224.3151, 218.3629, 159.5618), two of five improve
+- pooled: 205.7881 vs 207.6291
+- verdict: keep
+- what changed: third bulk 10p widened from 1.75 to 1.875 sigma.
+- what you learned: leads selection, held-out, and pooled among all game-3 widths; the closer optimum sits between 1.75 and 2.0. Bold 14 judged refuted (iter 83).
+- next: game-3 at 1.9375 vs game-2 re-verification; judge nothing pending.

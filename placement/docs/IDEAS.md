@@ -70,7 +70,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Opener 3.875: last opener micro. |
 | dropped | Tertile opener under the confirmed shape (bold 14). |
 | dropped | Game-2 full-pool: last factorial flip. |
-| trying | Game-3 at 1.875: last micro. |
+| done | Game-3 at 1.875: last micro. |
 | dropped | Quartile anchors retest (cleaner thresholds for hard seeds). |
 | dropped | 3p opening: 2x3p closest-pair instead of 3x2p (same 6 slots). |
 | dropped | 4p mid game: bot plus above, below, closest replaces bracket pair. |
