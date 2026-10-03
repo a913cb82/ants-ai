@@ -371,3 +371,9 @@
 - Score: corr 0.9932 (-0.0000, exact tie).
 - Verdict: DISCARD (tie keeps incumbent). Per-duel weight schedules closed; flat 0.02 stands.
 - Misses: 17.
+
+## Iter 61: 6 info + closest closer
+- 6 info duels + closest-mu closing duel.
+- Score: corr 0.9932 (+0.0000, exact tie).
+- Verdict: DISCARD (tie keeps incumbent). Explore-then-pin phases tie flat info; no 5+2 escalation.
+- Misses: 18.
