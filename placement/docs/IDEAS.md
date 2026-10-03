@@ -50,6 +50,7 @@ A refinement is a new row. Leave old rows as they were.
 | open | Augusta Cut: 2x6p open, 2x6p anchors-only, 10 closing duels (sports). |
 | dropped | World Cup pots: each FFA draws 3 bottom + 3 mid + 3 top mu (sports). |
 | dropped | Swiss 12 duels no-rematch, then two 10p finals (sports; fixed to 5 walk-out + 2 bulks for slots). |
+| trying | Shrinking zoom: duel, 9p at 2.0, 9p at 1.0, 10p at 0.5 (bold 4). |
 | dropped | Gatekeeper FFA: second 10p shifted a tier stronger than mu (sports). |
 | parked | Gradient fields: weak 10p heat, peer semi, shark-tank final (sports; gatekeeper verdict covers asymmetry). |
 | open | Successive-halving duel tournament with FFA confirmation (bayes). |
@@ -94,5 +95,11 @@ Judge after iteration 23.
 Judged: confirmed at iteration 20 by adoption (290.3357, new
 champion) and extended at 21/22; positioning duels are expendable
 under MSE, wide fields bound directly from the prior.
+
+Eight misses in a row (iters 23-30) force bold line 4 (2026-10-03):
+shrinking zoom. One duel plus 9p at 2.0, 9p at 1.0, 10p at 0.5
+tests size and width zoom jointly against the uniform-bulk doctrine.
+Predicts failure (mid sizes and narrow widths both lost alone) but
+prices the interaction. Judge after iteration 33.
 | done | Interleaved bulk retest (3d, wide 10p, 2d, narrow 10p): lost MAE by 0.009; mid re-positioning may cut tails. |
 | done | Bracket duels retest (closest 1-3, then above/below): deliberate tail insurance. |
