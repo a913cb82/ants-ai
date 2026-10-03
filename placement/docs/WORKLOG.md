@@ -616,3 +616,8 @@
 - First 3 duels above-only info, last 4 flat. Faithful iter76 re-implementation.
 - Score: corr 0.9934 (+0.0002, 4/5 seeds, same pattern as iter76).
 - Verdict: retest CONFIRMS the thin lead exists on selection but held veto stands from iter76; tune dose next (A2: above-first-2).
+
+## Iter 102 (camp A2): above-first-2 duels
+- First 2 duels above-only info, last 5 flat.
+- Score: corr 0.9931 (-0.0001, tie).
+- Verdict: DISCARD vs A1; front-load dose 3 beats 2. Next: dose 4 (A3).
