@@ -183,3 +183,12 @@ One entry per iteration:
 - what changed: dueled while bot sigma stayed above 5.0, spread FFA otherwise, with no budget boundary.
 - what you learned: sigma almost never falls below 5.0, so this played near-all-duels (28.61 vs all-duel baseline 28.97); thresholds need measured sigma trajectories, not guesses.
 - next: probe sigma after N duels, then retry the trigger at a measured level.
+
+## 20 — bookend FFAs with duels between (2026-10-03)
+- commit: 8044b13
+- score: mean 19.4223 over seeds 0-4 (19.7350, 17.4701, 25.6917, 17.1323, 17.0826)
+- champion mean: 15.8333 (2d70af7)
+- verdict: discard
+- what changed: 10p spread opener, 5 closest-mu duels, 10p spread closer.
+- what you learned: the opener cost about 3.59 mean error with seed 2 at 25.69; an early unpositioned FFA drags mu somewhere the follow-up duels cannot recover from.
+- next: 5p opener variant, or duel-opponent offsets and rematch rules.

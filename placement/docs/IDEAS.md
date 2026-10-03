@@ -21,7 +21,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Mid-size late games: 4x5p spread instead of 2x10p. |
 | dropped | Late mix: 10p then two 5ps (split only the second 10p). |
 | dropped | Sigma-triggered duel-to-FFA switch (duel while sigma above 5.0). |
-| trying | Bookend FFAs: 10p opener, 5 duels, 10p closer. |
+| dropped | Bookend FFAs: 10p opener, 5 duels, 10p closer. |
 | open | Approach 2: zooming bracket 10p/5p/5p/2p x5, spread mu+-k·sigma, low-sigma anchors. |
 | open | Approach 3: 10p/6p/2p x7, quantile spread at 1.0 sigma, large-first coarse-to-fine. |
 | done | Champion order with spread FFA opponents (quantiles of N(mu, sigma), low-sigma ties). |
