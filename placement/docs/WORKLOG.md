@@ -745,3 +745,8 @@
 - 5 nearest established rulers, no binning or quota.
 - Score: corr 0.9931 (-0.0001, tie; seed-2 +0.0014 spike, seeds 0/1 down hard).
 - Verdict: bins stabilize the refine; comp-pick swings wilder for the same mean. Next: bin-median picks (F4).
+
+## Iter 129 (camp F4): bin-median within-bin picks
+- Quota rulers nearest each bin's median instead of bot.mu.
+- Score: corr 0.9917 (-0.0014, every seed regressed).
+- Verdict: DISCARD decisively. Within-bin pick rule is NOT free: rulers must sit near the bot, not represent their bin. Quota allocates, proximity binds. Next: farthest-in-bin mirror kill (F5).
