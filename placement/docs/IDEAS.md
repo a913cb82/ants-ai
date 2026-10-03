@@ -42,6 +42,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Bracket duels 4-5 (closest 1-3, then above/below). |
 | dropped | Inverted widths: 0.5-sigma FFA then 1.0-sigma FFA. |
 | dropped | Interleaved bulk: 3 duels, wide 10p, 2 duels, narrow 10p. |
+| trying | Sparsity fallback: unrated member when anchors farther than 1 sigma. |
 | open | Approach 2: zooming bracket 10p/5p/5p/2p x5, spread mu+-k·sigma, low-sigma anchors. |
 | open | Approach 3: 10p/6p/2p x7, quantile spread at 1.0 sigma, large-first coarse-to-fine. |
 | done | Champion order with spread FFA opponents (quantiles of N(mu, sigma), low-sigma ties). |
