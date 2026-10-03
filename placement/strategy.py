@@ -98,7 +98,6 @@ def _spread(
     disjoint_shares: bool = False,
     antiwindup: bool = False,
     senior: bool = False,
-    parity: int = -1,
 ) -> list[int]:
     """k distinct opponents nearest quantiles of N(mu, w*sigma)."""
     center = bot.mu
@@ -147,11 +146,6 @@ def _spread(
         if anchors
         else list(range(len(ratings)))
     )
-    if parity >= 0 and pool:
-        ordered = sorted(pool, key=lambda c: (ratings[c].mu, ratings[c].sigma, c))
-        half = [c for j, c in enumerate(ordered) if j % 2 == parity]
-        if len(half) >= k:
-            pool = half
     if antiwindup and ratings:
         plo = min(r.mu for r in ratings)
         phi = max(r.mu for r in ratings)
@@ -299,11 +293,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 15 (corr): twin-narrow 1.25/1.25 parallel forms.
+    # Iter 16 (corr): deferred propose-commit 1.5/1.875 rest.
     if budget_left > 20:
         return _census(ratings, min(9, budget_left - 1, len(ratings)))
     if budget_left > 10:
         n = min(9, budget_left - 1, len(ratings))
-        return _spread(bot, ratings, n, 1.25, parity=0)
+        return _spread(bot, ratings, n, 1.5)
     n = min(9, budget_left - 1, len(ratings))
-    return _spread(bot, ratings, n, 1.25, parity=1)
+    return _spread(bot, ratings, n, 1.875)
