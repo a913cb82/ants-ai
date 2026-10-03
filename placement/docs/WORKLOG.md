@@ -670,3 +670,7 @@
 ## Iter 112 (camp C2): calsnap tolerance 0.25
 - Score: corr 0.9932 (+0.0001, tie).
 - Verdict: tol ladder 0.15/0.25 both +0.0001; flat. Next: tighter 0.10 (C3).
+
+## Iter 113 (camp C3): calsnap tolerance 0.10
+- Score: corr 0.9933 (+0.0001, tie).
+- Verdict: tol ladder 0.10/0.15/0.25 all +0.0001; tolerance is free. Next: wide 0.30 (C4).
