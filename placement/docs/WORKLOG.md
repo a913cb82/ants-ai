@@ -353,3 +353,9 @@
 - Score: corr 0.9913 (-0.0019).
 - Verdict: DISCARD. The top-decile pin binds extremes; trading it for a peer pin loses. Skeleton-pin family closed.
 - Misses: 14.
+
+## Iter 58: narrow-peer strata +-0.5 sigma
+- Champion shape with tight peer bin.
+- Score: corr 0.9931 (-0.0001, exact tie).
+- Verdict: DISCARD (tie keeps incumbent). Bin edge width is a free parameter from 0.5 to 1.5; quota does the work.
+- Misses: 15.
