@@ -566,3 +566,12 @@ One entry per iteration:
 - rival 0d52b79 (4.0): 156.2611, 245.6530, 242.9705, 222.0143, 177.3267, mean 208.8451
 - verdict: rival wins by 6.55 on unseen seeds (4 of 5 seeds, seed 8 ties); the 0.90 selection margin was noise.
 - pooled 10-seed means: 4.0 = 215.6631, 4.25 = 218.4866. Reverting champion to 4.0 on all available evidence.
+
+## 61 — sizes 9p 9p 10p closing duel (2026-10-03)
+- commit: 797e33d
+- score: mean 258.6554 over seeds 0-4 (234.2471, 298.8569, 377.1949, 146.9238, 236.0544)
+- champion mean: 222.4811 selection, 215.6631 pooled (84b606d)
+- verdict: discard
+- what changed: first two bulks shrunk to 9p (8 targets) with a closing duel spending the freed slots.
+- what you learned: cost about 36.17 with every seed regressing; 9 opener thresholds are load-bearing and the duel does not compensate.
+- next: opener at 3.75 with held-out confirmation ready (confirmation rule).
