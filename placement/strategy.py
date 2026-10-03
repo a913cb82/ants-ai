@@ -129,14 +129,12 @@ def _strata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
     return out[:k]
 
 
-def _winsor(ratings: list[Rating], k: int) -> list[int]:
-    """Uniform sites over [p10, p90] pool mu, full-pool snap."""
-    mus = sorted(r.mu for r in ratings)
-    n = len(mus)
-    lo, hi = mus[n // 10], mus[min(9 * n // 10, n - 1)]
-    if hi - lo < 1e-9:
-        return list(range(min(k, n)))
-    sites = [lo + (hi - lo) * (j + 1) / (k + 1) for j in range(k)]
+def _dec400(ratings: list[Rating], k: int) -> list[int]:
+    """Decile sites from last-400 mus, snapped to full pool."""
+    n = len(ratings)
+    win = sorted(r.mu for r in ratings[max(0, n - 400) :])
+    m = len(win)
+    sites = [win[min(int(m * (j + 1) / (k + 1)), m - 1)] for j in range(k)]
     picked: list[int] = []
     used: set[int] = set()
     for t in sites:
@@ -374,10 +372,10 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 67 (corr): winsorized-range opener.
+    # Iter 68 (corr): recent-400 decile opener.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
-        return _winsor(ratings, n)
+        return _dec400(ratings, n)
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
         return _strata(bot, ratings, n)
