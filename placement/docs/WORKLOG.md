@@ -773,3 +773,8 @@
 ## Iter 134 (camp G4): two 4p strata + 6 duels
 - Score: corr 0.9928 (-0.0004).
 - Verdict: DISCARD. Light refines cannot pay for the 7th duel either. Next: differentiated second look, narrow-peer 4p (G5).
+
+## Iter 135 (camp G5): narrow-peer second look + 5 duels
+- 10p + 6p strata + 4p narrow-peer strata + 5 info duels.
+- Score: corr 0.9934 (+0.0003; seeds 0/2/3 up, seed 1 -0.0010).
+- Verdict: TRACK G CLOSED. Five legs: +0.0000/-0.0001/-0.0003/-0.0004/+0.0003. Depth never pays for the 7th duel except a spiky G5 that fails breadth (seed-1 hard regress). C4 stays camp leader on breadth. 10+6+14 shape stands.
