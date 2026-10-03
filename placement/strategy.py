@@ -68,6 +68,21 @@ def _census(ratings: list[Rating], k: int, mode: str = "range") -> list[int]:
     return picked
 
 
+def _alibi(bot: Rating, ratings: list[Rating], k: int, width: float) -> list[int]:
+    """k-1 spread targets plus the farthest established ruler."""
+    out = _spread(bot, ratings, max(k - 1, 1), width)
+    if len(out) >= k:
+        return out[:k]
+    pool = _established(ratings, k, 0)
+    rest = [c for c in pool if c not in set(out)] or [
+        c for c in range(len(ratings)) if c not in set(out)
+    ]
+    if not rest:
+        return out
+    far = max(rest, key=lambda c: (abs(ratings[c].mu - bot.mu), -ratings[c].sigma, -c))
+    return out + [far]
+
+
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
     """Pool index nearest bot.mu, low sigma then low index on ties."""
     return min(
@@ -293,11 +308,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Bold 3 (corr): MAE-champion verbatim revival, 5 closest duels + 1.0/0.5.
+    # Iter 12 (corr): lone alibi pin closer.
     if budget_left > 20:
-        return [_closest(bot, ratings)]
+        return _census(ratings, min(9, budget_left - 1, len(ratings)))
     if budget_left > 10:
         n = min(9, budget_left - 1, len(ratings))
-        return _spread(bot, ratings, n, 1.0)
+        return _spread(bot, ratings, n, 1.25)
     n = min(9, budget_left - 1, len(ratings))
-    return _spread(bot, ratings, n, 0.5)
+    return _alibi(bot, ratings, n, 1.875)
