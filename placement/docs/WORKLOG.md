@@ -336,3 +336,12 @@ One entry per iteration:
 - what changed: factorial cell S0xB1, champion sizes with the tertile filter removed (tiebreaks only).
 - what you learned: no filter cost about 1.39 with every seed regressing; the anchor filter is strongly load-bearing.
 - next: factorial S1xB1 to test orthogonality.
+
+## 37 — factorial S1xB1 no anchor filter (2026-10-03)
+- commit: ac74aa2
+- score: mean 16.3950 over seeds 0-4 (16.2868, 18.1202, 18.0790, 13.3153, 16.1737)
+- champion mean: 14.8370 (067b331)
+- verdict: discard
+- what changed: factorial cell S1xB1, 3 duels plus 4p bridge plus two 10ps with no anchor filter.
+- what you learned: completes the square (14.837, 16.227 / 15.238, 16.395); the no-filter penalty is +1.39 under S0 but +1.16 under S1, so the dimensions are near-orthogonal and single-side sweeps stay valid.
+- next: first-duel versus established median, or pool-service game.

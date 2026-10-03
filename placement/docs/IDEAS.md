@@ -16,6 +16,9 @@ S0xB0 = 14.837 and S1xB0 = 15.238 are known. If the B0->B1 delta
 matches across S0 and S1 the dimensions are orthogonal and later
 sweeps can vary one side only; if not, winners must be re-tested
 as pairs.
+Verdict (iter 37): S0xB1 = 16.227, S1xB1 = 16.395. B-effect +1.39
+under S0 vs +1.16 under S1, interaction about 0.23. Near-orthogonal:
+single-dimension sweeps are valid, no big synergy is hiding.
 
 ## Backlog
 
@@ -52,7 +55,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Interleaved bulk: 3 duels, wide 10p, 2 duels, narrow 10p. |
 | dropped | Sparsity fallback: unrated member when anchors farther than 1 sigma. |
 | dropped | Factorial S0xB1: champion sizes, no anchor filter. |
-| trying | Factorial S1xB1: 3d+4p+10p+10p, no anchor filter. |
+| dropped | Factorial S1xB1: 3d+4p+10p+10p, no anchor filter. |
 | open | Approach 2: zooming bracket 10p/5p/5p/2p x5, spread mu+-k·sigma, low-sigma anchors. |
 | open | Approach 3: 10p/6p/2p x7, quantile spread at 1.0 sigma, large-first coarse-to-fine. |
 | done | Champion order with spread FFA opponents (quantiles of N(mu, sigma), low-sigma ties). |
