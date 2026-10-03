@@ -170,6 +170,7 @@ A refinement is a new row. Leave old rows as they were.
 | done | Pool-range census sites (tuning 126b; champion). |
 | dropped | Trimmed census p5-p95 (tuning 126c; fresh vetoes). |
 | dropped | Double-skeleton census games 1+2 (tuning 126d). |
+| trying | Positional adaptive cluster (bold 22). |
 | open | Chase-combining repeat-wide 4.0/4.0/1.5 (info; diversity-combine before zoom). |
 | open | Double-tap opener 4.0/4.0/1.25 (adversary; second wide after recentering, full-pool G2 untested at 4.0). |
 | open | Split-middle 10+5+5+10 valley halves (info/poker; mid-schedule re-aim, halves sandwiched not late). |
@@ -353,6 +354,13 @@ its existence matters. Predicts symmetry breaks toward the valley,
 or inversion wins somewhere. Judge after iteration 124.
 Judged: refuted at iteration 121 (244.1784, only seed 2 improved);
 dip direction matters.
+
+Two misses in a row (iters 128-129) force bold line 22
+(2026-10-03): positional adaptive cluster. Game-3 plays full-pool 2.5
+iff the bot sits more than one pool-sigma from the pool median,
+else champion 1.875; off-center bots get a wide re-open. Predicts
+position routes better than sigma did, or routing stays dead. Judge
+after iteration 133.
 
 Three misses in a row (iters 89-91) force bold line 16 (2026-10-03):
 flat wide rest. Both rest games at 1.875: the rest may do one job

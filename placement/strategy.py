@@ -79,9 +79,13 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Champion (iter 127, MSE): pool-range census opener, 1.25/1.875 rest.
+    # Exp (iter 130, MSE): positional adaptive cluster (bold 22).
     if budget_left > 20:
         return _census(ratings, min(9, budget_left - 1, len(ratings)))
     if budget_left > 10:
         return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.25)
+    med = sorted(r.mu for r in ratings)[len(ratings) // 2]
+    spread = (sum((r.mu - med) ** 2 for r in ratings) / len(ratings)) ** 0.5
+    if abs(bot.mu - med) > spread:
+        return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.5, False)
     return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.875)
