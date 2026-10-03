@@ -301,6 +301,46 @@ def _comp(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
     return near[:k]
 
 
+def _medstrata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
+    """Mass-quota bins; within-bin picks nearest the bin median."""
+    pool = _established(ratings, k, 0)
+    s = max(bot.sigma, 0.5)
+    bins: list[list[int]] = [[], [], []]
+    for c in pool:
+        d = ratings[c].mu - bot.mu
+        bins[0 if d < -s else (2 if d > s else 1)].append(c)
+    masses = [len(b) for b in bins]
+    total = sum(masses) or 1
+    quota = [max(1 if m else 0, round(k * m / total)) for m in masses]
+    while sum(quota) > k:
+        j = max(range(3), key=lambda j: quota[j] - k * masses[j] / total)
+        quota[j] -= 1
+    while sum(quota) < k:
+        j = max(range(3), key=lambda j: k * masses[j] / total - quota[j])
+        quota[j] += 1
+    out: list[int] = []
+    used: set[int] = set()
+    for b, q in zip(bins, quota, strict=True):
+        if not b or q <= 0:
+            continue
+        mus = sorted(ratings[c].mu for c in b)
+        med = mus[len(mus) // 2]
+        near = sorted(
+            [c for c in b if c not in used],
+            key=lambda c: (abs(ratings[c].mu - med), ratings[c].sigma, c),
+        )
+        for c in near[: max(q, 0)]:
+            used.add(c)
+            out.append(c)
+    if len(out) < k:
+        rest = sorted(
+            (c for c in pool if c not in used),
+            key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
+        )
+        out += rest[: k - len(out)]
+    return out[:k]
+
+
 def _side_duel(
     bot: Rating, ratings: list[Rating], rank: int, first: int = 1
 ) -> list[int]:
@@ -557,11 +597,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 128 (camp F3): pure comp-pick refine, no bins.
+    # Iter 129 (camp F4): bin-median within-bin picks.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
-        return _comp(bot, ratings, n)
+        return _medstrata(bot, ratings, n)
     return _info_duel(bot, ratings, 0, 40, 0)
