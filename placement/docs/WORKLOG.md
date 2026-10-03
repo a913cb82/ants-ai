@@ -291,3 +291,12 @@ One entry per iteration:
 - what changed: first late FFA narrowed to 0.5 sigma whenever bot mu sat outside the anchor mu range.
 - what you learned: two seeds came out bit-identical and the mean cost about 0.14; after 5 duels bot mu sits inside the anchor range almost always, so threshold clustering is not the extreme-error driver.
 - next: duel heterogeneity (bracket duels 4-5), or accept the extreme floor.
+
+## 32 — bracket duels 4-5 (2026-10-03)
+- commit: 0c332f6
+- score: mean 15.0209 over seeds 0-4 (13.4684, 16.8905, 16.6369, 12.8460, 15.2628)
+- champion mean: 14.8370 (067b331)
+- verdict: discard
+- what changed: duels 1-3 stayed closest-mu, duels 4-5 bracketed with the nearest above then below.
+- what you learned: bracketing cost about 0.18 with seeds 1/2/4 regressing; symmetric closest duels position better than forced asymmetry.
+- next: accept the extreme floor, or candidates-promoted alternates.
