@@ -282,3 +282,12 @@ One entry per iteration:
 - what changed: dimension-2 only, 6 closest duels then spread 10p at 1.0 sigma then spread 8p at 0.5 sigma.
 - what you learned: cost about 0.77 with seeds 1/2/4 regressing; across the sweep (A 15.24, B 16.82, C 15.60) every move from 5 duels plus two full 10ps hurts, so the size schedule is a robust optimum.
 - next: back to dimension 1, probe-informed ideas for extreme bots.
+
+## 31 — edge-conditional narrow bound (2026-10-03)
+- commit: 91c0074
+- score: mean 14.9736 over seeds 0-4 (13.7425, 16.5938, 16.5891, 13.0040, 14.9386)
+- champion mean: 14.8370 (067b331)
+- verdict: discard
+- what changed: first late FFA narrowed to 0.5 sigma whenever bot mu sat outside the anchor mu range.
+- what you learned: two seeds came out bit-identical and the mean cost about 0.14; after 5 duels bot mu sits inside the anchor range almost always, so threshold clustering is not the extreme-error driver.
+- next: duel heterogeneity (bracket duels 4-5), or accept the extreme floor.

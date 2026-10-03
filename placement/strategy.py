@@ -19,13 +19,6 @@ def _established(ratings: list[Rating], k: int) -> list[int]:
     return pool
 
 
-def _edge(bot: Rating, ratings: list[Rating]) -> bool:
-    """True when bot.mu sits outside the established anchor mu range."""
-    pool = _established(ratings, 1)
-    mus = [ratings[c].mu for c in pool]
-    return bot.mu < min(mus) or bot.mu > max(mus)
-
-
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
     """Pool index nearest bot.mu, low sigma then low index on ties."""
     return min(
@@ -63,10 +56,9 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Exp (iter 31): edge bots narrow the bound into the anchor range.
+    # Champion (iter 25): duels first, 1.0-sigma FFA then 0.5-sigma FFA.
     if budget_left > 20:
         return [_closest(bot, ratings)]
     if budget_left > 10:
-        width = 0.5 if _edge(bot, ratings) else 1.0
-        return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), width)
+        return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.0)
     return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 0.5)
