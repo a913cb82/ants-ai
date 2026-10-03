@@ -527,3 +527,9 @@
 - Score: corr 0.9910 (-0.0022).
 - Verdict: DISCARD. The 4p tax costs real slots and forced quota beats mass quota nowhere; granularity confirmed free-but-useless. Signed-spread family closes, no further quota variants.
 - Misses: 43.
+
+## Iter 87: 7-site opener + 8 duels
+- 8p range... 8p quantile census + 6p strata + 8 info duels (30 slots).
+- Score: corr 0.9921 (-0.0011).
+- Verdict: DISCARD. Fewer sites cost more than the extra duel buys; 9-site census stands. Constants-attack program opened.
+- Misses: 44.
