@@ -1699,3 +1699,9 @@ One entry per iteration:
 - Verdict: DISCARD. Forcing vintage spread costs proximity on seeds 0/1; seed 2/3 gains don't compensate.
 - Learned: error axis is threshold position, not arrival vintage. Librarian family done save survey.
 - Next: iter 183 survey closer.
+
+## Iter 183: survey closer (librarian S3 proxy)
+- Score: sel 226.5246 (184.18, 220.80, 398.35, 143.73, 185.56) vs champ 197.7410 (+28.78). Seed 2 +78.5.
+- Verdict: DISCARD. Shared yardstick fails: closer must personalize; seed-specific drift is the load, not noise.
+- Learned: librarian family closed (authority needs plumbing; cohort/survey dead as proxies).
+- Next: iter 184 known-good calibration game-2 (crypto S2).
