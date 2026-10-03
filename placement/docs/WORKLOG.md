@@ -672,3 +672,13 @@ One entry per iteration:
 - what changed: second 10p drew from low-sigma quartile instead of tertile.
 - what you learned: cost about 1.25 with seed 3 regressing hard; tertile holds under the confirmed shape, no interaction.
 - next: game-3 quartile under the confirmed shape (last anchor cell).
+
+## 72 — game-3 quartile with confirmation (2026-10-03)
+- commit: b254c65
+- score: selection mean 220.8092 over seeds 0-4 (182.1402, 246.0828, 376.9191, 114.0180, 184.8859)
+- champion selection mean: 221.8680 (43b260f)
+- confirmation: 204.2337 over seeds 5-9 (159.1224, 235.2672, 258.5877, 199.5398, 168.6516) vs champion held-out 202.0228
+- verdict: discard
+- what changed: third 10p drew from low-sigma quartile instead of tertile.
+- what you learned: won selection by 1.06 but lost held-out by 2.21 with seed 7 regressing 21; game-3 wants tertile and the anchor factorial is complete under the confirmed shape.
+- next: hunt outside priced space; misses at 70-72 need a bold line only after two in a row — this is three straight, force bold 12.
