@@ -88,6 +88,7 @@ def _spread(
     derby: bool = False,
     homeaway: bool = False,
     crew: int = -1,
+    moveout: bool = False,
 ) -> list[int]:
     """k distinct opponents nearest quantiles of N(mu, w*sigma)."""
     center = bot.mu
@@ -114,6 +115,25 @@ def _spread(
     else:
         targets = [dist.inv_cdf((j + 1) / (k + 1)) for j in range(k)]
     pool = _established(ratings, k) if anchors else list(range(len(ratings)))
+    if moveout:
+        g2 = _spread(bot, ratings, k, 1.25)
+        near = sorted(
+            g2, key=lambda i: (abs(ratings[i].mu - bot.mu), ratings[i].sigma, i)
+        )[:3]
+        keep = [i for i in near if i in pool]
+        used5 = set(keep)
+        out: list[int] = list(keep)
+        for t in targets[:6]:
+            cands = [c for c in pool if c not in used5]
+            if not cands:
+                break
+            i = min(
+                cands,
+                key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c),
+            )
+            used5.add(i)
+            out.append(i)
+        return out
     if crew >= 0:
         ordered = sorted(pool, key=lambda c: (ratings[c].mu, ratings[c].sigma, c))
         half = [c for j, c in enumerate(ordered) if j % 2 == crew]
@@ -267,5 +287,6 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
         False,
         False,
         False,
-        1,
+        -1,
+        True,
     )
