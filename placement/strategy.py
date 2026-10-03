@@ -60,7 +60,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Champion (corrected): full-pool opener at 4.0 (see validation).
-    if budget_left > 20:
-        return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 4.0, False)
-    return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.0)
+    # Exp (iter 61, MSE): 9p, 9p, 10p, closing duel.
+    if budget_left > 21:
+        return _spread(bot, ratings, min(8, budget_left - 1, len(ratings)), 4.0, False)
+    if budget_left > 12:
+        return _spread(bot, ratings, min(8, budget_left - 1, len(ratings)), 2.0)
+    if budget_left > 2:
+        return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.0)
+    return [_closest(bot, ratings)]
