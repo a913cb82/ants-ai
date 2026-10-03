@@ -98,6 +98,7 @@ def _spread(
     disjoint_shares: bool = False,
     antiwindup: bool = False,
     senior: bool = False,
+    seeded: bool = False,
 ) -> list[int]:
     """k distinct opponents nearest quantiles of N(mu, w*sigma)."""
     center = bot.mu
@@ -258,6 +259,11 @@ def _spread(
         ref = [ratings[i].mu for i in _spread(bot, ratings, k, 1.25)]
     picked: list[int] = []
     used: set[int] = set()
+    if seeded and pool:
+        s = max(pool, key=lambda c: (ratings[c].sigma, -c))
+        used.add(s)
+        picked.append(s)
+        targets = targets[: k - 1]
     for n_t, t in enumerate(targets):
         ban = disjoint if checksum and n_t == len(targets) - 1 else set()
         live = [c for c in pool if c not in used and c not in ban] or [
@@ -293,11 +299,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Champion (iter 133, MSE): census opener, recent-tertile 1.25/1.875.
+    # Iter 3 (corr): census opener, highest-sigma-seeded refines.
     if budget_left > 20:
         return _census(ratings, min(9, budget_left - 1, len(ratings)))
     if budget_left > 10:
         n = min(9, budget_left - 1, len(ratings))
-        return _spread(bot, ratings, n, 1.25)
+        return _spread(bot, ratings, n, 1.25, seeded=True)
     n = min(9, budget_left - 1, len(ratings))
-    return _spread(bot, ratings, n, 1.875)
+    return _spread(bot, ratings, n, 1.875, seeded=True)
