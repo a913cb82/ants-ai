@@ -724,3 +724,12 @@ One entry per iteration:
 - what changed: third bulk 10p narrowed from 2.0 to 1.75 sigma.
 - what you learned: best game-3 width on both seed sets (1.5/2.0/2.5 all lose somewhere); interior optimum confirmed twice over.
 - next: game-3 at 1.625 vs game-2 at 1.375; judge nothing pending.
+
+## 77 — game-3 at 1.625 (2026-10-03)
+- commit: e77848e
+- score: mean 218.6192 over seeds 0-4 (173.9886, 246.1789, 375.2724, 112.4399, 185.2162)
+- champion mean: 217.5528 selection, 207.6291 pooled (f8ba828)
+- verdict: discard
+- what changed: third bulk 10p narrowed from 1.75 to 1.625 sigma.
+- what you learned: cost about 1.07 with seed 2 regressing hard; game-3 optimum stays 1.75, interior-confirmed against 1.5/1.625 below and 2.0/2.5 above.
+- next: game-2 at 1.375 under the 1.75-closer shape.
