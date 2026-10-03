@@ -19,9 +19,9 @@ class Rating:
 
 
 def _info_duel(
-    bot: Rating, ratings: list[Rating], side: int = 0, width: int = 40
+    bot: Rating, ratings: list[Rating], side: int = 0, width: int = 40, rank: int = 0
 ) -> list[int]:
-    """Tail duel: argmax predict_draw + 0.02 sigma over width nearest."""
+    """Tail duel: rank-th best predict_draw + 0.02 sigma over width nearest."""
     order = sorted(
         range(len(ratings)),
         key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
@@ -29,18 +29,17 @@ def _info_duel(
     gated = [c for c in order if (ratings[c].mu - bot.mu) * side > 0] or order
     if not gated:
         return []
-    best = gated[0]
-    best_v = None
-    for c in gated:
+    scored: list[tuple[float, int, int]] = []
+    for pos, c in enumerate(gated):
         teams = [[_MODEL.rating(mu=bot.mu, sigma=bot.sigma)]]
         sig = bot.sigma
         for i in (c,):
             teams.append([_MODEL.rating(mu=ratings[i].mu, sigma=ratings[i].sigma)])
             sig += ratings[i].sigma
         v = _MODEL.predict_draw(teams) + 0.02 * sig
-        if best_v is None or v > best_v:
-            best, best_v = c, v
-    return [best]
+        scored.append((v, pos, c))
+    scored.sort(key=lambda t: (-t[0], t[1]))
+    return [scored[min(rank, len(scored) - 1)][2]]
 
 
 def _established(ratings: list[Rating], k: int, exclude: int = 0) -> list[int]:
@@ -437,7 +436,7 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 119 (camp D4): 6 info duels + bounty closer.
+    # Iter 120 (camp D5): 6 info duels + runner-up-info closer.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
@@ -445,5 +444,5 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
         n = min(5, budget_left - 1, len(ratings))
         return _strata(bot, ratings, n)
     if budget_left > 2:
-        return _info_duel(bot, ratings, 0, 40)
-    return _bounty(bot, ratings)
+        return _info_duel(bot, ratings, 0, 40, 0)
+    return _info_duel(bot, ratings, 0, 40, 1)
