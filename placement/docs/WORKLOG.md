@@ -363,3 +363,12 @@ One entry per iteration:
 - what changed: bold 3 test, wide FFA swapped 2 anchors for the 2 highest-sigma pool members.
 - what you learned: cost about 1.66 with every seed regressing; noisy service members poison thresholds directly, and no pool compounding shows up within 1000 bots.
 - next: judge bold 3 after iter 41, meanwhile candidates-track screening.
+
+## 40 — Approach 2 schedule exact (2026-10-03)
+- commit: 0005470
+- score: mean 20.1828 over seeds 0-4 (19.1269, 20.3345, 28.0169, 16.3217, 17.1139)
+- champion mean: 14.8370 (067b331)
+- verdict: discard
+- what changed: 10p at 1.6 sigma, two 5ps at 1.0 sigma, then closest duels; tertile anchors throughout.
+- what you learned: cost about 5.35 with seed 2 catastrophic at 28.02; all three outside recipes lose on mu error (18.95, 19.76, 20.18) because they optimise final sigma, not mu.
+- next: judge bold 3, then micro-widths or accept the floor.
