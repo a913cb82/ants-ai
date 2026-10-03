@@ -20,7 +20,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Bound 2.5 then 0.5: find the top of the gradient. |
 | dropped | Edge-conditional narrow bound (failed rarely under MAE; extremes weigh more now). |
 | dropped | Approach 1 pipeline retest (tightest seed spread under MAE). |
-| trying | Twin-wide 10ps 2.0/2.0, no narrow refine (bold 1). |
+| done | Twin-wide 10ps 2.0/2.0, no narrow refine (bold 1). |
 | open | Symmetric pairs recheck under MSE (0.5/0.5, 1.0/1.0). |
 | open | Quartile anchors retest (cleaner thresholds for hard seeds). |
 

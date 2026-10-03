@@ -78,3 +78,12 @@ One entry per iteration:
 - what changed: percentile duels, 5p cluster, 10p deciles, tight 5p, 3 precision duels.
 - what you learned: cost about 92.5 with seed 2 catastrophic at 572; large-first percentile openers poison positioning harder under MSE, and tight clusters cannot catch tails.
 - next: bold idea required (two misses in a row); coverage-maximalist twin-wide 10ps.
+
+## 8 — twin-wide 10ps bold 1 (2026-10-03)
+- commit: 07e94d0
+- score: mean 302.2418 over seeds 0-4 (260.2761, 346.6090, 366.1758, 240.0556, 298.0927)
+- champion mean: 302.9460 (814c58d)
+- verdict: keep
+- what changed: refine 10p widened from 0.5 to 2.0 sigma (twin-wide bulk).
+- what you learned: wins by 0.70 with seeds 0/1/3 improving but seed 2 regressing 13.5; the refine pulls weight on hard seeds, so this lead is fragile.
+- next: quartile anchors retest for cleaner thresholds.
