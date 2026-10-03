@@ -267,3 +267,12 @@ One entry per iteration:
 - what changed: spread targets moved from (j+1)/(k+1) to a wider (j+0.5)/k CDF grid.
 - what you learned: cost about 7.57 with violent seed splits (seed 3 down 34 to 126.75, seed 1 up 67); wider grids redistribute coverage without adding it and destabilize hard seeds.
 - next: equal-bits ladder 2+4+6+8+10.
+
+## 29 — equal-bits ladder 2 4 6 8 10 (2026-10-03)
+- commit: 4b65ae9
+- score: mean 343.8911 over seeds 0-4 (382.1917, 331.9569, 481.8846, 232.2811, 291.1413)
+- champion mean: 235.2613 (04eeed2)
+- verdict: discard
+- what changed: bulk fragmented into 4p, 6p, 8p, 10p after one duel, all at 2.0.
+- what you learned: cost about 108.63 with seed 2 at 481.88; mid-size fragments cannot bound tails and per-slot efficiency theory fails on tail risk.
+- next: Swiss 12 duels no-rematch, then two 10p finals.
