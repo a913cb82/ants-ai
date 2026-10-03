@@ -1700,3 +1700,9 @@ Use this format.
 - what changed: Battling as Farmstead in Farmstead.bot + Farmstead.py; food walk-off plus hill fallback.
 - what you learned: Farmsteads went 3-2 losing twice to Relief, won the 5p and 8p, then finished 7/7; compatible synthesis still fails, worse than both parents, so lb reached 27.52 against 52.15.
 - next: Backstop — fallback to second hill.
+
+## Harness note — selection port refuted (2026-10-04)
+- verdict: keep info-score selection, no budget change, no progress reset.
+- what changed: nothing in the loop. Ported the placement champion (census-tertile) into iteration.py on main, validated it synthetic-side, then reverted: mean budget-end lb 5.72 vs 9.76 and rank correlation 0.940 vs 0.957 for info-score, all seeds. MSE-optimal is not lb-optimal.
+- what you learned: validate selection changes on lb and rank correlation, never on rating error alone.
+- next: continue the bot loop as before.
