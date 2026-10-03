@@ -255,3 +255,12 @@ One entry per iteration:
 - what changed: first late FFA widened from N(mu, sigma) to N(mu, 1.5 sigma), refine fixed at 0.5.
 - what you learned: wider bound cost about 0.11 net with seed 2 improving but seeds 1 and 4 regressing; 1.0 is the balanced bound width.
 - next: 6-duel opener, or asymmetric bound for edge bots.
+
+## 28 — 3 duels plus 4p bridge plus two 10ps (2026-10-03)
+- commit: 7669007
+- score: mean 15.2384 over seeds 0-4 (13.9724, 16.8346, 16.3326, 13.1993, 15.8530)
+- champion mean: 14.8370 (067b331)
+- verdict: discard
+- what changed: 3 positioning duels, one spread 4p bridge, then 1.0-sigma and 0.5-sigma 10ps.
+- what you learned: the 4p bridge cost about 0.40 net; fewer duels hurt more than a transition game helps.
+- next: 6 duels plus 8p plus 10p, then 6 duels plus 10p plus 8p.

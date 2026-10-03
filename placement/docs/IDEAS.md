@@ -29,7 +29,7 @@ A refinement is a new row. Leave old rows as they were.
 | done | Wide-then-narrow late FFAs (1.0 sigma, then 0.5 sigma). |
 | dropped | Refine width 0.3 sigma (1.0 then 0.3). |
 | dropped | Bound width 1.5 sigma (1.5 then 0.5). |
-| trying | 3 duels plus 4p bridge plus two 10ps (2p,2p,2p,4p,10p,10p). |
+| dropped | 3 duels plus 4p bridge plus two 10ps (2p,2p,2p,4p,10p,10p). |
 | open | Approach 2: zooming bracket 10p/5p/5p/2p x5, spread mu+-k·sigma, low-sigma anchors. |
 | open | Approach 3: 10p/6p/2p x7, quantile spread at 1.0 sigma, large-first coarse-to-fine. |
 | done | Champion order with spread FFA opponents (quantiles of N(mu, sigma), low-sigma ties). |
