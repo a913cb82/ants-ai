@@ -709,3 +709,8 @@
 - Last duel = 2nd-best info score; first 6 argmax.
 - Score: corr 0.9934 (+0.0002, 3.5/5 seeds).
 - Verdict: TRACK D CLOSED. Five legs: +0.0000/+0.0001/+0.0000/+0.0000/+0.0002. Closer flavor interchangeable; runner-up leans best (argmax may overfit the last slot) but within noise, no escalation. D5 noted for final validation.
+
+## Iter 121 (camp E1): nearest side-alternating tail retest
+- Duels alternate nearest-above / nearest-below by parity; no info scoring.
+- Score: corr 0.9932 (+0.0001, tie; seed-2 +0.0010 spike, seeds 0/1 regress).
+- Verdict: retest CONFIRMS the tie. Next: below-first parity (E2).
