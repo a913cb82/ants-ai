@@ -214,3 +214,9 @@
 - Selection: corr 0.9930 (+0.0026, all 5 improve). Held-out 5-9: 0.9932 (+0.0022). Fresh 10-14: 0.9935. Pooled-15: 0.9932.
 - Verdict: ADOPT. Mass-weighted skeleton beats range skeleton under a duel tail: pins where bots live position better for positioned finishers.
 - Misses reset to 0.
+
+## Iter 35: sinh-warped census
+- Sinh-warped opener + champion rest.
+- Score: corr 0.9901 (-0.0029).
+- Verdict: DISCARD. Deciles stand; smooth tail resolution buys nothing over mass spacing.
+- Misses: 1.
