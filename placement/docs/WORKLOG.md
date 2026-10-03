@@ -359,3 +359,9 @@
 - Score: corr 0.9931 (-0.0001, exact tie).
 - Verdict: DISCARD (tie keeps incumbent). Bin edge width is a free parameter from 0.5 to 1.5; quota does the work.
 - Misses: 15.
+
+## Iter 59 (bold 16): refine-heavy 10+10+10
+- Quantile + 9-ruler strata + 5 info duels.
+- Score: corr 0.9882 (-0.005).
+- Verdict: DISCARD. Bold 16 judged: refuted. Nine refine rulers cannot buy back 2 lost duels; the tail-length wall holds. Split frontier closed: 10+6+14 priced optimum.
+- Misses: 16.
