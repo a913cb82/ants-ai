@@ -335,3 +335,9 @@
 - Score: corr 0.9926 (-0.0006).
 - Verdict: DISCARD. The 6p/7-duel split re-confirmed under strata targeting.
 - Misses: 11. Second brainstorm wave launched (miser/taxonomist/locksmith/physicist/jeweler/bookkeeper).
+
+## Iter 55: quota-split refine (bookkeeper D4)
+- 3 census-center + 2 live-mu targets through strata quota + info tail.
+- Score: corr 0.9924 (-0.0008).
+- Verdict: DISCARD. The prior reserve buys nothing even quota-constrained; split-center family closed for good.
+- Misses: 12.
