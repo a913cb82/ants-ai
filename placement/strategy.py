@@ -97,10 +97,10 @@ def _census(ratings: list[Rating], k: int, mode: str = "range") -> list[int]:
     return picked
 
 
-def _strata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
+def _strata(bot: Rating, ratings: list[Rating], k: int, w: float = 1.0) -> list[int]:
     """k rulers across below/peer/above bins, quota by bin mass."""
     pool = _established(ratings, k, 0)
-    s = max(bot.sigma, 0.5)
+    s = max(w * bot.sigma, 0.5)
     bins: list[list[int]] = [[], [], []]
     for c in pool:
         d = ratings[c].mu - bot.mu
@@ -127,30 +127,6 @@ def _strata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
         )
         out += rest[: k - len(out)]
     return out[:k]
-
-
-def _pinskel(bot: Rating, ratings: list[Rating]) -> list[int]:
-    """8 pool-decile sites plus nearest-tertile pin to live mu."""
-    pool = sorted(r.mu for r in ratings)
-    n = len(pool)
-    sites = [
-        pool[min(int(n * f), n - 1)] for f in (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8)
-    ]
-    picked: list[int] = []
-    used: set[int] = set()
-    for t in sites:
-        i = min(
-            (c for c in range(n) if c not in used),
-            key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c),
-        )
-        used.add(i)
-        picked.append(i)
-    tert = _established(ratings, 1, 0)
-    pin = min(
-        [c for c in tert if c not in used] or [c for c in range(n) if c not in used],
-        key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
-    )
-    return picked + [pin]
 
 
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
@@ -378,13 +354,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 57 (corr): peer-pinned skeleton.
+    # Iter 58 (corr): narrow-peer strata +-0.5 sigma.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
-        if n == 9:
-            return _pinskel(bot, ratings)
         return _census(ratings, n, mode="quantile")
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
-        return _strata(bot, ratings, n)
+        return _strata(bot, ratings, n, 0.5)
     return _info_duel(bot, ratings)
