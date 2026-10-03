@@ -148,6 +148,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Per-quantile mixed anchors games 2+3 (auctioneer S2). |
 | dropped | Opener 3.75 under valley rest (archivist revival). |
 | dropped | Closer 2.5 under 1.25-second (thinnest cell). |
+| trying | Chase-combining repeat-wide 4.0/4.0/1.5 (bold 19). |
 | open | Chase-combining repeat-wide 4.0/4.0/1.5 (info; diversity-combine before zoom). |
 | open | Double-tap opener 4.0/4.0/1.25 (adversary; second wide after recentering, full-pool G2 untested at 4.0). |
 | open | Split-middle 10+5+5+10 valley halves (info/poker; mid-schedule re-aim, halves sandwiched not late). |
@@ -305,6 +306,13 @@ Predicts fresher mus compensate fewer looks, or 5p looks stay
 weak. Judge after iteration 100.
 Judged: refuted at iteration 98 (258.2711, only seed 1 improved);
 5p looks stay weak.
+
+Two misses in a row (iters 106-107) force bold line 19 (2026-10-03):
+chase-combining repeat-wide. Two 4.0 openers (full-pool, then tertile)
+diversity-combine the coarse bin before a 1.5 narrow refine; the second
+wide differs in ruler SNR, not reach. Predicts mis-centered narrow
+grids were the outage, or the second wide is redundant power. Judge
+after iteration 110.
 
 Three misses in a row (iters 89-91) force bold line 16 (2026-10-03):
 flat wide rest. Both rest games at 1.875: the rest may do one job
