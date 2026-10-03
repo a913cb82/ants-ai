@@ -1271,3 +1271,14 @@ One entry per iteration:
 - what changed: games 2 and 3 excluded rulers within 1.0 mu of already-picked ones.
 - what you learned: selection won 6.17 on three seeds but held-out lost 5.34 with two of five; pooled ties plus 0.42. Same seed-2-driven signature; de-collision displaces needed thresholds.
 - next: judge bold 22 after 133; repechage positional rescue.
+
+## 133 — recency-filtered tertile (2026-10-03)
+- commit: 5faf0b0
+- score: selection mean 197.7410 (148.5257, 223.5037, 319.8536, 125.7155, 171.1066)
+- champion selection mean: 199.7520 (73f8050)
+- confirmation: 177.2165 over seeds 5-9 (137.8447, 199.8749, 219.3511, 174.2210, 154.7910) vs champion held-out 180.3568
+- fresh audit: 158.5081 over seeds 10-14 (89.3912, 160.3722, 115.3804, 155.4522, 271.9445) vs champion fresh 161.7721
+- verdict: keep, new champion
+- what changed: tertile anchors drawn from the last 400 arrivals only.
+- what you learned: all three sets agree, 13 of 15 seeds, pooled-15 177.8219 vs 180.6270. Old rulers go stale as anchors; the pool skeleton keeps improving while settled mus calcify. Bold 22 judged refuted (iter 130); repechage filed as its duplicate without running.
+- next: recency-window tuning (200/600); census-site count for small pools.

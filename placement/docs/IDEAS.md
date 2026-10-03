@@ -167,14 +167,14 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Senior-tertile anchors exclude 50 most recent (adversary S4). |
 | dropped | Jittered-grid diagnostic per-bot phase (bayes/epi). |
 | dropped | Fixed absolute-site opener tracts (epi D3; repaired by pool-range). |
-| done | Pool-range census sites (tuning 126b; champion). |
+| done | Pool-range census sites (tuning 126b; ex-champion). |
 | dropped | Trimmed census p5-p95 (tuning 126c; fresh vetoes). |
 | dropped | Double-skeleton census games 1+2 (tuning 126d). |
 | dropped | Positional adaptive cluster (bold 22). |
 | dropped | Mark-recapture closer 4 recaptures plus 5 fresh (epi/bayes). |
 | dropped | DPP repulsion de-collision delta 1.0 (bayes P4). |
 | dropped | Repechage positional rescue (duplicate of bold 22 iter 130). |
-| trying | Recency-filtered tertile last-400 (epi D4). |
+| done | Recency-filtered tertile last-400 (epi D4; champion). |
 | open | Chase-combining repeat-wide 4.0/4.0/1.5 (info; diversity-combine before zoom). |
 | open | Double-tap opener 4.0/4.0/1.25 (adversary; second wide after recentering, full-pool G2 untested at 4.0). |
 | open | Split-middle 10+5+5+10 valley halves (info/poker; mid-schedule re-aim, halves sandwiched not late). |
@@ -190,7 +190,7 @@ A refinement is a new row. Leave old rows as they were.
 | open | Overcut 3.0/1.0 rest (race; inverted valley at unpriced widths). |
 | open | Quintile game-2 0.875 + 1.0 closer (race; strictest rulers, below-ladder widths). |
 | open | Fixed absolute-site opener tracts (epi; expected kill, census not case-centered). |
-| open | Recency-filtered tertile refine last-400 (epi; ruler age vs sigma). |
+| dropped | Recency-filtered tertile refine last-400 (epi; superseded by champion row). |
 | open | Edge-dense closer grid 0.05..0.95 (adversary; doubled edge pins, core untouched). |
 | open | Senior-tertile anchors exclude 50 most recent (adversary; quarantine confident-wrong rulers). |
 | open | Jittered-grid diagnostic one-uniform-jitter (bayes/epi; retire grid-phase on tie). |
