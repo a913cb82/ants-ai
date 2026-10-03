@@ -61,3 +61,9 @@
 - Score: corr 0.9784 (-0.0086, every seed regressed, seed 2 -0.0167).
 - Verdict: DISCARD. Bold 2 judged: refuted with the classic one-sided signature. Separator family closed including weak S2 (no run).
 - Misses: 8.
+
+## Iter 10: full old-exam port (5 info duels + 4/6/10 propose FFAs)
+- Faithful port: argmax predict_draw+0.02s duels, seed-bot greedy info FFA fields, deterministic top-1.
+- Score: corr 0.9617 (-0.025, every seed regressed).
+- Verdict: DISCARD. The old exam's league-harness ranking power (0.9655) does not live in the 30-slot shape; it needs the longitudinal pool structure. Component rows stay as priced (iters 2/3).
+- Misses: 9.
