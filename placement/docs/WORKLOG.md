@@ -1720,3 +1720,9 @@ One entry per iteration:
   clipped-undercut, senior-25, mu-gate, split-closer, re-projected-G2, bell/sinh followups (dead), halo (dead).
 - Learned: 1.875 closer confirmed on 3 sets jointly (2.0 re-opens settled bins on fresh seeds).
 - Next: iter 186 derby-day closer (referee S4).
+
+## Iter 186: derby-day closer (referee S4)
+- Score: sel 198.8222 (161.08, 224.60, 324.52, 120.54, 163.37) vs champ 197.7410 (+1.08).
+- Verdict: DISCARD. Representation pins cost precision; all 9 closer looks must personalize.
+- Learned: bookend axis dead in both strengths (full 145, lite 186). Referee family: home/away + round-robin left.
+- Next: iter 187 home/away split (referee S3).
