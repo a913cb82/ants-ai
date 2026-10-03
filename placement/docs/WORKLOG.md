@@ -1493,3 +1493,12 @@ One entry per iteration:
 - what changed: rest widths scaled to 1.5 then 2.25 sigma.
 - what you learned: cost about 0.54 with three of five improving but seeds 0/1 regressing hard; extra width re-opens settled bins under census too.
 - next: misses force bold 27; per-quantile mixed anchors under census (retest).
+
+## 157 — skeleton-second bold 27 (2026-10-03)
+- commit: 91f09ff
+- score: mean 272.3998 over seeds 0-4 (256.9225, 322.1529, 388.2075, 158.4564, 236.2598)
+- champion mean: 197.7410 selection, 187.4788 pooled (5faf0b0)
+- verdict: discard
+- what changed: case-centered 4.0 game-1, census game-2, 1.875 closer.
+- what you learned: cost about 74.66 with every seed regressing; early skeleton timing is load-bearing and late coverage cannot repair a poisoned start.
+- next: judge bold 27 after 160; per-quantile mixed anchors under census (retest).
