@@ -203,6 +203,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Tight early-position under census (retest). |
 | dropped | Undercut 0.75/2.75 under census (retest; fresh vetoes). |
 | dropped | Overcut 3.0/1.0 under census (retest). |
+| trying | Wide-second after skeleton census/4.0/1.5 (bold 28). |
 | open | Chase-combining repeat-wide 4.0/4.0/1.5 (info; diversity-combine before zoom). |
 | open | Double-tap opener 4.0/4.0/1.25 (adversary; second wide after recentering, full-pool G2 untested at 4.0). |
 | open | Split-middle 10+5+5+10 valley halves (info/poker; mid-schedule re-aim, halves sandwiched not late). |
@@ -430,6 +431,13 @@ late. Predicts late coverage repairs personalization, or early
 skeleton timing is load-bearing. Judge after iteration 160.
 Judged: refuted at iteration 157 (272.3998, every seed regressed);
 early skeleton timing stands.
+
+Two misses in a row (iters 160-161) force bold line 28
+(2026-10-03): wide-second after skeleton. Census opener, full-pool
+4.0 game-2, 1.5 closer; tests whether a wide re-observe works after
+a bot-independent skeleton rather than case-centered clones.
+Predicts the skeleton changes what wide-second sees, or wide
+re-observe stays redundant. Judge after iteration 165.
 
 Two misses in a row (iters 145-146) force bold line 25
 (2026-10-03): ancient-tertile anchors. Tertile drawn from the
