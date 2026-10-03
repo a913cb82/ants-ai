@@ -901,3 +901,10 @@ One entry per iteration:
 - what changed: unfiltered opener narrowed from 4.0 to 3.9375 sigma.
 - what you learned: cost about 2.58; opener stays 4.0 with both neighbors losing. Bold 16 judged refuted (iter 92).
 - next: fresh-seed re-audit of the champion trio on seeds 10-14.
+
+## Audit — champion trio on fresh seeds 10-14 (2026-10-03)
+- champion fde75b9 (4.0/1.25/1.875): 97.0886, 176.4728, 131.3679, 172.4405, 316.0416, mean 178.6823
+- prior audit: 1.75-closer 182.7235, 2.0-closer 179.0148
+- verdict: champion leads fresh by 0.33 over 2.0 and 4.04 over 1.75; leads selection, held-out, fresh, and pooled-15 (196.7528 vs 199.7266) alike.
+- what you learned: the 1.875 adoption survives unbiased seeds; the closer optimum is confirmed on all four sets.
+- next: game-2 audit on fresh seeds (1.25 vs 1.5) or continued micros.
