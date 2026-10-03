@@ -835,3 +835,7 @@
 ## Iter 147 (camp J2): window-800 decile opener
 - Score: corr 0.9932 (+0.0000, tie).
 - Verdict: opener window (400/800/history) fully free. Next: heavy-middle retest (J3).
+
+## Iter 148 (camp J3): heavy-middle shaped opener retest
+- Score: corr 0.9931 (-0.0000, tie; mixed signs).
+- Verdict: retest CONFIRMS uniform mass stands. Next: tertile-pool deciles (J4).
