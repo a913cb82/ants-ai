@@ -372,6 +372,24 @@ def _rescue(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
     return out[:k]
 
 
+def _dec400(ratings: list[Rating], k: int) -> list[int]:
+    """Decile sites from last-400 mus, snapped to full pool."""
+    n = len(ratings)
+    win = sorted(r.mu for r in ratings[max(0, n - 400) :])
+    m = len(win)
+    sites = [win[min(int(m * (j + 1) / (k + 1)), m - 1)] for j in range(k)]
+    picked: list[int] = []
+    used: set[int] = set()
+    for t in sites:
+        i = min(
+            (c for c in range(n) if c not in used),
+            key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c),
+        )
+        used.add(i)
+        picked.append(i)
+    return picked
+
+
 def _survseat(ratings: list[Rating], k: int) -> list[int]:
     """Quantile census with 9th seat = max-sigma ruler of last-400."""
     seats = _census(ratings, k, mode="quantile")
@@ -645,10 +663,10 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 145 (camp I5): census-seat survey sniper.
+    # Iter 146 (camp J1): recent-400 decile opener retest.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
-        return _survseat(ratings, n)
+        return _dec400(ratings, n)
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
         return _strata(bot, ratings, n)
