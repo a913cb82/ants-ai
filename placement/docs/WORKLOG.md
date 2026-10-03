@@ -141,3 +141,12 @@ One entry per iteration:
 - what changed: second 10p at 2.0 iff refine-time sigma above 6.5 else 0.5.
 - what you learned: bit-identical to champion on all 5 seeds; a sigma probe showed refine-time sigma averages 3.9 (209 of 211 below 6.5), so the threshold never bites and the branch is dead code.
 - next: adaptive refine at 4.0, or bounty sniper from the docket.
+
+## 15 — bounty sniper opener (2026-10-03)
+- commit: 2816950
+- score: mean 302.7300 over seeds 0-4 (272.2795, 342.0151, 358.0327, 248.1882, 293.1344)
+- champion mean: 302.2418 (07e94d0)
+- verdict: discard
+- what changed: first game duels the max-sigma pool member; other 28 slots champion.
+- what you learned: cost about 0.49 with only seed 1 improving (down 12); the bounty eats the best positioning duel and pool gains do not repay within 1000 bots.
+- next: push-fold routing (adaptive schedules by stack).

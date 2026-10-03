@@ -59,9 +59,7 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Exp (iter 15, MSE): bounty opener (max-sigma duel), rest champion.
-    if budget_left == 30:
-        return [max(range(len(ratings)), key=lambda i: (ratings[i].sigma, -i))]
+    # Champion (iter 8, MSE): 3d, twin-wide 10ps, bracket pair (bold 1).
     if budget_left > 24:
         return [_closest(bot, ratings)]
     if budget_left > 14:
