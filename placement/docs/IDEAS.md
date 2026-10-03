@@ -196,6 +196,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Stratified 3-3-3 closer under census (bold 26). |
 | dropped | Halo mixture game-3 under census (retest; fresh vetoes). |
 | dropped | Split-middle 10+5+5+10 under census (retest). |
+| trying | Flat-mid rest 1.5625 under census (retest). |
 | open | Chase-combining repeat-wide 4.0/4.0/1.5 (info; diversity-combine before zoom). |
 | open | Double-tap opener 4.0/4.0/1.25 (adversary; second wide after recentering, full-pool G2 untested at 4.0). |
 | open | Split-middle 10+5+5+10 valley halves (info/poker; mid-schedule re-aim, halves sandwiched not late). |
@@ -413,6 +414,8 @@ below plus 3 above current mu from recency rulers, filled to 9
 with nearest; tests forced balance with fresh anchors. Predicts
 balance beats greedy pulls this time, or greed stands. Judge after
 iteration 155.
+Judged: refuted at iteration 152 (206.8766, only seed 4 improved);
+greed stands.
 
 Two misses in a row (iters 145-146) force bold line 25
 (2026-10-03): ancient-tertile anchors. Tertile drawn from the
