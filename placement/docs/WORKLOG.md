@@ -713,3 +713,14 @@ One entry per iteration:
 - what changed: second bulk 10p narrowed from 1.25 to 1.125 sigma.
 - what you learned: won selection by 6.62 but lost held-out by 0.70 with seeds 5/6 regressing hard; held-out mean stays binding and the narrow slide stops at 1.25. Bold 12 judged refuted (iter 73).
 - next: game-3 micro-bisects (1.75/2.25) under the 1.25-second shape.
+
+## 76 — game-3 at 1.75 with confirmation (2026-10-03)
+- commit: f8ba828
+- score: selection mean 217.5528 over seeds 0-4 (178.4882, 243.6147, 365.7396, 114.9065, 185.0152)
+- prior champion selection mean: 221.7594 (d87c207)
+- confirmation: 197.7054 over seeds 5-9 (154.3496, 230.3280, 228.5739, 216.3339, 158.9417), two of five improve
+- pooled: 207.6291 vs 210.0825
+- verdict: keep
+- what changed: third bulk 10p narrowed from 2.0 to 1.75 sigma.
+- what you learned: best game-3 width on both seed sets (1.5/2.0/2.5 all lose somewhere); interior optimum confirmed twice over.
+- next: game-3 at 1.625 vs game-2 at 1.375; judge nothing pending.
