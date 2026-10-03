@@ -764,3 +764,8 @@
 - 10p + three 4p strata + 4 info duels.
 - Score: corr 0.9931 (-0.0001, tie).
 - Verdict: retest CONFIRMS granularity idleness. Next: heavy single refine 8p + 6 duels (G3).
+
+## Iter 133 (camp G3): heavy 8p refine + 6 duels
+- 10p census + 7-ruler strata + 6 info duels.
+- Score: corr 0.9929 (-0.0003; seeds 3/4 regress).
+- Verdict: DISCARD-leaning. Heavy refine cannot pay for the 7th duel; tail wall holds. Next: two 4p strata + 6 duels (G4).
