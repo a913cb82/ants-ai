@@ -401,3 +401,8 @@
 - Score: corr 0.9921 (-0.0010).
 - Verdict: DISCARD. Bot-centered sigma edges beat pool-mass edges in the refine; the iter-34 lesson does not extend inward.
 - Misses: 22.
+
+## Iter 66: 8+6+16 (bold 18) — DUPLICATE
+- Staging identical to iter 52 bit-for-bit; results identical (0.9897).
+- Verdict: stillborn duplicate, no information. MIS S3 stands answered by iter 52. Bold 18 unspent.
+- Misses: 23.
