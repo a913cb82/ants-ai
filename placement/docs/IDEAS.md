@@ -83,6 +83,27 @@ pollster, MAT matchmaker, ARC archivist-3.
 | parked | Accelerated-Swiss tail gate (ARB S2; gated wide spend, routing family). |
 | parked | SB +0.5 sigma closer shift (ARB S3; soft skew, bold-7 family). |
 | parked | Sigma-triggered duel-to-FFA switch (gated routing per ARC). |
+| open | 3-stage 10+6+4+5d: 6p strata + 4p strata + 5 info duels (PHY S1/S3; depth at fixed slots). |
+| open | 4-stage micro 10+4+4+4+4d: three 4p strata + 4 info duels (PHY S2; expect kill). |
+| open | 10+10+10 refine-heavy: 9-ruler strata + 5 info duels (MIS S1; refine completeness). |
+| open | 8+6+16 tail-from-skeleton: 7-site skeleton + 8 info duels (MIS S3; brackets iter 52). |
+| open | Narrow-peer strata +-0.5 sigma (TAX S1; Fisher peak in refine). |
+| open | 4-bin signed-peer strata (TAX S3; sign insurance vs flex tax). |
+| open | Mass-anchored strata edges: pool-tertile bins, no sigma (TAX S4; iter-34 lesson in refine). |
+| open | Asymmetric strata -1.25/+0.75 sigma (TAX S5; one direction only). |
+| open | 2-bin median-split strata (TAX S2; tests whether edges matter). |
+| open | Winsorized-range opener p10-p90 (LOK L1; even thresholds, no outlier tax). |
+| open | Recent-400 decile opener (LOK L2; live-window mass). |
+| open | Calibrated-snap deciles: lowest-sigma within 0.15 mu (LOK L3; ruler quality on near-ties). |
+| open | Heavy-middle quantiles 12..88 shaped (LOK L4; pins where ties break). |
+| open | Tail weight descent 0.05/0.02/0 across 7 duels (JEW J1; explore then confirm). |
+| open | 6 info + closest closer (JEW J3; phases, not whole-tail). |
+| open | 6 info + credible-pin closer (JEW J4; proximity vs credibility). |
+| open | Duel-7 funnel to 10 nearest (JEW J2; last, narrowest claim). |
+| open | Quota-split refine: 3 census-center + 2 live-mu through strata bins (BKK D4; run first). |
+| open | Peer-pinned skeleton: 8 deciles + nearest-tertile pin (BKK D1; opposite of alibi). |
+| open | Rebind refine: 4 strata + nearest played site (BKK D2; cheapest scale link). |
+| open | Mid-tail audit duel at position 4 (BKK D3; lowest priority). |
 | parked | Game-count anchor axes (authority/usage): Rating is mu/sigma-only, evaluate.py frozen; proxies listed as open rows. |
 
 ## Transfer-kills (ARC; metric-independent, do not revive)
