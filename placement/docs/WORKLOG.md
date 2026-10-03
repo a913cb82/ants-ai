@@ -286,3 +286,9 @@
 - Score: corr 0.9929 (-0.0003).
 - Verdict: DISCARD. Bold 12 judged: refuted. Five strata rulers plus 7 duels is the shape; extra refine rulers cost tail length.
 - Misses: 3.
+
+## Iter 47: bell-projection census
+- Bell-decile opener + champion rest.
+- Score: corr 0.9898 (-0.0034).
+- Verdict: DISCARD. Empirical pool deciles beat parametric bell deciles; the pool is not Gaussian.
+- Misses: 4.
