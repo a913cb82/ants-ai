@@ -100,22 +100,32 @@ def _census(ratings: list[Rating], k: int, mode: str = "range") -> list[int]:
     return picked
 
 
-def _strata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
-    """k rulers across below/peer/above bins, quota by bin mass."""
+def _strata(
+    bot: Rating, ratings: list[Rating], k: int, split: bool = False
+) -> list[int]:
+    """k rulers across bins by mass quota (3-bin, or 4-bin signed-peer)."""
     pool = _established(ratings, k, 0)
     s = max(bot.sigma, 0.5)
     bins: list[list[int]] = [[], [], []]
     for c in pool:
         d = ratings[c].mu - bot.mu
         bins[0 if d < -s else (2 if d > s else 1)].append(c)
+    if split:
+        bins = [
+            bins[0],
+            [c for c in bins[1] if ratings[c].mu < bot.mu],
+            [c for c in bins[1] if ratings[c].mu >= bot.mu],
+            bins[2],
+        ]
     masses = [len(b) for b in bins]
     total = sum(masses) or 1
+    nb = len(bins)
     quota = [max(1 if m else 0, round(k * m / total)) for m in masses]
     while sum(quota) > k:
-        j = max(range(3), key=lambda j: quota[j] - k * masses[j] / total)
+        j = max(range(nb), key=lambda j: quota[j] - k * masses[j] / total)
         quota[j] -= 1
     while sum(quota) < k:
-        j = max(range(3), key=lambda j: k * masses[j] / total - quota[j])
+        j = max(range(nb), key=lambda j: k * masses[j] / total - quota[j])
         quota[j] += 1
     out: list[int] = []
     for b, q in zip(bins, quota, strict=True):
@@ -357,15 +367,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 105 (camp A5): front-3 above-only, back-4 strict below/above alternation.
+    # Iter 106 (camp B1): 4-bin signed-peer strata retest.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
-        return _strata(bot, ratings, n)
-    d = (14 - budget_left) // 2
-    if d < 3:
-        return _info_duel(bot, ratings, 1, 40)
-    back = [-1, 1, -1, 1]
-    return _info_duel(bot, ratings, back[d - 3] if 3 <= d < 7 else 0, 40)
+        return _strata(bot, ratings, n, split=True)
+    return _info_duel(bot, ratings, 0, 40)
