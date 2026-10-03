@@ -32,12 +32,11 @@ def _spread(
     ratings: list[Rating],
     k: int,
     width: float = 1.0,
-    anchors: bool = True,
 ) -> list[int]:
-    """k distinct opponents nearest quantiles of N(mu, w*sigma)."""
+    """k distinct established opponents nearest quantiles of N(mu, w*sigma)."""
     dist = NormalDist(bot.mu, max(width * bot.sigma, 0.5))
     targets = [dist.inv_cdf((j + 1) / (k + 1)) for j in range(k)]
-    pool = _established(ratings, k) if anchors else list(range(len(ratings)))
+    pool = _established(ratings, k)
     picked: list[int] = []
     used: set[int] = set()
     for t in targets:
@@ -60,7 +59,7 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Exp (iter 34, MSE): unfiltered bulk-only 3.0/2.0/2.0 (bold 5).
+    # Champion (iter 22, MSE): bulk-only, first 10p at 3.0.
     if budget_left > 20:
-        return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 3.0, False)
-    return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.0, False)
+        return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 3.0)
+    return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.0)

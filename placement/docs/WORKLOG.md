@@ -312,3 +312,12 @@ One entry per iteration:
 - what changed: 5 opening duels cycling top-6 by -dist + 0.5 sigma, then 3.0 and 2.0 10ps.
 - what you learned: cost about 73.56 with every seed regressing; 5 duels cost a whole bulk and the sigma bonus drags noisy opponents into positioning.
 - next: D-optimal 4-duel screen, or accept the bulk-only shape.
+
+## 34 — unfiltered bulk-only bold 5 (2026-10-03)
+- commit: 729db95
+- score: mean 273.4087 over seeds 0-4 (257.1242, 327.4912, 384.5589, 158.6783, 239.1909)
+- champion mean: 235.2613 (04eeed2)
+- verdict: discard
+- what changed: tertile anchor filter removed; full-pool spreads at 3.0/2.0/2.0.
+- what you learned: cost about 38.15 with seeds 0/1/2/4 regressing (seed 2 up 90) while seed 3 improved; calibrated rulers matter with or without duels.
+- next: Augusta Cut fixed (four 6p opens plus 3 closing duels).

@@ -55,7 +55,7 @@ A refinement is a new row. Leave old rows as they were.
 | parked | Gradient fields: weak 10p heat, peer semi, shark-tank final (sports; gatekeeper verdict covers asymmetry). |
 | dropped | Successive-halving duel tournament with FFA confirmation (bayes). |
 | dropped | Deterministic UCB rotation: score -dist + 0.5 sigma, cycle top 6 (bayes). |
-| trying | Unfiltered bulk-only: full-pool spreads, no tertile (bold 5). |
+| dropped | Unfiltered bulk-only: full-pool spreads, no tertile (bold 5). |
 | open | D-optimal 4-duel screen at mu +- {0.5, 1.5} sigma, then bulks (bayes). |
 | dropped | Wide-grid quantiles: fixed CDF grid 0.05..0.95 at 2.0 sigma (bayes). |
 | dropped | Push-fold routing: wide twin-10p for high-sigma, duels-only for settled (poker). |
