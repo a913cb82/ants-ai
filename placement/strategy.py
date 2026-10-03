@@ -285,53 +285,12 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     if not ratings or budget_left < 2:
         return []
     # Champion (iter 133, MSE): census opener, recent-tertile 1.25/1.875.
-    # Iter 197 (control S3): anti-windup clipped undercut 0.75/2.75.
+    # Iter 198 (archivist2 S4): mu-gated closer under census.
     if budget_left > 20:
         return _census(ratings, min(9, budget_left - 1, len(ratings)))
     if budget_left > 10:
         n = min(9, budget_left - 1, len(ratings))
-        return _spread(
-            bot,
-            ratings,
-            n,
-            0.75,
-            True,
-            False,
-            False,
-            False,
-            False,
-            False,
-            False,
-            False,
-            False,
-            False,
-            -1,
-            False,
-            False,
-            False,
-            False,
-            True,
-        )
+        return _spread(bot, ratings, n, 1.25)
     n = min(9, budget_left - 1, len(ratings))
-    return _spread(
-        bot,
-        ratings,
-        n,
-        2.75,
-        True,
-        False,
-        False,
-        False,
-        False,
-        False,
-        False,
-        False,
-        False,
-        False,
-        -1,
-        False,
-        False,
-        False,
-        False,
-        True,
-    )
+    w = 2.5 if abs(bot.mu - 25) > 25 else 1.5
+    return _spread(bot, ratings, n, w)
