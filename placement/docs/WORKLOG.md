@@ -1744,3 +1744,13 @@ One entry per iteration:
 - Verdict: DISCARD. Replicates are dead weight even at 3/9 with spread majority kept.
 - Learned: replicate direction dead for good (102/131/151/164/189). Seismologist family closed 0-for-4.
 - Next: iter 190 checksum closer (crypto S4) + period review at 190.
+
+## Iter 190: checksum closer (crypto S4) + PERIOD REVIEW
+- Score: sel 211.4974 (166.14, 246.92, 330.66, 148.08, 165.68) vs champ 197.7410 (+13.76).
+- Verdict: DISCARD. Center threshold load-bearing; one redundant share cannot price its loss.
+- PERIOD REVIEW (186-190): derby, home/away, round-robin, moveout, checksum — all discard. Referee 0-4,
+  seismo 0-4 both closed. Redundant-share direction dead (102/131/151/164/189/190 = six confirmations).
+- FINAL 10 (191-200): re-projected-G2, E1 risk-parity, E2 barbell, E3 Kelly, E4 insurance, crypto-S1
+  disjoint shares, clipped undercut, mu-gate, split-closer, senior-25. Families close at 200 regardless.
+- Learned: grid completeness (9 aimed thresholds/game) is the binding constraint; nothing may displace it.
+- Next: iter 191 re-projected game-2 (carto S4).
