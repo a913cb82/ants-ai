@@ -183,6 +183,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | NYSE close 2.25 tertile (auctioneer S3). |
 | dropped | Valley-repriced closing duel 10+10+8+2 (auctioneer S5). |
 | dropped | Triage rapids 2+2+2+10+10+4 (epi D5). |
+| trying | Recency-without-census ablation (bold 24). |
 | open | Chase-combining repeat-wide 4.0/4.0/1.5 (info; diversity-combine before zoom). |
 | open | Double-tap opener 4.0/4.0/1.25 (adversary; second wide after recentering, full-pool G2 untested at 4.0). |
 | open | Split-middle 10+5+5+10 valley halves (info/poker; mid-schedule re-aim, halves sandwiched not late). |
@@ -382,6 +383,13 @@ refresh-vs-depth at champion widths; extra re-aim at the cost of
 per-game pull density. Predicts rhythm matters, or density wins.
 Judged: refuted at iteration 137 (268.3113, every seed regressed);
 per-game pull density wins.
+
+Two misses in a row (iters 140-141) force bold line 24
+(2026-10-03): recency-without-census ablation. Old 4.0 full-pool
+opener with recent-tertile 1.25/1.875 rest isolates the two
+champion ingredients; tests whether recency or census carries the
+gain. Predicts the ablation splits the difference, or one
+ingredient dominates. Judge after iteration 145.
 
 Three misses in a row (iters 89-91) force bold line 16 (2026-10-03):
 flat wide rest. Both rest games at 1.875: the rest may do one job
