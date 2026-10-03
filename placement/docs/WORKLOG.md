@@ -48,3 +48,12 @@ One entry per iteration:
 - what changed: 5 closest-mu duels on the first 10 slots, then two FFA-10s against the 9 closest opponents.
 - what you learned: positioning mu with early sequential duels before bulk FFA updates gained about 3.74 mean error over pure FFA-10.
 - next: size from budget_left — big games early, duels late (mirror schedule).
+
+## 5 — big games early, duels late (2026-10-03)
+- commit: 7486a9f
+- score: mean 22.0400 over seeds 0-4 (22.4263, 20.0545, 30.9643, 18.4762, 18.2788)
+- champion mean: 16.6448 (7e70bcb)
+- verdict: discard
+- what changed: two FFA-10s on the first 20 slots, then closest-mu duels on the last 10 (mirror of iteration 4).
+- what you learned: order matters more than the mix; unpositioned early FFAs waste comparisons and seed 2 blew up to 30.96, so late bulk updates need an already-placed mu.
+- next: judge bold line 1 and refine the champion split (duel/FFA slot boundary).
