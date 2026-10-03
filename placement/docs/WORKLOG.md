@@ -703,3 +703,13 @@ One entry per iteration:
 - what changed: second bulk 10p narrowed from 1.5 to 1.25 sigma.
 - what you learned: selection margin was pure noise (0.11) but held-out confirms by 3.62; the confirmation rule cuts both ways. Game-2 optimum slides narrower, 1.25 beats 1.5 pooled by 1.86.
 - next: game-2 at 1.125 vs game-3 micro-bisects; judge bold 12.
+
+## 75 — game-2 at 1.125 with confirmation (2026-10-03)
+- commit: 80b9141
+- score: selection mean 215.1422 over seeds 0-4 (168.3608, 237.7773, 371.6021, 112.6933, 185.2773)
+- champion selection mean: 221.7594 (d87c207)
+- confirmation: 199.1048 over seeds 5-9 (156.7201, 242.1668, 227.5917, 212.6955, 156.3498) vs champion held-out 198.4055
+- verdict: discard
+- what changed: second bulk 10p narrowed from 1.25 to 1.125 sigma.
+- what you learned: won selection by 6.62 but lost held-out by 0.70 with seeds 5/6 regressing hard; held-out mean stays binding and the narrow slide stops at 1.25. Bold 12 judged refuted (iter 73).
+- next: game-3 micro-bisects (1.75/2.25) under the 1.25-second shape.
