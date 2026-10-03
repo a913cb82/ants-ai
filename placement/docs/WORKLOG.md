@@ -1111,3 +1111,12 @@ One entry per iteration:
 - what changed: rest widths scaled plus 20 percent at the fixed 2:3 ratio.
 - what you learned: cost about 2.41 with seeds 0/1 regressing hard; shape is fixed and extra width re-opens settled bins.
 - next: HARQ sigma-gated closer (info P3); then misses force bold 20.
+
+## 116 — HARQ sigma-gated closer bold 20 (2026-10-03)
+- commit: 0508aca
+- score: mean 219.2764 over seeds 0-4 (176.4843, 249.7622, 364.7295, 114.2047, 191.2012)
+- champion mean: 216.0193 selection, 205.7881 pooled (fde75b9)
+- verdict: discard
+- what changed: game-3 played 2.5 sigma iff live bot sigma exceeded 4.0, else 1.5.
+- what you learned: cost about 3.26 with only seed 2 improving; the gate misfires and sigma carries no routable signal at this threshold.
+- next: judge bold 20 after 119; tight early-position pool-gated opener.
