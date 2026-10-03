@@ -98,7 +98,7 @@ def _census(ratings: list[Rating], k: int, mode: str = "range") -> list[int]:
 
 
 def _strata(
-    bot: Rating, ratings: list[Rating], k: int, root: bool = False
+    bot: Rating, ratings: list[Rating], k: int, blind: bool = False
 ) -> list[int]:
     """k rulers across below/peer/above bins, quota by bin mass."""
     pool = _established(ratings, k, 0)
@@ -108,10 +108,11 @@ def _strata(
         d = ratings[c].mu - bot.mu
         bins[0 if d < -s else (2 if d > s else 1)].append(c)
     masses = [len(b) for b in bins]
-    if root:
-        masses = [m**0.5 for m in masses]
     total = sum(masses) or 1
-    quota = [max(1 if m else 0, round(k * m / total)) for m in masses]
+    if blind:
+        quota = [k // 3 + (1 if i < k % 3 else 0) for i in (1, 0, 2)]
+    else:
+        quota = [max(1 if m else 0, round(k * m / total)) for m in masses]
     while sum(quota) > k:
         j = max(range(3), key=lambda j: quota[j] - k * masses[j] / total)
         quota[j] -= 1
@@ -358,11 +359,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 91 (corr): sqrt-mass quota refine.
+    # Iter 92 (corr): mass-blind fixed-quota refine.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
-        return _strata(bot, ratings, n, root=True)
+        return _strata(bot, ratings, n, blind=True)
     return _info_duel(bot, ratings)
