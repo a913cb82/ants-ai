@@ -666,3 +666,7 @@
 - Decile sites, lowest-sigma snap within 0.15 mu, else nearest.
 - Score: corr 0.9933 (+0.0001, tie).
 - Verdict: retest CONFIRMS the tie (and the shootout). Tune tolerance next (C2: 0.25).
+
+## Iter 112 (camp C2): calsnap tolerance 0.25
+- Score: corr 0.9932 (+0.0001, tie).
+- Verdict: tol ladder 0.15/0.25 both +0.0001; flat. Next: tighter 0.10 (C3).
