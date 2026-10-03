@@ -15,11 +15,10 @@ lives in `placement/archive/mae-round/`; MSE record lives in
 `placement/archive/mse-round/`. Do not relitigate settled cells
 without a corr reason.
 
-Corr verdicts so far: iter 2 uncertainty-hunting duels (5 closest
-high-sigma-half duels + valley) scored 0.9557 vs baseline 0.9870,
-every seed regressed. Duel openers cost ranking power much as they
-cost MSE. Closest-mu (not high-sigma) duel variants keep one shot
-each; high-sigma duel targeting is closed.
+Corr verdicts so far: duel openers dead in all flavors — iter 2
+high-sigma duels 0.9557, iter 10 info-score full-port 0.9617, iter 11
+closest-mu MAE-verbatim 0.9644. Duel-led schedules closed; mid-schedule
+duel rows keep one expect-kill shot each.
 
 ## Backlog
 
@@ -64,22 +63,22 @@ pollster, MAT matchmaker, ARC archivist-3.
 | open | D-optimal antipodal closer: max-min distance from G2 picks at 1.875 (SIG S1/MAT S2; non-redundant thresholds). |
 | open | Crossover valley order: even arrivals valley, odd arrivals inverted, contrast decides (ACT S3; open-loop direction test). |
 | open | Cross-check twin 5s mid-split: disjoint even/odd rulers at 1.25, full census + closer kept (SCO S4; middle-only split). |
-| open | MAE duels-first revival: 5 closest-mu duels + 1.0/0.5 tertile 10ps (ARB S4; iter 2 killed high-sigma targeting, closest untested). |
-| open | Bracket-duel opener: closest duel, then above/below pair, then valley bulks (deliberate tail insurance). |
-| open | Interleaved bulk: 3 duels, wide 10p, 2 duels, narrow 10p (mid re-positioning for tails). |
+| dropped | MAE duels-first revival (iter 11: 0.9644; duel openers dead all flavors). |
+| open | Bracket-duel opener (duel-led; expect kill after iters 2/10/11, lowest priority). |
+| open | Interleaved bulk: 3 duels, wide 10p, 2 duels, narrow 10p (mid-schedule duels, NOT openers; expect kill). |
 | open | Approach 2 revival: zooming bracket 10p/5p/5p/duels at 1.6/1.0/1.0, tertile anchors (ARC R1). |
-| open | Approach 3 revival: 10p/6p then seven duels at 1.0, large-first coarse-to-fine (ARC R2). |
-| open | Shrinking-zoom revival: duel + 9p/9p/10p at 2.0/1.0/0.5, tertile anchors (ARC R4). |
-| open | D-screen opener: 4 duels at mu +- {0.5, 1.5} sigma + valley bulks + closing duel (SIG S4; Fisher-per-slot probe). |
-| open | Info-score duel opener: predict_draw + 0.02 sigma, deterministic top-1 (main rule minus epsilon; one shot after iter 2). |
+| open | Approach 3 revival (duel-tail; competent opener, duel book half-closed). |
+| open | Shrinking-zoom revival (duel-led; expect kill, lowest priority). |
+| dropped | D-screen opener (iters 2/10/11: duel openers dead; Fisher-per-slot priced). |
+| dropped | Info-score duel opener (iter 10 full-port: 0.9617; targeting flavor irrelevant). |
 | open | Highest-sigma-seeded FFA: propose shape with greedy info picks inside tertile (main rule). |
 | open | FFA size set {4,6,10} schedule: 10p census + 6p + 4p refines (main sizes, density gradient). |
-| open | D-optimal 4-duel screen at mu +- {0.5, 1.5} sigma, then valley bulks (designed experiment opener). |
+| dropped | D-optimal 4-duel screen (duplicate of D-screen row above). |
 | open | Rank-entropy 4p mid-game: census + 4p + valley closer (mid-size information frontier). |
-| open | Twin mid-bulk: 5 duels, 6p, 2 duels, 6p, narrow closer (MAE-parked, rhythm vs density under corr). |
+| open | Twin mid-bulk (duel-led schedule; expect kill, lowest priority). |
 | open | Full-pool refine retest: unfiltered spreads priced under MSE duels; corr may forgive noise (one shot). |
 | open | Calibration-anchored opener: established-ruler pool across mu (Approach 2/3 calibration pool). |
-| open | 4p frontier schedule: 10p census + two 4p refines + duel closer (per-slot information peak). |
+| open | 4p frontier schedule: 10p census + two 4p refines + duel closer (duel closer; expect kill). |
 | parked | MSE-settled kills that transfer: routing/gating, mixtures, displacement, rematch bans, link surgery (transfer-kills below). No variants without a corr reason. |
 | parked | Accelerated-Swiss tail gate (ARB S2; gated wide spend, routing family). |
 | parked | SB +0.5 sigma closer shift (ARB S3; soft skew, bold-7 family). |
