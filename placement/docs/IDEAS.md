@@ -68,6 +68,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Joint game-2+3 at 1.125/1.875: steeper valley. |
 | dropped | Opener 4.125 under the confirmed shape. |
 | dropped | Opener 3.875: last opener micro. |
+| trying | Tertile opener under the confirmed shape (bold 14). |
 | dropped | Quartile anchors retest (cleaner thresholds for hard seeds). |
 | dropped | 3p opening: 2x3p closest-pair instead of 3x2p (same 6 slots). |
 | dropped | 4p mid game: bot plus above, below, closest replaces bracket pair. |
@@ -219,6 +220,13 @@ Predicts the valley wants flattening, or singles already price
 the joint. Judge after iteration 81.
 Judged: refuted at iteration 79 (212.8835 sel, 204.9540 held-out);
 singles already price the joint.
+
+Two misses in a row (iters 81-82) force bold line 14 (2026-10-03):
+tertile opener under the confirmed shape. The anchor factorial
+gave full-opener a mild 7-point edge under the old shape; the
+narrower rest may have shifted it. Predicts the wild pool still
+binds tails, or rulers suffice from game one. Judge after
+iteration 85.
 
 Nineteen misses in a row (iters 23-41) force bold line 7 (2026-10-03):
 tail-skewed two-sided grid. Bold 2 failed binary (one side only);
