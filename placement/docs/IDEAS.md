@@ -55,7 +55,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Opener 4.5 under the 1.5-second shape: interaction check. |
 | dropped | Game-2 quartile under the confirmed shape: interaction check. |
 | dropped | Game-3 quartile: last anchor cell. |
-| trying | Half-pool anchors games 2+3: median cutoff (bold 12). |
+| dropped | Half-pool anchors games 2+3: median cutoff (bold 12). |
 | dropped | Quartile anchors retest (cleaner thresholds for hard seeds). |
 | dropped | 3p opening: 2x3p closest-pair instead of 3x2p (same 6 slots). |
 | dropped | 4p mid game: bot plus above, below, closest replaces bracket pair. |

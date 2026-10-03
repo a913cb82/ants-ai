@@ -682,3 +682,13 @@ One entry per iteration:
 - what changed: third 10p drew from low-sigma quartile instead of tertile.
 - what you learned: won selection by 1.06 but lost held-out by 2.21 with seed 7 regressing 21; game-3 wants tertile and the anchor factorial is complete under the confirmed shape.
 - next: hunt outside priced space; misses at 70-72 need a bold line only after two in a row — this is three straight, force bold 12.
+
+## 73 — half-pool anchors bold 12 (2026-10-03)
+- commit: f3b34db
+- score: selection mean 221.5242 over seeds 0-4 (189.5575, 275.5703, 334.4478, 114.5346, 193.5108)
+- champion selection mean: 221.8680 (43b260f)
+- confirmation: 204.1018 over seeds 5-9 (147.9814, 262.3322, 224.6566, 217.2779, 168.2610) vs champion held-out 202.0228
+- verdict: discard
+- what changed: games 2 and 3 drew from the low-sigma half instead of tertile.
+- what you learned: won selection by 0.34 on seed 2 alone but lost held-out by 2.08; tertile strictness is exact, interior-confirmed both sides.
+- next: game-2 at 1.25 (width interior micro-grid).
