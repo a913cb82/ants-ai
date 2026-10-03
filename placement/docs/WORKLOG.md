@@ -341,3 +341,9 @@
 - Score: corr 0.9924 (-0.0008).
 - Verdict: DISCARD. The prior reserve buys nothing even quota-constrained; split-center family closed for good.
 - Misses: 12.
+
+## Iter 56 (bold 15): 3-stage depth
+- Quantile + 6p strata + 4p strata + 5 info duels.
+- Score: corr 0.9932 (+0.0000, exact tie).
+- Verdict: DISCARD (tie keeps incumbent). Bold 15 judged: refuted as gain, priced as trade — the mid layer costs exactly what 2 duels buy. Depth closed at 30 slots.
+- Misses: 13.
