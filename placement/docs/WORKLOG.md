@@ -395,3 +395,9 @@
 - Selection: corr 0.9934 (+0.0002, 4/5). Held-out 5-9: tie.
 - Verdict: DISCARD per row falsification: drop-best-seed kills the lead (flex-tax noise). 3 bins stand.
 - Misses: 21.
+
+## Iter 65: mass-anchored strata edges
+- Pool-tertile bins with mass quota + champion rest.
+- Score: corr 0.9921 (-0.0010).
+- Verdict: DISCARD. Bot-centered sigma edges beat pool-mass edges in the refine; the iter-34 lesson does not extend inward.
+- Misses: 22.
