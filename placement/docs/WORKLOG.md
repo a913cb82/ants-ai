@@ -1595,3 +1595,12 @@ One entry per iteration:
 - what changed: nothing, the schedule duplicates iter 150 (census opener is full-pool; half game-2 plus 1.875 closer).
 - what you learned: determinism catches duplicates before full runs; check WORKLOG compositionally (census equals full-pool anchor) not just by label.
 - next: misses force a real bold 29; chase-combining under census.
+
+## 168 — chase census bold 29 (2026-10-03)
+- commit: 38febaa
+- score: mean 236.2941 over seeds 0-4 (204.8877, 279.0377, 338.6049, 141.5260, 217.4140)
+- champion mean: 197.7410 selection, 187.4788 pooled (5faf0b0)
+- verdict: discard
+- what changed: census opener, tertile 4.0 game-2, 1.5 closer.
+- what you learned: cost about 38.55 with zero of five improving; wide stays redundant with settled rulers too.
+- next: judge bold 29 after 171; double-tap under census.
