@@ -759,3 +759,8 @@
 - 10p census + 6p strata + 4p strata + 5 info duels.
 - Score: corr 0.9932 (+0.0000, exact tie).
 - Verdict: retest CONFIRMS depth idleness. Next: 4-stage micro retest (G2).
+
+## Iter 132 (camp G2): 4-stage micro-layer retest
+- 10p + three 4p strata + 4 info duels.
+- Score: corr 0.9931 (-0.0001, tie).
+- Verdict: retest CONFIRMS granularity idleness. Next: heavy single refine 8p + 6 duels (G3).
