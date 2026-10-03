@@ -144,6 +144,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Game-3 1.8125 with two-set judging (archivist revival). |
 | dropped | Cross-bulk no-rematch valley (consensus structural). |
 | dropped | Flat-mid rest 1.5625/1.5625 (auctioneer shape cell). |
+| trying | Game-2 1.125 under 1.875 closer (archivist revival). |
 | open | Chase-combining repeat-wide 4.0/4.0/1.5 (info; diversity-combine before zoom). |
 | open | Double-tap opener 4.0/4.0/1.25 (adversary; second wide after recentering, full-pool G2 untested at 4.0). |
 | open | Split-middle 10+5+5+10 valley halves (info/poker; mid-schedule re-aim, halves sandwiched not late). |
