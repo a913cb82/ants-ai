@@ -35,6 +35,7 @@ A refinement is a new row. Leave old rows as they were.
 | open | Adaptive refine at 4.0: sigma probe says refine-time mean is 3.9. |
 | open | Tail-chasing spread: one-sided thresholds toward the bot tail. |
 | dropped | Closing duel: 8p refine plus a final closest duel (28+2 slots). |
+| trying | Pool-size-adaptive opener: 4.0 sigma under pool 200 (bold 6). |
 | dropped | Forward bracketing: duel 1 closest, duels 2-3 above/below (archive). |
 | dropped | Median anchors under twin-wide 2.0 spreads (archive). |
 | dropped | Positioning depth 6/7 duels with twin bulk kept (archive). |
@@ -113,5 +114,11 @@ full-pool spreads may reach tail thresholds anchors cannot. Three
 10ps at 3.0/2.0/2.0 from the whole pool. Judge after iteration 37.
 Judged: refuted at iteration 34 (273.4087, seeds 0/1/2/4 regress);
 calibrated rulers matter with or without duels.
+
+Sixteen misses in a row (iters 23-38) force bold line 6 (2026-10-03):
+pool-size-adaptive opener. Early bots face anchor-poor pools, so
+widen the first 10p to 4.0 sigma while the pool is under 200 and
+keep 3.0 after. Predicts early-bot tails improve without hurting
+late bots. Judge after iteration 41.
 | done | Interleaved bulk retest (3d, wide 10p, 2d, narrow 10p): lost MAE by 0.009; mid re-positioning may cut tails. |
 | done | Bracket duels retest (closest 1-3, then above/below): deliberate tail insurance. |
