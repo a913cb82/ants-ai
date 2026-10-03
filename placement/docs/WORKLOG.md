@@ -797,3 +797,8 @@
 ## Iter 139 (camp H4): recapture-early at window 300, odd parity
 - Score: corr 0.9932 (+0.0001, tie).
 - Verdict: window and parity both free. Next: late-window span legs (H5).
+
+## Iter 140 (camp H5): span legs for late arrivals
+- Arrivals >=800 (even) get range census + full-pool 1.5 refine.
+- Score: corr 0.9932 (+0.0000, tie).
+- Verdict: TRACK H CLOSED. Five legs: +0.0000/-0.0018/+0.0001/+0.0001/+0.0000. Arrival-indexed schedules never beat the uniform shape; FFA-heavy early decisively dead (-0.0018). Champion is regime-robust young and old.
