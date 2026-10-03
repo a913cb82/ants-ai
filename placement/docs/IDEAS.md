@@ -198,6 +198,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Split-middle 10+5+5+10 under census (retest). |
 | dropped | Flat-mid rest 1.5625 under census (retest). |
 | dropped | Ratio upshift 1.5/2.25 under census (retest). |
+| trying | Skeleton-second 4.0/census/1.875 (bold 27). |
 | open | Chase-combining repeat-wide 4.0/4.0/1.5 (info; diversity-combine before zoom). |
 | open | Double-tap opener 4.0/4.0/1.25 (adversary; second wide after recentering, full-pool G2 untested at 4.0). |
 | open | Split-middle 10+5+5+10 valley halves (info/poker; mid-schedule re-aim, halves sandwiched not late). |
@@ -417,6 +418,12 @@ balance beats greedy pulls this time, or greed stands. Judge after
 iteration 155.
 Judged: refuted at iteration 152 (206.8766, only seed 4 improved);
 greed stands.
+
+Two misses in a row (iters 155-156) force bold line 27
+(2026-10-03): skeleton-second. Case-centered 4.0 game-1, census
+game-2, 1.875 closer; tests census TIMING by moving the skeleton
+late. Predicts late coverage repairs personalization, or early
+skeleton timing is load-bearing. Judge after iteration 160.
 
 Two misses in a row (iters 145-146) force bold line 25
 (2026-10-03): ancient-tertile anchors. Tertile drawn from the
