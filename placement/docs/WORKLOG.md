@@ -1184,3 +1184,12 @@ One entry per iteration:
 - what changed: closer targets doubled edge pins instead of uniform deciles.
 - what you learned: cost about 2.54 with two of five improving; edge pins misfire on seeds 0/3/4 and the uniform grid stands.
 - next: judge bold 21 after 124; senior-tertile anchors.
+
+## 124 — senior-tertile anchors (2026-10-03)
+- commit: 09a26bf
+- score: mean 219.2273 over seeds 0-4 (186.3281, 251.2434, 352.2962, 120.6850, 185.5838)
+- champion mean: 216.0193 selection, 205.7881 pooled (fde75b9)
+- verdict: discard
+- what changed: tertile anchors excluded the 50 most recent arrivals.
+- what you learned: cost about 3.21 with only seed 2 improving; recent rulers carry live information and quarantine starves coverage. Bold 21 judged refuted (iter 121).
+- next: jittered-grid diagnostic; then misses force bold 22.
