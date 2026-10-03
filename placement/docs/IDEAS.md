@@ -61,6 +61,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Approach 2 exact: 10p at 1.6s, two 5ps at 1.0s, then duels. |
 | dropped | Symmetric narrow pair: 0.5-sigma then 0.5-sigma. |
 | dropped | Symmetric wide pair: 1.0-sigma then 1.0-sigma. |
+| trying | Greedy predict_draw FFA fields (autoresearch info_score). |
 | dropped | Approach 2: zooming bracket 10p/5p/5p/2p x5, spread mu+-k·sigma, low-sigma anchors. |
 | open | Approach 3: 10p/6p/2p x7, quantile spread at 1.0 sigma, large-first coarse-to-fine. |
 | done | Champion order with spread FFA opponents (quantiles of N(mu, sigma), low-sigma ties). |
@@ -99,6 +100,17 @@ Noisy members poison thresholds directly; no compounding within
 1000 bots.
 | done | Duels first, then FFA with late budget. |
 | dropped | Size from `budget_left`: big games early, duels late. |
+
+## Borrowed from autoresearch/iteration.py (2026-10-03)
+
+`league/matchmake.py:info_score` ranks opponents by predicted draw
+probability plus 0.02 times uncertainty, picking greedily with
+epsilon 0.2 among the top breadth 3. Placement keeps the greedy
+draw-score but drops epsilon: the program demands a deterministic
+strategy. Transfer test: greedy `predict_draw` field building
+(prefiltered to 40 nearest anchors for speed, 3us per call) versus
+quantile spread. Widths do not transfer; draw-score tightens
+naturally as `sigma` shrinks.
 
 ## External approaches (2026-10-03)
 
