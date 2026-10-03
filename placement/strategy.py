@@ -129,6 +129,19 @@ def _strata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
     return out[:k]
 
 
+def _credpin(bot: Rating, ratings: list[Rating]) -> list[int]:
+    """Lowest sigma among 10 nearest rulers (credible pin)."""
+    order = sorted(
+        range(len(ratings)),
+        key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
+    )[:10]
+    if not order:
+        return []
+    return [
+        min(order, key=lambda c: (ratings[c].sigma, abs(ratings[c].mu - bot.mu), c))
+    ]
+
+
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
     """Pool index nearest bot.mu, low sigma then low index on ties."""
     return min(
@@ -354,7 +367,7 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 61 (corr): 6 info + closest closer.
+    # Iter 62 (corr): 6 info + credible-pin closer.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
@@ -363,4 +376,4 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
         return _strata(bot, ratings, n)
     if budget_left > 2:
         return _info_duel(bot, ratings)
-    return [_closest(bot, ratings)]
+    return _credpin(bot, ratings)
