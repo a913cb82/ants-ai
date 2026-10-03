@@ -614,3 +614,13 @@ One entry per iteration:
 - what changed: second bulk 10p narrowed from 2.0 to 1.5 sigma.
 - what you learned: game-2 optimum is interior at 1.5 (ladder 1.5 < 2.0 < 2.25 < 2.5); the confirmation rule converts a 0.61 margin into a 3.7 pooled win. Bold 10 judged refuted (iter 63).
 - next: game-3 width re-sweep under the 1.5-second shape.
+
+## 66 — game-3 at 2.5 with confirmation (2026-10-03)
+- commit: d6766a0
+- score: selection mean 219.9983 over seeds 0-4 (185.5725, 259.7036, 358.7914, 108.1958, 187.7284)
+- champion selection mean: 221.8680 (43b260f)
+- confirmation: 202.1480 over seeds 5-9 (150.9431, 237.3434, 236.8614, 221.1624, 164.4296) vs champion held-out 202.0228
+- verdict: discard
+- what changed: third bulk 10p widened from 2.0 to 2.5 sigma.
+- what you learned: won selection by 1.87 but lost held-out by 0.13 (seed 8 regressed 4.1); game-3 wants 2.0 and the incumbent holds ties.
+- next: game-3 at 1.5 under the 1.5-second shape (narrow closer).
