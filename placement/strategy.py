@@ -59,7 +59,7 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Champion (iter 8, MSE): 3d, twin-wide 10ps, bracket pair (bold 1).
+    # Exp (iter 14, MSE): refine 2.0 iff sigma above 6.5 else 0.5.
     if budget_left > 24:
         return [_closest(bot, ratings)]
     if budget_left > 14:
@@ -83,9 +83,10 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
                 if ratings[i].mu < bot.mu:
                     return [i]
         return [order[0]]
+    width = 2.0 if bot.sigma > 6.5 else 0.5
     return _spread(
         bot,
         ratings,
         min(9, budget_left - 1, len(ratings)),
-        2.0,
+        width,
     )

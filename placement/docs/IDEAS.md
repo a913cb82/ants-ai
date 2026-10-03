@@ -31,7 +31,7 @@ A refinement is a new row. Leave old rows as they were.
 | open | Bookend brackets: closest, bracket pair, 10p, bracket pair, 10p. |
 | open | Bracket triple mid: 2d, 10p, above/below/closest, 10p. |
 | open | Opening duel ladder under MSE shape: 2, 4, 6 opening duels. |
-| open | Adaptive refine width: 2.0 iff mid sigma above 6.5 else 0.5. |
+| trying | Adaptive refine width: 2.0 iff mid sigma above 6.5 else 0.5. |
 | open | Tail-chasing spread: one-sided thresholds toward the bot tail. |
 | open | Closing duel: 8p refine plus a final closest duel (28+2 slots). |
 | dropped | Tail-chasing one-sided spread for tail bots (bold 2). |
@@ -44,11 +44,15 @@ one-sided FFA thresholds on their tail side only; all 9 looks
 concentrate where squared error lives. Predicts extreme-bot error
 falls enough to pay for lost two-sided bounds. Judge after
 iteration 14.
+Judged: refuted at iteration 11 (364.2914, every seed regressed);
+two-sided bounds are load-bearing even for tail bots.
 
 Two misses in a row (iters 6-7) force bold line 1 (2026-10-03):
 coverage-maximalist. Under MSE the refine 10p polishes typical bots
 while wide coverage catches extremes; drop the narrow refine and
 run twin-wide 10ps. Predicts seeds 1/2 fall and seeds 0/3 hold.
 Judge after iteration 11.
+Judged: confirmed at iteration 8 by adoption (302.2418, new champion);
+lead fragile (seed 2 regressed 13.5), refine pulls weight on hard seeds.
 | done | Interleaved bulk retest (3d, wide 10p, 2d, narrow 10p): lost MAE by 0.009; mid re-positioning may cut tails. |
 | done | Bracket duels retest (closest 1-3, then above/below): deliberate tail insurance. |
