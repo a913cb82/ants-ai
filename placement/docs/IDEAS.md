@@ -54,7 +54,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Gatekeeper FFA: second 10p shifted a tier stronger than mu (sports). |
 | parked | Gradient fields: weak 10p heat, peer semi, shark-tank final (sports; gatekeeper verdict covers asymmetry). |
 | dropped | Successive-halving duel tournament with FFA confirmation (bayes). |
-| open | Deterministic UCB rotation: score -dist + 0.5 sigma, cycle top 6 (bayes). |
+| trying | Deterministic UCB rotation: score -dist + 0.5 sigma, cycle top 6 (bayes). |
 | open | D-optimal 4-duel screen at mu +- {0.5, 1.5} sigma, then bulks (bayes). |
 | dropped | Wide-grid quantiles: fixed CDF grid 0.05..0.95 at 2.0 sigma (bayes). |
 | dropped | Push-fold routing: wide twin-10p for high-sigma, duels-only for settled (poker). |
@@ -101,5 +101,7 @@ shrinking zoom. One duel plus 9p at 2.0, 9p at 1.0, 10p at 0.5
 tests size and width zoom jointly against the uniform-bulk doctrine.
 Predicts failure (mid sizes and narrow widths both lost alone) but
 prices the interaction. Judge after iteration 33.
+Judged: refuted at iteration 31 (327.2455, seed 2 at 516);
+size and width zoom have no redeeming interaction.
 | done | Interleaved bulk retest (3d, wide 10p, 2d, narrow 10p): lost MAE by 0.009; mid re-positioning may cut tails. |
 | done | Bracket duels retest (closest 1-3, then above/below): deliberate tail insurance. |
