@@ -354,3 +354,12 @@ One entry per iteration:
 - what changed: opening duel played the pool median instead of the closest mu, rest champion.
 - what you learned: cost about 0.22 with seeds 1/2/4 regressing; the closest opener positions better than any fixed anchor.
 - next: pool-service game, the last bold candidate.
+
+## 39 — pool-service game in wide FFA (2026-10-03)
+- commit: 7b631cc
+- score: mean 16.4974 over seeds 0-4 (16.1445, 18.1585, 17.1586, 14.4015, 16.6241)
+- champion mean: 14.8370 (067b331)
+- verdict: discard
+- what changed: bold 3 test, wide FFA swapped 2 anchors for the 2 highest-sigma pool members.
+- what you learned: cost about 1.66 with every seed regressing; noisy service members poison thresholds directly, and no pool compounding shows up within 1000 bots.
+- next: judge bold 3 after iter 41, meanwhile candidates-track screening.
