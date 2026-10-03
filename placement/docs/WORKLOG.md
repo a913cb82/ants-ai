@@ -412,3 +412,9 @@
 - Score: corr 0.9844 (-0.0088, all regress).
 - Verdict: DISCARD. Mass beats evenness everywhere; the outlier sites were binding value, not tax.
 - Misses: 24.
+
+## Iter 68: recent-400 decile opener
+- Decile sites from last-400 mus, full-pool snap + champion rest.
+- Score: corr 0.9932 (+0.0000, exact tie).
+- Verdict: DISCARD (tie keeps incumbent). Live-window mass ties full-history mass; fossil mus warp nothing.
+- Misses: 25.
