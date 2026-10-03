@@ -366,3 +366,12 @@ One entry per iteration:
 - what changed: first 10p at 4.0 sigma while pool under 200, else 3.0.
 - what you learned: cost about 7.66 with seeds 2/3/4 improving (seed 3 down 10) but seeds 0/1 regressing hard; pool size misconditions width, overshoot hurts more than reach helps.
 - next: adaptive refine at 4.0 (probe-calibrated threshold).
+
+## 40 — adaptive refine at 4.0 (2026-10-03)
+- commit: 72deb88
+- score: mean 247.8303 over seeds 0-4 (207.8530, 326.4933, 306.6815, 147.9795, 250.1443)
+- champion mean: 235.2613 (04eeed2)
+- verdict: discard
+- what changed: third 10p narrowed to 1.0 for bots at or below sigma 4.0.
+- what you learned: cost about 12.57 with seed 1 blowing up 59 while seeds 0/3 improved; narrowing for settled bots destabilizes hard seeds.
+- next: judge bold 6 (refuted); symmetric pairs recheck under bulk-only.
