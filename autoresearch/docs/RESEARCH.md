@@ -367,3 +367,51 @@ Use this format.
   new. Shipped: old exam, mu score, budget tag score=mu. Old-lb rows
   stay filed and no longer count.
 - idea: keep this package unless a new exam beats 0.9655 with mu.
+
+## Combat search: non-xathis postmortems (2026-10-04)
+- source: web research (ketch search + scrape, Wayback for dead forums)
+- claim: no strong bot searched deep; the field converged on 1-turn horizons with an explicit enemy reply and default-refuse 1v1s.
+- evidence: 7 writeups below; deep alpha-beta absent everywhere, sampling vs 1-ply minimax genuinely contested.
+- idea: scope combat work to battle-local 1-ply max-min with precompute, not depth. Reserve: pages 2-6 of both forum threads.
+
+## a1k0n combat by random sampling (2026-10-04)
+- source: https://web.archive.org/web/20130330010801/http://forums.aichallenge.org/viewtopic.php?f=24&t=2044 (top 10, Dec 2011)
+- claim: sampling beats minimax, which is too conservative for simultaneous moves.
+- evidence: per-ant Dirichlet(1,1,1,1,1) over 5 moves; random ant, best reply by provisional resolution until time runs out; tried sampled-minimax, worse. Weakness: accidental suicides vs cautious walls.
+- idea: if 1-ply max-min stalls, try the sampler as the anytime fallback, not deeper search.
+
+## Memetix influence combat (2026-10-04)
+- source: https://web.archive.org/web/20130122064921/http://forums.aichallenge.org/viewtopic.php?f=24&t=2083 (beat a1k0n head-to-head, Dec 2011)
+- claim: single-pass influence maps decide SAFE/KILL/DIE in 3-5 ms; allow KILL (expect 1-for-1) only to break deadlocks.
+- evidence: influence[p][r][c] = ants that could attack each tile after 1 move; in-thread refinement for one-ant-per-tile overcounting.
+- idea: precompute influence as the cheap combat path; conflicts with xathis on trades (permits 1-for-1 KILL), agrees on 1-turn horizon.
+
+## delineate heuristic combat (2026-10-04)
+- source: https://www.decompilinglife.com/post/14396418230/2011-google-ai-challenge-ants (top 10, briefly top 3)
+- claim: zero search can reach top 3; kill bonus only with strict local superiority, conservative at equality.
+- evidence: greedy 5-move scoring from BFS feature fields 1/(1+d^2); biggest Elo jump came from persistent exploration paint, not combat.
+- idea: keep a strict-superiority gate as the floor; economy/exploration may outrank combat tweaks.
+
+## nhaehnle tactical 1-ply max-min (2026-10-04)
+- source: http://nhaehnle.blogspot.com/2011/12/ai-challenge-look-back.html (top 20, src https://github.com/nhaehnle/aiant)
+- claim: 1-ply max-min over sampled enemy moves with probabilistic aggression is xathis with a softer trade gate, plus per-opponent strategy selection.
+- evidence: Tactical module carves combat submaps, iterates until time out, no lookahead; overvalues own ants by default, aggressive mode with logistic probability in log(own/enemy); a1k0n sampling tried, worse than his tactical code.
+- idea: closest template for our General iteration; add opponent-specific arbitration later, not first.
+
+## anthonyvh greedy fixing (2026-10-04)
+- source: https://www.anthonyvh.com/2013/03/27/ai_challenge-ants/ (53rd/7897)
+- claim: exact search rejected past 10-ant zones; Memetix influence plus greedy sequential fixing, suicide only to unblock hill rush.
+- evidence: combat eval 200 ms to 5-10 ms via local updates and lazy bucketed queue; stationary enemies pinned during eval.
+- idea: sequential pin-and-reevaluate fits our per-ant move order; pin stationary enemies first.
+
+## codetiger Python time datapoint (2026-10-04)
+- source: https://codetiger.in/blog/google-ai-challenge-ants-2011-post-mortem (127th, Python bot)
+- claim: full search infeasible in Python under the turn limit; precomputed resolutions end 1v1 deaths.
+- evidence: timed out with 2-radii battle resolution; switched to precalculated tables; sacrifices 1v1s only near own hills (radius 14) to hide them.
+- idea: our combat must precompute; never resolve live per ant. Hill-radius-gated sacrifice matches xathis's distance exception.
+
+## Michigan battle resolution (2026-10-04)
+- source: https://nickb.dev/blog/engr151-google-ai-challenge/writeup.pdf (claimed top 25)
+- claim: 2-stage static/threatened analysis with stay/advance enemy model and fewest-ants preference approximates 1-ply cheaply.
+- evidence: recursive per-ant search over desired squares, +1 moved / -1 new enemy drawn in; early exit; crashes only past 20 ants a side.
+- idea: coarser enemy model is viable if best-response min proves too slow; fewest-ants preference is another no-1v1 gate.
