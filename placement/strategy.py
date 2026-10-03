@@ -108,6 +108,7 @@ def _strata(
     five: bool = False,
     off: float = 0.0,
     edge: float = 1.0,
+    root: bool = False,
 ) -> list[int]:
     """k rulers across bins by mass quota (3-bin, or 4-bin signed-peer)."""
     pool = _established(ratings, k, 0)
@@ -129,6 +130,8 @@ def _strata(
             bins[2],
         ]
     masses = [len(b) for b in bins]
+    if root:
+        masses = [m**0.5 for m in masses]
     total = sum(masses) or 1
     nb = len(bins)
     quota = [max(1 if m else 0, round(k * m / total)) for m in masses]
@@ -378,11 +381,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 109 (camp B4): 4-bin center-split with narrow +-0.5 edges.
+    # Iter 110 (camp B5): 4-bin center-split with sqrt mass quota.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
-        return _strata(bot, ratings, n, split=True, edge=0.5)
+        return _strata(bot, ratings, n, split=True, root=True)
     return _info_duel(bot, ratings, 0, 40)
