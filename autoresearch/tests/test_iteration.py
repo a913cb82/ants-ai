@@ -16,49 +16,45 @@ def test_counts_splits_duels_and_ffa():
 
     recs = [
         {"field": ["a", "b"]},
-        {"field": ["a", "b", "c"]},
-        {"field": ["a", "b", "c"]},
-        {"field": ["a", "b", "c", "d", "e"]},
+        {"field": ["a"] + ["x"] * 9},
+        {"field": ["a"] + ["x"] * 9},
+        {"field": ["a"] + ["x"] * 5},
         {"field": ["x", "y"]},
     ]
-    assert counts(recs, "a") == {"duels": 1, "ffa": {3: 2, 5: 1}}
+    assert counts(recs, "a") == {"duels": 1, "ffa": {10: 2, 6: 1}}
 
 
 def test_planned_leaves_the_right_budget():
     from iteration import planned
 
-    recs = [{"field": ["a", "b"]}, {"field": ["a", "b", "c"]}]
-    duels_left, sizes = planned(recs, "a", 3, [3, 4])
-    assert duels_left == 2 and sizes == [4]
+    recs = [{"field": ["a", "b"]}, {"field": ["a"] + ["x"] * 9}]
+    duels_left, sizes = planned(recs, "a", 7, [10, 6])
+    assert duels_left == 6 and sizes == [6]
 
 
 def test_planned_never_negative():
     from iteration import planned
 
-    recs = [{"field": ["a", "b"]} for _ in range(5)]
-    duels_left, sizes = planned(recs, "a", 3, [4])
-    assert duels_left == 0 and sizes == [4]
+    recs = [{"field": ["a", "b"]} for _ in range(9)]
+    duels_left, sizes = planned(recs, "a", 7, [10, 6])
+    assert duels_left == 0 and sizes == [10, 6]
 
 
-def test_duel_opponent_picks_nearest_skill():
-    from iteration import duel_opponent
+def test_info_duel_picks_best_draw_over_40_nearest():
+    from iteration import info_duel_opponent
     from matchmake import new_model
 
-    ratings = {
-        "cand": {"mu": 25, "sigma": 8.33, "games": 0},
-        "near": {"mu": 25, "sigma": 8.0, "games": 0},
-        "far": {"mu": 60, "sigma": 2.0, "games": 20},
-    }
-    opp = duel_opponent(
-        new_model(),
-        "cand",
-        ["near", "far"],
-        ratings,
-        random.Random(0),
-        eps=0.0,
-        breadth=3,
-    )
-    assert opp == "near"
+    ratings = {"cand": {"mu": 25, "sigma": 8.33, "games": 0}}
+    cands = []
+    for i in range(50):
+        ratings[f"peer{i}"] = {"mu": 25.0, "sigma": 1.0, "games": 20}
+        cands.append(f"peer{i}")
+    ratings["close-noisy"] = {"mu": 25.0, "sigma": 8.0, "games": 1}
+    ratings["far-solid"] = {"mu": 60, "sigma": 2.0, "games": 20}
+    opp = info_duel_opponent(new_model(), "cand", cands, ratings)
+    assert opp == "peer0"
+    opp = info_duel_opponent(new_model(), "cand", ["close-noisy", "far-solid"], ratings)
+    assert opp == "close-noisy"
 
 
 def test_pick_maps_are_distinct():
@@ -111,13 +107,11 @@ def test_budget_tags_the_score():
     assert "score=mu" in BUDGET
 
 
-def test_ffa_sizes_for_is_stable_and_from_the_sets():
-    from iteration import ffa_sizes_for
+def test_ffa_sizes_are_the_champion_schedule():
+    from iteration import DUELS, FFA_SIZES
 
-    bid = "autoresearch/bot/main.bot-abc1234"
-    sizes = ffa_sizes_for(bid)
-    assert sizes == ffa_sizes_for(bid)
-    assert sizes in ([4, 6, 10], [5, 7, 8])
+    assert DUELS == 7
+    assert list(FFA_SIZES) == [10, 6]
 
 
 def test_result_line_marks_candidate_and_disambiguates():
@@ -276,7 +270,7 @@ def test_main_plays_records_and_never_replays(tmp_path, monkeypatch):
     import iteration
 
     monkeypatch.setattr(iteration, "DUELS", 1)
-    monkeypatch.setattr(iteration, "ffa_sizes_for", lambda bid: [])
+    monkeypatch.setattr(iteration, "FFA_SIZES", [6])
     monkeypatch.setattr(iteration, "GAMES_LOG", tmp_path / "games.jsonl")
     monkeypatch.setattr(iteration, "RATINGS_PATH", tmp_path / "ratings.json")
     monkeypatch.setattr(iteration, "PROGRESS", tmp_path / "PROGRESS.jsonl")
@@ -288,8 +282,9 @@ def test_main_plays_records_and_never_replays(tmp_path, monkeypatch):
     monkeypatch.setattr(iteration, "engine_on_main", lambda root: True)
     monkeypatch.setattr(iteration, "main_merged", lambda root: True)
     bid = iteration.candidate_id(iteration.ROOT, iteration.DEFAULT_BOT)
+    rivals = [f"rival{i}" for i in range(9)]
     monkeypatch.setattr(
-        iteration, "pool_ids", lambda root, ratings=None: [bid, "rival"]
+        iteration, "pool_ids", lambda root, ratings=None: [bid] + rivals
     )
 
     def fake_play_one(root, field, map_rel, log_dir, rng, workbase):
@@ -309,11 +304,11 @@ def test_main_plays_records_and_never_replays(tmp_path, monkeypatch):
 
     monkeypatch.setattr(iteration, "play_one", fake_play_one)
     assert iteration.main([]) == 0
-    assert len((tmp_path / "games.jsonl").read_text().splitlines()) == 1
+    assert len((tmp_path / "games.jsonl").read_text().splitlines()) == 2
     rows = iteration.read_progress(tmp_path / "PROGRESS.jsonl")
     assert len(rows) == 1 and rows[0]["bot"] == bid
     assert iteration.main([]) == 0
-    assert len((tmp_path / "games.jsonl").read_text().splitlines()) == 1
+    assert len((tmp_path / "games.jsonl").read_text().splitlines()) == 2
     assert len(iteration.read_progress(tmp_path / "PROGRESS.jsonl")) == 1
 
 
@@ -322,69 +317,73 @@ def _rated(mu, sigma, games=20):
 
 
 def test_census_field_spans_full_pool_mass():
-    from iteration import census_field
+    from iteration import census_opponents
 
     ratings = {"cand": _rated(50, 8.0, 0)}
     for i, mu in enumerate([0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]):
         ratings[f"r{i}"] = _rated(mu, 2.0)
     cands = [k for k in ratings if k != "cand"]
-    field = census_field("cand", cands, ratings, 6)
-    assert len(field) == 6 and field[0] == "cand"
-    mus = sorted(ratings[c]["mu"] for c in field[1:])
+    opps = census_opponents("cand", cands, ratings, 9)
+    assert len(opps) == 9 and "cand" not in opps
+    mus = sorted(ratings[c]["mu"] for c in opps)
     assert mus[0] <= 10 and mus[-1] >= 90
 
 
-def test_census_quality_snap_prefers_low_sigma():
-    from iteration import census_field
+def test_census_nearest_snap_ignores_sigma():
+    from iteration import census_opponents
 
-    ratings = {
-        "cand": _rated(50, 8.0, 0),
-        "noisy": _rated(10.0, 6.0),
-        "solid": _rated(10.1, 1.0),
-        "top": _rated(90.0, 1.0),
-    }
-    cands = ["noisy", "solid", "top"]
-    field = census_field("cand", cands, ratings, 3)
-    assert "solid" in field and "noisy" not in field
+    # H owns its site but a lower-sigma neighbor sits within 0.30:
+    # nearest-mu keeps H, quality snap would steal it for P.
+    mus = [0, 10, 20, 30, 40, 50.0, 50.05, 60, 70, 80, 90]
+    ratings = {"cand": _rated(50, 8.0, 0)}
+    cands = []
+    for i, mu in enumerate(mus):
+        name = f"r{i}"
+        ratings[name] = _rated(mu, 6.0 if mu == 50.0 else 1.0)
+        cands.append(name)
+    opps = census_opponents("cand", cands, ratings, 9)
+    assert "r5" in opps
 
 
-def test_strata_field_covers_all_three_bins_from_calibrated_rulers():
-    from iteration import strata_field
+def test_strata_field_uses_recency_window_and_calibrated_rulers():
+    from iteration import strata_opponents
 
     ratings = {"cand": _rated(50, 8.0, 0)}
-    pool = []
-    for i in range(60):
-        ratings[f"cal{i}"] = _rated(i * 1.5, 1.0)
-        pool.append(f"cal{i}")
-    for i in range(30):
-        ratings[f"raw{i}"] = _rated(i * 3.0, 7.0)
-        pool.append(f"raw{i}")
-    field = strata_field("cand", pool, ratings, 7)
-    assert len(field) == 7 and field[0] == "cand"
-    sigmas = [r["sigma"] for r in ratings.values() if r["games"] > 0]
-    cutoff = sorted(sigmas)[len(sigmas) // 3]
-    assert all(ratings[c]["sigma"] <= cutoff for c in field[1:])
-    mus = [ratings[c]["mu"] for c in field[1:]]
+    ordered = []
+    for i in range(100):
+        ratings[f"old{i}"] = _rated(i * 0.9, 0.5)
+        ordered.append(f"old{i}")
+    for i in range(400):
+        ratings[f"new{i}"] = _rated(i * 0.25, 1.0)
+        ordered.append(f"new{i}")
+    for i in range(50):
+        ratings[f"raw{i}"] = _rated(i * 2.0, 7.0)
+        ordered.append(f"raw{i}")
+    opps = strata_opponents("cand", ordered, ratings, 5)
+    assert len(opps) == 5 and "cand" not in opps
+    assert not any(c.startswith("old") for c in opps)
+    assert all(ratings[c]["sigma"] <= 1.0 for c in opps)
+    mus = [ratings[c]["mu"] for c in opps]
     assert any(m < 42 for m in mus) and any(m > 58 for m in mus)
 
 
 def test_strata_quota_follows_bin_mass():
-    from iteration import strata_field
+    from iteration import strata_opponents
 
     ratings = {"cand": _rated(50, 8.0, 0)}
-    pool = []
+    ordered = []
     for i in range(40):
         ratings[f"peer{i}"] = _rated(48.0 + i * 0.1, 1.0)
-        pool.append(f"peer{i}")
+        ordered.append(f"peer{i}")
     for name, mu in (("lo", 10.0), ("hi", 90.0)):
         ratings[name] = _rated(mu, 1.0)
-        pool.append(name)
-    field = strata_field("cand", pool, ratings, 6)
-    peer = [c for c in field[1:] if 42 <= ratings[c]["mu"] <= 58]
+        ordered.append(name)
+    opps = strata_opponents("cand", ordered, ratings, 5)
+    peer = [c for c in opps if 42 <= ratings[c]["mu"] <= 58]
     assert len(peer) >= 3
 
 
-def test_ffa_field_uses_census_then_strata_then_propose(monkeypatch):
+def test_stage_field_sizes_map_to_census_and_strata(monkeypatch):
     import iteration
 
     calls = []
@@ -394,24 +393,21 @@ def test_ffa_field_uses_census_then_strata_then_propose(monkeypatch):
         return val
 
     monkeypatch.setattr(
-        iteration, "census_field", lambda bid, c, r, n: rec("census", [bid])
+        iteration, "census_opponents", lambda bid, c, r, k: rec("census", ["o"] * k)
     )
     monkeypatch.setattr(
-        iteration, "strata_field", lambda bid, c, r, n: rec("strata", [bid])
+        iteration, "strata_opponents", lambda bid, o, r, k: rec("strata", ["o"] * k)
     )
-    monkeypatch.setattr(iteration, "propose", lambda *a, **k: rec("propose", ["x"]))
-    ratings = {"cand": _rated(50, 8.0, 0)}
-    iteration.ffa_field(None, "cand", [], ratings, 4, 0, None)
-    iteration.ffa_field(None, "cand", [], ratings, 4, 1, None)
-    iteration.ffa_field(None, "cand", [], ratings, 4, 2, None)
-    assert calls == ["census", "strata", "propose"]
+    field = iteration.stage_field(None, "cand", ["o"], [], {}, 10)
+    assert calls == ["census"] and len(field) == 10
+    field = iteration.stage_field(None, "cand", ["o"], [], {}, 6)
+    assert calls == ["census", "strata"] and len(field) == 6
 
 
-def test_budget_selects_census_strata_and_scores_mu():
+def test_budget_is_the_champion_schedule():
     from iteration import BUDGET
 
-    assert "score=mu" in BUDGET
-    assert "sel=census-strata" in BUDGET
+    assert BUDGET == "duels=7,ffa=10+6,turns=1000,score=mu,sel=place43"
 
 
 def test_previous_budget_rows_are_ignored(tmp_path):
@@ -430,7 +426,7 @@ def test_previous_budget_rows_are_ignored(tmp_path):
                 "games": 8,
                 "champion": None,
                 "date": "2026-01-01",
-                "budget": "duels=5,ffa=3,turns=1000,score=mu",
+                "budget": "duels=5,ffa=3,turns=1000,score=mu,sel=census-strata",
             }
         )
         + "\n"

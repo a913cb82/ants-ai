@@ -13,7 +13,7 @@ score improves.
    a new design.
 4. Edit `bot/`.
 5. Commit.
-6. Play the budget: 5 duels and 3 FFA games.
+6. Play the schedule: 7 duels, one 10p census, one 6p refine.
 7. The harness records the score in `docs/PROGRESS.jsonl`. Keep the
    commit if the new score beats the champion score for the current
    budget.
@@ -24,12 +24,11 @@ The operating instructions are in `docs/PROGRAM.md`. Start there.
 
 ## Budget
 
-One iteration has 8 games:
+One iteration has 9 games (30 slots):
 
-- 5 duels. Each duel uses a different 2p map.
-- 3 FFA games. The harness picks one of two size sets: {4, 6, 10}
-  or {5, 7, 8}. The first spans full-pool mass, the second refines
-  bot-centered bins from low-sigma rulers, the third fills greedy.
+- 7 duels. Each duel uses a different 2p map.
+- One 10p census. Opponents span full-pool mass.
+- One 6p refine. Opponents come from bot-centered bins.
 
 The harness sets the numbers. No flag changes them.
 Every game goes to `league/games.jsonl`. A commit cannot play more.
@@ -40,8 +39,8 @@ part-way plays the games that remain.
 
 The score is `mu`, the skill estimate at the end of the budget.
 The harness writes one JSON line for each completed iteration to
-`docs/PROGRESS.jsonl`. Every fresh bot gets 8 games, 5 duels and
-3 FFA, against fairly chosen opponents, so the comparison is fair.
+`docs/PROGRESS.jsonl`. Every fresh bot gets 9 games, 7 duels plus
+10p and 6p, against fairly chosen opponents, so the comparison is fair.
 A bot keeps playing after its iteration, but the recorded score does
 not move. The champion is the best recorded score for the current
 budget. The file is append-only. Rows from an older budget stay in

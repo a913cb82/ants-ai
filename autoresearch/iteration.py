@@ -1,9 +1,12 @@
-"""One autoresearch iteration: play the fixed duel + FFA budget, score it.
+"""One autoresearch iteration: play the placement champion schedule.
 
-The FFA games stage the placement selection: the first spans
-full-pool mass (census), the second refines bot-centered
-below/peer/above bins by mass quota from low-sigma rulers (strata),
-the rest fill info-greedy. Duels stay flat-info.
+The schedule is the placement champion (iter 43, corr 0.9931 over
+30 seeds): one 10-player census over full-pool mass, one 6-player
+refine over bot-centered below/peer/above bins by mass quota from
+the low-sigma tertile of the last 400, then seven duels at the best
+draw odds + 0.02 sigma over the 40 nearest rulers. Recency comes
+from the append-only log: the window is the last 400 pool members
+by last appearance. Duels stay flat-info.
 
 Every game enters league/games.jsonl. The harness rebuilds the ratings
 from that log at the start, so the log is the single source of truth.
@@ -38,10 +41,8 @@ import ratings as R  # noqa: E402
 from matchmake import (  # noqa: E402
     MAPS_ROOT,
     assign_positions,
-    info_score,
     maps_for_players,
     new_model,
-    propose,
     read_log,
 )
 from play import play_match  # noqa: E402
@@ -69,27 +70,24 @@ PROGRESS = ROOT / "autoresearch" / "docs" / "PROGRESS.jsonl"
 DEFAULT_BOT = "autoresearch/bot/main.bot"
 
 # Binding numbers. The harness fixes them; no flag changes them.
-DUELS = 5
-FFA_SETS = ((4, 6, 10), (5, 7, 8))
+# The schedule is the placement champion: 10p census, 6p refine,
+# seven duels (30 slots). A commit cannot play more than one schedule.
+DUELS = 7
+FFA_SIZES = (10, 6)
 TURNS = 1000
 TURNTIME = 1000
 LOADTIME = 3000
 SEED = 0
-EPSILON = 0.2
-BREADTH = 3
 SIGMA_WEIGHT = 0.02
 
-# One tag for one budget. PROGRESS.jsonl is append-only; rows with an
-# older tag stay in the file and are ignored for the champion.
-# score=mu ports the placement finding: the recorded score ranks truer
-# without the sigma discount (corr 0.9655 vs 0.9619 on the old exam).
-# sel=census-strata ports the placement game selection (corr 0.9931
-# over 30 seeds): the first FFA spans full-pool mass (the opener must
-# read mass, not calibrated rulers), the second refines bot-centered
-# below/peer/above bins by mass quota from low-sigma rulers, the rest
-# stay info-greedy. Duels were already flat-info, so they stay.
+# One tag for one schedule. PROGRESS.jsonl is append-only; rows with
+# an older tag stay in the file and are ignored for the champion.
+# score=mu ports the placement finding: the recorded score ranks
+# truer without the sigma discount. sel=place43 is the placement
+# champion opponent logic, ported exactly (quantile census, mass
+# quota strata over the recency window, 40-nearest info duels).
 BUDGET = (
-    f"duels={DUELS},ffa={len(FFA_SETS[0])},turns={TURNS},score=mu,sel=census-strata"
+    f"duels={DUELS},ffa={'+'.join(map(str, FFA_SIZES))},turns=1000,score=mu,sel=place43"
 )
 
 
@@ -103,13 +101,6 @@ def candidate_id(root: str | Path, botfile: str, rev: str | None = None) -> str:
     rel = p.resolve().relative_to(root.resolve())
     sha = short(root, rev) if rev else last_touch(root, rel.parent.as_posix())
     return bot_id(rel.as_posix(), sha)
-
-
-def ffa_sizes_for(bid: str) -> list[int]:
-    """The FFA sizes for this candidate: one of the two fixed sets,
-    chosen by the bot id. Stable across reruns so a partly played
-    budget resumes with the same set."""
-    return list(random.Random(f"{SEED}:{bid}").choice(FFA_SETS))
 
 
 def counts(records: list[dict], bid: str) -> dict:
@@ -137,16 +128,12 @@ def planned(
     )
 
 
-def census_field(
-    bid: str, cands: list[str], ratings: dict, n: int, tol: float = 0.30
-) -> list[str]:
-    """First FFA: the candidate plus rulers spanning full-pool mass.
-    Sites sit at quantiles of every rival mu; each snaps to the
-    lowest-sigma ruler within tol, else the nearest. Ports the
-    placement opener: mass decides the sites, quality wins the ties."""
+def census_opponents(bid: str, cands: list[str], ratings: dict, k: int) -> list[str]:
+    """Rulers spanning full-pool mass: quantile-decile sites snapped
+    to the nearest ruler. Exact port of the champion census opener."""
     others = [c for c in cands if c != bid]
     mus = sorted(R.for_id(ratings, c)["mu"] for c in others)
-    k = max(0, min(n - 1, len(others)))
+    k = max(0, min(k, len(others)))
     sites = (
         [mus[min(int(len(mus) * (j + 1) / (k + 1)), len(mus) - 1)] for j in range(k)]
         if mus and k
@@ -158,45 +145,43 @@ def census_field(
         live = [c for c in others if c not in used]
         if not live:
             break
-        near = [c for c in live if abs(R.for_id(ratings, c)["mu"] - t) <= tol]
-        src = near or live
-        if near:
-            i = min(
-                src,
-                key=lambda c: (
-                    R.for_id(ratings, c)["sigma"],
-                    abs(R.for_id(ratings, c)["mu"] - t),
-                    c,
-                ),
-            )
-        else:
-            i = min(
-                src,
-                key=lambda c: (
-                    abs(R.for_id(ratings, c)["mu"] - t),
-                    R.for_id(ratings, c)["sigma"],
-                    c,
-                ),
-            )
+        i = min(
+            live,
+            key=lambda c: (
+                abs(R.for_id(ratings, c)["mu"] - t),
+                R.for_id(ratings, c)["sigma"],
+                c,
+            ),
+        )
         used.add(i)
         picked.append(i)
-    return [bid] + picked
+    return picked
 
 
-def strata_field(bid: str, cands: list[str], ratings: dict, n: int) -> list[str]:
-    """Middle FFA: the candidate plus bot-centered below/peer/above
-    rulers by mass quota from low-sigma rulers. Ports the placement
-    refine: quota allocates across bins, proximity binds within them."""
-    others = [c for c in cands if c != bid]
+def recency_order(records: list[dict], cands: list[str]) -> list[str]:
+    """Pool oldest first by last appearance in the append-only log.
+    Never played counts as now: a fresh bot is a recent arrival."""
+    last: dict[str, int] = {}
+    for i, r in enumerate(records):
+        for b in r["field"]:
+            last[b] = i
+    now = len(records)
+    return sorted(cands, key=lambda c: (last.get(c, now), c))
+
+
+def strata_opponents(bid: str, ordered: list[str], ratings: dict, k: int) -> list[str]:
+    """Bot-centered below/peer/above rulers by mass quota from the
+    low-sigma tertile of the last 400. Exact port of the refine."""
     me = R.for_id(ratings, bid)
-    sigmas = sorted(R.for_id(ratings, c)["sigma"] for c in others)
+    window = [c for c in ordered[max(0, len(ordered) - 400) :] if c != bid]
+    sigmas = sorted(R.for_id(ratings, c)["sigma"] for c in window)
     if not sigmas:
-        return [bid]
+        return []
     cutoff = sigmas[len(sigmas) // 3]
-    pool = [c for c in others if R.for_id(ratings, c)["sigma"] <= cutoff]
-    k = max(0, min(n - 1, len(pool)))
-    if len(pool) < max(0, n - 1):
-        pool = list(others)
+    pool = [c for c in window if R.for_id(ratings, c)["sigma"] <= cutoff]
+    if len(pool) < k:
+        pool = [c for c in ordered if c != bid]
+    k = max(0, min(k, len(pool)))
     s = max(me["sigma"], 0.5)
     bins: list[list[str]] = [[], [], []]
     for c in pool:
@@ -232,57 +217,50 @@ def strata_field(bid: str, cands: list[str], ratings: dict, n: int) -> list[str]
             ),
         )
         out += rest[: k - len(out)]
-    return [bid] + out[:k]
+    return out[:k]
 
 
-def ffa_field(
+def info_duel_opponent(model, bid: str, cands: list[str], ratings: dict) -> str | None:
+    """Best draw odds + 0.02 sigma over the 40 nearest rulers.
+    Exact port of the champion tail duel. First wins ties."""
+    me = R.for_id(ratings, bid)
+    order = sorted(
+        (c for c in cands if c != bid),
+        key=lambda c: (
+            abs(R.for_id(ratings, c)["mu"] - me["mu"]),
+            R.for_id(ratings, c)["sigma"],
+            c,
+        ),
+    )[:40]
+    best = None
+    best_v = None
+    for c in order:
+        e = R.for_id(ratings, c)
+        teams = [
+            [model.rating(mu=me["mu"], sigma=me["sigma"])],
+            [model.rating(mu=e["mu"], sigma=e["sigma"])],
+        ]
+        v = model.predict_draw(teams) + SIGMA_WEIGHT * (me["sigma"] + e["sigma"])
+        if best_v is None or v > best_v:
+            best, best_v = c, v
+    return best
+
+
+def stage_field(
     model,
     bid: str,
     cands: list[str],
+    ordered: list[str],
     ratings: dict,
     n: int,
-    stage: int,
-    rng: random.Random,
-    eps: float = EPSILON,
-    breadth: int = BREADTH,
-    sigma_weight: float = SIGMA_WEIGHT,
 ) -> list[str]:
-    """FFA field by stage: census coverage first, strata refine
-    second, info-greedy propose after."""
-    if stage <= 0:
-        return census_field(bid, cands, ratings, n)
-    if stage == 1:
-        return strata_field(bid, cands, ratings, n)
-    return propose(
-        model,
-        cands,
-        ratings,
-        n,
-        rng,
-        eps=eps,
-        breadth=breadth,
-        seed_bot=bid,
-        sigma_weight=sigma_weight,
-    )
-
-
-def duel_opponent(
-    model,
-    bid: str,
-    cands: list[str],
-    ratings: dict,
-    rng: random.Random,
-    eps: float,
-    breadth: int,
-    sigma_weight: float = SIGMA_WEIGHT,
-) -> str:
-    """Opponent with the best information score, epsilon-random among
-    the top breadth."""
-    scored = sorted(
-        cands, key=lambda k: -info_score(model, [bid, k], ratings, sigma_weight)
-    )
-    top = scored[: max(1, min(breadth, len(scored)))]
-    return rng.choice(top) if rng.random() < eps else top[0]
+    """Full FFA field: bid first, then champion opponents (9 census
+    rulers for 10p, 5 strata rulers for 6p)."""
+    if n == 10:
+        return [bid] + census_opponents(bid, cands, ratings, 9)
+    if n == 6:
+        return [bid] + strata_opponents(bid, ordered, ratings, 5)
+    raise ValueError(f"no champion stage for {n}p")
 
 
 def pick_maps(rng: random.Random, candidates: list[str], k: int) -> list[str]:
@@ -469,7 +447,7 @@ def main(argv=None) -> int:
         print("bot tree is dirty; commit before logged play", file=sys.stderr)
         return 2
     bid = candidate_id(root, args.bot, args.rev)
-    ffa_sizes = ffa_sizes_for(bid)
+    ffa_sizes = list(FFA_SIZES)
     records = read_log(GAMES_LOG)
     ratings = R.rebuild(records)
     R.save(RATINGS_PATH, ratings)
@@ -495,6 +473,7 @@ def main(argv=None) -> int:
     prune_replays(runs, int(args.max_replay_gb * 1e9), protect={str(runs / sha)})
     rng = random.Random(f"{SEED}:{bid}:{done['duels']}:{sum(done['ffa'].values())}")
     model = new_model()
+    ordered = recency_order(records, [c for c in pool if c != bid])
     used = {r["map"] for r in records if bid in r["field"]}
 
     with open(GAMES_LOG, "a") as fh:
@@ -506,9 +485,9 @@ def main(argv=None) -> int:
             for map_rel in pick_maps(rng, maps, duels_left):
                 used.add(map_rel)
                 cands = [c for c in pool_ids(root, ratings) if c != bid]
-                opp = duel_opponent(
-                    model, bid, cands, ratings, rng, EPSILON, BREADTH, SIGMA_WEIGHT
-                )
+                opp = info_duel_opponent(model, bid, cands, ratings)
+                if opp is None:
+                    raise ValueError("pool too small: no duel opponent")
                 field = [bid, opp] if rng.random() < 0.5 else [opp, bid]
                 done["duels"] += 1
                 log_dir = runs / sha / f"duel_{done['duels']:02d}"
@@ -534,9 +513,8 @@ def main(argv=None) -> int:
                 raise ValueError(f"no unused {n}p map")
             map_rel = rng.choice(maps)
             used.add(map_rel)
-            stage = ffa_sizes.index(n)
-            field = ffa_field(
-                model, bid, pool_ids(root, ratings), ratings, n, stage, rng
+            field = stage_field(
+                model, bid, pool_ids(root, ratings), ordered, ratings, n
             )
             if len(field) != n:
                 raise ValueError(f"pool too small: wanted {n}, got {len(field)}")

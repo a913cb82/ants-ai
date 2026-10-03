@@ -56,7 +56,7 @@ Rules:
 The goal is to maximize the iteration score. The score is
 `mu`, the skill estimate after the fixed budget of games.
 The harness writes it to `autoresearch/docs/PROGRESS.jsonl` when the
-budget ends. Every fresh bot gets 8 games, 5 duels and 3 FFA, against
+budget ends. Every fresh bot gets 9 games, 7 duels plus 10p and 6p, against
 fairly chosen opponents, so the comparison is fair. A bot's live
 rating keeps moving after the iteration. The recorded score does not
 move. The champion is the best recorded score for the current budget.
@@ -101,9 +101,8 @@ Each iteration must run a fresh bot entry. Change the bot code first.
 
 The harness sets the budget and the selection. No flag changes them.
 
-- 5 duels. Each duel uses a different 2p map.
-- 3 FFA games. The harness picks one of two size sets: {4, 6, 10} or
-  {5, 7, 8}.
+- 7 duels. Each duel uses a different 2p map.
+- One 10p census and one 6p refine, fixed sizes.
 
 Every game goes to `league/games.jsonl`. A commit cannot play more.
 A completed commit plays no game on a second run. A run stopped
@@ -114,10 +113,13 @@ part-way plays the games that remain.
 The harness selects the maps, the slots, the seeds, and the opponents.
 You do not select them.
 
-- A duel: the opponent has the best information score.
-- The first FFA game spans full-pool mass (census), the second
-  refines bot-centered bins from low-sigma rulers (strata), the
-  third fills by information score.
+- A duel: the opponent has the best draw odds + 0.02 sigma over the
+  40 nearest rulers. Deterministic: no epsilon, no breadth.
+- The 10p game is a census: the candidate plus quantile-decile rulers
+  over full-pool mass, nearest snap.
+- The 6p game is a refine: the candidate plus bot-centered
+  below/peer/above rulers by mass quota from the low-sigma tertile
+  of the last 400 pool members by last log appearance.
 
 The map, the slot, and the seeds are random. This keeps the test honest.
 Do not try to control the selection.
