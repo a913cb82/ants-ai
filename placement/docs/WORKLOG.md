@@ -470,3 +470,12 @@ One entry per iteration:
 - what changed: anchor cutoff from low-sigma tertile to quartile.
 - what you learned: cost about 4.01 with seeds 0/2 regressing; tertile optimum holds under the 4.0-opener shape.
 - next: second-10p width re-sweep under 4.0 opener.
+
+## 51 — widths 4.0 2.5 2.0 mixed anchors (2026-10-03)
+- commit: 9680f44
+- score: mean 232.6733 over seeds 0-4 (199.1817, 281.9042, 358.4098, 125.5233, 198.3476)
+- champion mean: 222.4811 (0d52b79)
+- verdict: discard
+- what changed: second bulk 10p widened from 2.0 to 2.5 under the 4.0 opener.
+- what you learned: cost about 10.19 with every seed regressing; the second bulk wants 2.0 under mixed anchors too.
+- next: third-10p 1.5 under mixed anchors, then docket triage.
