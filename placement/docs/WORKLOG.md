@@ -42,3 +42,9 @@
 - Score: corr 0.9854 (-0.0017, all 5 seeds regress).
 - Verdict: DISCARD. The 3-slot form-link tax buys nothing; greedy personalization beats shared anchors.
 - Misses: 5.
+
+## Iter 7: split-vintage witnesses
+- Census + 1.25 old-half tertile + 1.875 fresh-half tertile.
+- Score: corr 0.9861 (-0.0009, only seed 3 improves).
+- Verdict: DISCARD. Era-splitting starves both games of the best rulers; recency wants all 400 together.
+- Misses: 6.
