@@ -46,3 +46,4 @@
 {"date": "2026-10-04", "commit": "iter46", "corr": 0.9929, "seeds": [0.9939, 0.9929, 0.99, 0.9938, 0.9939], "champion": "396b8f0", "note": "bold12 8p strata+6d; -0.0003; 5-ruler strata stands"}
 {"date": "2026-10-04", "commit": "iter47", "corr": 0.9898, "seeds": [0.9916, 0.9928, 0.9852, 0.9881, 0.9915], "champion": "396b8f0", "note": "bell census; -0.0034; empirical deciles win"}
 {"date": "2026-10-04", "commit": "iter48", "corr": 0.9921, "seeds": [0.994, 0.9919, 0.9874, 0.9928, 0.9942], "champion": "396b8f0", "note": "calibration opener; -0.0011; wild pool binds tails"}
+{"date": "2026-10-04", "commit": "iter49", "corr": 0.9924, "seeds": [0.9926, 0.9903, 0.9907, 0.9945, 0.9938], "champion": "396b8f0", "note": "full-pool refine; -0.0008; one-shot spent, rulers matter"}

@@ -298,3 +298,9 @@
 - Score: corr 0.9921 (-0.0011).
 - Verdict: DISCARD. The opener needs the wild pool; calibrated-only sites starve tail pins.
 - Misses: 5.
+
+## Iter 49: full-pool grid refine (one-shot retest)
+- Quantile opener + full-pool 1.0 grid refine + info tail.
+- Score: corr 0.9924 (-0.0008).
+- Verdict: DISCARD. Calibrated rulers matter in the refine under every regime; one-shot row spent.
+- Misses: 6.
