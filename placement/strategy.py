@@ -68,32 +68,30 @@ def _census(ratings: list[Rating], k: int, mode: str = "range") -> list[int]:
     return picked
 
 
-def _blend(
-    bot: Rating, ratings: list[Rating], k: int, width: float, nk: int = 7
-) -> list[int]:
-    """k quantile targets: first nk from tertile, rest from high-sigma half."""
-    dist = NormalDist(bot.mu, max(width * bot.sigma, 0.5))
-    targets = [dist.inv_cdf((j + 1) / (k + 1)) for j in range(k)]
+def _topdecile(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
+    """k rulers from top mu decile, established-first, stronger-fill."""
     tert = _established(ratings, k, 0)
-    med = sorted(r.sigma for r in ratings)[len(ratings) // 2]
-    high = [c for c in range(len(ratings)) if ratings[c].sigma >= med]
-    picked: list[int] = []
-    used: set[int] = set()
-    for pool in (tert, high):
-        take = nk if pool is tert else k - nk
-        for t in targets[len(picked) : len(picked) + take]:
-            cands = [c for c in pool if c not in used] or [
-                c for c in range(len(ratings)) if c not in used
-            ]
-            if not cands:
-                break
-            i = min(
-                cands,
-                key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c),
-            )
-            used.add(i)
-            picked.append(i)
-    return picked
+    sub = tert if len(tert) >= k else list(range(len(ratings)))
+    mus = sorted(ratings[c].mu for c in sub)
+    cut = mus[min(int(len(mus) * 0.9), len(mus) - 1)]
+    picked = [c for c in sub if ratings[c].mu >= cut]
+    picked.sort(key=lambda c: (abs(ratings[c].mu - cut), ratings[c].sigma, c))
+    used = set(picked[:k])
+    out = picked[:k]
+    if len(out) < k:
+        strong = sorted(
+            (c for c in sub if c not in used and ratings[c].mu >= bot.mu),
+            key=lambda c: (ratings[c].mu - bot.mu, ratings[c].sigma, c),
+        )
+        out += strong[: k - len(out)]
+        used.update(out)
+    if len(out) < k:
+        rest = sorted(
+            (c for c in sub if c not in used),
+            key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
+        )
+        out += rest[: k - len(out)]
+    return out[:k]
 
 
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
@@ -321,13 +319,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 8 (corr): credibility 7+2 blend closer.
+    # Bold 2 (corr): elite separator game-2.
     if budget_left > 20:
         return _census(ratings, min(9, budget_left - 1, len(ratings)))
     if budget_left > 10:
         n = min(9, budget_left - 1, len(ratings))
-        return _spread(bot, ratings, n, 1.25)
+        return _topdecile(bot, ratings, n)
     n = min(9, budget_left - 1, len(ratings))
-    if n == 9:
-        return _blend(bot, ratings, n, 1.875)
     return _spread(bot, ratings, n, 1.875)
