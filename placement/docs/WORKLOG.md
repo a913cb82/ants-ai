@@ -177,3 +177,12 @@ One entry per iteration:
 - what changed: anchor cutoff from low-sigma tertile to median.
 - what you learned: cost about 11.19 with seeds 1/2 blowing up; looser rulers poison wide fields on hard seeds, completing the MSE anchor ladder (median +11.2, quartile +3.1, tertile best).
 - next: positioning depth 6/7 duels with twin bulk kept.
+
+## 19 — 4 opening duels twin-wide closing duel (2026-10-03)
+- commit: e6f29fa
+- score: mean 339.8900 over seeds 0-4 (345.7774, 288.1528, 533.1337, 255.7368, 276.6492)
+- champion mean: 302.2418 (07e94d0)
+- verdict: discard
+- what changed: 4 opening duels and a closing duel replaced the mid bracket pair.
+- what you learned: cost about 37.6 with seed 2 catastrophic at 533; the mid bracket pair is load-bearing and extra opening depth cannot replace mid re-positioning.
+- next: World Cup pots (cross-pot FFA fields).
