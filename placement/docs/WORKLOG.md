@@ -399,3 +399,12 @@ One entry per iteration:
 - what changed: borrowed autoresearch info_score, greedy max-draw-probability fields from 40 nearest anchors, deterministic (no epsilon).
 - what you learned: cost about 1.37 with seed 1 at 19.24; evenness-maximizing clusters picks and kills threshold coverage, so forced quantile spread is the point.
 - next: deterministic breadth rotation among top-k, or accept the floor.
+
+## 44 — deterministic breadth rotation in duels (2026-10-03)
+- commit: 6d17954
+- score: mean 15.0316 over seeds 0-4 (14.0792, 16.9815, 16.4340, 12.8388, 14.8243)
+- champion mean: 14.8370 (067b331)
+- verdict: discard
+- what changed: autoresearch epsilon as deterministic rotation, duels cycling closest, 2nd, 3rd.
+- what you learned: cost about 0.19 with seeds 1/2/4 regressing; with only 5 duels every one must be on-peak, so breadth needs many more games to pay.
+- next: autoresearch transfer complete; only accept floor or find new data.

@@ -62,7 +62,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Symmetric narrow pair: 0.5-sigma then 0.5-sigma. |
 | dropped | Symmetric wide pair: 1.0-sigma then 1.0-sigma. |
 | dropped | Greedy predict_draw FFA fields (autoresearch info_score). |
-| trying | Deterministic breadth rotation in duels (closest/2nd/3rd). |
+| dropped | Deterministic breadth rotation in duels (closest/2nd/3rd). |
 | dropped | Approach 2: zooming bracket 10p/5p/5p/2p x5, spread mu+-k·sigma, low-sigma anchors. |
 | open | Approach 3: 10p/6p/2p x7, quantile spread at 1.0 sigma, large-first coarse-to-fine. |
 | done | Champion order with spread FFA opponents (quantiles of N(mu, sigma), low-sigma ties). |
