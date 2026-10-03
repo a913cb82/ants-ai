@@ -68,20 +68,27 @@ def _census(ratings: list[Rating], k: int, mode: str = "range") -> list[int]:
     return picked
 
 
-def _comps(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
-    """k nearest-mu rulers in the recency tertile (comp picks)."""
+def _bf(bot: Rating, ratings: list[Rating], k: int, width: float) -> list[int]:
+    """Split-center refine: prior half from census centroid, rest live mu."""
+    g1 = _census(ratings, min(9, len(ratings)))
+    prior = sum(ratings[i].mu for i in g1) / max(len(g1), 1)
+    sig = max(width * bot.sigma, 0.5)
+    half = (k + 1) // 2
+    tg = [NormalDist(prior, sig).inv_cdf((j + 1) / (k + 1)) for j in range(half)]
+    tg += [NormalDist(bot.mu, sig).inv_cdf((j + 1) / (k + 1)) for j in range(half, k)]
     pool = _established(ratings, k, 0)
-    order = sorted(
-        pool, key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c)
-    )
-    out = order[:k]
-    if len(out) < k:
-        rest = sorted(
-            (c for c in range(len(ratings)) if c not in set(out)),
-            key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
-        )
-        out += rest[: k - len(out)]
-    return out
+    picked: list[int] = []
+    used: set[int] = set()
+    for t in tg:
+        cands = [c for c in pool if c not in used] or [
+            c for c in range(len(ratings)) if c not in used
+        ]
+        if not cands:
+            break
+        i = min(cands, key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c))
+        used.add(i)
+        picked.append(i)
+    return picked
 
 
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
@@ -309,10 +316,10 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 27 (corr): comp-pick refine under duel tail.
+    # Iter 28 (corr): BF prior-weighted refine under duel tail.
     if budget_left > 20:
         return _census(ratings, min(9, budget_left - 1, len(ratings)))
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
-        return _comps(bot, ratings, n)
+        return _bf(bot, ratings, n, 1.0)
     return [_closest(bot, ratings)]
