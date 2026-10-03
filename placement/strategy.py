@@ -20,10 +20,9 @@ def _established(ratings: list[Rating], k: int) -> list[int]:
 
 
 def _census(ratings: list[Rating], k: int) -> list[int]:
-    """Nearest ruler to each site spanning pool p5-p95."""
-    mus = sorted(r.mu for r in ratings)
-    lo = mus[len(mus) // 20]
-    hi = mus[len(mus) - 1 - len(mus) // 20]
+    """Nearest ruler to each site spanning the pool range."""
+    lo = min(r.mu for r in ratings)
+    hi = max(r.mu for r in ratings)
     if hi - lo < 1e-9:
         return list(range(min(k, len(ratings))))
     sites = [lo + (hi - lo) * (j + 1) / (k + 1) for j in range(k)]
@@ -80,7 +79,7 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Exp (iter 128, MSE): trimmed census p5-p95 (tuning 126c).
+    # Champion (iter 127, MSE): pool-range census opener, 1.25/1.875 rest.
     if budget_left > 20:
         return _census(ratings, min(9, budget_left - 1, len(ratings)))
     if budget_left > 10:

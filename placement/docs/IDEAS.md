@@ -168,7 +168,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Jittered-grid diagnostic per-bot phase (bayes/epi). |
 | dropped | Fixed absolute-site opener tracts (epi D3; repaired by pool-range). |
 | done | Pool-range census sites (tuning 126b; champion). |
-| trying | Trimmed census p5-p95 (tuning 126c). |
+| dropped | Trimmed census p5-p95 (tuning 126c; fresh vetoes). |
 | open | Chase-combining repeat-wide 4.0/4.0/1.5 (info; diversity-combine before zoom). |
 | open | Double-tap opener 4.0/4.0/1.25 (adversary; second wide after recentering, full-pool G2 untested at 4.0). |
 | open | Split-middle 10+5+5+10 valley halves (info/poker; mid-schedule re-aim, halves sandwiched not late). |
