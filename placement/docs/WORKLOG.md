@@ -196,3 +196,9 @@
 - Score: corr 0.9896 (-0.0009).
 - Verdict: DISCARD. The 0.02 sigma weight carries signal; pure closeness under-targets uncertainty in tails.
 - Misses: 1.
+
+## Iter 32: sigma weight 0.05 in tail
+- Champion shape with 0.05 uncertainty weight in tail targeting.
+- Score: corr 0.9903, tie (-0.0001).
+- Verdict: DISCARD (tie keeps incumbent). Weight 0.02 stands; 0 loses (iter 31), 0.05 ties.
+- Misses: 2.
