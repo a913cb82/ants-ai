@@ -99,3 +99,4 @@
 {"date": "2026-10-04", "commit": "iter104", "corr": 0.9933, "seeds": [0.9941, 0.9932, 0.9899, 0.9942, 0.9951], "champion": "396b8f0", "note": "camp A4 front-3 width-60 ties +0.0001; breadth carries nothing"}
 {"date": "2026-10-04", "commit": "iter105", "corr": 0.9931, "seeds": [0.9935, 0.9932, 0.9895, 0.9943, 0.9951], "champion": "396b8f0", "note": "camp A5 front-3+alternating-back ties -0.0001; TRACK A CLOSED, best A1 vetoed"}
 {"date": "2026-10-04", "commit": "iter106", "corr": 0.9934, "seeds": [0.9942, 0.9931, 0.9895, 0.9949, 0.9951], "champion": "396b8f0", "note": "camp B1 4-bin retest reproduces iter64 (+0.0002, 4/5)"}
+{"date": "2026-10-04", "commit": "iter107", "corr": 0.993, "seeds": [0.9938, 0.9925, 0.9897, 0.9943, 0.9949], "champion": "396b8f0", "note": "camp B2 5-bin -0.0001; bin count peaks at 4"}

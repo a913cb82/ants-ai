@@ -641,3 +641,8 @@
 - Peer bin split at bot.mu (below-peer/above-peer), mass quota over 4 bins.
 - Score: corr 0.9934 (+0.0002, 4/5 seeds, same pattern as iter64).
 - Verdict: retest CONFIRMS the thin lead. Tune bin count next (B2: 5-bin).
+
+## Iter 107 (camp B2): 5-bin peer-tertile strata
+- Peer bin split into mu-tertiles (5 bins total), mass quota.
+- Score: corr 0.9930 (-0.0001).
+- Verdict: DISCARD vs B1; bin-count ladder 3/4/5 = +0.0000/+0.0002/-0.0001, peaks at 4. Next: off-center peer split (B3).
