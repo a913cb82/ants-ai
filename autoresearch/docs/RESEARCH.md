@@ -35,7 +35,10 @@ Use this format.
 - claim: the 3x10p census-tertile exam with mu scoring ranks bots
   truer than the duel+FFA info-score exam with lb scoring.
 - evidence: corr(recorded score, true skill) is 0.964 new vs 0.962
-  old across 6 seeds; new wins 5 of 6 (loses seed 3 only). Both
-  budgets are 30 slots, so density is priced, not gifted.
+  old across 6 seeds; new wins 5 of 6 (loses seed 3 only). Full 2x2:
+  corr(mu) is 0.9654 new vs 0.9655 old (exam tie), corr(lb) is
+  0.9632 new vs 0.9619 old. The score change (mu over lb) helps
+  both exams; the exam change adds a little more. Both budgets are
+  30 slots, so density is priced, not gifted.
 - idea: shipped as the harness. Old-budget rows stay filed under
   their tag and no longer count for champion.
