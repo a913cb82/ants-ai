@@ -55,3 +55,9 @@
 - Held-out 5-9: iter8 0.98844 vs baseline 0.98868 (-0.0002). Pooled-10 +0.0003 but fresh disagrees.
 - Verdict: DISCARD per overturn rule. No dose escalation (fresh half must improve; it did not).
 - Misses: 7.
+
+## Iter 9 (bold 2): elite separator game-2
+- Census + top-decile 9-ruler game + 1.875 closer.
+- Score: corr 0.9784 (-0.0086, every seed regressed, seed 2 -0.0167).
+- Verdict: DISCARD. Bold 2 judged: refuted with the classic one-sided signature. Separator family closed including weak S2 (no run).
+- Misses: 8.
