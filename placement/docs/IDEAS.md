@@ -79,6 +79,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Game-3 at 1.8125: bisect 1.75 and 1.875. |
 | dropped | Flat wide rest 1.875/1.875 (bold 16). |
 | dropped | Game-2 at 1.5 under the 1.875 closer: last interaction cell. |
+| trying | Opener 3.9375: bisect 3.875 and 4.0. |
 | dropped | Quartile anchors retest (cleaner thresholds for hard seeds). |
 | dropped | 3p opening: 2x3p closest-pair instead of 3x2p (same 6 slots). |
 | dropped | 4p mid game: bot plus above, below, closest replaces bracket pair. |
@@ -245,6 +246,8 @@ flat wide rest. Both rest games at 1.875: the rest may do one job
 overfit. Completes the shape matrix with flat-narrow and zoom.
 Predicts one rest width suffices, or the valley dip is load-bearing.
 Judge after iteration 94.
+Judged: refuted at iteration 92 (224.1766, only seed 2 improved);
+the valley dip is load-bearing.
 
 Two misses in a row (iters 81-82) force bold line 14 (2026-10-03):
 tertile opener under the confirmed shape. The anchor factorial
