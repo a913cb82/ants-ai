@@ -67,7 +67,7 @@ pollster, MAT matchmaker, ARC archivist-3.
 | open | Bracket-duel opener (duel-led; expect kill after iters 2/10/11, lowest priority). |
 | open | Interleaved bulk: 3 duels, wide 10p, 2 duels, narrow 10p (mid-schedule duels, NOT openers; expect kill). |
 | open | Approach 2 revival: zooming bracket 10p/5p/5p/duels at 1.6/1.0/1.0, tertile anchors (ARC R1). |
-| open | Approach 3 revival (duel-tail; competent opener, duel book half-closed). |
+| done | Approach 3 revival (iter 17 CHAMPION as census+6p+7-duel hybrid). |
 | open | Shrinking-zoom revival (duel-led; expect kill, lowest priority). |
 | dropped | D-screen opener (iters 2/10/11: duel openers dead; Fisher-per-slot priced). |
 | dropped | Info-score duel opener (iter 10 full-port: 0.9617; targeting flavor irrelevant). |
@@ -103,6 +103,5 @@ the one-shot row above).
 
 ## Bold lines
 
-Two misses in a row force a bold idea from research. Record the line
-3 iterations before judgement, judge on selection + held-out + fresh
-agreement. Misses: 1 (iter 2). First bold due after one more miss.
+Two misses in a row force a bold idea. Bold 5 (iter 17) confirmed as
+champion. Misses reset: 0.

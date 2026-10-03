@@ -105,3 +105,9 @@
 - Held-out 5-9: 0.98842 vs 0.98868 (-0.0003). Pooled-10 loses by 0.00004.
 - Verdict: DISCARD. Near-neighbor noise; game-2 1.25 wall stands.
 - Misses: 15.
+
+## Iter 17 (bold 5): census + 6p refine + 7-duel tail — CHAMPION
+- Census opener + 6p (5 rulers) at 1.0 tertile + 7 closest-mu duels.
+- Selection: corr 0.9901 (+0.0031, 4/5 improve). Held-out 5-9: 0.9905 (+0.0018). Fresh 10-14: 0.9915. Pooled-15: 0.9907.
+- Verdict: ADOPT. Duel tails rank after positioning; duel openers stay dead. The 6p refine + terminal matched duels collapse sigma where corr lives.
+- Bold 5 judged: confirmed. Misses reset to 0.
