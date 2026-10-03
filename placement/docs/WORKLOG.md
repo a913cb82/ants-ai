@@ -202,3 +202,9 @@
 - Score: corr 0.9903, tie (-0.0001).
 - Verdict: DISCARD (tie keeps incumbent). Weight 0.02 stands; 0 loses (iter 31), 0.05 ties.
 - Misses: 2.
+
+## Iter 33: tail prefilter 80
+- Champion shape with info-duel candidate set 80 instead of 40.
+- Score: corr 0.9904, exact tie to 5 decimals.
+- Verdict: DISCARD. Prefilter breadth carries nothing; the argmax rarely lives past 40.
+- Misses: 3.
