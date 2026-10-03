@@ -736,3 +736,7 @@
 - Mass-quota bins, within-bin sequential info-argmax.
 - Score: corr 0.9931 (-0.0001, tie).
 - Verdict: retest CONFIRMS the tie. Next: grid-inside-strata at width 1.5 (F2).
+
+## Iter 127 (camp F2): grid-inside-strata at width 1.5
+- Score: corr 0.9932 (+0.0000, exact tie).
+- Verdict: grid width free like grid presence. Next: pure comp-pick, no bins (F3).
