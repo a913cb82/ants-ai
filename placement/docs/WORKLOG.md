@@ -208,3 +208,9 @@
 - Score: corr 0.9904, exact tie to 5 decimals.
 - Verdict: DISCARD. Prefilter breadth carries nothing; the argmax rarely lives past 40.
 - Misses: 3.
+
+## Iter 34: quantile-census opener — CHAMPION
+- Pool-mu-decile opener (mass not range) + 6p at 1.0 tertile + 7 info tail duels.
+- Selection: corr 0.9930 (+0.0026, all 5 improve). Held-out 5-9: 0.9932 (+0.0022). Fresh 10-14: 0.9935. Pooled-15: 0.9932.
+- Verdict: ADOPT. Mass-weighted skeleton beats range skeleton under a duel tail: pins where bots live position better for positioned finishers.
+- Misses reset to 0.
