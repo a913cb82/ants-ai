@@ -24,3 +24,9 @@
 - Verdict: DISCARD per overturn rule (pooled+fresh disagree). Main-branch seed rule does not transfer.
 - Seeds 5-9 baselines recorded: 0.9898, 0.9843, 0.9908, 0.9885, 0.9900.
 - Misses: 2. BOLD LINE 1 due.
+
+## Iter 4 (bold 1): drunk-witness high-sigma-tertile closer
+- Census + 1.25 tertile + 1.875 high-sigma-tertile G3.
+- Score: corr 0.9870 (0.9864, 0.9845, 0.9829, 0.9914, 0.9897). Baseline 0.9870.
+- Verdict: DISCARD. Dead tie on mean with seed variance up = the predicted pure-noise signature. Full high-sigma-anchor axis closed; 7+2 dose row stays open (smaller claim).
+- Bold 1 judged: refuted. Misses: 3.
