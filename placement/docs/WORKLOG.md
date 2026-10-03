@@ -653,3 +653,13 @@ One entry per iteration:
 - what changed: second bulk 10p narrowed from 1.5 to 1.0 sigma.
 - what you learned: won selection by 2.30 but lost held-out by 2.42 with only seed 9 improving; the narrow trend stops at 1.5 and game-2 optimum is interior.
 - next: judge bold 11; opener width re-check under 4.0/1.5/2.0.
+
+## 70 — opener 4.5 under 1.5-second shape (2026-10-03)
+- commit: 61a6987
+- score: selection mean 220.1327 over seeds 0-4 (189.1712, 255.1674, 352.3404, 119.6997, 184.2850)
+- champion selection mean: 221.8680 (43b260f)
+- confirmation: 209.6885 over seeds 5-9 (163.9240, 246.3285, 235.1652, 218.4663, 184.5584) vs champion held-out 202.0228
+- verdict: discard
+- what changed: unfiltered opener widened from 4.0 to 4.5 sigma under the 1.5-second shape.
+- what you learned: won selection by 1.74 but lost held-out by 7.67 with only seed 7 improving; opener optimum stays 4.0 and dimensions stay near-orthogonal. Bold 11 judged refuted (iter 68).
+- next: game-2 anchor re-check (quartile) under the confirmed shape.
