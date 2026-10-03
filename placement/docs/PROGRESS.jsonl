@@ -10,3 +10,4 @@
 {"date": "2026-10-04", "commit": "iter10", "corr": 0.9617, "seeds": [0.9601, 0.9591, 0.9589, 0.9667, 0.9637], "champion": null, "note": "full old-exam port 5 info duels+4/6/10; -0.025 every seed; league strength is longitudinal, not the shape"}
 {"date": "2026-10-04", "commit": "iter11", "corr": 0.9644, "seeds": [0.9653, 0.9598, 0.9608, 0.9765, 0.9596], "champion": null, "note": "bold3 MAE verbatim 5 closest duels+1.0/0.5; -0.0226; duel openers dead all flavors"}
 {"date": "2026-10-04", "commit": "iter12", "corr": 0.987, "seeds": [0.9877, 0.9857, 0.9842, 0.9879, 0.9896], "champion": null, "note": "alibi pin; sel exact tie, fresh 5-9 loses -0.0006; discard, one-pin axis closed"}
+{"date": "2026-10-04", "commit": "iter13", "corr": 0.9855, "seeds": [0.9882, 0.9848, 0.9773, 0.9885, 0.9889], "champion": null, "note": "bad-cop/good-cop flat 1.5; -0.0015 seed2 -0.008; discard"}

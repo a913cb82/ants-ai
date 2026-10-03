@@ -80,3 +80,9 @@
 - Held-out 5-9: 0.98804 vs 0.98868 (-0.0006). Pooled-10 loses.
 - Verdict: DISCARD. The pin is pure noise; one-pin axis closed.
 - Misses: 11.
+
+## Iter 13: bad-cop/good-cop anchors at flat 1.5
+- Census + full-pool 1.5 + tertile 1.5.
+- Score: corr 0.9855 (-0.0015, seed 2 -0.0084).
+- Verdict: DISCARD. Anchor order carries no signal; full-pool mid-game poisons hard seeds.
+- Misses: 12.
