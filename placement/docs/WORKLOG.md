@@ -304,3 +304,10 @@
 - Score: corr 0.9924 (-0.0008).
 - Verdict: DISCARD. Calibrated rulers matter in the refine under every regime; one-shot row spent.
 - Misses: 6.
+
+## Iter 50: range census + strata + info (control, halfway)
+- Range-skeleton opener + strata refine + info tail.
+- Score: corr 0.9924 (-0.0008).
+- Verdict: DISCARD. Quantile opener stands with the new rest; mass beats range in both regimes.
+- Halfway: 50/100. Champion iter 43 (pooled-15 0.9937).
+- Misses: 7.
