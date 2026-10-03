@@ -18,18 +18,17 @@ class Rating:
     sigma: float
 
 
-def _info_duel(bot: Rating, ratings: list[Rating], side: int = 0) -> list[int]:
+def _info_duel(bot: Rating, ratings: list[Rating]) -> list[int]:
     """Tail duel: argmax predict_draw + 0.02 sigma over 40 nearest."""
     order = sorted(
         range(len(ratings)),
         key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
     )[:40]
-    gated = [c for c in order if (ratings[c].mu - bot.mu) * side > 0] or order
-    if not gated:
+    if not order:
         return []
-    best = gated[0]
+    best = order[0]
     best_v = None
-    for c in gated:
+    for c in order:
         teams = [[_MODEL.rating(mu=bot.mu, sigma=bot.sigma)]]
         sig = bot.sigma
         for i in (c,):
@@ -92,6 +91,38 @@ def _census(ratings: list[Rating], k: int, mode: str = "range") -> list[int]:
         i = min(
             (c for c in range(len(ratings)) if c not in used),
             key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c),
+        )
+        used.add(i)
+        picked.append(i)
+    return picked
+
+
+def _drawsnap(ratings: list[Rating], k: int) -> list[int]:
+    """Decile sites; per site argmax draw over 5 nearest vs prior bot."""
+    pool = sorted(r.mu for r in ratings)
+    n = len(pool)
+    sites = [pool[min(int(n * (j + 1) / (k + 1)), n - 1)] for j in range(k)]
+    prior = _MODEL.rating(mu=25.0, sigma=8.33)
+    picked: list[int] = []
+    used: set[int] = set()
+    for t in sites:
+        near = sorted(
+            (c for c in range(len(ratings)) if c not in used),
+            key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c),
+        )[:5]
+        if not near:
+            break
+        i = max(
+            near,
+            key=lambda c: (
+                _MODEL.predict_draw(
+                    [
+                        [prior],
+                        [_MODEL.rating(mu=ratings[c].mu, sigma=ratings[c].sigma)],
+                    ]
+                ),
+                c,
+            ),
         )
         used.add(i)
         picked.append(i)
@@ -355,13 +386,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 83 (corr): strata-gated tail.
+    # Iter 84 (corr): draw-snapped deciles opener.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
-        return _census(ratings, n, mode="quantile")
+        return _drawsnap(ratings, n)
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
         return _strata(bot, ratings, n)
-    d = (14 - budget_left) // 2
-    gate = [0, -1, 1, 0, -1, 1, 0][d] if 0 <= d < 7 else 0
-    return _info_duel(bot, ratings, gate)
+    return _info_duel(bot, ratings)
