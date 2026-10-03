@@ -90,6 +90,7 @@ def _spread(
     crew: int = -1,
     moveout: bool = False,
     checksum: bool = False,
+    rewarp: bool = False,
 ) -> list[int]:
     """k distinct opponents nearest quantiles of N(mu, w*sigma)."""
     center = bot.mu
@@ -102,7 +103,14 @@ def _spread(
         center = mus[len(mus) // 2]
     dist = NormalDist(center, max(width * bot.sigma, 0.5))
     disjoint: set[int] = set()
-    if checksum:
+    if rewarp:
+        w = 1.5
+        s = math.sinh(w)
+        targets = [
+            dist.inv_cdf(0.5 + math.sinh(w * (2 * (j + 1) / (k + 1) - 1)) / (2 * s))
+            for j in range(k)
+        ]
+    elif checksum:
         g2 = _spread(bot, ratings, k, 1.25)
         disjoint = set(g2)
         mid_q = (k // 2 + 1) / (k + 1)
@@ -285,25 +293,10 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
             False,
             False,
             False,
-            0,
+            -1,
+            False,
+            False,
+            True,
         )
     n = min(9, budget_left - 1, len(ratings))
-    return _spread(
-        bot,
-        ratings,
-        n,
-        1.875,
-        True,
-        False,
-        False,
-        False,
-        False,
-        False,
-        False,
-        False,
-        False,
-        False,
-        -1,
-        False,
-        True,
-    )
+    return _spread(bot, ratings, n, 1.875)
