@@ -210,3 +210,12 @@ One entry per iteration:
 - what changed: FFA anchor pool tightened from the low-sigma half to the low-sigma tertile.
 - what you learned: cleaner thresholds gained about 0.69 mean error with seed 2 collapsing from 19.26 to 16.49; hard seeds were poisoned by mid-sigma opponents.
 - next: even stricter anchors (quartile), and judge bold 2 after iter 23.
+
+## 23 — quartile anchors (2026-10-03)
+- commit: dabab04
+- score: mean 15.2101 over seeds 0-4 (14.2127, 16.8737, 17.2649, 13.3459, 14.3532)
+- champion mean: 15.1426 (d792747)
+- verdict: discard
+- what changed: FFA anchor pool tightened from the low-sigma tertile to the quartile.
+- what you learned: quartile cost about 0.07 with seed 2 regressing to 17.26; the tertile balances threshold cleanliness against pool breadth.
+- next: duel-count re-check at tertile anchors (4 or 6 duels), or 8p late bulk.
