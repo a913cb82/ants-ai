@@ -1622,3 +1622,12 @@ One entry per iteration:
 - what changed: game-2 matched 5 inner targets at 1.25 sigma and 4 extreme targets at 2.5 sigma.
 - what you learned: cost about 23.12 with zero of five improving; the halo widens too early under census too.
 - next: judge bold 29 after 171; quintile-0.875 combo under census (last open row).
+
+## 171 — quintile-0.875 census (2026-10-03)
+- commit: cdac921
+- score: mean 204.8743 over seeds 0-4 (154.1628, 217.9350, 360.6005, 123.3677, 168.3056)
+- champion mean: 197.7410 selection, 187.4788 pooled (5faf0b0)
+- verdict: discard
+- what changed: game-2 drew quintile rulers at 0.875 sigma, closer narrowed to 1.0.
+- what you learned: cost about 7.13 with three of five improving but seed 2 annihilated plus 41; strictest rulers under-reach on hard seeds. Bold 29 judged refuted (iter 168). Backlog zero open rows.
+- next: fresh brainstorm needed; declare convergence if nothing new.

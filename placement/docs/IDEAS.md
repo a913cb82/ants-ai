@@ -212,7 +212,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Chase-combining under census (bold 29). |
 | dropped | Double-tap under census (census/4.0/1.25). |
 | dropped | Halo game-2 under census (5x1.25 plus 4x2.5). |
-| trying | Quintile-0.875 plus 1.0 under census. |
+| dropped | Quintile-0.875 plus 1.0 under census. |
 | dropped | Chase-combining repeat-wide 4.0/4.0/1.5 (info; diversity-combine before zoom). [tested iters 108/168]. |
 | dropped | Double-tap opener 4.0/4.0/1.25 (adversary; tested iters 109/169). |
 | dropped | Split-middle 10+5+5+10 valley halves (info/poker; mid-schedule re-aim, halves sandwiched not late). [tested iters 114/154]. |
@@ -226,7 +226,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Mu-gated closer 2.5/1.5 on |mu-25|>25 (poker; two-sided hero-state routing). [tested iter 119; routing dead]. |
 | dropped | Undercut 0.75/2.75 rest (race; exaggerated valley at unpriced widths). [tested iters 120/160]. |
 | dropped | Overcut 3.0/1.0 rest (race; inverted valley at unpriced widths). [tested iters 121/161]. |
-| open | Quintile game-2 0.875 + 1.0 closer (race; strictest rulers, below-ladder widths). |
+| dropped | Quintile game-2 0.875 + 1.0 closer (race; tested iters 122/171). |
 | dropped | Fixed absolute-site opener tracts (epi; expected kill, census not case-centered). [tested iter 126; superseded by census]. |
 | dropped | Recency-filtered tertile refine last-400 (epi; superseded by champion row). |
 | dropped | Edge-dense closer grid 0.05..0.95 (adversary; doubled edge pins, core untouched). [tested iters 123/166]. |
