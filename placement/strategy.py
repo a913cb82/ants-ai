@@ -40,31 +40,6 @@ def _census(ratings: list[Rating], k: int) -> list[int]:
     return picked
 
 
-def _blend(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
-    """Census sites plus case-centered pulls, distinct."""
-    lo = min(r.mu for r in ratings)
-    hi = max(r.mu for r in ratings)
-    n_site = (k + 1) // 2
-    if hi - lo < 1e-9:
-        sites: list[float] = []
-    else:
-        sites = [lo + (hi - lo) * (j + 1) / (n_site + 1) for j in range(n_site)]
-    dist = NormalDist(bot.mu, max(4.0 * bot.sigma, 0.5))
-    targets = sites + [
-        dist.inv_cdf((j + 1) / (k - n_site + 1)) for j in range(k - n_site)
-    ]
-    picked: list[int] = []
-    used: set[int] = set()
-    for t in targets:
-        i = min(
-            (c for c in range(len(ratings)) if c not in used),
-            key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c),
-        )
-        used.add(i)
-        picked.append(i)
-    return picked
-
-
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
     """Pool index nearest bot.mu, low sigma then low index on ties."""
     return min(
@@ -106,9 +81,9 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Exp (iter 146, MSE): blend opener (tuning 126h).
+    # Champion (iter 133, MSE): census opener, recent-tertile 1.25/1.875.
     if budget_left > 20:
-        return _blend(bot, ratings, min(9, budget_left - 1, len(ratings)))
+        return _census(ratings, min(9, budget_left - 1, len(ratings)))
     if budget_left > 10:
         return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.25)
     return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.875)

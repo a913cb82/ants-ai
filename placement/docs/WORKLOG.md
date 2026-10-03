@@ -1392,3 +1392,12 @@ One entry per iteration:
 - what changed: game-3 played pool-range census instead of 1.875 spread.
 - what you learned: cost about 25.72 with zero of five improving; the closer must personalize and a skeleton close wastes the refine. Bold 24 judged refuted (iter 142).
 - next: census-plus-personal blend opener (tuning 126h); then misses force bold 25.
+
+## 146 — blend opener 126h (2026-10-03)
+- commit: 1c03fb8
+- score: mean 270.7089 over seeds 0-4 (291.9749, 204.7498, 535.0515, 151.7841, 169.9844)
+- champion mean: 197.7410 selection, 187.4788 pooled (5faf0b0)
+- verdict: discard
+- what changed: game-1 mixed 5 census sites with 4 case-centered 4.0 pulls.
+- what you learned: cost about 73 with seed 2 annihilated plus 215; personal pulls re-poison the skeleton and pure census stands.
+- next: misses force bold 25; senior-tertile under census (retest).
