@@ -1631,3 +1631,9 @@ One entry per iteration:
 - what changed: game-2 drew quintile rulers at 0.875 sigma, closer narrowed to 1.0.
 - what you learned: cost about 7.13 with three of five improving but seed 2 annihilated plus 41; strictest rulers under-reach on hard seeds. Bold 29 judged refuted (iter 168). Backlog zero open rows.
 - next: fresh brainstorm needed; declare convergence if nothing new.
+
+## Iter 172: equal-area census (carto S1)
+- Score: sel 209.9581 (174.90, 232.37, 347.24, 110.75, 184.54) vs champ 197.7410 (+12.22). Only seed 3 improves.
+- Verdict: DISCARD. Uniform-of-range spacing stands; pool-mass spacing wastes looks in clumps.
+- Learned: opener geometry settled further; try sinh-warp next (keeps uniform base, smooth tail emphasis).
+- Next: iter 173 sinh-warped census.
