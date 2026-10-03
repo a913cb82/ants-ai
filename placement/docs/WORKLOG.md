@@ -1318,3 +1318,14 @@ One entry per iteration:
 - what changed: four slimmer games (7+7+7+5 opponents) at champion widths.
 - what you learned: cost about 70.57 with every seed regressing; per-game pull density wins and rhythm loses.
 - next: judge bold 23 after 140; closer re-resolution under census (tuning 133e).
+
+## 138 — closer 1.75 census (2026-10-03)
+- commit: ad0069d
+- score: selection mean 196.9624 (154.1240, 226.9506, 315.6396, 119.6134, 168.4844)
+- champion selection mean: 197.7410 (5faf0b0)
+- confirmation: 176.9551 over seeds 5-9 (140.6488, 192.9347, 223.8837, 176.4434, 150.8650) vs champion held-out 177.2165
+- fresh audit: 160.3749 over seeds 10-14 (91.5043, 160.5469, 124.5884, 156.1891, 269.0459) vs champion fresh 158.5081
+- verdict: discard
+- what changed: closer narrowed from 1.875 to 1.75 under the census opener.
+- what you learned: selection and held-out both favored 1.75 thinly but fresh lost 1.87 with one of five; pooled-15 loses 0.28. Fresh vetoes per the overturn rule; 1.875 stands under census too.
+- next: judge bold 23 after 140; NYSE-close 2.25 tertile.
