@@ -1093,3 +1093,12 @@ One entry per iteration:
 - what changed: closer matched 5 inner targets at 1.25 sigma and 4 extreme targets at 2.5 sigma.
 - what you learned: thin selection margin triggered held-out, which lost by 2.92 (only seed 8 improved); pooled loses too. Mixtures dilute both regimes instead of averaging them.
 - next: split-middle 10+5+5+10 valley halves (info/poker consensus).
+
+## 114 — split-middle 10 5 5 10 (2026-10-03)
+- commit: ad2e702
+- score: mean 289.0826 over seeds 0-4 (270.3518, 345.4033, 398.0208, 177.0332, 254.6039)
+- champion mean: 216.0193 selection, 205.7881 pooled (fde75b9)
+- verdict: discard
+- what changed: game-2 split into two 4-opponent halves at 1.25 sigma.
+- what you learned: cost about 73.06 with every seed crushed; halves starve the mid re-aim and 9-pull density is load-bearing.
+- next: ratio upshift 1.5/2.25 rest (info P4).
