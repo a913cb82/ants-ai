@@ -515,3 +515,9 @@
 - Score: corr 0.9929 (-0.0002).
 - Verdict: DISCARD. Draw-odds snap loses where sigma-snap tied; nearest-mu stands as the cheapest correct snap. Snap family closed for good.
 - Misses: 41.
+
+## Iter 85: grid-inside-strata refine (blacksmith F4)
+- Mass quota bins with Gaussian-grid within-bin picks + champion rest.
+- Score: corr 0.9931 (-0.0001, tie).
+- Verdict: DISCARD (tie keeps incumbent). Within-bin spread adds nothing over nearest-mu; quota alone does the work. Fold family fully priced: F1/F3/F4 tie, F2 loses.
+- Misses: 42.
