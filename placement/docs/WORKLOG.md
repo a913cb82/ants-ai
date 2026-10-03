@@ -656,3 +656,8 @@
 - Center-split peer + outer edges at +-0.5 sigma.
 - Score: corr 0.9932 (+0.0000, tie; seed-2 +0.0009 spike, regress elsewhere).
 - Verdict: narrow edges do not stack with 4-bin. Next: B5 4-bin + sqrt quota.
+
+## Iter 110 (camp B5): 4-bin sqrt-quota strata
+- Center-split peer + quota by sqrt bin mass.
+- Score: corr 0.9933 (+0.0001, tie; seed-2 +0.0010 spike again, seeds 0/1 regress).
+- Verdict: TRACK B CLOSED. Five legs: +0.0002/-0.0001/-0.0001/+0.0000/+0.0001. 4-bin leans positive but always narrow or seed-2-driven; its best leg already failed held at iter64. Bin count stays 3.
