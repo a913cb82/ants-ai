@@ -634,3 +634,12 @@ One entry per iteration:
 - what changed: third bulk 10p narrowed from 2.0 to 1.5 sigma.
 - what you learned: won selection by 3.58 but lost held-out by 2.57 with only seed 8 improving; selection wins keep fitting selection-set quirks. Game-3 wants 2.0.
 - next: opener anchor re-check under 4.0/1.5/2.0, then an outside-schedule hunt.
+
+## 68 — young-pool full game-2 bold 11 (2026-10-03)
+- commit: 118929d
+- score: mean 225.9936 over seeds 0-4 (172.4220, 265.5133, 414.2154, 102.1492, 175.6683)
+- champion mean: 221.8680 selection, 211.9454 pooled (43b260f)
+- verdict: discard
+- what changed: game-2 drew full-pool when the pool was under 300, tertile otherwise.
+- what you learned: cost about 4.13 with seed 2 destabilized plus 53; pool age does not matter, young full-pool adds noise. Also caught an inverted anchors flag before scoring.
+- next: game-2 at 1.0 (narrow-side gradient step).
