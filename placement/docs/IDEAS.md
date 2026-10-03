@@ -3,6 +3,12 @@
 Doctrine: estimate first, refine later. Size trades update count
 against looks per update. Early slots cut `sigma`. Late slots fix bias.
 
+Two dimensions, varied one at a time. Dimension 1 is opponent
+selection (closest, spread, anchors, widths). Dimension 2 is the
+match-size schedule. The champion locks dimension 1 (closest duels,
+tertile-anchored quantile spread, positional 1.0/0.5 widths) while
+dimension-2 sweeps run.
+
 ## Backlog
 
 Status is `open`, `trying`, `done`, `dropped`, or `parked`.
@@ -30,6 +36,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Refine width 0.3 sigma (1.0 then 0.3). |
 | dropped | Bound width 1.5 sigma (1.5 then 0.5). |
 | dropped | 3 duels plus 4p bridge plus two 10ps (2p,2p,2p,4p,10p,10p). |
+| trying | Dim-2 sweep B: 6 duels plus 8p plus 10p (fixed opponent rules). |
 | open | Approach 2: zooming bracket 10p/5p/5p/2p x5, spread mu+-k·sigma, low-sigma anchors. |
 | open | Approach 3: 10p/6p/2p x7, quantile spread at 1.0 sigma, large-first coarse-to-fine. |
 | done | Champion order with spread FFA opponents (quantiles of N(mu, sigma), low-sigma ties). |
