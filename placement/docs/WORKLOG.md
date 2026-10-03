@@ -802,3 +802,8 @@
 - Arrivals >=800 (even) get range census + full-pool 1.5 refine.
 - Score: corr 0.9932 (+0.0000, tie).
 - Verdict: TRACK H CLOSED. Five legs: +0.0000/-0.0018/+0.0001/+0.0001/+0.0000. Arrival-indexed schedules never beat the uniform shape; FFA-heavy early decisively dead (-0.0018). Champion is regime-robust young and old.
+
+## Iter 141 (camp I1): terminal bounty duel retest
+- Duel 7 = max-sigma peer-banded last-400 ruler.
+- Score: corr 0.9932 (+0.0000, exact tie).
+- Verdict: retest CONFIRMS pool-rent invisibility. Next: wider bounty band (I2).
