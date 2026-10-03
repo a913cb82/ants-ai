@@ -89,6 +89,7 @@ def _spread(
     homeaway: bool = False,
     crew: int = -1,
     moveout: bool = False,
+    checksum: bool = False,
 ) -> list[int]:
     """k distinct opponents nearest quantiles of N(mu, w*sigma)."""
     center = bot.mu
@@ -100,7 +101,18 @@ def _spread(
         mus = sorted(ratings[i].mu for i in landing)
         center = mus[len(mus) // 2]
     dist = NormalDist(center, max(width * bot.sigma, 0.5))
-    if derby:
+    disjoint: set[int] = set()
+    if checksum:
+        g2 = _spread(bot, ratings, k, 1.25)
+        disjoint = set(g2)
+        mid_q = (k // 2 + 1) / (k + 1)
+        targets = [
+            dist.inv_cdf((j + 1) / (k + 1))
+            for j in range(k)
+            if (j + 1) / (k + 1) != mid_q
+        ]
+        targets.append(dist.inv_cdf(0.5))
+    elif derby:
         lo = min(r.mu for r in ratings)
         hi = max(r.mu for r in ratings)
         sites = [lo + (hi - lo) * f for f in (0.25, 0.50, 0.75)]
@@ -218,10 +230,14 @@ def _spread(
         ref = [ratings[i].mu for i in _spread(bot, ratings, k, 1.25)]
     picked: list[int] = []
     used: set[int] = set()
-    for t in targets:
+    for n_t, t in enumerate(targets):
+        ban = disjoint if checksum and n_t == len(targets) - 1 else set()
+        live = [c for c in pool if c not in used and c not in ban] or [
+            c for c in pool if c not in used
+        ]
         if antipodal and ref:
             i = min(
-                (c for c in pool if c not in used),
+                live,
                 key=lambda c: (
                     -min(abs(ratings[c].mu - m) for m in ref),
                     abs(ratings[c].mu - t),
@@ -231,7 +247,7 @@ def _spread(
             )
         else:
             i = min(
-                (c for c in pool if c not in used),
+                live,
                 key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c),
             )
         used.add(i)
@@ -288,5 +304,6 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
         False,
         False,
         -1,
+        False,
         True,
     )
