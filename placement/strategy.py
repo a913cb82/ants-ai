@@ -59,7 +59,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Champion (iter 22, MSE): bulk-only, first 10p at 3.0.
+    # Exp (iter 38, MSE): 8p refine plus closing duel.
     if budget_left > 20:
         return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 3.0)
-    return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.0)
+    if budget_left > 10:
+        return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.0)
+    if budget_left > 2:
+        return _spread(bot, ratings, min(7, budget_left - 1, len(ratings)), 2.0)
+    return [_closest(bot, ratings)]
