@@ -821,3 +821,8 @@
 ## Iter 144 (camp I4): audit at duel 5
 - Score: corr 0.9932 (+0.0000, tie).
 - Verdict: audit ladder 3/4/5 = -0.0001/+0.0001/+0.0000; position free. Next: census-seat survey sniper (I5).
+
+## Iter 145 (camp I5): census-seat survey sniper
+- 9th census seat = max-sigma last-400 ruler.
+- Score: corr 0.9929 (-0.0003).
+- Verdict: TRACK I CLOSED. Five legs: +0.0000/-0.0001/-0.0001/+0.0000/-0.0003. Herding dead at terminal, mid-tail, and census positions; pool-rent never exceeds own-cost. Axis closed for good.
