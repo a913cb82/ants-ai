@@ -129,26 +129,15 @@ def _strata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
     return out[:k]
 
 
-def _bounty(bot: Rating, ratings: list[Rating]) -> list[int]:
-    """Max-sigma ruler in the peer band over the last-400 window."""
-    n = len(ratings)
-    lo = max(0, n - 400)
-    band = max(bot.sigma, 0.5)
-    elig = [c for c in range(lo, n) if abs(ratings[c].mu - bot.mu) <= band] or list(
-        range(lo, n)
-    )
-    if not elig:
+def _audit(bot: Rating, ratings: list[Rating]) -> list[int]:
+    """Max-sigma ruler among the 10 nearest-mu rulers."""
+    order = sorted(
+        range(len(ratings)),
+        key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
+    )[:10]
+    if not order:
         return []
-    return [
-        max(
-            elig,
-            key=lambda c: (
-                ratings[c].sigma,
-                -abs(ratings[c].mu - bot.mu),
-                -c,
-            ),
-        )
-    ]
+    return [max(order, key=lambda c: (ratings[c].sigma, -c))]
 
 
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
@@ -376,13 +365,13 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 77 (corr): terminal bounty duel.
+    # Iter 78 (corr): mid-tail audit duel.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
         return _strata(bot, ratings, n)
-    if budget_left == 2:
-        return _bounty(bot, ratings)
+    if budget_left == 8:
+        return _audit(bot, ratings)
     return _info_duel(bot, ratings)
