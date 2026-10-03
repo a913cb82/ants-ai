@@ -605,3 +605,9 @@
 - Champion: iteration 43, `396b8f0`. Selection 0.9932, held 0.9939, fresh 0.9939, shootout-fresh 0.9925, pooled-30 0.9931.
 - Tree verified identical to champion; smoke 0.9854 at 200 bots.
 - Corr round: 0.9870 -> 0.9931. The top is final.
+
+## Second 50: fine-tuning camp (iters 101-150)
+- Goal: give the 10 most promising significantly-different runners-up 5 fine-tuning legs each.
+- Tracks: A upset-front-load tail (iter76) | B 4-bin signed-peer refine (iter64) | C calibrated-snap opener (iter70/shootout) | D blend/credible closers (iter8/28/61/62) | E gated/alternating tail (iter53/83) | F within-bin refine picks (iter75/85/36/27) | G multi-stage depth (iter56/63) | H early-window crossover (iter79/MID) | I bounty/herding tail (iter77/78) | J pool-window/mass opener (iter68/69/89).
+- Leg 1 of each track = faithful retest on current champion code; legs 2-5 = tuned variants.
+- Adoption rules unchanged: beat champion selection, confirm on seeds 5-9, pooled agreement; STRATEGY.md + tag on win.
