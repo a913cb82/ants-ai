@@ -19,6 +19,24 @@ def _established(ratings: list[Rating], k: int) -> list[int]:
     return pool
 
 
+def _hollow(bot: Rating, ratings: list[Rating], k: int, width: float) -> list[int]:
+    """Edge quantiles plus one center pin, full pool."""
+    qs = [0.02, 0.06, 0.10, 0.14, 0.5, 0.86, 0.90, 0.94, 0.98][:k]
+    dist = NormalDist(bot.mu, max(width * bot.sigma, 0.5))
+    targets = [dist.inv_cdf(q) for q in qs]
+    pool = list(range(len(ratings)))
+    picked: list[int] = []
+    used: set[int] = set()
+    for t in targets:
+        cands = [c for c in pool if c not in used]
+        if not cands:
+            break
+        i = min(cands, key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c))
+        used.add(i)
+        picked.append(i)
+    return picked
+
+
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
     """Pool index nearest bot.mu, low sigma then low index on ties."""
     return min(
@@ -60,7 +78,7 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Champion (iter 47, MSE): full-pool opener at 4.0.
+    # Exp (iter 53, MSE): hollow opener, tertile 2.0 rest (bold 8).
     if budget_left > 20:
-        return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 4.0, False)
+        return _hollow(bot, ratings, min(9, budget_left - 1, len(ratings)), 4.0)
     return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.0)

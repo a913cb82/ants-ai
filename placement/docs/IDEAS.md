@@ -33,6 +33,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Quartile anchors under 4.0-opener shape (anchor ladder). |
 | dropped | Widths 4.0/2.5/2.0: second-10p re-sweep under mixed anchors. |
 | dropped | Widths 4.0/2.0/1.5: third-10p at 1.5 under mixed anchors. |
+| trying | Hollow-spread opener: 8 edge quantiles + center pin (bold 8). |
 | dropped | Quartile anchors retest (cleaner thresholds for hard seeds). |
 | dropped | 3p opening: 2x3p closest-pair instead of 3x2p (same 6 slots). |
 | dropped | 4p mid game: bot plus above, below, closest replaces bracket pair. |
@@ -133,6 +134,13 @@ keep 3.0 after. Predicts early-bot tails improve without hurting
 late bots. Judge after iteration 41.
 Judged: refuted at iteration 39 (242.9232, seeds 0/1 regress hard);
 pool size misconditions width.
+
+Five misses in a row (iters 48-52) force bold line 8 (2026-10-03):
+hollow-spread opener. Mid bands sit at 65-100 (solved) while tails
+bleed 270-400, so middle thresholds may be dead weight: 8 edge
+quantiles plus one center pin at 4.0 sigma, full pool. Predicts
+tails bind and mids hold, or the middle was load-bearing. Judge
+after iteration 56.
 
 Nineteen misses in a row (iters 23-41) force bold line 7 (2026-10-03):
 tail-skewed two-sided grid. Bold 2 failed binary (one side only);
