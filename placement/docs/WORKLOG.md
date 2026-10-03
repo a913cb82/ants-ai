@@ -807,3 +807,8 @@
 - Duel 7 = max-sigma peer-banded last-400 ruler.
 - Score: corr 0.9932 (+0.0000, exact tie).
 - Verdict: retest CONFIRMS pool-rent invisibility. Next: wider bounty band (I2).
+
+## Iter 142 (camp I2): wide-band terminal bounty
+- Bounty eligible band +-1.5 sigma instead of +-1.0.
+- Score: corr 0.9931 (-0.0001, tie).
+- Verdict: band width free. Next: mid-tail audit at duel 3 (I3).
