@@ -3,16 +3,20 @@ from collections import deque
 
 from ants import Ants
 
+# Sow gathers for SOW_TURNS turns before hunting hills.
+SOW_TURNS = 30
+
 
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Flood:
+class Sow:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
         self.remembered_hills: set[tuple[int, int]] = set()
         self.prev_enemies: list[tuple[int, int]] = []
+        self.turn_no: int = 0
 
     # do_setup is run once at the start of the game
     # after the bot has received the game settings
@@ -22,16 +26,20 @@ class Flood:
         self.visits = {}
         self.remembered_hills = set()
         self.prev_enemies = []
+        self.turn_no = 0
 
     # do turn is run once per turn
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Flood: move a group of ants to one target.
-        # Battling as Flood. Homeward structure, wide fallback,
+        # Sow: gather-only opening, then Flood's united hunt.
+        # Battling as Sow. Homeward structure, wide fallback,
         # aggression, walk-off, food, and exploration match iteration
         # 76. Hunt always; ahead on hills, hunters skip the safety
         # filter. Closeouts need teeth, not patience.
+        # Opening: no hill-hunting before SOW_TURNS. One ant eats
+        # one food per turn, so bank ants first, then muster.
+        self.turn_no += 1
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -195,7 +203,7 @@ class Flood:
                     step = first_step(ant_loc, nearest)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
-            if not moved and hills:
+            if not moved and hills and self.turn_no >= SOW_TURNS:
                 # Flood: the group marches on one target, the hill
                 # nearest the army as a whole. Hunt always; fearless
                 # when ahead on hills.
@@ -208,7 +216,7 @@ class Flood:
                     ant_loc, step, safe=len(my_hills) <= len(hills)
                 ):
                     moved = True
-            if not moved and hills:
+            if not moved and hills and self.turn_no >= SOW_TURNS:
                 # No hill move: reinforce the second-nearest hill.
                 ordered = sorted(hills, key=lambda h: ants.distance(ant_loc, h))
                 near = ordered[1] if len(ordered) > 1 else ordered[0]
@@ -260,6 +268,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Flood())
+        Ants.run(Sow())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
