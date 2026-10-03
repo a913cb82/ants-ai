@@ -168,3 +168,12 @@ One entry per iteration:
 - what changed: opening duels changed from 3 closest to closest, above, below.
 - what you learned: cost about 6.02 with seeds 1/2/4 regressing while seed 3 hit 234.18; early brackets fire before mu is positioned and waste duels on hard seeds.
 - next: median anchors under twin-wide spreads.
+
+## 18 — median anchors under twin-wide (2026-10-03)
+- commit: 29052db
+- score: mean 313.4292 over seeds 0-4 (264.8612, 391.6077, 385.2124, 243.0696, 282.3951)
+- champion mean: 302.2418 (07e94d0)
+- verdict: discard
+- what changed: anchor cutoff from low-sigma tertile to median.
+- what you learned: cost about 11.19 with seeds 1/2 blowing up; looser rulers poison wide fields on hard seeds, completing the MSE anchor ladder (median +11.2, quartile +3.1, tertile best).
+- next: positioning depth 6/7 duels with twin bulk kept.

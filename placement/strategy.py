@@ -11,8 +11,8 @@ class Rating:
 
 
 def _established(ratings: list[Rating], k: int) -> list[int]:
-    """Pool indices below median sigma, or the full pool if too few."""
-    cutoff = sorted(r.sigma for r in ratings)[len(ratings) // 2]
+    """Pool indices in the low-sigma tertile, or the full pool if too few."""
+    cutoff = sorted(r.sigma for r in ratings)[len(ratings) // 3]
     pool = [c for c in range(len(ratings)) if ratings[c].sigma <= cutoff]
     if len(pool) < k:
         pool = list(range(len(ratings)))
@@ -59,7 +59,7 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Exp (iter 18, MSE): median anchors under twin-wide champion.
+    # Champion (iter 8, MSE): 3d, twin-wide 10ps, bracket pair (bold 1).
     if budget_left > 24:
         return [_closest(bot, ratings)]
     if budget_left > 14:

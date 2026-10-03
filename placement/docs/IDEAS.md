@@ -36,7 +36,7 @@ A refinement is a new row. Leave old rows as they were.
 | open | Tail-chasing spread: one-sided thresholds toward the bot tail. |
 | open | Closing duel: 8p refine plus a final closest duel (28+2 slots). |
 | dropped | Forward bracketing: duel 1 closest, duels 2-3 above/below (archive). |
-| trying | Median anchors under twin-wide 2.0 spreads (archive). |
+| dropped | Median anchors under twin-wide 2.0 spreads (archive). |
 | open | Positioning depth 6/7 duels with twin bulk kept (archive). |
 | open | Equal-bits ladder 2+4+6+8+10, spread 1.0 throughout (info). |
 | open | Zoom widths: 1 duel, 9p at 2.0, 9p at 1.0, 10p at 0.5 (info). |
