@@ -908,3 +908,10 @@ One entry per iteration:
 - verdict: champion leads fresh by 0.33 over 2.0 and 4.04 over 1.75; leads selection, held-out, fresh, and pooled-15 (196.7528 vs 199.7266) alike.
 - what you learned: the 1.875 adoption survives unbiased seeds; the closer optimum is confirmed on all four sets.
 - next: game-2 audit on fresh seeds (1.25 vs 1.5) or continued micros.
+
+## Audit — game-2 on fresh seeds 10-14 (2026-10-03)
+- champion fde75b9 (4.0/1.25/1.875): 178.6823 (97.0886, 176.4728, 131.3679, 172.4405, 316.0416)
+- rival game-2 at 1.5: 94.7198, 182.2700, 138.9612, 165.9140, 310.9104, mean 178.5551
+- verdict: fresh tie (rival by 0.13, 3 of 5 seeds); selection under the current closer favors 1.25 by 7.34. Incumbent holds on disagreement.
+- what you learned: game-2 1.25-1.5 is flat on fresh seeds; the 1.25 edge lives in selection sets.
+- next: iteration 95 micros or a new-mechanism hunt.
