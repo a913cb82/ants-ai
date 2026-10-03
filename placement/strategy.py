@@ -79,11 +79,16 @@ def _spread(
     width: float = 1.0,
     anchors: bool = True,
     halo: bool = False,
+    kick: bool = False,
 ) -> list[int]:
     """k distinct opponents nearest quantiles of N(mu, w*sigma)."""
-    dist = NormalDist(bot.mu, max(width * bot.sigma, 0.5))
+    center = bot.mu
+    if kick and ratings:
+        mid = (min(r.mu for r in ratings) + max(r.mu for r in ratings)) / 2
+        center = bot.mu + 0.5 * (bot.mu - mid)
+    dist = NormalDist(center, max(width * bot.sigma, 0.5))
     if halo and k >= 3:
-        outer = NormalDist(bot.mu, max(2.5 * bot.sigma, 0.5))
+        outer = NormalDist(center, max(2.5 * bot.sigma, 0.5))
         targets = (
             [outer.inv_cdf(1 / (k + 1))]
             + [dist.inv_cdf((j + 1) / (k + 1)) for j in range(1, k - 1)]
@@ -121,4 +126,4 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
         n = min(9, budget_left - 1, len(ratings))
         return _spread(bot, ratings, n, 1.25)
     n = min(9, budget_left - 1, len(ratings))
-    return _spread(bot, ratings, n, 1.625, True, True)
+    return _spread(bot, ratings, n, 1.875, True, False, True)
