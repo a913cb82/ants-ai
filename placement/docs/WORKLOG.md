@@ -1754,3 +1754,9 @@ One entry per iteration:
   disjoint shares, clipped undercut, mu-gate, split-closer, senior-25. Families close at 200 regardless.
 - Learned: grid completeness (9 aimed thresholds/game) is the binding constraint; nothing may displace it.
 - Next: iter 191 re-projected game-2 (carto S4).
+
+## Iter 191: re-projected game-2 (carto S4)
+- Score: sel 203.6697 vs champ 197.7410 (+5.93). Only seed 1 improves.
+- Verdict: DISCARD. Re-projection adds nothing; warp ~= harm even centered on posterior.
+- Learned: cartographer family 0-for-5 (quantile, sinh, bell, rewarp + trimmed/edge/center earlier). Geometry closed.
+- Next: iter 192 risk-parity 8+10+10+2 (economist E1).
