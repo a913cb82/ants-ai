@@ -14,7 +14,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Duel the highest `sigma` opponent. |
 | dropped | Duel the strongest pool estimate. |
 | open | All duels versus mixed FFA schedule. |
-| trying | Full-budget FFA-10 versus closest mus (bold: 3 updates per bot). |
+| done | Full-budget FFA-10 versus closest mus (bold: 3 updates per bot). |
 
 ## Bold lines
 

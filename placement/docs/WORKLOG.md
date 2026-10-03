@@ -30,3 +30,12 @@ One entry per iteration:
 - what changed: dueled the highest-mu pool opponent every game instead of the closest mu.
 - what you learned: always playing the best cost about 7.25 mean error; one-sided matchups carry almost no information about the new bot's level.
 - next: all duels versus mixed FFA schedule.
+
+## 3 — full-budget FFA-10 versus closest mus (2026-10-03)
+- commit: 295530c
+- score: mean 20.3876 over seeds 0-4 (18.7491, 22.0658, 23.0779, 18.0182, 20.0270)
+- champion mean: 20.3876 (295530c, new best; prior 28.9678 cf594fd)
+- verdict: keep (new champion)
+- what changed: every game takes the 9 closest-mu pool opponents, spending 30 slots on 3 ten-player games.
+- what you learned: comparison efficiency beats update count by about 8.58 mean error; seed spread (18.02 to 23.08) is wider than the baseline, so later mixes should chase stability too.
+- next: duels first, then FFA with late budget.
