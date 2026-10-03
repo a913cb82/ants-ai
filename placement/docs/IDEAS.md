@@ -23,4 +23,4 @@ A refinement is a new row. Leave old rows as they were.
 | open | Symmetric pairs recheck under MSE (0.5/0.5, 1.0/1.0). |
 | open | Quartile anchors retest (cleaner thresholds for hard seeds). |
 | done | Interleaved bulk retest (3d, wide 10p, 2d, narrow 10p): lost MAE by 0.009; mid re-positioning may cut tails. |
-| open | Bracket duels retest (closest 1-3, then above/below): deliberate tail insurance. |
+| trying | Bracket duels retest (closest 1-3, then above/below): deliberate tail insurance. |
