@@ -883,3 +883,12 @@ One entry per iteration:
 - what changed: second bulk 10p widened from 1.25 to 1.875 sigma, matching the closer.
 - what you learned: cost about 8.16 with only seed 2 improving; the valley dip is load-bearing and the shape matrix is complete.
 - next: game-2 at 1.5 under the 1.875 closer (last interaction cell).
+
+## 93 — game-2 1.5 under 1.875 closer (2026-10-03)
+- commit: 14bddad
+- score: mean 223.3639 over seeds 0-4 (174.1631, 264.7603, 371.9219, 120.3137, 185.6604)
+- champion mean: 216.0193 selection, 205.7881 pooled (fde75b9)
+- verdict: discard
+- what changed: second bulk 10p widened from 1.25 to 1.5 sigma under the 1.875 closer.
+- what you learned: cost about 7.34 with only seed 0 improving; 1.5 stays buried under both closers and no interaction exists.
+- next: judge bold 16; opener 3.9375 micro or a fresh-seed re-audit.
