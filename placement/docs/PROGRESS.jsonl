@@ -68,3 +68,4 @@
 {"date": "2026-10-04", "commit": "iter68", "corr": 0.9932, "seeds": [0.994, 0.9927, 0.9899, 0.9945, 0.9949], "champion": "396b8f0", "note": "recent-400 deciles tie; window==history"}
 {"date": "2026-10-04", "commit": "iter69", "corr": 0.9931, "seeds": [0.9943, 0.9935, 0.9891, 0.9938, 0.995], "champion": "396b8f0", "note": "bold19 heavy-middle ties; uniform mass stands"}
 {"date": "2026-10-04", "commit": "iter70", "corr": 0.9933, "seeds": [0.9944, 0.9927, 0.9901, 0.9943, 0.995], "champion": "396b8f0", "note": "calibrated-snap ties; snap axis closed"}
+{"date": "2026-10-04", "commit": "iter71", "corr": 0.9933, "seeds": [0.9945, 0.9926, 0.9898, 0.9945, 0.9949], "champion": "396b8f0", "note": "asymmetric edges tie; direction closed, no mirror"}

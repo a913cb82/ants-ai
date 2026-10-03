@@ -430,3 +430,9 @@
 - Score: corr 0.9933 (+0.0001, exact tie).
 - Verdict: DISCARD (tie keeps incumbent). Ruler quality on near-ties buys nothing; snap axis closed, pure nearest-mu stands.
 - Misses: 27.
+
+## Iter 71: asymmetric strata -1.25/+0.75
+- Down-shifted peer bin + champion rest.
+- Score: corr 0.9933 (+0.0001, uniform tie).
+- Verdict: DISCARD (tie keeps incumbent). Symmetry stands; direction axis closed, no mirror run.
+- Misses: 28.
