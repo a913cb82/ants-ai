@@ -348,3 +348,12 @@ One entry per iteration:
 - what changed: confirm half (duel, 3p cluster, wide 10p) then exploit half (5p, narrow 10p).
 - what you learned: cost about 100.21 with every seed regressing; small sizes cannot recenter what they cannot bound, and narrow late widths collapse under MSE.
 - next: candidates double round-robin (rematch-heavy positioning).
+
+## 38 — 8p refine plus closing duel (2026-10-03)
+- commit: 86c6e90
+- score: mean 262.9913 over seeds 0-4 (237.9805, 322.7906, 307.9894, 175.6756, 270.5202)
+- champion mean: 235.2613 (04eeed2)
+- verdict: discard
+- what changed: third bulk shrunk to 8p at 2.0 plus a final closest duel.
+- what you learned: cost about 27.73 with every seed regressing; the 2 lost bulk looks outweigh one precision duel, full 10ps stand.
+- next: adaptive refine at 4.0 (probe says refine-time sigma mean is 3.9).
