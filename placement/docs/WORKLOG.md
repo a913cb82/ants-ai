@@ -892,3 +892,12 @@ One entry per iteration:
 - what changed: second bulk 10p widened from 1.25 to 1.5 sigma under the 1.875 closer.
 - what you learned: cost about 7.34 with only seed 0 improving; 1.5 stays buried under both closers and no interaction exists.
 - next: judge bold 16; opener 3.9375 micro or a fresh-seed re-audit.
+
+## 94 — opener 3.9375 (2026-10-03)
+- commit: 4fcb700
+- score: mean 218.6019 over seeds 0-4 (185.9470, 240.7955, 363.0244, 118.4585, 184.7840)
+- champion mean: 216.0193 selection, 205.7881 pooled (fde75b9)
+- verdict: discard
+- what changed: unfiltered opener narrowed from 4.0 to 3.9375 sigma.
+- what you learned: cost about 2.58; opener stays 4.0 with both neighbors losing. Bold 16 judged refuted (iter 92).
+- next: fresh-seed re-audit of the champion trio on seeds 10-14.
