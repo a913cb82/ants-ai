@@ -762,3 +762,12 @@ One entry per iteration:
 - what changed: games 2 and 3 moved apart to 1.125/1.875 sigma.
 - what you learned: cost about 2.46 with seed 1 regressing hard; both diagonals dead and the valley stands at 1.25/1.75.
 - next: judge bold 13; opener micro under confirmed shape.
+
+## 81 — opener 4.125 confirmed shape (2026-10-03)
+- commit: 9ce0e51
+- score: mean 222.4864 over seeds 0-4 (172.5484, 259.3928, 378.4707, 117.3066, 184.7135)
+- champion mean: 217.5528 selection, 207.6291 pooled (f8ba828)
+- verdict: discard
+- what changed: unfiltered opener widened from 4.0 to 4.125 sigma.
+- what you learned: cost about 4.93 with seeds 1/2 collapsing; opener stays 4.0 under every rest-shape. Bold 13 judged refuted (iter 79).
+- next: opener 3.875 under confirmed shape, then a fresh-seed audit of the champion.
