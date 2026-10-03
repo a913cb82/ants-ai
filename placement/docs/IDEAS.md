@@ -12,7 +12,7 @@ A refinement is a new row. Leave old rows as they were.
 |---|---|
 | done | Duel the closest `mu` (baseline). |
 | dropped | Duel the highest `sigma` opponent. |
-| trying | Duel the strongest pool estimate. |
+| dropped | Duel the strongest pool estimate. |
 | open | All duels versus mixed FFA schedule. |
 | open | Duels first, then FFA with late budget. |
 | open | Size from `budget_left`: big games early, duels late. |
