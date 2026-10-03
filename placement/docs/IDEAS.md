@@ -104,6 +104,25 @@ pollster, MAT matchmaker, ARC archivist-3.
 | open | Peer-pinned skeleton: 8 deciles + nearest-tertile pin (BKK D1; opposite of alibi). |
 | open | Rebind refine: 4 strata + nearest played site (BKK D2; cheapest scale link). |
 | open | Mid-tail audit duel at position 4 (BKK D3; lowest priority). |
+| open | Info-inside-strata refine: mass quota, info-scored within-bin picks (BLA F1). |
+| open | Draw-snapped deciles: argmax draw over 5 nearest per site (BLA F2). |
+| open | Strata-gated tail: peer/below/above duel rotation, info within gate (BLA F3). |
+| open | Grid-inside-strata refine: quantile targets within each bin (BLA F4). |
+| open | Duel-order instrument: 7 info picks ordered above-first (GLA G4; run early). |
+| open | Upset-ladder refine: 5 nearest tertile rulers above mu (GLA G1). |
+| open | Soft-witness refine: max-sigma middle-tertile within +-1 sigma (GLA G2). |
+| open | Outcome-spread 2/1/2 refine + signed-triple 4p + 5 duels (GLA G3). |
+| open | Terminal bounty duel 7: max-sigma peer-banded last-400 (SHE S1; run first). |
+| open | Mid-tail audit duel 4: max-sigma of 10 nearest (SHE S3; after S1 ties). |
+| open | Census-seat survey sniper (SHE S2; parked unless S1 alive). |
+| open | Terminal double-herd duels 6+7 (SHE S4; only if S1 wins). |
+| open | Range-grid early window: even arrivals <200 get range+full-pool (MID S1). |
+| open | FFA-heavy early window: even arrivals <200 get 10+10+10 (MID S2). |
+| open | Recapture-spine early window (MID S3; regime-flip signature). |
+| open | Re-census early window: fresh skeleton from live beliefs (MID S4). |
+| open | Equivalence shootout: champion vs iter-70 on seeds 15-29 pooled-30 (AUD; convergence proof, run last). |
+| open | Fresh-voice anchors: least-played tertile rulers (AUD; needs usage plumbing, parked until harness allows). |
+| open | Antipodal info tail: max-min-distance-from-refine tail (AUD; redundancy axis, untested under corr). |
 | parked | Game-count anchor axes (authority/usage): Rating is mu/sigma-only, evaluate.py frozen; proxies listed as open rows. |
 
 ## Transfer-kills (ARC; metric-independent, do not revive)
