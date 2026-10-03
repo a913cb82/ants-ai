@@ -68,20 +68,32 @@ def _census(ratings: list[Rating], k: int, mode: str = "range") -> list[int]:
     return picked
 
 
-def _vintage(ratings: list[Rating], k: int, half: int) -> list[int]:
-    """Low-sigma tertile of old (1) or fresh (2) half of last 400."""
-    n = len(ratings)
-    mid = max(0, n - 200)
-    start = max(0, n - 400)
-    lo, hi = (start, mid) if half == 1 else (mid, n)
-    recent = ratings[lo:hi]
-    if not recent:
-        return list(range(n))
-    cutoff = sorted(r.sigma for r in recent)[len(recent) // 3]
-    pool = [c for c in range(lo, hi) if ratings[c].sigma <= cutoff]
-    if len(pool) < k:
-        pool = list(range(n))
-    return pool
+def _blend(
+    bot: Rating, ratings: list[Rating], k: int, width: float, nk: int = 7
+) -> list[int]:
+    """k quantile targets: first nk from tertile, rest from high-sigma half."""
+    dist = NormalDist(bot.mu, max(width * bot.sigma, 0.5))
+    targets = [dist.inv_cdf((j + 1) / (k + 1)) for j in range(k)]
+    tert = _established(ratings, k, 0)
+    med = sorted(r.sigma for r in ratings)[len(ratings) // 2]
+    high = [c for c in range(len(ratings)) if ratings[c].sigma >= med]
+    picked: list[int] = []
+    used: set[int] = set()
+    for pool in (tert, high):
+        take = nk if pool is tert else k - nk
+        for t in targets[len(picked) : len(picked) + take]:
+            cands = [c for c in pool if c not in used] or [
+                c for c in range(len(ratings)) if c not in used
+            ]
+            if not cands:
+                break
+            i = min(
+                cands,
+                key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c),
+            )
+            used.add(i)
+            picked.append(i)
+    return picked
 
 
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
@@ -114,7 +126,6 @@ def _spread(
     disjoint_shares: bool = False,
     antiwindup: bool = False,
     senior: bool = False,
-    vintage: int = 0,
 ) -> list[int]:
     """k distinct opponents nearest quantiles of N(mu, w*sigma)."""
     center = bot.mu
@@ -160,11 +171,9 @@ def _spread(
         targets = [dist.inv_cdf((j + 1) / (k + 1)) for j in range(k)]
     pool = (
         _established(ratings, k, 25 if senior else 0)
-        if anchors and not vintage
+        if anchors
         else list(range(len(ratings)))
     )
-    if vintage:
-        pool = _vintage(ratings, k, vintage)
     if antiwindup and ratings:
         plo = min(r.mu for r in ratings)
         phi = max(r.mu for r in ratings)
@@ -312,11 +321,13 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 7 (corr): split-vintage witnesses, old G2 / fresh G3.
+    # Iter 8 (corr): credibility 7+2 blend closer.
     if budget_left > 20:
         return _census(ratings, min(9, budget_left - 1, len(ratings)))
     if budget_left > 10:
         n = min(9, budget_left - 1, len(ratings))
-        return _spread(bot, ratings, n, 1.25, vintage=1)
+        return _spread(bot, ratings, n, 1.25)
     n = min(9, budget_left - 1, len(ratings))
-    return _spread(bot, ratings, n, 1.875, vintage=2)
+    if n == 9:
+        return _blend(bot, ratings, n, 1.875)
+    return _spread(bot, ratings, n, 1.875)
