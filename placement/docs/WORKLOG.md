@@ -960,3 +960,12 @@ One entry per iteration:
 - what changed: second 10p split into two 5p spreads at 1.25 sigma.
 - what you learned: cost about 73.06 with every seed regressing; the split family is dead in both positions.
 - next: judge bold 18; iteration 100 should be commemorative micros.
+
+## 100 — opener 4.0625 (2026-10-03)
+- commit: a1d4b4a
+- score: mean 220.4016 over seeds 0-4 (184.4040, 247.7915, 373.9161, 113.0384, 182.8581)
+- champion mean: 216.0193 selection, 205.7881 pooled (fde75b9)
+- verdict: discard
+- what changed: unfiltered opener widened from 4.0 to 4.0625 sigma.
+- what you learned: cost about 4.38 with only seed 4 improving; opener 4.0 interior-confirmed at plus-minus 0.0625. Bold 18 judged refuted (iter 98).
+- next: coronation audit on seeds 15-19, then take stock at 100.
