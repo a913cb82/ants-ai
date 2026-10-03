@@ -262,3 +262,9 @@
 - Score: corr 0.9929 (-0.0001, exact tie).
 - Verdict: DISCARD (tie keeps incumbent). Sub-threshold jitter moves no snaps that matter; tie entropy is not the lever.
 - Misses: 8.
+
+## Iter 43: proportional-strata refine — CHAMPION
+- Quantile opener + 5 rulers across below/peer/above bins by pool mass (min 1 each) + 7 info tail duels.
+- Selection: corr 0.9932 (+0.0002, 3/5). Held-out 5-9: 0.9939 (+0.0007). Fresh 10-14: 0.9939. Pooled-15: 0.9937.
+- Verdict: ADOPT. Spending refine looks where the voters are beats the Gaussian grid; forced 3-3-3 stays dead but proportional quota wins.
+- Misses reset to 0.
