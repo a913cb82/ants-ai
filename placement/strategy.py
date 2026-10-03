@@ -68,6 +68,25 @@ def _census(ratings: list[Rating], k: int, mode: str = "range") -> list[int]:
     return picked
 
 
+def _spine(ratings: list[Rating]) -> list[int]:
+    """3 rulers nearest pool 25/50/75 mu percentiles (equating spine)."""
+    n = len(ratings)
+    if n <= 3:
+        return list(range(n))
+    mus = sorted(r.mu for r in ratings)
+    qs = [mus[min(int(n * f), n - 1)] for f in (0.25, 0.50, 0.75)]
+    picked: list[int] = []
+    used: set[int] = set()
+    for q in qs:
+        cands = [c for c in range(n) if c not in used]
+        if not cands:
+            break
+        i = min(cands, key=lambda c: (abs(ratings[c].mu - q), ratings[c].sigma, c))
+        used.add(i)
+        picked.append(i)
+    return picked
+
+
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
     """Pool index nearest bot.mu, low sigma then low index on ties."""
     return min(
@@ -98,6 +117,9 @@ def _spread(
     disjoint_shares: bool = False,
     antiwindup: bool = False,
     senior: bool = False,
+    exclude: tuple = (),
+    parity: int = -1,
+    spine: bool = False,
 ) -> list[int]:
     """k distinct opponents nearest quantiles of N(mu, w*sigma)."""
     center = bot.mu
@@ -146,6 +168,11 @@ def _spread(
         if anchors
         else list(range(len(ratings)))
     )
+    if parity >= 0 and pool:
+        ordered = sorted(pool, key=lambda c: (ratings[c].mu, ratings[c].sigma, c))
+        half = [c for j, c in enumerate(ordered) if j % 2 == parity]
+        if len(half) >= k:
+            pool = half
     if antiwindup and ratings:
         plo = min(r.mu for r in ratings)
         phi = max(r.mu for r in ratings)
@@ -259,7 +286,7 @@ def _spread(
     picked: list[int] = []
     used: set[int] = set()
     for n_t, t in enumerate(targets):
-        ban = disjoint if checksum and n_t == len(targets) - 1 else set()
+        ban = disjoint if checksum and n_t == len(targets) - 1 else set(exclude)
         live = [c for c in pool if c not in used and c not in ban] or [
             c for c in pool if c not in used
         ]
@@ -293,11 +320,12 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 5 (corr): Fisher-peak narrow valley 1.0/1.5.
+    # Iter 6 (corr): equating spine recaptured G2+G3, even/odd adaptive.
     if budget_left > 20:
         return _census(ratings, min(9, budget_left - 1, len(ratings)))
+    sp = tuple(_spine(ratings))
     if budget_left > 10:
-        n = min(9, budget_left - 1, len(ratings))
-        return _spread(bot, ratings, n, 1.0)
-    n = min(9, budget_left - 1, len(ratings))
-    return _spread(bot, ratings, n, 1.5)
+        n = min(6, budget_left - 4, max(len(ratings) - len(sp), 0))
+        return list(sp) + _spread(bot, ratings, n, 1.25, exclude=sp, parity=0)
+    n = min(6, budget_left - 4, max(len(ratings) - len(sp), 0))
+    return list(sp) + _spread(bot, ratings, n, 1.875, exclude=sp, parity=1)
