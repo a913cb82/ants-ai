@@ -1540,3 +1540,12 @@ One entry per iteration:
 - what changed: rest widths inverted to 3.0 then 1.0 sigma.
 - what you learned: cost about 33.14 with zero of five improving; inversion loses under census too and dip direction stands confirmed.
 - next: misses force bold 28; chase-combining under census (retest).
+
+## 162 — wide-second skeleton bold 28 (2026-10-03)
+- commit: b9d6f1f
+- score: mean 259.3278 over seeds 0-4 (243.1342, 308.6750, 364.9644, 156.5428, 223.3226)
+- champion mean: 197.7410 selection, 187.4788 pooled (5faf0b0)
+- verdict: discard
+- what changed: census opener, full-pool 4.0 game-2, 1.5 closer.
+- what you learned: cost about 61.59 with every seed regressing; wide re-observe stays redundant after any skeleton.
+- next: judge bold 28 after 165; double-tap census under census (retest).
