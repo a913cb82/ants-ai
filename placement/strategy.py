@@ -356,11 +356,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 88 (corr): refine window 200.
+    # Iter 89 (corr): refine window 800.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
-        return _strata(bot, ratings, n, 200)
+        return _strata(bot, ratings, n, 800)
     return _info_duel(bot, ratings)
