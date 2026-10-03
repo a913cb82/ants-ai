@@ -1466,3 +1466,12 @@ One entry per iteration:
 - what changed: closer matched 5 inner targets at 1.25 sigma and 4 extreme targets at 2.5 sigma.
 - what you learned: selection and held-out both favored the mixture but fresh lost 1.43 with two of five; pooled-15 wins 1.19 yet fresh vetoes per the overturn rule. Second fresh veto for mixtures.
 - next: judge bold 26 after 155; split-middle under census (retest).
+
+## 154 — split-middle census retest (2026-10-03)
+- commit: af098dc
+- score: mean 273.5230 over seeds 0-4 (240.1423, 325.9661, 383.0585, 175.7755, 242.6728)
+- champion mean: 197.7410 selection, 187.4788 pooled (5faf0b0)
+- verdict: discard
+- what changed: game-2 split into two 4-opponent halves at 1.25 sigma.
+- what you learned: cost about 75.78 with every seed regressing; halves starve the re-aim under census too and 9-pull density stands.
+- next: judge bold 26 after 155; flat-mid rest under census (retest).
