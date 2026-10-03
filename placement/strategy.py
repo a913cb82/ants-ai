@@ -19,6 +19,11 @@ def _established(ratings: list[Rating], k: int) -> list[int]:
     return pool
 
 
+def _median(ratings: list[Rating]) -> int:
+    order = sorted(range(len(ratings)), key=lambda i: (ratings[i].mu, i))
+    return order[len(order) // 2]
+
+
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
     """Pool index nearest bot.mu, low sigma then low index on ties."""
     return min(
@@ -56,7 +61,9 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Champion (iter 25): duels first, 1.0-sigma FFA then 0.5-sigma FFA.
+    # Exp (iter 38): first duel vs median anchor, rest champion.
+    if budget_left == 30:
+        return [_median(ratings)]
     if budget_left > 20:
         return [_closest(bot, ratings)]
     if budget_left > 10:
