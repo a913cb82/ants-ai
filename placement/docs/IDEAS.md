@@ -30,7 +30,7 @@ A refinement is a new row. Leave old rows as they were.
 | done | Full-pool opener at 4.0: climb the unfiltered gradient. |
 | dropped | Full-pool opener at 4.5: top of the unfiltered gradient? |
 | dropped | Game-2 conditional reach: full-pool 2.5 iff off-median (probe). |
-| trying | Quartile anchors under 4.0-opener shape (anchor ladder). |
+| dropped | Quartile anchors under 4.0-opener shape (anchor ladder). |
 | dropped | Quartile anchors retest (cleaner thresholds for hard seeds). |
 | dropped | 3p opening: 2x3p closest-pair instead of 3x2p (same 6 slots). |
 | dropped | 4p mid game: bot plus above, below, closest replaces bracket pair. |
