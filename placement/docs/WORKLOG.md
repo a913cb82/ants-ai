@@ -1766,3 +1766,9 @@ One entry per iteration:
 - Verdict: DISCARD. Opener thresholds 8-9 NOT redundant; 7-site span leaks everywhere.
 - Learned: skeleton density (9) load-bearing bot-independently; risk-parity misprices uniform coverage.
 - Next: iter 193 mid-duel barbell 10+2+10+8 (economist E2).
+
+## Iter 193: mid-duel barbell (economist E2)
+- Score: sel 217.2697 vs champ 197.7410 (+19.53). All seeds regress.
+- Verdict: DISCARD. Duel leg validated nothing; 8p deductible taxed the settled end.
+- Learned: size book closed under census (5p/6p/8p/duels all dead in every position).
+- Next: iter 194 fractional-Kelly sizing (economist E3, stillborn check first).
