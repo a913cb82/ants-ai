@@ -69,3 +69,12 @@ One entry per iteration:
 - what changed: wide FFA narrows to 0.5 sigma when bot mu lies outside the anchor mu range.
 - what you learned: bit-identical to champion on all 5 seeds; the tertile always spans bot mu so the trigger never fires, and one-sided pools pick identically anyway.
 - next: Approach 1 pipeline retest for seed stability.
+
+## 7 — Approach 1 pipeline retest (2026-10-03)
+- commit: b67c787
+- score: mean 395.4306 over seeds 0-4 (375.3920, 371.6470, 572.0059, 312.3252, 345.7831)
+- champion mean: 302.9460 (814c58d)
+- verdict: discard
+- what changed: percentile duels, 5p cluster, 10p deciles, tight 5p, 3 precision duels.
+- what you learned: cost about 92.5 with seed 2 catastrophic at 572; large-first percentile openers poison positioning harder under MSE, and tight clusters cannot catch tails.
+- next: bold idea required (two misses in a row); coverage-maximalist twin-wide 10ps.
