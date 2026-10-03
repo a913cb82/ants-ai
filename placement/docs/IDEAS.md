@@ -50,6 +50,7 @@ A refinement is a new row. Leave old rows as they were.
 | done | Game-2 at 1.5: complete the game-2 width ladder. |
 | dropped | Game-3 at 2.5: wider closer under the 1.5-second shape. |
 | dropped | Game-3 at 1.5: narrow closer under the 1.5-second shape. |
+| trying | Young-pool full game-2: pool under 300 skips anchors (bold 11). |
 | dropped | Quartile anchors retest (cleaner thresholds for hard seeds). |
 | dropped | 3p opening: 2x3p closest-pair instead of 3x2p (same 6 slots). |
 | dropped | 4p mid game: bot plus above, below, closest replaces bracket pair. |
@@ -176,6 +177,12 @@ looks add precision, or small games stay weak as closers. Judge
 after iteration 65.
 Judged: refuted at iteration 63 (290.6161, every seed regressed);
 small games stay weak as closers.
+
+Two misses in a row (iters 66-67) force bold line 11 (2026-10-03):
+young-pool full game-2. A young tertile is nine rulers all reading
+prior; the full pool at least spans. Pool under 300 takes game-2
+full-pool at 1.5, else tertile. Predicts thin-tertile hurts early
+bots, or pool age does not matter. Judge after iteration 70.
 
 Nineteen misses in a row (iters 23-41) force bold line 7 (2026-10-03):
 tail-skewed two-sided grid. Bold 2 failed binary (one side only);
