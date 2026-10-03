@@ -114,3 +114,12 @@ One entry per iteration:
 - what changed: FFA targets one-sided toward the tail for bots a full sigma from the median.
 - what you learned: cost about 62 with every seed regressing; two-sided bounds are load-bearing even for tail bots, concentration loses more than it buys.
 - next: 4p mid game (bot plus above, below, closest).
+
+## 12 — 4p mid game above below closest (2026-10-03)
+- commit: 2b369bc
+- score: mean 333.7663 over seeds 0-4 (383.0104, 372.0348, 397.4840, 242.9642, 273.3379)
+- champion mean: 302.2418 (07e94d0)
+- verdict: discard
+- what changed: mid bracket pair merged into one 4p game with above, below, closest.
+- what you learned: cost about 31.5 with seeds 0/1/2 blowing up; one parallel game cannot replace two sequential bracket duels, and the lost update hurts everywhere.
+- next: judge bold 1 after iter 14 window; meanwhile all-3p schedule.
