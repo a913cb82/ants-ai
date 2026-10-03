@@ -727,3 +727,7 @@
 ## Iter 124 (camp E4): gated sweep at width 60
 - Score: corr 0.9933 (+0.0001, tie).
 - Verdict: breadth does not rescue gates. Next: peer-double rotation (E5).
+
+## Iter 125 (camp E5): peer-double gate rotation
+- Score: corr 0.9931 (-0.0001, tie).
+- Verdict: TRACK E CLOSED. Five legs: +0.0001/+0.0002/+0.0000/+0.0001/-0.0001. Every gate, sweep, parity, and breadth variant ties; per-duel greed already balances sides. Tail scheduling stays flat-info.
