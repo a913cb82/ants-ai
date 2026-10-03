@@ -699,3 +699,8 @@
 - Last two duels = nearest-mu opponent each; first 5 flat info.
 - Score: corr 0.9932 (+0.0000, tie).
 - Verdict: closer flavor (closest/credpin/2x) all tie. Next: bounty closer (D4).
+
+## Iter 119 (camp D4): 6 info + bounty closer
+- Last duel = max-sigma peer-banded last-400 ruler.
+- Score: corr 0.9932 (+0.0000, exact tie).
+- Verdict: bounty flavor ties like all closer flavors. Next: runner-up-info closer (D5).
