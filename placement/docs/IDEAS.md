@@ -61,6 +61,7 @@ A refinement is a new row. Leave old rows as they were.
 | done | Game-3 at 1.75: bisect 1.5 and 2.0. |
 | dropped | Game-3 at 1.625: bisect 1.5 and 1.75. |
 | dropped | Game-2 at 1.375: re-check from above. |
+| trying | Joint game-2+3 at 1.375/1.625: diagonal interaction (bold 13). |
 | dropped | Quartile anchors retest (cleaner thresholds for hard seeds). |
 | dropped | 3p opening: 2x3p closest-pair instead of 3x2p (same 6 slots). |
 | dropped | 4p mid game: bot plus above, below, closest replaces bracket pair. |
@@ -204,6 +205,12 @@ Predicts a bigger clean ruler pool wins, or tertile strictness is
 exact. Judge after iteration 75.
 Judged: refuted at iteration 73 (221.5242 sel, 204.1018 held-out);
 tertile strictness is exact.
+
+Two misses in a row (iters 77-78) force bold line 13 (2026-10-03):
+joint game-2+3 shift. Coordinate descent misses diagonal
+interactions; move both together to 1.375/1.625 (flatter valley).
+Predicts the valley wants flattening, or singles already price
+the joint. Judge after iteration 81.
 
 Nineteen misses in a row (iters 23-41) force bold line 7 (2026-10-03):
 tail-skewed two-sided grid. Bold 2 failed binary (one side only);
