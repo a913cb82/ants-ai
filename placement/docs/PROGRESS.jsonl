@@ -1,2 +1,3 @@
 {"date": "2026-10-04", "commit": "baseline", "corr": 0.987, "seeds": [0.9876, 0.9869, 0.9857, 0.9867, 0.9882], "champion": null, "note": "MSE-champion shape (census + 1.25/1.875 tertile), corr metric"}
 {"date": "2026-10-04", "commit": "iter2", "corr": 0.9557, "seeds": [0.9544, 0.9539, 0.9526, 0.9774, 0.9403], "champion": null, "note": "5 uncertainty duels + 1.25/1.875; discard, every seed regressed"}
+{"date": "2026-10-04", "commit": "iter3", "corr": 0.9874, "seeds": [0.9883, 0.9855, 0.9871, 0.9872, 0.9891], "champion": null, "note": "seeded refines; sel +0.0004 but held-out 5-9 vetoes (0.98836 vs 0.98868); discard"}

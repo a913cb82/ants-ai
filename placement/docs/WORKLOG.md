@@ -16,3 +16,11 @@
 - Score: corr 0.9557 (0.9544, 0.9539, 0.9526, 0.9774, 0.9403). Baseline 0.9870.
 - Verdict: DISCARD. Every seed regressed; duels cost ranking power just as they cost MSE.
 - Strategy reverted to baseline. Misses: 1.
+
+## Iter 3: highest-sigma-seeded refines (mixed exam)
+- Census opener; G2/G3 first pick = highest-sigma tertile ruler, rest quantile fills.
+- Selection: corr 0.9874 (+0.0004 over baseline, 4/5 seeds improve).
+- Held-out seeds 5-9: iter3 0.98836 vs baseline 0.98868 (-0.0003). Pooled-10 ties +0.00005.
+- Verdict: DISCARD per overturn rule (pooled+fresh disagree). Main-branch seed rule does not transfer.
+- Seeds 5-9 baselines recorded: 0.9898, 0.9843, 0.9908, 0.9885, 0.9900.
+- Misses: 2. BOLD LINE 1 due.
