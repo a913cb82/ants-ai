@@ -533,3 +533,12 @@ One entry per iteration:
 - what changed: second bulk 10p widened from 2.0 to 2.25 sigma.
 - what you learned: cost about 6.57 with seed 2 regressing 13; game-2 wants exactly 2.0, micro-wider fails the same way macro-wider did.
 - next: accept the shape (4.25/2.0/2.0, full/tertile/tertile) or find genuinely new data.
+
+## 58 — split bulks 5p 5p 10p 10p bold 9 (2026-10-03)
+- commit: e620ed3
+- score: mean 256.6085 over seeds 0-4 (211.9821, 320.1560, 347.8332, 160.9739, 242.0973)
+- champion mean: 221.5778 (9b38f80)
+- verdict: discard
+- what changed: opener split into two 5p spreads (4.25 full-pool, 2.0 tertile) before two 10ps.
+- what you learned: cost about 35.03 with every seed regressing; 4 opener looks cannot bound and the 9-threshold opener stands.
+- next: opener at 4.125 (bisect down from 4.25).
