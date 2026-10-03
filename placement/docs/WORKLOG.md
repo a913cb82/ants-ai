@@ -66,3 +66,12 @@ One entry per iteration:
 - what changed: cut the duel phase to 3 games (boundary 24), leaving 24 slots for FFA bulk.
 - what you learned: fewer positioning duels cost about 0.79 mean error and seed 2 regressed to 21.36, so 5 duels position mu better than 3.
 - next: champion split with 7 duels then FFA bulk (boundary 16).
+
+## 7 — champion order with spread FFA opponents (2026-10-03)
+- commit: f2a2568
+- score: mean 16.0723 over seeds 0-4 (15.4395, 17.3075, 18.7232, 13.3421, 15.5492)
+- champion mean: 16.0723 (f2a2568, new best; prior 16.6448 7e70bcb)
+- verdict: keep (new champion)
+- what changed: kept duels-first order but picked FFA opponents at quantiles of N(mu, sigma) with low-sigma tiebreaks instead of closest mus.
+- what you learned: threshold spread gained about 0.57 mean error; 4 of 5 seeds improved, so spread opponents bound mu better than a clustered field.
+- next: full Approach 3 schedule (10p, 6p, then duels) with spread opponents.
