@@ -403,10 +403,10 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 111 (camp C1): calibrated-snap opener retest.
+    # Iter 112 (camp C2): calibrated-snap tolerance 0.25.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
-        return _calsnap(ratings, n)
+        return _calsnap(ratings, n, 0.25)
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
         return _strata(bot, ratings, n)
