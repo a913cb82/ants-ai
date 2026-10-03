@@ -273,3 +273,12 @@ One entry per iteration:
 - what changed: dimension-2 only, 6 closest duels then spread 8p at 1.0 sigma then spread 10p at 0.5 sigma, opponent rules fixed.
 - what you learned: extra duel plus smaller first bulk cost about 1.98; the first bulk game wants the full 10 seats.
 - next: dim-2 sweep C, 6 duels plus 10p plus 8p.
+
+## 30 — dim-2 sweep C 6 duels 10p 8p (2026-10-03)
+- commit: 21a397e
+- score: mean 15.6025 over seeds 0-4 (14.5647, 16.8330, 17.0597, 13.4606, 16.0945)
+- champion mean: 14.8370 (067b331)
+- verdict: discard
+- what changed: dimension-2 only, 6 closest duels then spread 10p at 1.0 sigma then spread 8p at 0.5 sigma.
+- what you learned: cost about 0.77 with seeds 1/2/4 regressing; across the sweep (A 15.24, B 16.82, C 15.60) every move from 5 duels plus two full 10ps hurts, so the size schedule is a robust optimum.
+- next: back to dimension 1, probe-informed ideas for extreme bots.
