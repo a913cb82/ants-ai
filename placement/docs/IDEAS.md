@@ -36,6 +36,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Hollow-spread opener: 8 edge quantiles + center pin (bold 8). |
 | dropped | Game-3 full-pool: last anchor-factorial cell (full, tertile, full). |
 | done | Full-pool opener at 4.25: gradient-top micro-probe. |
+| trying | Full-pool opener at 4.375: bisect the top. |
 | dropped | Quartile anchors retest (cleaner thresholds for hard seeds). |
 | dropped | 3p opening: 2x3p closest-pair instead of 3x2p (same 6 slots). |
 | dropped | 4p mid game: bot plus above, below, closest replaces bracket pair. |
@@ -143,6 +144,8 @@ bleed 270-400, so middle thresholds may be dead weight: 8 edge
 quantiles plus one center pin at 4.0 sigma, full pool. Predicts
 tails bind and mids hold, or the middle was load-bearing. Judge
 after iteration 56.
+Judged: refuted at iteration 53 (267.6182, every seed regressed);
+middle thresholds are load-bearing.
 
 Nineteen misses in a row (iters 23-41) force bold line 7 (2026-10-03):
 tail-skewed two-sided grid. Bold 2 failed binary (one side only);
