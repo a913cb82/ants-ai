@@ -1374,3 +1374,12 @@ One entry per iteration:
 - what changed: census sites doubled edge pins instead of uniform spacing.
 - what you learned: cost about 43.57 with every seed regressing; extreme noise dominates coverage and uniform spacing stands.
 - next: judge bold 24 after 145; center-dense census sites (mirror test).
+
+## 144 — center-dense census sites (2026-10-03)
+- commit: 2d7df1f
+- score: mean 381.4656 over seeds 0-4 (453.8583, 307.0414, 443.8386, 227.7468, 474.8430)
+- champion mean: 197.7410 selection, 187.4788 pooled (5faf0b0)
+- verdict: discard
+- what changed: census sites clustered to the middle 40 percent of the pool range.
+- what you learned: cost about 184, worst spacing result on record; abandons the range coverage that drives the win. Spacing triptych complete: uniform wins, both extremes fail.
+- next: judge bold 24 after 145; bookend skeleton census games 1+3.
