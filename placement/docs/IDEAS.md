@@ -22,7 +22,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Approach 1 pipeline retest (tightest seed spread under MAE). |
 | done | Twin-wide 10ps 2.0/2.0, no narrow refine (bold 1). |
 | open | Symmetric pairs recheck under MSE (0.5/0.5, 1.0/1.0). |
-| open | Quartile anchors retest (cleaner thresholds for hard seeds). |
+| trying | Quartile anchors retest (cleaner thresholds for hard seeds). |
 
 ## Bold lines
 
