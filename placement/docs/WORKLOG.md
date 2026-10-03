@@ -424,3 +424,9 @@
 - Score: corr 0.9931 (-0.0000, exact tie).
 - Verdict: DISCARD (tie keeps incumbent). Uniform mass stands over shaped placement; shaping buys nothing.
 - Misses: 26.
+
+## Iter 70: calibrated-snap deciles
+- Same decile sites, lowest-sigma snap within 0.15 mu.
+- Score: corr 0.9933 (+0.0001, exact tie).
+- Verdict: DISCARD (tie keeps incumbent). Ruler quality on near-ties buys nothing; snap axis closed, pure nearest-mu stands.
+- Misses: 27.
