@@ -83,6 +83,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Game-3 at 1.5: last ladder cell. |
 | dropped | Hollow opener under valley rest: division of labor (bold 17). |
 | dropped | Edge-heavy opener grid: dense edges, sparse middle. |
+| trying | Split closer 5p+5p: mid-schedule update (bold 18). |
 | dropped | Quartile anchors retest (cleaner thresholds for hard seeds). |
 | dropped | 3p opening: 2x3p closest-pair instead of 3x2p (same 6 slots). |
 | dropped | 4p mid game: bot plus above, below, closest replaces bracket pair. |
@@ -252,6 +253,12 @@ complement it. Predicts tails bind and mids hold, or middle
 thresholds load-bearing again. Judge after iteration 97.
 Judged: refuted at iteration 96 (271.4244, every seed regressed);
 middle load-bearing under every rest shape.
+
+Two misses in a row (iters 96-97) force bold line 18 (2026-10-03):
+split closer. Two 5p spreads (10+10+5+5): a mid-schedule update
+sharpens the second half. Splits the closer, not the opener.
+Predicts fresher mus compensate fewer looks, or 5p looks stay
+weak. Judge after iteration 100.
 
 Three misses in a row (iters 89-91) force bold line 16 (2026-10-03):
 flat wide rest. Both rest games at 1.875: the rest may do one job
