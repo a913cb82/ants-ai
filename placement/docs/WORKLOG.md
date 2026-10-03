@@ -837,3 +837,12 @@ One entry per iteration:
 - what changed: second bulk 10p widened from 1.25 to 1.375 sigma under the 1.875 closer.
 - what you learned: won selection by 2.10 but lost held-out by 9.78 with every seed regressing; game-2 stays 1.25 with no closer interaction.
 - next: hunt outside the priced grids; misses at 86-87 need bold 15 after one more miss.
+
+## 88 — zoom-down rest bold 15 (2026-10-03)
+- commit: 6322377
+- score: mean 225.9928 over seeds 0-4 (191.1595, 267.8123, 366.8229, 116.6210, 187.5485)
+- champion mean: 216.0193 selection, 205.7881 pooled (fde75b9)
+- verdict: discard
+- what changed: games 2 and 3 swapped to 1.875 then 1.25 sigma.
+- what you learned: cost about 9.97 with every seed regressing; the valley shape is real and monotone zoom loses everywhere.
+- next: flat narrow rest (1.25/1.25) to test the valley's second wall.

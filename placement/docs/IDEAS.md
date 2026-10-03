@@ -73,7 +73,7 @@ A refinement is a new row. Leave old rows as they were.
 | done | Game-3 at 1.875: last micro. |
 | dropped | Game-3 at 1.9375: bisect 1.875 and 2.0. |
 | dropped | Game-2 at 1.375 under the 1.875 closer. |
-| trying | Zoom-down rest 1.875/1.25: coarse-to-fine (bold 15). |
+| dropped | Zoom-down rest 1.875/1.25: coarse-to-fine (bold 15). |
 | dropped | Quartile anchors retest (cleaner thresholds for hard seeds). |
 | dropped | 3p opening: 2x3p closest-pair instead of 3x2p (same 6 slots). |
 | dropped | 4p mid game: bot plus above, below, closest replaces bracket pair. |
