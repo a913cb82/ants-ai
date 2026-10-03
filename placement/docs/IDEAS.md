@@ -40,7 +40,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Widths 4.25/2.25/2.0: game-2 micro-probe. |
 | dropped | Split bulks 5p+5p+10p+10p, opener 4.25 full-pool (bold 9). |
 | dropped | Full-pool opener at 4.125: bisect down from 4.25. |
-| trying | Game-2 quartile anchors: per-game strictness. |
+| dropped | Game-2 quartile anchors: per-game strictness. |
 | dropped | Quartile anchors retest (cleaner thresholds for hard seeds). |
 | dropped | 3p opening: 2x3p closest-pair instead of 3x2p (same 6 slots). |
 | dropped | 4p mid game: bot plus above, below, closest replaces bracket pair. |
@@ -156,6 +156,8 @@ split bulks. Two 5p spreads then two 10p spreads (5+5+10+10) tests
 whether the opener needs 9 thresholds or 4 suffice; opener 5p at
 4.25 full-pool, rest tertile at 2.0. Predicts the extra bulk buys
 precision, or 4 looks cannot bound. Judge after iteration 60.
+Judged: refuted at iteration 58 (256.6085, every seed regressed);
+4 opener looks cannot bound.
 
 Nineteen misses in a row (iters 23-41) force bold line 7 (2026-10-03):
 tail-skewed two-sided grid. Bold 2 failed binary (one side only);

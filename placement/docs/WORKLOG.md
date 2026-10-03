@@ -551,3 +551,12 @@ One entry per iteration:
 - what changed: unfiltered opener narrowed from 4.25 to 4.125 sigma.
 - what you learned: cost about 2.88, worse than both 4.0 and 4.25 neighbors; the width top is flat-topped noise, stop bisecting.
 - next: judge bold 9 (refuted); third validation on seeds 5-9 for the 4.25 champion.
+
+## 60 — game-2 quartile anchors (2026-10-03)
+- commit: 1d58e54
+- score: mean 225.9611 over seeds 0-4 (196.7094, 268.9228, 342.0734, 120.4885, 201.6113)
+- champion mean: 221.5778 (9b38f80)
+- verdict: discard
+- what changed: second 10p drew from low-sigma quartile instead of tertile.
+- what you learned: cost about 4.38 with seeds 0/4 regressing hard; game-2 wants tertile too, per-game strictness buys nothing. Bold 9 judged refuted (iter 58).
+- next: third validation (4.25 champion vs 4.0 rival) on seeds 5-9.
