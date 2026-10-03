@@ -264,3 +264,12 @@ One entry per iteration:
 - what changed: 3 positioning duels, one spread 4p bridge, then 1.0-sigma and 0.5-sigma 10ps.
 - what you learned: the 4p bridge cost about 0.40 net; fewer duels hurt more than a transition game helps.
 - next: 6 duels plus 8p plus 10p, then 6 duels plus 10p plus 8p.
+
+## 29 — dim-2 sweep B 6 duels 8p 10p (2026-10-03)
+- commit: 53b5fca
+- score: mean 16.8185 over seeds 0-4 (16.2288, 18.0913, 17.9690, 14.8103, 16.9929)
+- champion mean: 14.8370 (067b331)
+- verdict: discard
+- what changed: dimension-2 only, 6 closest duels then spread 8p at 1.0 sigma then spread 10p at 0.5 sigma, opponent rules fixed.
+- what you learned: extra duel plus smaller first bulk cost about 1.98; the first bulk game wants the full 10 seats.
+- next: dim-2 sweep C, 6 duels plus 10p plus 8p.
