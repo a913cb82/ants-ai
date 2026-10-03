@@ -1129,3 +1129,12 @@ One entry per iteration:
 - what changed: pools under 90 opened 1.5 tertile instead of 4.0 full-pool.
 - what you learned: cost about 13.02 with only seed 2 improving; early tight poisons the first 90 rulers and wide-first is load-bearing for the whole pool.
 - next: judge bold 20 after 119; closest-cluster ring closer.
+
+## 118 — closest-cluster ring closer (2026-10-03)
+- commit: c141382
+- score: mean 221.0464 over seeds 0-4 (194.1549, 254.4704, 350.5358, 111.4706, 194.6002)
+- champion mean: 216.0193 selection, 205.7881 pooled (fde75b9)
+- verdict: discard
+- what changed: game-3 took the 9 nearest tertile rulers to current mu.
+- what you learned: cost about 5.03 with only seed 2 improving; pure proximity is an echo chamber and quantile spread stays load-bearing.
+- next: judge bold 20 after 119; mu-gated closer 2.5/1.5.
