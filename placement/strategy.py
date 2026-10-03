@@ -40,10 +40,12 @@ def _info_duel(bot: Rating, ratings: list[Rating]) -> list[int]:
     return [best]
 
 
-def _established(ratings: list[Rating], k: int, exclude: int = 0) -> list[int]:
-    """Recent low-sigma tertile (last 400), or full pool if too few."""
+def _established(
+    ratings: list[Rating], k: int, exclude: int = 0, win: int = 400
+) -> list[int]:
+    """Recent low-sigma tertile (last win), or full pool if too few."""
     end = max(0, len(ratings) - exclude)
-    start = max(0, end - 400)
+    start = max(0, end - win)
     if end <= start:
         end = len(ratings)
         start = max(0, end - 400)
@@ -97,9 +99,9 @@ def _census(ratings: list[Rating], k: int, mode: str = "range") -> list[int]:
     return picked
 
 
-def _strata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
+def _strata(bot: Rating, ratings: list[Rating], k: int, win: int = 400) -> list[int]:
     """k rulers across below/peer/above bins, quota by bin mass."""
-    pool = _established(ratings, k, 0)
+    pool = _established(ratings, k, 0, win)
     s = max(bot.sigma, 0.5)
     bins: list[list[int]] = [[], [], []]
     for c in pool:
@@ -354,11 +356,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 87 (corr): 7-site census opener.
-    if budget_left > 22:
-        n = min(7, budget_left - 1, len(ratings))
+    # Iter 88 (corr): refine window 200.
+    if budget_left > 20:
+        n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
-        return _strata(bot, ratings, n)
+        return _strata(bot, ratings, n, 200)
     return _info_duel(bot, ratings)
