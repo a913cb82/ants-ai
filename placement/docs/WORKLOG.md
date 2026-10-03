@@ -1138,3 +1138,13 @@ One entry per iteration:
 - what changed: game-3 took the 9 nearest tertile rulers to current mu.
 - what you learned: cost about 5.03 with only seed 2 improving; pure proximity is an echo chamber and quantile spread stays load-bearing.
 - next: judge bold 20 after 119; mu-gated closer 2.5/1.5.
+
+## 119 — mu-gated closer 2.5 1.5 (2026-10-03)
+- commit: bc7a951
+- score: selection mean 213.6388 (181.7657, 238.1884, 349.6149, 111.8939, 186.7310)
+- champion selection mean: 216.0193 (fde75b9)
+- confirmation: 205.0800 over seeds 5-9 (158.9426, 246.4376, 239.9315, 213.4289, 166.6592) vs champion held-out 195.5568
+- verdict: discard
+- what changed: game-3 played 2.5 sigma when |mu-25| exceeded 25, else 1.5.
+- what you learned: selection won 2.38 on two seeds but held-out lost 9.52 with one of five; pooled loses 3.57. Same seed-2-driven noise signature; confirmation rule earns its keep. Bold 20 judged refuted (iter 116).
+- next: undercut 0.75/2.75 rest (race A).

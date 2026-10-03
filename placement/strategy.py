@@ -60,11 +60,9 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Exp (iter 119, MSE): mu-gated closer.
+    # Champion (iter 85, MSE): widths 4.0/1.25/1.875.
     if budget_left > 20:
         return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 4.0, False)
     if budget_left > 10:
         return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.25)
-    if abs(bot.mu - 25.0) > 25.0:
-        return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.5)
-    return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.5)
+    return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.875)
