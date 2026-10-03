@@ -436,3 +436,9 @@
 - Score: corr 0.9933 (+0.0001, uniform tie).
 - Verdict: DISCARD (tie keeps incumbent). Symmetry stands; direction axis closed, no mirror run.
 - Misses: 28.
+
+## Iter 72: 2-bin median-split strata
+- Below/above halves with mass quota + champion rest.
+- Score: corr 0.9932 (+0.0000, exact tie).
+- Verdict: DISCARD (tie keeps incumbent). Bin edges are free parameters; 3-bin stands on peer insurance, not edge signal.
+- Misses: 29.
