@@ -219,3 +219,12 @@ One entry per iteration:
 - what changed: FFA anchor pool tightened from the low-sigma tertile to the quartile.
 - what you learned: quartile cost about 0.07 with seed 2 regressing to 17.26; the tertile balances threshold cleanliness against pool breadth.
 - next: duel-count re-check at tertile anchors (4 or 6 duels), or 8p late bulk.
+
+## 24 — 4 early plus 1 late duel retest (2026-10-03)
+- commit: 51768e4
+- score: mean 16.4204 over seeds 0-4 (15.7205, 17.0245, 19.0967, 15.0268, 15.2337)
+- champion mean: 15.1426 (d792747)
+- verdict: discard
+- what changed: retried 4 early duels plus 1 late duel around two spread 10ps, now under tertile anchors.
+- what you learned: the late duel still cost about 1.28 with seed 2 back at 19.10; late single looks destabilize hard seeds under any anchor rule.
+- next: 6-duel opener, or probe where the remaining error concentrates.
