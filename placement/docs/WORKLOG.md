@@ -1212,3 +1212,14 @@ One entry per iteration:
 - what changed: game-1 matched fixed absolute sites across [-50,100] instead of case-centered 4.0 spread.
 - what you learned: seed 2 improves 28 but seed 0 regresses 31; fixed [-50,100] wastes pulls on empty extremes when the pool is small. Repair first: span sites to the observed pool range.
 - next: pool-range census sites (tuning 126b).
+
+## 127 — pool-range census opener tuning 126b (2026-10-03)
+- commit: 73f8050
+- score: selection mean 199.7520 (148.7059, 230.0787, 326.1673, 119.9127, 173.8954)
+- champion selection mean: 216.0193 (fde75b9)
+- confirmation: 180.3568 over seeds 5-9 (142.2694, 206.0317, 221.8561, 176.3427, 155.2841) vs champion held-out 195.5568
+- fresh audit: 161.7721 over seeds 10-14 (86.1849, 166.3903, 116.7974, 156.1757, 283.3121) vs champion fresh 178.6823
+- verdict: keep, new champion
+- what changed: game-1 matches pool-range census sites instead of fixed [-50,100]; bot-independent opener, case-centered valley rest unchanged.
+- what you learned: repair turned plus 3.31 into minus 16.27 on selection; all three seed sets agree (14 of 15 seeds), pooled-15 180.6270 vs 196.7528. Bot-independent range coverage beats case-centered wide-first; persistence rule paid off. Seed 3 the lone selection regressor.
+- next: judge bold 21 after 124 (done, refuted); probe why seed 3 resists; census-site count and spacing tuning.
