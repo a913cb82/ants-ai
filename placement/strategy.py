@@ -40,6 +40,30 @@ def _census(ratings: list[Rating], k: int) -> list[int]:
     return picked
 
 
+def _census_ban(
+    ratings: list[Rating], k: int, ban: frozenset[int] = frozenset()
+) -> list[int]:
+    """Census sites excluding banned ids, fallback to plain census."""
+    lo = min(r.mu for r in ratings)
+    hi = max(r.mu for r in ratings)
+    if hi - lo < 1e-9:
+        return list(range(min(k, len(ratings))))
+    sites = [lo + (hi - lo) * (j + 1) / (k + 1) for j in range(k)]
+    picked: list[int] = []
+    used: set[int] = set(ban)
+    for t in sites:
+        cands = [c for c in range(len(ratings)) if c not in used]
+        if not cands:
+            break
+        i = min(cands, key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c))
+        used.add(i)
+        picked.append(i)
+    return picked
+
+
+_seen: dict[tuple[int, int], list[int]] = {}
+
+
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
     """Pool index nearest bot.mu, low sigma then low index on ties."""
     return min(
@@ -54,16 +78,20 @@ def _spread(
     k: int,
     width: float = 1.0,
     anchors: bool = True,
+    ban: frozenset[int] = frozenset(),
 ) -> list[int]:
     """k distinct opponents nearest quantiles of N(mu, w*sigma)."""
     dist = NormalDist(bot.mu, max(width * bot.sigma, 0.5))
     targets = [dist.inv_cdf((j + 1) / (k + 1)) for j in range(k)]
     pool = _established(ratings, k) if anchors else list(range(len(ratings)))
+    avail = [c for c in pool if c not in ban]
+    if len(avail) < k:
+        avail = pool
     picked: list[int] = []
     used: set[int] = set()
     for t in targets:
         i = min(
-            (c for c in pool if c not in used),
+            (c for c in avail if c not in used),
             key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c),
         )
         used.add(i)
@@ -81,9 +109,24 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Champion (iter 133, MSE): census opener, recent-tertile 1.25/1.875.
+    # Exp (iter 151, MSE): no-rematch under census.
+    n = len(ratings)
+    seq = 0
+    while (n, seq) in _seen:
+        seq += 1
+    ban: set[int] = set()
+    for j in range(seq):
+        ban |= set(_seen[(n, j)])
+    frozen = frozenset(ban)
     if budget_left > 20:
-        return _census(ratings, min(9, budget_left - 1, len(ratings)))
-    if budget_left > 10:
-        return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.25)
-    return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.875)
+        picks = _census_ban(ratings, min(9, budget_left - 1, len(ratings)), frozen)
+    elif budget_left > 10:
+        picks = _spread(
+            bot, ratings, min(9, budget_left - 1, len(ratings)), 1.25, True, frozen
+        )
+    else:
+        picks = _spread(
+            bot, ratings, min(9, budget_left - 1, len(ratings)), 1.875, True, frozen
+        )
+    _seen[(n, seq)] = picks
+    return picks
