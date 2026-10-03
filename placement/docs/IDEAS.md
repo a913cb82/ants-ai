@@ -75,7 +75,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Game-2 at 1.375 under the 1.875 closer. |
 | dropped | Zoom-down rest 1.875/1.25: coarse-to-fine (bold 15). |
 | dropped | Flat narrow rest 1.25/1.25: test the valley wall. |
-| trying | Game-2 at 1.1875: bisect 1.125 and 1.25. |
+| dropped | Game-2 at 1.1875: bisect 1.125 and 1.25. |
 | dropped | Quartile anchors retest (cleaner thresholds for hard seeds). |
 | dropped | 3p opening: 2x3p closest-pair instead of 3x2p (same 6 slots). |
 | dropped | 4p mid game: bot plus above, below, closest replaces bracket pair. |

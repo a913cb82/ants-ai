@@ -856,3 +856,12 @@ One entry per iteration:
 - what changed: third bulk 10p narrowed from 1.875 to 1.25 sigma.
 - what you learned: won selection by 0.32 but lost held-out by 5.62 with every seed regressing; game-3 width does real work and the valley wall holds both sides. Bold 15 judged refuted (iter 88).
 - next: hunt outside priced space; the valley (4.0/1.25/1.875) stands on all sets.
+
+## 90 — game-2 at 1.1875 (2026-10-03)
+- commit: ed581e4
+- score: mean 217.4318 over seeds 0-4 (182.1040, 244.0566, 369.0152, 108.4709, 183.5122)
+- champion mean: 216.0193 selection, 205.7881 pooled (fde75b9)
+- verdict: discard
+- what changed: second bulk 10p narrowed from 1.25 to 1.1875 sigma.
+- what you learned: cost about 1.41 with seed 0 regressing hard; game-2 stays 1.25, bisection between rejected and confirmed loses.
+- next: game-3 at 1.8125 (bisect 1.75/1.875); misses at 89-90 need bold 16 after one more miss.
