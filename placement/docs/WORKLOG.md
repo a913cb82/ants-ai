@@ -723,3 +723,7 @@
 - Duels 1-2 below-only info, 3-5 peer-only, 6-7 above-only.
 - Score: corr 0.9932 (+0.0000, exact tie; mixed seed signs, no pattern).
 - Verdict: sweep direction carries nothing. Next: gates at width 60 (E4).
+
+## Iter 124 (camp E4): gated sweep at width 60
+- Score: corr 0.9933 (+0.0001, tie).
+- Verdict: breadth does not rescue gates. Next: peer-double rotation (E5).
