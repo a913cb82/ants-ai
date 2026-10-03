@@ -924,3 +924,12 @@ One entry per iteration:
 - what changed: third bulk 10p narrowed from 1.875 to 1.5 sigma.
 - what you learned: cost about 3.25 with seed 3 regressing hard; the game-3 ladder is complete (1.25/1.5/1.625 lose below, 1.9375/2.0/2.5 lose above).
 - next: opener 4.0625 micro or accept convergence.
+
+## 96 — hollow opener valley rest bold 17 (2026-10-03)
+- commit: e7c9da6
+- score: mean 271.4244 over seeds 0-4 (293.9090, 306.7966, 343.6187, 182.2101, 230.5874)
+- champion mean: 216.0193 selection, 205.7881 pooled (fde75b9)
+- verdict: discard
+- what changed: opener targets replaced with 8 edge quantiles plus one center pin.
+- what you learned: cost about 55.41 with every seed regressing; middle thresholds load-bearing under every rest shape, division of labor refuted twice.
+- next: judge bold 17; then dense-edge opener (keep middle, add reach).
