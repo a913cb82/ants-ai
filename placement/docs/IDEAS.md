@@ -201,6 +201,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Skeleton-second 4.0/census/1.875 (bold 27). |
 | dropped | Per-quantile mixed anchors under census (retest). |
 | dropped | Tight early-position under census (retest). |
+| trying | Undercut 0.75/2.75 under census (retest). |
 | open | Chase-combining repeat-wide 4.0/4.0/1.5 (info; diversity-combine before zoom). |
 | open | Double-tap opener 4.0/4.0/1.25 (adversary; second wide after recentering, full-pool G2 untested at 4.0). |
 | open | Split-middle 10+5+5+10 valley halves (info/poker; mid-schedule re-aim, halves sandwiched not late). |
@@ -426,6 +427,8 @@ Two misses in a row (iters 155-156) force bold line 27
 game-2, 1.875 closer; tests census TIMING by moving the skeleton
 late. Predicts late coverage repairs personalization, or early
 skeleton timing is load-bearing. Judge after iteration 160.
+Judged: refuted at iteration 157 (272.3998, every seed regressed);
+early skeleton timing stands.
 
 Two misses in a row (iters 145-146) force bold line 25
 (2026-10-03): ancient-tertile anchors. Tertile drawn from the
