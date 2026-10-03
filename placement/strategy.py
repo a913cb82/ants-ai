@@ -18,17 +18,18 @@ class Rating:
     sigma: float
 
 
-def _info_duel(bot: Rating, ratings: list[Rating]) -> list[int]:
+def _info_duel(bot: Rating, ratings: list[Rating], side: int = 0) -> list[int]:
     """Tail duel: argmax predict_draw + 0.02 sigma over 40 nearest."""
     order = sorted(
         range(len(ratings)),
         key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
     )[:40]
-    if not order:
+    gated = [c for c in order if (ratings[c].mu - bot.mu) * side > 0] or order
+    if not gated:
         return []
-    best = order[0]
+    best = gated[0]
     best_v = None
-    for c in order:
+    for c in gated:
         teams = [[_MODEL.rating(mu=bot.mu, sigma=bot.sigma)]]
         sig = bot.sigma
         for i in (c,):
@@ -354,11 +355,12 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 43 (corr): proportional-strata refine.
+    # Iter 101 (camp A1): front-loaded upsets retest, first 3 duels above-only.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
         return _strata(bot, ratings, n)
-    return _info_duel(bot, ratings)
+    d = (14 - budget_left) // 2
+    return _info_duel(bot, ratings, 1 if d < 3 else 0)
