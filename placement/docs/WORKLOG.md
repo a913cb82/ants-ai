@@ -509,3 +509,9 @@
 - Score: corr 0.9932 (+0.0001, tie).
 - Verdict: DISCARD (tie keeps incumbent). Per-duel greed already balances sides; the gate adds code for no insurance. Flat info stands.
 - Misses: 40.
+
+## Iter 84: draw-snapped deciles (blacksmith F2)
+- Decile sites with argmax-draw snap over 5 nearest per site + champion rest.
+- Score: corr 0.9929 (-0.0002).
+- Verdict: DISCARD. Draw-odds snap loses where sigma-snap tied; nearest-mu stands as the cheapest correct snap. Snap family closed for good.
+- Misses: 41.
