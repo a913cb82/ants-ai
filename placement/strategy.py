@@ -354,11 +354,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Bold 12 (corr): 8p strata refine + 6 info duels.
+    # Iter 47 (corr): bell-projection census under duel tail.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
-        return _census(ratings, n, mode="quantile")
-    if budget_left > 12:
-        n = min(7, budget_left - 1, len(ratings))
+        return _census(ratings, n, mode="bell")
+    if budget_left > 14:
+        n = min(5, budget_left - 1, len(ratings))
         return _strata(bot, ratings, n)
     return _info_duel(bot, ratings)
