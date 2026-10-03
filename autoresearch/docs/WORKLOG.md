@@ -1700,3 +1700,15 @@ Use this format.
 - what changed: Battling as Farmstead in Farmstead.bot + Farmstead.py; food walk-off plus hill fallback.
 - what you learned: Farmsteads went 3-2 losing twice to Relief, won the 5p and 8p, then finished 7/7; compatible synthesis still fails, worse than both parents, so lb reached 27.52 against 52.15.
 - next: Backstop — fallback to second hill.
+
+## 141 — backstop seconds hills (2026-09-21)
+- commit: f43c57c
+- start: 67c7703 (bold line)
+- budget: 5 duels, 3 FFA
+- score: mu 16.60, sigma 3.48, lb 6.16
+- champion lb: 52.15
+- verdict: drop the relief line (bold 3 of 3)
+- games: 3-2, FFA ranks 5p:4 7p:4 8p:8
+- what changed: Battling as Backstop in Backstop.bot + Backstop.py; second-hill fallback.
+- what you learned: Backstops went 3-2, took 4/5 and 4/7, then finished 8/8; second-hill fallback scatters, so lb fell to 6.16 against 52.15.
+- next: BOLD — new line, research first.

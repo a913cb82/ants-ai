@@ -172,5 +172,6 @@ row. Leave the old row as it was.
 | dropped | Alarum: walk-off defense. |
 | dropped | Mob: fearless in crowds. |
 | dropped | Homeward: explore to hills. |
-| trying | Relief: fearless reinforce. |
-| trying | Farmstead: feet plus fallback. |
+| dropped | Relief: fearless reinforce. |
+| dropped | Farmstead: feet plus fallback. |
+| dropped | Backstop: second fallback. |
