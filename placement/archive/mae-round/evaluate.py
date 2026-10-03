@@ -81,7 +81,7 @@ def run(n_bots: int, seed: int, select: Select) -> tuple[float, float]:
             for j, i in enumerate(picks, start=1):
                 ratings[i] = Rating(new_teams[j][0].mu, new_teams[j][0].sigma)
             slots += len(field)
-        errors.append((bot.mu - mu_true) ** 2)
+        errors.append(abs(bot.mu - mu_true))
         ratings.append(bot)
         trues.append(mu_true)
     total = sum(errors)

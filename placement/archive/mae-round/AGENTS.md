@@ -33,7 +33,7 @@ Do not use mu_true for selection.
 Select each next game after the last result.
 
 ## Error
-Measure error as (mu minus mu_true)^2.
+Measure error as abs(mu minus mu_true).
 Measure it at the end of placement.
 Later games do not change the recorded error.
 

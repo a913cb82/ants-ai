@@ -24,10 +24,8 @@ It must be deterministic and fast (~10k calls per full run).
 
 ## Goal
 
-Minimize mean squared error `(mu minus mu_true)^2` over 1000 bots,
-averaged over seeds 0 to 4. Low wins. Champion is the lowest mean.
-Squared error weights tail bots heavily: extremes dominate, so
-stability across seeds beats typical-bot level.
+Minimize mean `abs(mu minus mu_true)` over 1000 bots, averaged over
+seeds 0 to 4. Low wins. Champion is the lowest mean.
 
 ## One iteration
 
@@ -43,7 +41,7 @@ stability across seeds beats typical-bot level.
    Score is the mean of the 5 means. Report all 5.
 7. Append one line to `placement/docs/PROGRESS.jsonl`:
    `date`, `commit`, `mean`, `champion` (best prior commit or null).
-   `mean` is the mean squared error. Never edit old lines.
+   Never edit old lines.
 8. Retag: `git tag -f champion/placement` on a new best, else on the
    best row's commit. Tags stay local. Keep every commit.
 9. Log one `WORKLOG.md` entry. Commit notes with
@@ -70,5 +68,4 @@ Paths are relative to `placement/`.
 | `docs/STRATEGY.md` | current champion only |
 | `candidates/` | alternates, run with `--strategy` |
 | `strategy.py` | the strategy under test |
-| `evaluate.py` | the harness (scores MSE; do not edit) |
-| `archive/mae-round/` | prior MAE round record (read-only) |
+| `evaluate.py` | the harness (do not edit) |
