@@ -448,3 +448,9 @@
 - Score: corr 0.9925 (-0.0007).
 - Verdict: DISCARD. Bold 20 judged: refuted. A closing refine cannot beat the 7th duel; terminal duels finish best.
 - Misses: 30.
+
+## Iter 74: rebind refine (bookkeeper D2)
+- 1 nearest played site + 4 fresh strata + info tail.
+- Score: corr 0.9932 (+0.0001, exact tie).
+- Verdict: DISCARD (tie keeps incumbent). Scale-link buys nothing; rebind family closed.
+- Misses: 31. Wave-3 brainstorm (blacksmith/midwife/glazier/shepherd/auditor) in flight.
