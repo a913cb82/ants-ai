@@ -3,3 +3,4 @@
 {"date": "2026-10-04", "commit": "iter3", "corr": 0.9874, "seeds": [0.9883, 0.9855, 0.9871, 0.9872, 0.9891], "champion": null, "note": "seeded refines; sel +0.0004 but held-out 5-9 vetoes (0.98836 vs 0.98868); discard"}
 {"date": "2026-10-04", "commit": "iter4", "corr": 0.987, "seeds": [0.9864, 0.9845, 0.9829, 0.9914, 0.9897], "champion": null, "note": "bold1 drunk-witness G3; ties baseline, seed variance up = pure noise; discard, axis closed"}
 {"date": "2026-10-04", "commit": "iter5", "corr": 0.986, "seeds": [0.9868, 0.9855, 0.9855, 0.984, 0.9884], "champion": null, "note": "Fisher 1.0/1.5 valley; -0.0010, 4/5 regress; discard"}
+{"date": "2026-10-04", "commit": "iter6", "corr": 0.9854, "seeds": [0.984, 0.9845, 0.9837, 0.987, 0.9876], "champion": null, "note": "equating spine 3+even/3+odd; -0.0017 all regress; discard"}

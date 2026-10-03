@@ -36,3 +36,9 @@
 - Score: corr 0.9860 (-0.0010, only seed 4 improves).
 - Verdict: DISCARD per row falsification. The MSE valley widths are not tail-weight overhead; reach separates ranks too.
 - Misses: 4.
+
+## Iter 6: equating spine (common-item link)
+- Census + (3 spine + 6 even-tertile at 1.25) + (3 spine + 6 odd-tertile at 1.875).
+- Score: corr 0.9854 (-0.0017, all 5 seeds regress).
+- Verdict: DISCARD. The 3-slot form-link tax buys nothing; greedy personalization beats shared anchors.
+- Misses: 5.
