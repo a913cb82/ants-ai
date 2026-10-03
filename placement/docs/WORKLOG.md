@@ -1587,3 +1587,11 @@ One entry per iteration:
 - what changed: closer targets doubled edge pins instead of uniform deciles.
 - what you learned: selection and held-out both favored edge pins thinly but fresh lost 0.58 with seed 11 regressing 6; pooled-15 wins 0.51 yet fresh vetoes. Fourth fresh veto; uniform grid stands confirmed.
 - next: misses force bold 29; F1 Q2-half ladder under census (retest).
+
+## 167 — F1 ladder stillborn duplicate (2026-10-03)
+- commit: 0212daf
+- score: none (duplicate caught by bit-identical quick 277.3875)
+- verdict: stillborn
+- what changed: nothing, the schedule duplicates iter 150 (census opener is full-pool; half game-2 plus 1.875 closer).
+- what you learned: determinism catches duplicates before full runs; check WORKLOG compositionally (census equals full-pool anchor) not just by label.
+- next: misses force a real bold 29; chase-combining under census.
