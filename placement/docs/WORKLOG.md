@@ -420,3 +420,12 @@ One entry per iteration:
 - what changed: tertile-anchored opener with full-pool later bulks.
 - what you learned: cost about 54.36 with every seed regressing; the anchor factorial reads TT 235.26, FT 228.39, TF 282.75, FF 273.41, so reach-then-calibrate wins both margins near-additively.
 - next: opener width re-sweep under full-pool (3.0 may not be optimal unfiltered).
+
+## 46 — full-pool opener at 3.5 (2026-10-03)
+- commit: 95e521f
+- score: mean 223.8133 over seeds 0-4 (178.0182, 258.1805, 364.6575, 119.7851, 198.4253)
+- champion mean: 228.3885 (a607580)
+- verdict: keep
+- what changed: unfiltered opener widened from 3.0 to 3.5 sigma.
+- what you learned: wins by 4.58 with seeds 0/2/3/4 improving (seed 3 down 16 to 119.79) and only seed 1 regressing slightly; unfiltered reach pays wider than anchored reach.
+- next: full-pool opener at 4.0.
