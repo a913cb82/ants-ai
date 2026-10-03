@@ -268,3 +268,9 @@
 - Selection: corr 0.9932 (+0.0002, 3/5). Held-out 5-9: 0.9939 (+0.0007). Fresh 10-14: 0.9939. Pooled-15: 0.9937.
 - Verdict: ADOPT. Spending refine looks where the voters are beats the Gaussian grid; forced 3-3-3 stays dead but proportional quota wins.
 - Misses reset to 0.
+
+## Iter 44: strata bins at +-1.5 sigma
+- Champion shape with wider peer bin.
+- Score: corr 0.9931 (-0.0001, exact tie).
+- Verdict: DISCARD (tie keeps incumbent). Bin width carries nothing; mass already concentrates in the peer bin.
+- Misses: 1.
