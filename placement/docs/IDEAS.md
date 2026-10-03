@@ -164,6 +164,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Overcut 3.0/1.0 rest (bold 21). |
 | dropped | Quintile game-2 0.875 plus 1.0 closer (race D). |
 | dropped | Edge-dense closer grid (adversary S1). |
+| trying | Senior-tertile anchors exclude 50 most recent (adversary S4). |
 | open | Chase-combining repeat-wide 4.0/4.0/1.5 (info; diversity-combine before zoom). |
 | open | Double-tap opener 4.0/4.0/1.25 (adversary; second wide after recentering, full-pool G2 untested at 4.0). |
 | open | Split-middle 10+5+5+10 valley halves (info/poker; mid-schedule re-aim, halves sandwiched not late). |
@@ -345,6 +346,8 @@ Three misses in a row (iters 117-119 plus 120) force bold line 21
 game-2 then narrow closer; tests whether the dip direction or only
 its existence matters. Predicts symmetry breaks toward the valley,
 or inversion wins somewhere. Judge after iteration 124.
+Judged: refuted at iteration 121 (244.1784, only seed 2 improved);
+dip direction matters.
 
 Three misses in a row (iters 89-91) force bold line 16 (2026-10-03):
 flat wide rest. Both rest games at 1.875: the rest may do one job
