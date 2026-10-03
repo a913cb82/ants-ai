@@ -129,50 +129,6 @@ def _strata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
     return out[:k]
 
 
-def _splitq(bot: Rating, ratings: list[Rating], k: int, width: float) -> list[int]:
-    """3 census-center + 2 live-mu targets snapped through strata quota."""
-    g1 = _census(ratings, min(9, len(ratings)))
-    prior = sum(ratings[i].mu for i in g1) / max(len(g1), 1)
-    sig = max(width * bot.sigma, 0.5)
-    half = (k + 1) // 2
-    tg = [NormalDist(prior, sig).inv_cdf((j + 1) / (k + 1)) for j in range(half)]
-    tg += [NormalDist(bot.mu, sig).inv_cdf((j + 1) / (k + 1)) for j in range(half, k)]
-    pool = _established(ratings, k, 0)
-    s = max(bot.sigma, 0.5)
-    bins: list[list[int]] = [[], [], []]
-    for c in pool:
-        d = ratings[c].mu - bot.mu
-        bins[0 if d < -s else (2 if d > s else 1)].append(c)
-    masses = [len(b) for b in bins]
-    total = sum(masses) or 1
-    quota = [max(1 if m else 0, round(k * m / total)) for m in masses]
-    while sum(quota) > k:
-        j = max(range(3), key=lambda j: quota[j] - k * masses[j] / total)
-        quota[j] -= 1
-    while sum(quota) < k:
-        j = max(range(3), key=lambda j: k * masses[j] / total - quota[j])
-        quota[j] += 1
-    picked: list[int] = []
-    used: set[int] = set()
-    qi = [0, 0, 0]
-    for t in tg:
-        order = sorted(
-            range(3),
-            key=lambda b: (qi[b] >= quota[b], abs(([-s, 0.0, s])[b] - (t - bot.mu)), b),
-        )
-        b = order[0]
-        cands = [c for c in bins[b] if c not in used] or [
-            c for c in pool if c not in used
-        ]
-        if not cands:
-            continue
-        i = min(cands, key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c))
-        used.add(i)
-        picked.append(i)
-        qi[b] += 1
-    return picked
-
-
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
     """Pool index nearest bot.mu, low sigma then low index on ties."""
     return min(
@@ -398,11 +354,14 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 55 (corr): quota-split refine.
+    # Bold 15 (corr): 3-stage, 6p strata + 4p strata + 5 duels.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
-        return _splitq(bot, ratings, n, 1.0)
+        return _strata(bot, ratings, n)
+    if budget_left > 10:
+        n = min(3, budget_left - 1, len(ratings))
+        return _strata(bot, ratings, n)
     return _info_duel(bot, ratings)
