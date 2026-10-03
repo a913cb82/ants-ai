@@ -1029,3 +1029,12 @@ One entry per iteration:
 - what changed: unfiltered opener narrowed from 4.0 to 3.75 sigma under the valley rest.
 - what you learned: cost about 5.27 with every seed regressing; 3.75 stays buried under valley rest too.
 - next: closer 2.5 under 1.25-second (thinnest cell).
+
+## 107 — closer 2.5 under 1.25-second (2026-10-03)
+- commit: c941d88
+- score: mean 226.4249 over seeds 0-4 (204.3684, 245.8382, 372.4298, 118.4229, 191.0654)
+- champion mean: 216.0193 selection, 205.7881 pooled (fde75b9)
+- verdict: discard
+- what changed: third bulk 10p widened from 1.875 to 2.5 sigma.
+- what you learned: cost about 10.41 with only seed 1 improving; the narrower game-2 licenses no wider closer and 1.875 stands.
+- next: chase-combining repeat-wide 4.0/4.0/1.5 (info P1).
