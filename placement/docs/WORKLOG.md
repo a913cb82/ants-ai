@@ -1102,3 +1102,12 @@ One entry per iteration:
 - what changed: game-2 split into two 4-opponent halves at 1.25 sigma.
 - what you learned: cost about 73.06 with every seed crushed; halves starve the mid re-aim and 9-pull density is load-bearing.
 - next: ratio upshift 1.5/2.25 rest (info P4).
+
+## 115 — ratio upshift 1.5 2.25 (2026-10-03)
+- commit: 6317bea
+- score: mean 218.4251 over seeds 0-4 (185.8180, 255.4500, 357.1285, 112.3661, 181.3629)
+- champion mean: 216.0193 selection, 205.7881 pooled (fde75b9)
+- verdict: discard
+- what changed: rest widths scaled plus 20 percent at the fixed 2:3 ratio.
+- what you learned: cost about 2.41 with seeds 0/1 regressing hard; shape is fixed and extra width re-opens settled bins.
+- next: HARQ sigma-gated closer (info P3); then misses force bold 20.
