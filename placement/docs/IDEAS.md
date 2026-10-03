@@ -40,6 +40,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Widths 4.25/2.25/2.0: game-2 micro-probe. |
 | dropped | Split bulks 5p+5p+10p+10p, opener 4.25 full-pool (bold 9). |
 | dropped | Full-pool opener at 4.125: bisect down from 4.25. |
+| trying | Game-2 quartile anchors: per-game strictness. |
 | dropped | Quartile anchors retest (cleaner thresholds for hard seeds). |
 | dropped | 3p opening: 2x3p closest-pair instead of 3x2p (same 6 slots). |
 | dropped | 4p mid game: bot plus above, below, closest replaces bracket pair. |
