@@ -1760,3 +1760,9 @@ One entry per iteration:
 - Verdict: DISCARD. Re-projection adds nothing; warp ~= harm even centered on posterior.
 - Learned: cartographer family 0-for-5 (quantile, sinh, bell, rewarp + trimmed/edge/center earlier). Geometry closed.
 - Next: iter 192 risk-parity 8+10+10+2 (economist E1).
+
+## Iter 192: risk-parity 8+10+10+2 (economist E1)
+- Score: sel 208.3334 vs champ 197.7410 (+10.59). 4/5 regress (seed 3 -3.5 only).
+- Verdict: DISCARD. Opener thresholds 8-9 NOT redundant; 7-site span leaks everywhere.
+- Learned: skeleton density (9) load-bearing bot-independently; risk-parity misprices uniform coverage.
+- Next: iter 193 mid-duel barbell 10+2+10+8 (economist E2).
