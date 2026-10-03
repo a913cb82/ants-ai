@@ -92,6 +92,7 @@ def _spread(
     checksum: bool = False,
     rewarp: bool = False,
     disjoint_shares: bool = False,
+    antiwindup: bool = False,
 ) -> list[int]:
     """k distinct opponents nearest quantiles of N(mu, w*sigma)."""
     center = bot.mu
@@ -136,6 +137,10 @@ def _spread(
     else:
         targets = [dist.inv_cdf((j + 1) / (k + 1)) for j in range(k)]
     pool = _established(ratings, k) if anchors else list(range(len(ratings)))
+    if antiwindup and ratings:
+        plo = min(r.mu for r in ratings)
+        phi = max(r.mu for r in ratings)
+        targets = [min(max(t, plo), phi) for t in targets]
     if disjoint_shares:
         g2 = _spread(bot, ratings, k, 1.25)
         other = [c for c in pool if c not in set(g2)]
@@ -280,18 +285,39 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     if not ratings or budget_left < 2:
         return []
     # Champion (iter 133, MSE): census opener, recent-tertile 1.25/1.875.
-    # Iter 196 (crypto S1): G3 = same 1.25 grid on disjoint ruler set.
+    # Iter 197 (control S3): anti-windup clipped undercut 0.75/2.75.
     if budget_left > 20:
         return _census(ratings, min(9, budget_left - 1, len(ratings)))
     if budget_left > 10:
         n = min(9, budget_left - 1, len(ratings))
-        return _spread(bot, ratings, n, 1.25)
+        return _spread(
+            bot,
+            ratings,
+            n,
+            0.75,
+            True,
+            False,
+            False,
+            False,
+            False,
+            False,
+            False,
+            False,
+            False,
+            False,
+            -1,
+            False,
+            False,
+            False,
+            False,
+            True,
+        )
     n = min(9, budget_left - 1, len(ratings))
     return _spread(
         bot,
         ratings,
         n,
-        1.25,
+        2.75,
         True,
         False,
         False,
@@ -303,6 +329,7 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
         False,
         False,
         -1,
+        False,
         False,
         False,
         False,
