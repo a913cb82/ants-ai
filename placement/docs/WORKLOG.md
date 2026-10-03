@@ -387,7 +387,7 @@ One entry per iteration:
 
 ## 42 — tail-skewed two-sided grid bold 7 (2026-10-03)
 - commit: b44e155
-- score: mean 255.4596 over seeds 0-4 (219.1812, 333.5048, 302.8655, 256.1983, 165.5483)
+- score: mean 255.4596 over seeds 0-4 (219.1812, 333.5048, 302.8655, 165.5483, 256.1983)
 - champion mean: 235.2613 (04eeed2)
 - verdict: discard
 - what changed: spread grid mass shifted 0.05 toward the bot tail side, both sides kept.
