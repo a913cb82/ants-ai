@@ -1175,3 +1175,12 @@ One entry per iteration:
 - what changed: game-2 drew quintile rulers at 0.875 sigma, closer narrowed to 1.0.
 - what you learned: cost about 4.41 with one of five improving; stricter rulers exclude needed coverage and below-ladder widths under-reach.
 - next: judge bold 21 after 124; edge-dense closer grid.
+
+## 123 — edge-dense closer grid (2026-10-03)
+- commit: 142588e
+- score: mean 218.5588 over seeds 0-4 (183.2471, 243.1468, 354.9069, 118.7610, 192.7324)
+- champion mean: 216.0193 selection, 205.7881 pooled (fde75b9)
+- verdict: discard
+- what changed: closer targets doubled edge pins instead of uniform deciles.
+- what you learned: cost about 2.54 with two of five improving; edge pins misfire on seeds 0/3/4 and the uniform grid stands.
+- next: judge bold 21 after 124; senior-tertile anchors.
