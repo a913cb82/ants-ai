@@ -32,7 +32,7 @@ A refinement is a new row. Leave old rows as they were.
 | open | Bracket triple mid: 2d, 10p, above/below/closest, 10p. |
 | open | Opening duel ladder under MSE shape: 2, 4, 6 opening duels. |
 | dropped | Adaptive refine width: 2.0 iff mid sigma above 6.5 else 0.5. |
-| open | Adaptive refine at 4.0: sigma probe says refine-time mean is 3.9. |
+| trying | Adaptive refine at 4.0: sigma probe says refine-time mean is 3.9. |
 | open | Tail-chasing spread: one-sided thresholds toward the bot tail. |
 | dropped | Closing duel: 8p refine plus a final closest duel (28+2 slots). |
 | dropped | Pool-size-adaptive opener: 4.0 sigma under pool 200 (bold 6). |
