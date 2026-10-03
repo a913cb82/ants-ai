@@ -84,6 +84,7 @@ def _spread(
     antipodal: bool = False,
     mirror: bool = False,
     cohort: bool = False,
+    survey: bool = False,
 ) -> list[int]:
     """k distinct opponents nearest quantiles of N(mu, w*sigma)."""
     center = bot.mu
@@ -105,6 +106,13 @@ def _spread(
     else:
         targets = [dist.inv_cdf((j + 1) / (k + 1)) for j in range(k)]
     pool = _established(ratings, k) if anchors else list(range(len(ratings)))
+    if survey:
+        start = max(0, len(ratings) - 400)
+        cands = sorted(
+            range(start, len(ratings)),
+            key=lambda c: (ratings[c].sigma, c),
+        )
+        return cands[:k]
     if cohort and pool:
         by_arrival = sorted(pool)
         n3 = len(by_arrival) // 3
@@ -197,5 +205,5 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
         return _spread(bot, ratings, n, 1.25)
     n = min(9, budget_left - 1, len(ratings))
     return _spread(
-        bot, ratings, n, 1.875, True, False, False, False, False, False, True
+        bot, ratings, n, 1.875, True, False, False, False, False, False, False, True
     )
