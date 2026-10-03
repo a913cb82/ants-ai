@@ -129,6 +129,22 @@ def _strata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
     return out[:k]
 
 
+def _rebind(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
+    """Nearest played census site plus fresh strata rulers."""
+    g1 = _census(ratings, min(9, len(ratings)), mode="quantile")
+    rb = min(g1, key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c))
+    fresh = [c for c in _strata(bot, ratings, k) if c != rb][: max(k - 1, 0)]
+    out = [rb] + fresh
+    if len(out) < k:
+        pool = _established(ratings, k, 0)
+        rest = sorted(
+            (c for c in pool if c not in set(out)),
+            key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
+        )
+        out += rest[: k - len(out)]
+    return out[:k]
+
+
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
     """Pool index nearest bot.mu, low sigma then low index on ties."""
     return min(
@@ -354,14 +370,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Bold 20 (corr): sandwich, 4p strata + 6 duels + 4p closer.
+    # Iter 74 (corr): rebind refine.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
-    if budget_left > 16:
-        n = min(3, budget_left - 1, len(ratings))
-        return _strata(bot, ratings, n)
-    if budget_left > 4:
-        return _info_duel(bot, ratings)
-    n = min(3, budget_left - 1, len(ratings))
-    return _strata(bot, ratings, n)
+    if budget_left > 14:
+        n = min(5, budget_left - 1, len(ratings))
+        return _rebind(bot, ratings, n)
+    return _info_duel(bot, ratings)
