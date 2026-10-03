@@ -563,3 +563,9 @@
 - Score: corr 0.9930 (-0.0002).
 - Verdict: DISCARD. Mass itself carries signal: weighting bins by where rulers live beats fixed shares. Iter-43 quota win confirmed as mass, not just binning. Quota axis closed (linear/sqrt tie, blind loses).
 - Misses: 49.
+
+## Iter 93: calibrated-only tail duels
+- 7 info duels restricted to the established (low-sigma tertile) pool.
+- Score: corr 0.9924 (-0.0008).
+- Verdict: DISCARD. Duels need fresh/high-sigma targets; the info score already prices ruler quality, and quarantining the candidate set starves it. Pool-asymmetry confirmed: refine wants calibrated rulers, tail wants the full pool.
+- Misses: 50.
