@@ -198,6 +198,57 @@ def _bounty(bot: Rating, ratings: list[Rating]) -> list[int]:
     ]
 
 
+def _infoscore(
+    bot: Rating, field: list[int], ratings: list[Rating], c: int, w: float = 0.02
+) -> float:
+    """Draw probability + sigma weight for bot+field+c (info value proxy)."""
+    teams = [[_MODEL.rating(mu=bot.mu, sigma=bot.sigma)]]
+    sig = bot.sigma
+    for i in field + [c]:
+        teams.append([_MODEL.rating(mu=ratings[i].mu, sigma=ratings[i].sigma)])
+        sig += ratings[i].sigma
+    return _MODEL.predict_draw(teams) + w * sig
+
+
+def _infostrata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
+    """Mass-quota bins; within-bin sequential argmax of info score."""
+    pool = _established(ratings, k, 0)
+    s = max(bot.sigma, 0.5)
+    bins: list[list[int]] = [[], [], []]
+    for c in pool:
+        d = ratings[c].mu - bot.mu
+        bins[0 if d < -s else (2 if d > s else 1)].append(c)
+    masses = [len(b) for b in bins]
+    total = sum(masses) or 1
+    quota = [max(1 if m else 0, round(k * m / total)) for m in masses]
+    while sum(quota) > k:
+        j = max(range(3), key=lambda j: quota[j] - k * masses[j] / total)
+        quota[j] -= 1
+    while sum(quota) < k:
+        j = max(range(3), key=lambda j: k * masses[j] / total - quota[j])
+        quota[j] += 1
+    picked: list[int] = []
+    used: set[int] = set()
+    for b, q in zip(bins, quota, strict=True):
+        near = sorted(
+            b, key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c)
+        )[:40]
+        for _ in range(max(q, 0)):
+            cands = [c for c in near if c not in used]
+            if not cands:
+                break
+            i = max(cands, key=lambda c: (_infoscore(bot, picked, ratings, c), c))
+            used.add(i)
+            picked.append(i)
+    if len(picked) < k:
+        rest = sorted(
+            (c for c in pool if c not in used),
+            key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
+        )
+        picked += rest[: k - len(picked)]
+    return picked[:k]
+
+
 def _side_duel(
     bot: Rating, ratings: list[Rating], rank: int, first: int = 1
 ) -> list[int]:
@@ -454,13 +505,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 125 (camp E5): peer-double gate rotation.
+    # Iter 126 (camp F1): info-inside-strata refine retest.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
-        return _strata(bot, ratings, n)
-    d = (14 - budget_left) // 2
-    gate = [0, 0, -1, 1, 0, -1, 1][d] if 0 <= d < 7 else 0
-    return _info_duel(bot, ratings, gate, 40, 0)
+        return _infostrata(bot, ratings, n)
+    return _info_duel(bot, ratings, 0, 40, 0)
