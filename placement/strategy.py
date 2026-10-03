@@ -54,7 +54,7 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Exp (bold 2, iter 21): 10 duels then one spread 10p.
-    if budget_left > 10:
+    # Champion (iter 15): duels first, established-anchor spread FFAs.
+    if budget_left > 20:
         return [_closest(bot, ratings)]
     return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)))

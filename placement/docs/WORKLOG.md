@@ -192,3 +192,12 @@ One entry per iteration:
 - what changed: 10p spread opener, 5 closest-mu duels, 10p spread closer.
 - what you learned: the opener cost about 3.59 mean error with seed 2 at 25.69; an early unpositioned FFA drags mu somewhere the follow-up duels cannot recover from.
 - next: 5p opener variant, or duel-opponent offsets and rematch rules.
+
+## 21 — deep positioning 10 duels then one 10p (2026-10-03)
+- commit: 2b7727a
+- score: mean 18.3799 over seeds 0-4 (17.8754, 18.4674, 20.6487, 16.8597, 18.0483)
+- champion mean: 15.8333 (2d70af7)
+- verdict: discard
+- what changed: bold line 2 test, 10 closest-mu duels then a single spread 10p on the last 10 slots.
+- what you learned: halving bulk cost about 2.55 mean error and the seed-2 gap widened to 20.65, so depth cannot replace the second bulk update; bold line 2 is refuted.
+- next: judge bold 2 after iter 23, meanwhile duel-opponent offsets or rematch breadth.
