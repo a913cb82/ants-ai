@@ -44,7 +44,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Bulk-only first 10p at 3.5. |
 | dropped | Bulk widths 3.0/2.5/2.0: sweep the second 10p. |
 | dropped | Bulk widths 3.0/2.0/1.0: narrow the third 10p. |
-| open | Equal-bits ladder 2+4+6+8+10, spread 1.0 throughout (info). |
+| trying | Equal-bits ladder 2+4+6+8+10, spread 1.0 throughout (info). |
 | open | Zoom widths: 1 duel, 9p at 2.0, 9p at 1.0, 10p at 0.5 (info). |
 | open | Split-budget recenter: 2+3+10 then 5+10 halves (info). |
 | open | Augusta Cut: 2x6p open, 2x6p anchors-only, 10 closing duels (sports). |
