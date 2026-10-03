@@ -1738,3 +1738,9 @@ One entry per iteration:
 - Verdict: DISCARD. Disjoint crews halve anchor density per game; cross-validation worth nothing.
 - Learned: referee family 0-for-4 (mercy stillborn, derby, home/away, round-robin). Fairness axes closed.
 - Next: iter 189 moveout recapture (seismo S3) + period review at 190.
+
+## Iter 189: moveout recapture (seismo S3)
+- Score: sel 211.1359 vs champ 197.7410 (+13.39). Seeds 0/1/3 regress hard.
+- Verdict: DISCARD. Replicates are dead weight even at 3/9 with spread majority kept.
+- Learned: replicate direction dead for good (102/131/151/164/189). Seismologist family closed 0-for-4.
+- Next: iter 190 checksum closer (crypto S4) + period review at 190.
