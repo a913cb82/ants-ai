@@ -40,31 +40,6 @@ def _census(ratings: list[Rating], k: int) -> list[int]:
     return picked
 
 
-def _spread_mixed(
-    bot: Rating, ratings: list[Rating], k: int, width: float
-) -> list[int]:
-    """Inner targets from recency tertile, outer from full pool."""
-    dist = NormalDist(bot.mu, max(width * bot.sigma, 0.5))
-    targets = [dist.inv_cdf((j + 1) / (k + 1)) for j in range(k)]
-    order = sorted(range(k), key=lambda j: abs(targets[j] - bot.mu))
-    inner = set(order[: (k + 1) // 2])
-    anchors = _established(ratings, k)
-    full = list(range(len(ratings)))
-    picked: list[int | None] = [None] * k
-    used: set[int] = set()
-    for j in order:
-        pool = [c for c in (anchors if j in inner else full) if c not in used]
-        if not pool:
-            pool = [c for c in full if c not in used]
-        i = min(
-            pool,
-            key=lambda c: (abs(ratings[c].mu - targets[j]), ratings[c].sigma, c),
-        )
-        used.add(i)
-        picked[j] = i
-    return [i for i in picked if i is not None]
-
-
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
     """Pool index nearest bot.mu, low sigma then low index on ties."""
     return min(
@@ -106,9 +81,9 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Exp (iter 158, MSE): per-quantile mixed under census.
+    # Champion (iter 133, MSE): census opener, recent-tertile 1.25/1.875.
     if budget_left > 20:
         return _census(ratings, min(9, budget_left - 1, len(ratings)))
     if budget_left > 10:
-        return _spread_mixed(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.25)
-    return _spread_mixed(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.875)
+        return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.25)
+    return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.875)

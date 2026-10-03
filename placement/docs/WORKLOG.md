@@ -1502,3 +1502,12 @@ One entry per iteration:
 - what changed: case-centered 4.0 game-1, census game-2, 1.875 closer.
 - what you learned: cost about 74.66 with every seed regressing; early skeleton timing is load-bearing and late coverage cannot repair a poisoned start.
 - next: judge bold 27 after 160; per-quantile mixed anchors under census (retest).
+
+## 158 — per-quantile mixed census retest (2026-10-03)
+- commit: e3d89e6
+- score: mean 212.8337 over seeds 0-4 (181.7046, 247.2153, 366.9344, 98.7569, 169.5571)
+- champion mean: 197.7410 selection, 187.4788 pooled (5faf0b0)
+- verdict: discard
+- what changed: games 2 and 3 matched inner targets to recency tertile and outer targets to the full pool.
+- what you learned: cost about 15.09 with two of five improving and seeds 0/1/2 regressing hard; anchor-mixing still disturbs the center.
+- next: judge bold 27 after 160; tight early-position under census (retest).
