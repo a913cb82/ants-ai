@@ -349,8 +349,9 @@ Use this format.
 - evidence: corr(recorded score, true skill) is 0.964 new vs 0.962
   old across 6 seeds; new wins 5 of 6 (loses seed 3 only). Full 2x2:
   corr(mu) is 0.9654 new vs 0.9655 old (exam tie), corr(lb) is
-  0.9632 new vs 0.9619 old. The score change (mu over lb) helps
-  both exams; the exam change adds a little more. Both budgets are
-  30 slots, so density is priced, not gifted.
+  0.9632 new vs 0.9619 old. Sigma-discount ladder (means): old
+  0.9655/0.9650/0.9638/0.9619, new 0.9654/0.9655/0.9648/0.9632
+  for k=0/1/2/3. Every discount step costs ranking; mu and mu-1s
+  tie best, so the shipped mu stands.
 - idea: shipped as the harness. Old-budget rows stay filed under
   their tag and no longer count for champion.
