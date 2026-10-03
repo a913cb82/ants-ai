@@ -59,7 +59,13 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Champion (iter 22, MSE): bulk-only, first 10p at 3.0.
+    # Exp (iter 30, MSE): Swiss walk-out 5 duels, then 3.0/2.0 10ps.
     if budget_left > 20:
+        order = sorted(
+            range(len(ratings)),
+            key=lambda i: (abs(ratings[i].mu - bot.mu), ratings[i].sigma, i),
+        )
+        return [order[min((30 - budget_left) // 2, len(order) - 1)]]
+    if budget_left > 10:
         return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 3.0)
     return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.0)
