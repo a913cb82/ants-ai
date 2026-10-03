@@ -411,3 +411,12 @@ One entry per iteration:
 - what changed: full-pool spreads extended from the opener to the second 10p.
 - what you learned: cost about 17.44 with only seed 3 improving (down 9 to round-best 126.99); reach helps only the unpositioned opener, game 2 needs rulers. Bold 7 judged refuted (iter 42).
 - next: tertile opener with full-pool rest (invert the mix).
+
+## 45 — inverted mix tertile opener (2026-10-03)
+- commit: ebd464c
+- score: mean 282.7469 over seeds 0-4 (268.3774, 336.6876, 399.6590, 163.9528, 245.0577)
+- champion mean: 228.3885 (a607580)
+- verdict: discard
+- what changed: tertile-anchored opener with full-pool later bulks.
+- what you learned: cost about 54.36 with every seed regressing; the anchor factorial reads TT 235.26, FT 228.39, TF 282.75, FF 273.41, so reach-then-calibrate wins both margins near-additively.
+- next: opener width re-sweep under full-pool (3.0 may not be optimal unfiltered).
