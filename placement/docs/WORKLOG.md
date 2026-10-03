@@ -575,3 +575,13 @@ One entry per iteration:
 - what changed: first two bulks shrunk to 9p (8 targets) with a closing duel spending the freed slots.
 - what you learned: cost about 36.17 with every seed regressing; 9 opener thresholds are load-bearing and the duel does not compensate.
 - next: opener at 3.75 with held-out confirmation ready (confirmation rule).
+
+## 62 — full-pool opener at 3.75 with confirmation (2026-10-03)
+- commit: 7e8ca31
+- score: selection mean 221.6532 over seeds 0-4 (198.7400, 253.9607, 352.2130, 112.6283, 190.7241)
+- champion selection mean: 222.4811 (84b606d)
+- confirmation: 209.6234 over seeds 5-9 (160.9519, 247.1511, 245.1461, 217.3538, 177.5143) vs 4.0 held-out 208.8451
+- verdict: discard
+- what changed: unfiltered opener narrowed from 4.0 to 3.75 sigma.
+- what you learned: won selection by 0.83 but lost held-out by 0.78; pooled 10-seed means tie at 215.64 vs 215.66. The confirmation rule earns its keep; the width top is flat and the incumbent holds ties.
+- next: hunt outside width-space; widths are priced.
