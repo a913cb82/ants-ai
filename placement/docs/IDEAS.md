@@ -41,6 +41,7 @@ A refinement is a new row. Leave old rows as they were.
 | done | Bulk-only: three 10ps at 2.0, zero duels (bold 3). |
 | done | Bulk-only width sweep: first 10p at 2.5, rest 2.0. |
 | done | Bulk-only first 10p at 3.0: trace the new gradient. |
+| trying | Bulk-only first 10p at 3.5. |
 | open | Equal-bits ladder 2+4+6+8+10, spread 1.0 throughout (info). |
 | open | Zoom widths: 1 duel, 9p at 2.0, 9p at 1.0, 10p at 0.5 (info). |
 | open | Split-budget recenter: 2+3+10 then 5+10 halves (info). |
@@ -88,5 +89,8 @@ bulk-only. Three spread 10ps at 2.0 sigma with zero duels tests
 whether positioning duels matter at all under MSE; wide fields from
 the prior may bound directly. Predicts catastrophe or a surprise.
 Judge after iteration 23.
+Judged: confirmed at iteration 20 by adoption (290.3357, new
+champion) and extended at 21/22; positioning duels are expendable
+under MSE, wide fields bound directly from the prior.
 | done | Interleaved bulk retest (3d, wide 10p, 2d, narrow 10p): lost MAE by 0.009; mid re-positioning may cut tails. |
 | done | Bracket duels retest (closest 1-3, then above/below): deliberate tail insurance. |
