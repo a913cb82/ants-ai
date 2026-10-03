@@ -129,49 +129,52 @@ def _strata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
     return out[:k]
 
 
-def _gridstrata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
-    """Mass-quota bins; within-bin picks spread on a Gaussian grid."""
-    pool = _established(ratings, k, 0)
-    s = max(bot.sigma, 0.5)
-    bins: list[list[int]] = [[], [], []]
-    for c in pool:
-        d = ratings[c].mu - bot.mu
-        bins[0 if d < -s else (2 if d > s else 1)].append(c)
-    masses = [len(b) for b in bins]
-    total = sum(masses) or 1
-    quota = [max(1 if m else 0, round(k * m / total)) for m in masses]
-    while sum(quota) > k:
-        j = max(range(3), key=lambda j: quota[j] - k * masses[j] / total)
-        quota[j] -= 1
-    while sum(quota) < k:
-        j = max(range(3), key=lambda j: k * masses[j] / total - quota[j])
-        quota[j] += 1
-    grid = NormalDist(bot.mu, s)
-    picked: list[int] = []
-    used: set[int] = set()
-    for b, q in zip(bins, quota, strict=True):
-        if not b or q <= 0:
-            continue
-        lo = min(ratings[c].mu for c in b)
-        hi = max(ratings[c].mu for c in b)
-        for i in range(q):
-            t = min(max(grid.inv_cdf((i + 1) / (q + 1)), lo), hi)
-            cands = [c for c in b if c not in used]
-            if not cands:
-                break
-            pick = min(
-                cands,
-                key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c),
-            )
-            used.add(pick)
-            picked.append(pick)
-    if len(picked) < k:
-        rest = sorted(
-            (c for c in pool if c not in used),
-            key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
-        )
-        picked += rest[: k - len(picked)]
-    return picked[:k]
+def _forced(bot: Rating, ratings: list[Rating]) -> list[int]:
+    """Forced 2-above/1-peer/2-below spread from the tertile pool."""
+    pool = _established(ratings, 5, 0)
+    above = sorted(
+        (c for c in pool if ratings[c].mu - bot.mu > 0),
+        key=lambda c: (ratings[c].mu - bot.mu, ratings[c].sigma, c),
+    )
+    below = sorted(
+        (c for c in pool if ratings[c].mu - bot.mu <= 0),
+        key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
+    )
+    near = sorted(
+        pool, key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c)
+    )
+    out = above[:2] + below[:2]
+    for c in near:
+        if len(out) >= 5:
+            break
+        if c not in set(out):
+            out.append(c)
+    return out[:5]
+
+
+def _triple(bot: Rating, ratings: list[Rating]) -> list[int]:
+    """Signed triple: nearest above + nearest peer + nearest below."""
+    pool = _established(ratings, 3, 0)
+    above = min(
+        (c for c in pool if ratings[c].mu > bot.mu),
+        key=lambda c: (ratings[c].mu - bot.mu, ratings[c].sigma, c),
+        default=None,
+    )
+    below = min(
+        (c for c in pool if ratings[c].mu <= bot.mu),
+        key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
+        default=None,
+    )
+    near = sorted(
+        pool, key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c)
+    )
+    out = [c for c in (above, near[0] if near else None, below) if c is not None]
+    for c in near:
+        if len(out) >= 3:
+            break
+        if c not in set(out):
+            out.append(c)
+    return out[:3]
 
 
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
@@ -399,11 +402,12 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 85 (corr): grid-inside-strata refine.
+    # Iter 86 (corr): outcome-spread sandwich.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
     if budget_left > 14:
-        n = min(5, budget_left - 1, len(ratings))
-        return _gridstrata(bot, ratings, n)
+        return _forced(bot, ratings)
+    if budget_left > 10:
+        return _triple(bot, ratings)
     return _info_duel(bot, ratings)
