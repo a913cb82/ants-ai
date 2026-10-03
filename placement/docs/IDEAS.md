@@ -9,6 +9,14 @@ match-size schedule. The champion locks dimension 1 (closest duels,
 tertile-anchored quantile spread, positional 1.0/0.5 widths) while
 dimension-2 sweeps run.
 
+Factorial plan (2026-10-03): test orthogonality on a 2x2 of sizes
+S0 = 5x2+2x10 (champion) and S1 = 3x2+4+10+10, crossed with
+opponent rules B0 = tertile anchors and B1 = no anchor filter.
+S0xB0 = 14.837 and S1xB0 = 15.238 are known. If the B0->B1 delta
+matches across S0 and S1 the dimensions are orthogonal and later
+sweeps can vary one side only; if not, winners must be re-tested
+as pairs.
+
 ## Backlog
 
 Status is `open`, `trying`, `done`, `dropped`, or `parked`.
@@ -43,6 +51,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Inverted widths: 0.5-sigma FFA then 1.0-sigma FFA. |
 | dropped | Interleaved bulk: 3 duels, wide 10p, 2 duels, narrow 10p. |
 | dropped | Sparsity fallback: unrated member when anchors farther than 1 sigma. |
+| trying | Factorial S0xB1: champion sizes, no anchor filter. |
 | open | Approach 2: zooming bracket 10p/5p/5p/2p x5, spread mu+-k·sigma, low-sigma anchors. |
 | open | Approach 3: 10p/6p/2p x7, quantile spread at 1.0 sigma, large-first coarse-to-fine. |
 | done | Champion order with spread FFA opponents (quantiles of N(mu, sigma), low-sigma ties). |
