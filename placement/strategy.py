@@ -54,6 +54,7 @@ def _spread(
     k: int,
     width: float = 1.0,
     anchors: bool = True,
+    repel: float = 0.0,
 ) -> list[int]:
     """k distinct opponents nearest quantiles of N(mu, w*sigma)."""
     dist = NormalDist(bot.mu, max(width * bot.sigma, 0.5))
@@ -62,8 +63,17 @@ def _spread(
     picked: list[int] = []
     used: set[int] = set()
     for t in targets:
+        cands = [c for c in pool if c not in used]
+        if repel > 0.0:
+            spaced = [
+                c
+                for c in cands
+                if all(abs(ratings[c].mu - ratings[p].mu) >= repel for p in picked)
+            ]
+            if spaced:
+                cands = spaced
         i = min(
-            (c for c in pool if c not in used),
+            cands,
             key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c),
         )
         used.add(i)
@@ -81,9 +91,13 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Champion (iter 133, MSE): census opener, recent-tertile 1.25/1.875.
+    # Exp (iter 163, MSE): DPP under census.
     if budget_left > 20:
         return _census(ratings, min(9, budget_left - 1, len(ratings)))
     if budget_left > 10:
-        return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.25)
-    return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.875)
+        return _spread(
+            bot, ratings, min(9, budget_left - 1, len(ratings)), 1.25, True, 1.0
+        )
+    return _spread(
+        bot, ratings, min(9, budget_left - 1, len(ratings)), 1.875, True, 1.0
+    )
