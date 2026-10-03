@@ -1148,3 +1148,12 @@ One entry per iteration:
 - what changed: game-3 played 2.5 sigma when |mu-25| exceeded 25, else 1.5.
 - what you learned: selection won 2.38 on two seeds but held-out lost 9.52 with one of five; pooled loses 3.57. Same seed-2-driven noise signature; confirmation rule earns its keep. Bold 20 judged refuted (iter 116).
 - next: undercut 0.75/2.75 rest (race A).
+
+## 120 — undercut 0.75 2.75 (2026-10-03)
+- commit: 1a0247f
+- score: mean 218.8057 over seeds 0-4 (181.2841, 243.4736, 368.3991, 118.1018, 182.7701)
+- champion mean: 216.0193 selection, 205.7881 pooled (fde75b9)
+- verdict: discard
+- what changed: rest widths pushed to 0.75 then 2.75 sigma.
+- what you learned: cost about 2.79 with two of five improving; the exaggerated valley overshoots both ends and priced widths stand.
+- next: overcut 3.0/1.0 rest (race B); then misses force bold 21.
