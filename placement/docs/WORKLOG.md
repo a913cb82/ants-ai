@@ -222,3 +222,12 @@ One entry per iteration:
 - what changed: first bulk 10p widened from 3.0 to 3.5 sigma.
 - what you learned: cost about 4.41 with seed 1 blowing up 51 while seeds 0/3 hit round bests; first-width optimum sits between 3.0 and 3.5 and differs per seed.
 - next: second-10p width sweep under bulk-only.
+
+## 24 — bulk widths 3.0 2.5 2.0 (2026-10-03)
+- commit: ebfcc0b
+- score: mean 249.3073 over seeds 0-4 (224.2195, 328.2947, 291.5314, 170.1917, 232.2991)
+- champion mean: 235.2613 (04eeed2)
+- verdict: discard
+- what changed: second bulk 10p widened from 2.0 to 2.5 sigma.
+- what you learned: cost about 14.05 with every seed regressing; the second bulk wants 2.0, so wide-then-narrower holds across all three bulks.
+- next: third-10p width sweep (1.0 or 1.5 refine under bulk-only).
