@@ -57,6 +57,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Game-3 quartile: last anchor cell. |
 | dropped | Half-pool anchors games 2+3: median cutoff (bold 12). |
 | done | Game-2 at 1.25: bisect the narrow side. |
+| trying | Game-2 at 1.125: continue the narrow slide. |
 | dropped | Quartile anchors retest (cleaner thresholds for hard seeds). |
 | dropped | 3p opening: 2x3p closest-pair instead of 3x2p (same 6 slots). |
 | dropped | 4p mid game: bot plus above, below, closest replaces bracket pair. |
@@ -198,6 +199,8 @@ beats both full and quartile, so the interior between full and
 tertile may hold the optimum. Median cutoff for games 2 and 3.
 Predicts a bigger clean ruler pool wins, or tertile strictness is
 exact. Judge after iteration 75.
+Judged: refuted at iteration 73 (221.5242 sel, 204.1018 held-out);
+tertile strictness is exact.
 
 Nineteen misses in a row (iters 23-41) force bold line 7 (2026-10-03):
 tail-skewed two-sided grid. Bold 2 failed binary (one side only);
