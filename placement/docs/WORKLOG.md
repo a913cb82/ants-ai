@@ -129,3 +129,9 @@
 - Score: corr 0.9846 (-0.0055, all 5 regress).
 - Verdict: DISCARD. Bold 6 judged: refuted. The 6p refine matters; duels alone cannot finish.
 - Misses: 3.
+
+## Iter 21: 4p refine + 8-duel tail
+- Census + 4p (3 rulers) at 1.0 + 8 closest duels.
+- Score: corr 0.9872 (-0.0029).
+- Verdict: DISCARD. The 6p/7-duel split is confirmed from both sides (8p/6d ties, 4p/8d and 0p/10d lose).
+- Misses: 4.
