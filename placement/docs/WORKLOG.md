@@ -1711,3 +1711,12 @@ One entry per iteration:
 - Verdict: DISCARD. Bot-independent game-2 burns the re-aim window; calibration without targeting is noise.
 - Learned: every game must target the bot; bot-independence only works for the census skeleton.
 - Next: iter 185 scheduled re-widen 2.0 (control S1) + period review at 185.
+
+## Iter 185: scheduled re-widen 2.0 (control S1) + PERIOD REVIEW
+- Score: sel 195.3167 (-2.42, 4/5 improve); held 177.0116 (-0.20); fresh 159.7510 (+1.24 veto); pooled-15 177.3598 vs 177.8219 (-0.46).
+- Verdict: DISCARD per overturn rule (pooled wins, fresh disagrees -> incumbent stands, 1.75-closer precedent).
+- PERIOD REVIEW (181-185): mirror, cohort, survey, calibration, re-widen — all discard. Fresh vetoes again (185).
+  Remaining open: derby-day, home/away, round-robin, moveout, checksum, insurance, Kelly, E1/E2, dither,
+  clipped-undercut, senior-25, mu-gate, split-closer, re-projected-G2, bell/sinh followups (dead), halo (dead).
+- Learned: 1.875 closer confirmed on 3 sets jointly (2.0 re-opens settled bins on fresh seeds).
+- Next: iter 186 derby-day closer (referee S4).
