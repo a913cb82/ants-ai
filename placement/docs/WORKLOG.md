@@ -138,3 +138,12 @@ One entry per iteration:
 - what changed: 4 early duels, two spread 10ps, then 1 closest-mu duel on the last 2 slots.
 - what you learned: moving the 5th duel late cost about 0.28 mean error with seed 2 regressing to 19.67; all 5 positioning duels belong up front.
 - next: low-sigma-only FFA anchors, or Approach 2 schedule.
+
+## 15 — low-sigma-only FFA anchors (2026-10-03)
+- commit: 2d70af7
+- score: mean 15.8333 over seeds 0-4 (14.0025, 17.0179, 19.2571, 14.3675, 14.5216)
+- champion mean: 15.8333 (2d70af7, new best; prior 16.0723 f2a2568)
+- verdict: keep (new champion)
+- what changed: spread FFA opponents must come from the low-sigma half of the pool, falling back to the full pool when too few qualify.
+- what you learned: established anchors gained about 0.24 mean error; seeds 0/3/4 improved clearly while seed 2 barely moved, so anchor quality helps typical bots most.
+- next: low-sigma-only duel opponents, or Approach 2 schedule.
