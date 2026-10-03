@@ -159,3 +159,12 @@ One entry per iteration:
 - what changed: after 2 duels, short stacks played twin 2.5-sigma full-pool 10ps plus brackets while settled bots played duels plus a narrow 6p.
 - what you learned: cost about 102 with seed 2 at 524; routing starves settled bots of bulk precision and the full-pool wide fields are too wild.
 - next: forward bracketing from the archive docket.
+
+## 17 — forward bracketing duels 1-3 (2026-10-03)
+- commit: 5f464d3
+- score: mean 308.2583 over seeds 0-4 (268.5208, 359.3840, 376.7973, 234.1801, 302.4094)
+- champion mean: 302.2418 (07e94d0)
+- verdict: discard
+- what changed: opening duels changed from 3 closest to closest, above, below.
+- what you learned: cost about 6.02 with seeds 1/2/4 regressing while seed 3 hit 234.18; early brackets fire before mu is positioned and waste duels on hard seeds.
+- next: median anchors under twin-wide spreads.
