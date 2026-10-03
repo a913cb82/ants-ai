@@ -817,3 +817,7 @@
 - Duel 3 = max-sigma of 10 nearest; rest flat info.
 - Score: corr 0.9931 (-0.0001, tie).
 - Verdict: audit position 3 ties like position 4. Next: audit at duel 5 (I4).
+
+## Iter 144 (camp I4): audit at duel 5
+- Score: corr 0.9932 (+0.0000, tie).
+- Verdict: audit ladder 3/4/5 = -0.0001/+0.0001/+0.0000; position free. Next: census-seat survey sniper (I5).
