@@ -1779,3 +1779,9 @@ One entry per iteration:
 - Verdict: both STILLBORN, champion restored, no full runs. Economist family closed 0-for-4.
 - Learned: size-routing dies with width-routing (no live signal); replicates coincide with greed (102/151 mechanism confirmed constructively).
 - Next: iter 196 same-grid disjoint shares (crypto S1).
+
+## Iter 196: same-grid disjoint shares (crypto S1)
+- Score: sel 210.4692 vs champ 197.7410 (+12.73). All seeds regress.
+- Verdict: DISCARD. Clean vs iter-89 reuse at same widths: disjointness itself costs ~13 points.
+- Learned: cryptographer family closed (S1/S2/S4 dead, S3 plumbing-parked). Best-ruler reuse beats independence.
+- Next: iter 197 clipped undercut 0.75/2.75 (control S3, anti-windup repair of 160).
