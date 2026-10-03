@@ -105,3 +105,12 @@ One entry per iteration:
 - what changed: opening 3 duels swapped for two 3p games with the closest pair.
 - what you learned: cost about 1.90 with only seed 3 improving (round-best 235.90); sequential updates position better than richer-but-fewer opening games.
 - next: bold idea required (two misses); tail-chasing one-sided spread.
+
+## 11 — tail-chasing one-sided spread bold 2 (2026-10-03)
+- commit: 9fc35aa
+- score: mean 364.2914 over seeds 0-4 (403.3422, 411.7953, 390.9876, 279.7335, 335.5986)
+- champion mean: 302.2418 (07e94d0)
+- verdict: discard
+- what changed: FFA targets one-sided toward the tail for bots a full sigma from the median.
+- what you learned: cost about 62 with every seed regressing; two-sided bounds are load-bearing even for tail bots, concentration loses more than it buys.
+- next: 4p mid game (bot plus above, below, closest).

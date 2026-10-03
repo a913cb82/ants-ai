@@ -34,7 +34,7 @@ A refinement is a new row. Leave old rows as they were.
 | open | Adaptive refine width: 2.0 iff mid sigma above 6.5 else 0.5. |
 | open | Tail-chasing spread: one-sided thresholds toward the bot tail. |
 | open | Closing duel: 8p refine plus a final closest duel (28+2 slots). |
-| trying | Tail-chasing one-sided spread for tail bots (bold 2). |
+| dropped | Tail-chasing one-sided spread for tail bots (bold 2). |
 
 ## Bold lines
 
