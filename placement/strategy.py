@@ -344,6 +344,23 @@ def _medstrata(
     return out[:k]
 
 
+def _rescue(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
+    """2 recomputed-census-nearest + fresh strata to fill k."""
+    g1 = _census(ratings, min(9, len(ratings)), mode="quantile")
+    near = sorted(g1, key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c))[
+        :2
+    ]
+    used = set(near)
+    out = list(near)
+    for c in _strata(bot, ratings, k):
+        if len(out) >= k:
+            break
+        if c not in used:
+            used.add(c)
+            out.append(c)
+    return out[:k]
+
+
 def _side_duel(
     bot: Rating, ratings: list[Rating], rank: int, first: int = 1
 ) -> list[int]:
@@ -600,21 +617,14 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 137 (camp H2): FFA-heavy early window, zero duels for young bots.
+    # Iter 138 (camp H3): recapture-spine early window.
     early = len(ratings) < 200 and len(ratings) % 2 == 0
-    if early:
-        if budget_left > 20:
-            n = min(9, budget_left - 1, len(ratings))
-            return _census(ratings, n, mode="quantile")
-        if budget_left > 10:
-            n = min(9, budget_left - 1, len(ratings))
-            return _spread(bot, ratings, n, width=1.5, anchors=False)
-        n = min(9, budget_left - 1, len(ratings))
-        return _spread(bot, ratings, n, width=1.875, anchors=True)
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
+        if early:
+            return _rescue(bot, ratings, n)
         return _strata(bot, ratings, n)
     return _info_duel(bot, ratings, 0, 40, 0)
