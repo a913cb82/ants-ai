@@ -1243,3 +1243,12 @@ One entry per iteration:
 - what changed: game-2 also played pool-range census instead of 1.25 spread.
 - what you learned: cost about 53.16 with every seed regressing; game-2 personalization timing is load-bearing and one skeleton suffices.
 - next: census-site count for small pools (tuning 126e); then misses force bold 22.
+
+## 130 — positional adaptive cluster bold 22 (2026-10-03)
+- commit: d6856ec
+- score: mean 232.9551 over seeds 0-4 (212.4043, 273.9898, 335.3456, 142.9434, 200.0923)
+- champion mean: 199.7520 selection, 190.0544 pooled (73f8050)
+- verdict: discard
+- what changed: game-3 played full-pool 2.5 when the bot sat over one pool-sigma from the pool median.
+- what you learned: cost about 33.20 with every seed regressing; routing stays dead under census too and position carries no routable signal.
+- next: judge bold 22 after 133; mark-recapture closer.
