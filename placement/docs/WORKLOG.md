@@ -1365,3 +1365,12 @@ One entry per iteration:
 - what changed: old 4.0 full-pool opener with recent-tertile rest.
 - what you learned: cost about 15.98 with only seed 3 improving; recency alone gains ~2.3 over iter-85 while census plus recency gains ~18.3. Census carries the gain and recency sweetens it.
 - next: judge bold 24 after 145; census-site spacing center-dense vs edge-dense.
+
+## 143 — edge-dense census sites (2026-10-03)
+- commit: a3518e8
+- score: mean 241.3143 over seeds 0-4 (221.9917, 276.1001, 352.3573, 139.4152, 216.7073)
+- champion mean: 197.7410 selection, 187.4788 pooled (5faf0b0)
+- verdict: discard
+- what changed: census sites doubled edge pins instead of uniform spacing.
+- what you learned: cost about 43.57 with every seed regressing; extreme noise dominates coverage and uniform spacing stands.
+- next: judge bold 24 after 145; center-dense census sites (mirror test).
