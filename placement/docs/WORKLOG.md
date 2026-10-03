@@ -582,3 +582,8 @@
 ## Iter 95: shootout leg 2 (seeds 18-20)
 - Champion: 0.9951, 0.9906, 0.9914 (mean 0.99237). Rival: 0.9951, 0.9904, 0.9915 (mean 0.99233).
 - Cumulative seeds 15-20: champion 0.99285, rival 0.99278 (rival -0.00007). 9 seeds to go; rival needs a miracle (+0.0003 bar).
+
+## Iter 96: shootout leg 3 (seeds 21-23)
+- Champion: 0.9947, 0.9926, 0.9824 (mean 0.98990). Rival: 0.9946, 0.9925, 0.9829 (mean 0.99000).
+- Seed 23 is hard for both (~0.982); rival +0.0005 there but -0.0001 elsewhere on the leg.
+- Cumulative seeds 15-23: champion 0.99187, rival 0.99186 (diff -0.00001, dead even). Rival needs +0.0015/seed over the last 6 to clear the bar.
