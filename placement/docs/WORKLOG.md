@@ -1726,3 +1726,9 @@ One entry per iteration:
 - Verdict: DISCARD. Representation pins cost precision; all 9 closer looks must personalize.
 - Learned: bookend axis dead in both strengths (full 145, lite 186). Referee family: home/away + round-robin left.
 - Next: iter 187 home/away split (referee S3).
+
+## Iter 187: home/away split (referee S3)
+- Score: sel 228.8651 vs champ 197.7410 (+31.12). All seeds regress.
+- Verdict: DISCARD. Forcing fresh rulers into every game poisons both refine stages.
+- Learned: tertile purity stands; any crew-mixing (vintage 182, home/away 187) loses big.
+- Next: iter 188 round-robin whistle (referee S1).
