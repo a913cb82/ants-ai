@@ -120,3 +120,12 @@ One entry per iteration:
 - what changed: 7 positioning duels (boundary 16), leaving 10p plus 6p late instead of two 10ps.
 - what you learned: shrinking late bulk cost about 2.51 mean error; two full 10ps beat extra duels plus a 6p, so late bulk size is critical.
 - next: low-sigma-preferring duel opponents, or FFA opponent sets anchored on low-sigma pool only.
+
+## 13 — Approach 1 pipeline with percentile brackets (2026-10-03)
+- commit: 51b0a25
+- score: mean 18.9461 over seeds 0-4 (19.5732, 19.4488, 19.8527, 18.0747, 18.7813)
+- champion mean: 16.0723 (f2a2568)
+- verdict: discard
+- what changed: bold test of the full outside pipeline: percentile duels, 5p cluster, decile 10p, tight 5p, precision duels.
+- what you learned: tightest seed spread yet (18.07 to 19.85) but about 2.87 worse in level; uncentered percentile/decile opponents waste the positioning that centered spreads exploit. Process: ruff-format can fail a commit after reformatting, so verify HEAD moved and re-commit.
+- next: Approach 2 schedule, or low-sigma-only FFA anchors.
