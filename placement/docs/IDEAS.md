@@ -14,5 +14,14 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Duel the highest `sigma` opponent. |
 | dropped | Duel the strongest pool estimate. |
 | open | All duels versus mixed FFA schedule. |
+| trying | Full-budget FFA-10 versus closest mus (bold: 3 updates per bot). |
+
+## Bold lines
+
+Two misses in a row (sigma duel, strongest duel) force a bold idea.
+Bold line 1 (2026-10-03): comparison efficiency beats update count.
+One 10-player game buys 9 pairwise looks for 10 slots; duels buy 1 look
+per 2 slots. Test the size-axis endpoint first (all FFA-10), then mix.
+Judge after iteration 5.
 | open | Duels first, then FFA with late budget. |
 | open | Size from `budget_left`: big games early, duels late. |

@@ -19,6 +19,6 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Baseline: duel the closest mu.
-    best = min(range(len(ratings)), key=lambda i: abs(ratings[i].mu - bot.mu))
-    return [best]
+    # Exp (bold): full-budget FFA-10 versus the closest mus.
+    order = sorted(range(len(ratings)), key=lambda i: (abs(ratings[i].mu - bot.mu), i))
+    return order[: min(9, budget_left - 1, len(order))]
