@@ -19,20 +19,6 @@ def _established(ratings: list[Rating], k: int) -> list[int]:
     return pool
 
 
-def _bracket(bot: Rating, ratings: list[Rating]) -> list[int]:
-    """Above, below, and closest opponents for a 4p closer."""
-    above = [c for c in range(len(ratings)) if ratings[c].mu > bot.mu]
-    below = [c for c in range(len(ratings)) if ratings[c].mu < bot.mu]
-    picks: list[int] = []
-    for pool in (above, below, list(range(len(ratings)))):
-        cands = [c for c in pool if c not in picks]
-        if cands:
-            picks.append(min(cands, key=lambda c: (abs(ratings[c].mu - bot.mu), c)))
-        if len(picks) == 3:
-            break
-    return picks
-
-
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
     """Pool index nearest bot.mu, low sigma then low index on ties."""
     return min(
@@ -74,11 +60,7 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Exp (iter 63, MSE): front-loaded mop-up 10+10+6+4 (bold 10).
+    # Champion (corrected): full-pool opener at 4.0 (see validation).
     if budget_left > 20:
         return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 4.0, False)
-    if budget_left > 10:
-        return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.0)
-    if budget_left > 4:
-        return _spread(bot, ratings, min(5, budget_left - 1, len(ratings)), 2.0)
-    return _bracket(bot, ratings)[: max(0, min(3, budget_left - 1, len(ratings)))]
+    return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.0)

@@ -585,3 +585,12 @@ One entry per iteration:
 - what changed: unfiltered opener narrowed from 4.0 to 3.75 sigma.
 - what you learned: won selection by 0.83 but lost held-out by 0.78; pooled 10-seed means tie at 215.64 vs 215.66. The confirmation rule earns its keep; the width top is flat and the incumbent holds ties.
 - next: hunt outside width-space; widths are priced.
+
+## 63 — front-loaded mop-up 10 10 6 4 bold 10 (2026-10-03)
+- commit: e786a6e
+- score: mean 290.6161 over seeds 0-4 (253.5299, 323.4906, 448.0187, 170.6047, 257.4367)
+- champion mean: 222.4811 selection, 215.6631 pooled (84b606d)
+- verdict: discard
+- what changed: third 10p replaced with a 6p spread plus a 4p above/below/closest closer.
+- what you learned: cost about 68.13 with every seed regressing; small games stay weak as closers and the third 10p is load-bearing.
+- next: uniform small bulks (5x6p) to close the size book.
