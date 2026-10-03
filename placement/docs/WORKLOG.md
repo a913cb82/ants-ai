@@ -117,3 +117,9 @@
 - Score: corr 0.9900, exact tie with champion (-0.00004).
 - Verdict: DISCARD (tie keeps incumbent). The 7-duel count stands; size carries nothing either way.
 - Misses: 1.
+
+## Iter 19: refine width 1.25 under duel tail
+- Census + 6p at 1.25 tertile + 7 closest duels.
+- Score: corr 0.9900, second consecutive exact tie (-0.00004).
+- Verdict: DISCARD (tie keeps incumbent). The 6p refine width carries nothing under a duel tail.
+- Misses: 2. BOLD 6 due.
