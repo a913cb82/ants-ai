@@ -1797,3 +1797,9 @@ One entry per iteration:
 - Verdict: DISCARD. Tie keeps incumbent; gate merely redistributes error across seeds.
 - Learned: routing dead under BOTH regimes (0-for-6: 116/119/130/159/mu-gate/Kelly). Retire ALL gates with no further variants.
 - Next: iter 199 split closer under census (archivist2 S5, last size cell).
+
+## Iter 199: split closer (archivist2 S5)
+- Score: sel 218.7406 vs champ 197.7410 (+21.00). Seed 2 +86.0.
+- Verdict: DISCARD. Last open size cell under census loses big.
+- Learned: sizes settled under census for good (5p/6p/8p/duels/splits dead in every position; no further size proposals without an MSE reason).
+- Next: iter 200 senior-25 quarantine (final; dose-response closes anchors).
