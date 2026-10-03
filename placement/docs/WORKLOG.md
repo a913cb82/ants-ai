@@ -626,3 +626,8 @@
 - First 4 duels above-only info, last 3 flat.
 - Score: corr 0.9932 (+0.0000, exact tie).
 - Verdict: dose ladder 2/3/4 = -0.0001/+0.0002/+0.0000; peaks at 3, no escalation. Next: front-3 breadth (A4, 60-prefilter).
+
+## Iter 104 (camp A4): front-3 width-60
+- First 3 duels above-only over 60 nearest; back 4 flat over 40.
+- Score: corr 0.9933 (+0.0001, tie).
+- Verdict: breadth carries nothing (cf iter33). Next: A5 front-3 + alternating back-4.
