@@ -292,3 +292,9 @@
 - Score: corr 0.9898 (-0.0034).
 - Verdict: DISCARD. Empirical pool deciles beat parametric bell deciles; the pool is not Gaussian.
 - Misses: 4.
+
+## Iter 48: calibration-anchored opener
+- Range sites snapped to tertile-only rulers + champion rest.
+- Score: corr 0.9921 (-0.0011).
+- Verdict: DISCARD. The opener needs the wild pool; calibrated-only sites starve tail pins.
+- Misses: 5.
