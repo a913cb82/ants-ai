@@ -621,3 +621,8 @@
 - First 2 duels above-only info, last 5 flat.
 - Score: corr 0.9931 (-0.0001, tie).
 - Verdict: DISCARD vs A1; front-load dose 3 beats 2. Next: dose 4 (A3).
+
+## Iter 103 (camp A3): above-first-4 duels
+- First 4 duels above-only info, last 3 flat.
+- Score: corr 0.9932 (+0.0000, exact tie).
+- Verdict: dose ladder 2/3/4 = -0.0001/+0.0002/+0.0000; peaks at 3, no escalation. Next: front-3 breadth (A4, 60-prefilter).
