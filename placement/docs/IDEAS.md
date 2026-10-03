@@ -47,6 +47,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Full-pool opener at 3.75: gradient point between winners. |
 | dropped | Front-loaded mop-up 10+10+6p+4p closer (bold 10). |
 | dropped | Five uniform 6p spreads: close the size book. |
+| trying | Game-2 at 1.5: complete the game-2 width ladder. |
 | dropped | Quartile anchors retest (cleaner thresholds for hard seeds). |
 | dropped | 3p opening: 2x3p closest-pair instead of 3x2p (same 6 slots). |
 | dropped | 4p mid game: bot plus above, below, closest replaces bracket pair. |
@@ -171,6 +172,8 @@ refine cheaply (10+10+6+4). Every size-varying test was small-first
 or uniform; big-first-then-small is untested. Predicts cheap late
 looks add precision, or small games stay weak as closers. Judge
 after iteration 65.
+Judged: refuted at iteration 63 (290.6161, every seed regressed);
+small games stay weak as closers.
 
 Nineteen misses in a row (iters 23-41) force bold line 7 (2026-10-03):
 tail-skewed two-sided grid. Bold 2 failed binary (one side only);
