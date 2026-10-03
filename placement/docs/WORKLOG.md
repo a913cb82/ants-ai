@@ -1693,3 +1693,9 @@ One entry per iteration:
 - Verdict: DISCARD. Opposite-side forcing displaces needed thresholds despite matched ranges.
 - Learned: crossing family closed (antipodal 180, mirror 181). Same-side greed stands.
 - Next: iter 182 cohort-cartel breaker (librarian S4).
+
+## Iter 182: cohort-cartel breaker (librarian S4)
+- Score: sel 199.6775 (159.40, 242.35, 310.19, 115.00, 171.45) vs champ 197.7410 (+1.94).
+- Verdict: DISCARD. Forcing vintage spread costs proximity on seeds 0/1; seed 2/3 gains don't compensate.
+- Learned: error axis is threshold position, not arrival vintage. Librarian family done save survey.
+- Next: iter 183 survey closer.
