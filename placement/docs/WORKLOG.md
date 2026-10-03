@@ -280,3 +280,9 @@
 - Score: corr 0.9930 (-0.0001, exact tie).
 - Verdict: DISCARD (tie keeps incumbent). The floor costs nothing and buys tail insurance; keep it.
 - Misses: 2.
+
+## Iter 46 (bold 12): 8p strata refine + 6 info duels
+- Quantile opener + 8p (7 rulers) proportional strata + 6 info duels.
+- Score: corr 0.9929 (-0.0003).
+- Verdict: DISCARD. Bold 12 judged: refuted. Five strata rulers plus 7 duels is the shape; extra refine rulers cost tail length.
+- Misses: 3.
