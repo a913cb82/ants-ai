@@ -942,3 +942,12 @@ One entry per iteration:
 - what changed: opener targets redistributed to dense edges plus sparse middle.
 - what you learned: cost about 23.53 with only seed 2 improving; uniform grid stands and edge-redistribution loses. Bold 17 judged refuted (iter 96).
 - next: hunt outside priced space; grids join the priced list.
+
+## 98 — split closer 5p 5p bold 18 (2026-10-03)
+- commit: d287976
+- score: mean 258.2711 over seeds 0-4 (254.3655, 219.4137, 467.9758, 145.0036, 204.5967)
+- champion mean: 216.0193 selection, 205.7881 pooled (fde75b9)
+- verdict: discard
+- what changed: third 10p split into two 5p spreads at 1.875 sigma.
+- what you learned: cost about 42.25 with only seed 1 improving; 5p looks stay weak and the mid-schedule update does not compensate.
+- next: split game-2 (5p+5p mid) or judge bold 18 after 100.

@@ -83,7 +83,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Game-3 at 1.5: last ladder cell. |
 | dropped | Hollow opener under valley rest: division of labor (bold 17). |
 | dropped | Edge-heavy opener grid: dense edges, sparse middle. |
-| trying | Split closer 5p+5p: mid-schedule update (bold 18). |
+| dropped | Split closer 5p+5p: mid-schedule update (bold 18). |
 | dropped | Quartile anchors retest (cleaner thresholds for hard seeds). |
 | dropped | 3p opening: 2x3p closest-pair instead of 3x2p (same 6 slots). |
 | dropped | 4p mid game: bot plus above, below, closest replaces bracket pair. |
