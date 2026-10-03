@@ -817,3 +817,13 @@ One entry per iteration:
 - what changed: third bulk 10p widened from 1.75 to 1.875 sigma.
 - what you learned: leads selection, held-out, and pooled among all game-3 widths; the closer optimum sits between 1.75 and 2.0. Bold 14 judged refuted (iter 83).
 - next: game-3 at 1.9375 vs game-2 re-verification; judge nothing pending.
+
+## 86 — game-3 at 1.9375 with confirmation (2026-10-03)
+- commit: 4760b7f
+- score: selection mean 214.4760 over seeds 0-4 (177.7716, 241.3754, 364.9481, 105.5051, 182.7796)
+- champion selection mean: 216.0193 (fde75b9)
+- confirmation: 198.1826 over seeds 5-9 (151.1533, 235.2076, 227.5195, 212.4973, 164.5351) vs champion held-out 195.5568
+- verdict: discard
+- what changed: third bulk 10p widened from 1.875 to 1.9375 sigma.
+- what you learned: won selection by 1.54 but lost held-out by 2.63 with only seed 8 improving; game-3 stays 1.875 on both sets.
+- next: game-2 re-verification at 1.25 under the 1.875 closer, then a fresh hunt.
