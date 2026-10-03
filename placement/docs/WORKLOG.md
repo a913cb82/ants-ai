@@ -1419,3 +1419,12 @@ One entry per iteration:
 - what changed: recent-tertile anchors excluded the 50 most recent arrivals.
 - what you learned: margin 0.02 with two of five improving; quarantine changes nothing under census either and ties keep the incumbent.
 - next: judge bold 25 after 150; quintile anchors under census (retest).
+
+## 149 — quintile game-2 census retest (2026-10-03)
+- commit: e19551b
+- score: mean 199.4144 over seeds 0-4 (148.9262, 227.1346, 343.5536, 122.3404, 155.1172)
+- champion mean: 197.7410 selection, 187.4788 pooled (5faf0b0)
+- verdict: discard
+- what changed: game-2 drew quintile rulers at 1.25 sigma.
+- what you learned: cost about 1.67 with two of five improving and seed 2 regressing 24; stricter rulers still exclude needed coverage under census.
+- next: judge bold 25 after 150; half anchors under census (retest).
