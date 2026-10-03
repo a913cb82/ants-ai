@@ -93,3 +93,12 @@ One entry per iteration:
 - what changed: 5 duels, one spread FFA-10, then 5 closest-mu precision duels on the last 10 slots.
 - what you learned: swapping the second FFA for late duels cost about 0.94 mean error; bulk comparisons fix bias better than precision duels on this objective.
 - next: refine champion spread width (0.5 and 1.5 sigma).
+
+## 10 — champion spread width 0.5 sigma (2026-10-03)
+- commit: ed16c5d
+- score: mean 16.3460 over seeds 0-4 (15.6233, 17.4027, 19.0588, 14.0089, 15.6361)
+- champion mean: 16.0723 (f2a2568)
+- verdict: discard
+- what changed: shrank FFA opponent spread from quantiles of N(mu, sigma) to N(mu, 0.5 sigma).
+- what you learned: tighter late thresholds cost about 0.27 mean error with seed 2 regressing to 19.06; the wider 1.0 spread bounds outliers better.
+- next: champion spread width 1.5 sigma (wider late thresholds).
