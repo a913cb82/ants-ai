@@ -40,21 +40,6 @@ def _census(ratings: list[Rating], k: int) -> list[int]:
     return picked
 
 
-def _ring(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
-    """k nearest recency rulers to current mu."""
-    pool = _established(ratings, k)
-    picks = sorted(
-        pool, key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c)
-    )[:k]
-    if len(picks) < k:
-        extra = sorted(
-            (c for c in range(len(ratings)) if c not in set(picks)),
-            key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
-        )
-        picks += extra[: k - len(picks)]
-    return picks[:k]
-
-
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
     """Pool index nearest bot.mu, low sigma then low index on ties."""
     return min(
@@ -96,9 +81,9 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Exp (iter 165, MSE): ring closer under census.
+    # Champion (iter 133, MSE): census opener, recent-tertile 1.25/1.875.
     if budget_left > 20:
         return _census(ratings, min(9, budget_left - 1, len(ratings)))
     if budget_left > 10:
         return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.25)
-    return _ring(bot, ratings, min(9, budget_left - 1, len(ratings)))
+    return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.875)

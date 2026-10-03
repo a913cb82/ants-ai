@@ -1567,3 +1567,12 @@ One entry per iteration:
 - what changed: game-3 took 4 nearest recency rulers plus 5 fresh outside beats.
 - what you learned: cost about 37.52 with only seed 3 improving; fresh beats are noisy under census too.
 - next: judge bold 28 after 165; ring closer under census (retest).
+
+## 165 — ring closer census retest (2026-10-03)
+- commit: 1b664cb
+- score: mean 207.0027 over seeds 0-4 (170.0855, 237.7435, 326.0768, 124.7858, 176.3221)
+- champion mean: 197.7410 selection, 187.4788 pooled (5faf0b0)
+- verdict: discard
+- what changed: game-3 took the 9 nearest recency rulers to current mu.
+- what you learned: cost about 9.26 with only seed 3 improving; proximity stays an echo chamber under census. Bold 28 judged refuted (iter 162).
+- next: edge-dense closer under census (retest); then misses force bold 29.
