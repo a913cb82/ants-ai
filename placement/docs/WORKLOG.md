@@ -704,3 +704,8 @@
 - Last duel = max-sigma peer-banded last-400 ruler.
 - Score: corr 0.9932 (+0.0000, exact tie).
 - Verdict: bounty flavor ties like all closer flavors. Next: runner-up-info closer (D5).
+
+## Iter 120 (camp D5): 6 info + runner-up-info closer
+- Last duel = 2nd-best info score; first 6 argmax.
+- Score: corr 0.9934 (+0.0002, 3.5/5 seeds).
+- Verdict: TRACK D CLOSED. Five legs: +0.0000/+0.0001/+0.0000/+0.0000/+0.0002. Closer flavor interchangeable; runner-up leans best (argmax may overfit the last slot) but within noise, no escalation. D5 noted for final validation.
