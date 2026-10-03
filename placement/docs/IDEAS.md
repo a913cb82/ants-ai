@@ -163,6 +163,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Undercut 0.75/2.75 rest (race A). |
 | dropped | Overcut 3.0/1.0 rest (bold 21). |
 | dropped | Quintile game-2 0.875 plus 1.0 closer (race D). |
+| trying | Edge-dense closer grid (adversary S1). |
 | open | Chase-combining repeat-wide 4.0/4.0/1.5 (info; diversity-combine before zoom). |
 | open | Double-tap opener 4.0/4.0/1.25 (adversary; second wide after recentering, full-pool G2 untested at 4.0). |
 | open | Split-middle 10+5+5+10 valley halves (info/poker; mid-schedule re-aim, halves sandwiched not late). |
