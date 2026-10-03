@@ -202,8 +202,8 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
         return _census(ratings, min(9, budget_left - 1, len(ratings)))
     if budget_left > 10:
         n = min(9, budget_left - 1, len(ratings))
-        return _spread(bot, ratings, n, 1.25)
+        return _spread(
+            bot, ratings, n, 1.25, True, False, False, False, False, False, False, True
+        )
     n = min(9, budget_left - 1, len(ratings))
-    return _spread(
-        bot, ratings, n, 1.875, True, False, False, False, False, False, False, True
-    )
+    return _spread(bot, ratings, n, 1.875)
