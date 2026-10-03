@@ -381,3 +381,12 @@ One entry per iteration:
 - what changed: both late FFAs at N(mu, 0.5 sigma) under tertile anchors.
 - what you learned: cost about 0.55 with seeds 1/2/4 regressing; the wide first bound is load-bearing and asymmetry itself matters. Bold 3 judged refuted (iter 39, 16.50).
 - next: symmetric wide pair 1.0 1.0, or accept the floor near 14.8.
+
+## 42 — symmetric wide pair 1.0 1.0 (2026-10-03)
+- commit: 3d79086
+- score: mean 15.1426 over seeds 0-4 (14.0574, 16.9858, 16.4868, 13.2970, 14.8860)
+- champion mean: 14.8370 (067b331)
+- verdict: discard (duplicate)
+- what changed: intended as the untested symmetric-wide cell, but it replays iteration 22 exactly (uniform 1.0 spread under tertile anchors).
+- what you learned: bit-identical scores to iteration 22 across all 5 seeds, which validates harness determinism; the width grid was already complete and asymmetry wins every cell.
+- next: stop grid-filling; only probe-driven or bold ideas from here.
