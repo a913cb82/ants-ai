@@ -20,3 +20,4 @@
 {"date": "2026-10-04", "commit": "iter20", "corr": 0.9846, "seeds": [0.9881, 0.9761, 0.9843, 0.9886, 0.9857], "champion": "732059c", "note": "bold6 no-refine 10-duel tail; -0.0055 all regress; refine matters"}
 {"date": "2026-10-04", "commit": "iter21", "corr": 0.9872, "seeds": [0.9821, 0.9827, 0.9894, 0.9928, 0.9888], "champion": "732059c", "note": "4p+8duels; -0.0029; 6p/7d split confirmed both sides"}
 {"date": "2026-10-04", "commit": "iter22", "corr": 0.99, "seeds": [0.9898, 0.9866, 0.9883, 0.9935, 0.9917], "champion": "732059c", "note": "duel rank rotation ties; live re-aim already varies"}
+{"date": "2026-10-04", "commit": "iter23", "corr": 0.9871, "seeds": [0.9865, 0.981, 0.987, 0.9916, 0.9892], "champion": "732059c", "note": "bold7 interleave 3d+6p+4d; -0.003; refine wants post-census posterior"}

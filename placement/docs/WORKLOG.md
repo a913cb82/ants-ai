@@ -141,3 +141,9 @@
 - Score: corr 0.9900, tie (-0.0001).
 - Verdict: DISCARD (tie keeps incumbent). Forced rotation adds nothing; live-mu re-aim already varies opponents.
 - Misses: 5.
+
+## Iter 23 (bold 7): interleave census + 3d + 6p + 4d
+- 3 positioning duels between census and refine, 4-duel tail.
+- Score: corr 0.9871 (-0.003).
+- Verdict: DISCARD. Bold 7 judged: refuted. Mid re-positioning wastes slots; the refine wants the post-census posterior directly.
+- Misses: 6.
