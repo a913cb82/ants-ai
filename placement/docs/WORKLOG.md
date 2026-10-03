@@ -1428,3 +1428,12 @@ One entry per iteration:
 - what changed: game-2 drew quintile rulers at 1.25 sigma.
 - what you learned: cost about 1.67 with two of five improving and seed 2 regressing 24; stricter rulers still exclude needed coverage under census.
 - next: judge bold 25 after 150; half anchors under census (retest).
+
+## 150 — half anchors census retest (2026-10-03)
+- commit: 734941a
+- score: mean 209.5181 over seeds 0-4 (151.4788, 223.6963, 406.5608, 104.9293, 160.9255)
+- champion mean: 197.7410 selection, 187.4788 pooled (5faf0b0)
+- verdict: discard
+- what changed: game-2 drew half rulers at 1.25 sigma.
+- what you learned: cost about 11.78 with two of five improving and seed 2 annihilated plus 87; half still destabilizes hard seeds under census. Bold 25 judged refuted (iter 147).
+- next: no-rematch under census (retest); then misses force bold 26.
