@@ -497,3 +497,12 @@ One entry per iteration:
 - what changed: opener targets replaced with 8 edge quantiles plus one center pin.
 - what you learned: cost about 45.14 with every seed regressing; middle thresholds are load-bearing, hollowing them starves the middle game.
 - next: game-3 full-pool (last anchor-factorial cell).
+
+## 54 — game-3 full-pool factorial cell (2026-10-03)
+- commit: abde3b4
+- score: mean 267.8132 over seeds 0-4 (257.2095, 318.8450, 395.3134, 139.8094, 227.8885)
+- champion mean: 222.4811 (0d52b79)
+- verdict: discard
+- what changed: third 10p spread from the full pool instead of tertile anchors.
+- what you learned: cost about 45.33 with every seed regressing; only the opener wants the wild pool, later games need rulers everywhere.
+- next: opener at 4.25 (gradient-top micro-probe).
