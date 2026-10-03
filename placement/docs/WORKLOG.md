@@ -1234,3 +1234,12 @@ One entry per iteration:
 - what changed: census sites spanned pool p5-p95 instead of min-max.
 - what you learned: selection won 3.81 and fixed seed 3, but held-out tied and fresh lost 0.82; pooled-15 wins ~1 point yet fresh vetoes per the overturn rule. Trimming trades tail coverage for outlier-robustness at net wash.
 - next: census-site count tuning (fewer sites for small pools); recency-filtered tertile.
+
+## 129 — double-skeleton census tuning 126d (2026-10-03)
+- commit: 85a1a1e
+- score: mean 252.9078 over seeds 0-4 (233.3291, 304.7799, 360.1735, 156.3136, 209.9429)
+- champion mean: 199.7520 selection, 190.0544 pooled (73f8050)
+- verdict: discard
+- what changed: game-2 also played pool-range census instead of 1.25 spread.
+- what you learned: cost about 53.16 with every seed regressing; game-2 personalization timing is load-bearing and one skeleton suffices.
+- next: census-site count for small pools (tuning 126e); then misses force bold 22.
