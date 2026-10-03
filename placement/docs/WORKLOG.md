@@ -102,3 +102,12 @@ One entry per iteration:
 - what changed: shrank FFA opponent spread from quantiles of N(mu, sigma) to N(mu, 0.5 sigma).
 - what you learned: tighter late thresholds cost about 0.27 mean error with seed 2 regressing to 19.06; the wider 1.0 spread bounds outliers better.
 - next: champion spread width 1.5 sigma (wider late thresholds).
+
+## 11 — champion spread width 1.5 sigma (2026-10-03)
+- commit: cef8296
+- score: mean 16.1694 over seeds 0-4 (16.2593, 17.7112, 17.5223, 13.7726, 15.5818)
+- champion mean: 16.0723 (f2a2568)
+- verdict: discard
+- what changed: widened FFA opponent spread from quantiles of N(mu, sigma) to N(mu, 1.5 sigma).
+- what you learned: wider spread fixed seed 2 (17.52 vs 18.72) but cost seeds 0-1, net about 0.10 worse; 1.0 sigma is the balanced width.
+- next: champion duel count 7 (boundary 16) with 10p plus 6p late.
