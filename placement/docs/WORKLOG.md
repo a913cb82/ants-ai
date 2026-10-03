@@ -497,3 +497,9 @@
 - Score: corr 0.9916 (-0.0016, one-sided: seeds 0/1 down 0.002+).
 - Verdict: DISCARD. Leverage-up shows the elite-separator signature (cf iter 9); symmetric bins stand. Update-size targeting refuted in the refine.
 - Misses: 38.
+
+## Iter 82: soft-witness refine (glazier G2)
+- 5 max-sigma rulers within +-1 sigma (outside low-sigma tertile) + champion rest.
+- Score: corr 0.9913 (-0.0019).
+- Verdict: DISCARD. Witness noise, no compounding gain; early-soft-witness axis closed per G2 rule (no dose escalation). Uncertain rulers hurt everywhere they fire.
+- Misses: 39.
