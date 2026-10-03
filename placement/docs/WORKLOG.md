@@ -246,3 +246,12 @@ One entry per iteration:
 - what changed: second late FFA tightened from N(mu, 0.5 sigma) to N(mu, 0.3 sigma).
 - what you learned: extra-tight refine cost about 0.45 with seeds 1 and 4 regressing; 0.5 keeps enough threshold breadth for the second look.
 - next: bound width 1.5 with refine 0.5, or 6-duel opener.
+
+## 27 — bound width 1.5 sigma (2026-10-03)
+- commit: 14f0f83
+- score: mean 14.9433 over seeds 0-4 (13.5724, 16.8481, 15.7891, 12.9882, 15.5187)
+- champion mean: 14.8370 (067b331)
+- verdict: discard
+- what changed: first late FFA widened from N(mu, sigma) to N(mu, 1.5 sigma), refine fixed at 0.5.
+- what you learned: wider bound cost about 0.11 net with seed 2 improving but seeds 1 and 4 regressing; 1.0 is the balanced bound width.
+- next: 6-duel opener, or asymmetric bound for edge bots.
