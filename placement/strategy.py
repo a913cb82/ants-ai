@@ -285,12 +285,12 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     if not ratings or budget_left < 2:
         return []
     # Champion (iter 133, MSE): census opener, recent-tertile 1.25/1.875.
-    # Iter 198 (archivist2 S4): mu-gated closer under census.
+    # Iter 199 (archivist2 S5): split closer 10+10+5+5, narrow half first.
     if budget_left > 20:
         return _census(ratings, min(9, budget_left - 1, len(ratings)))
     if budget_left > 10:
         n = min(9, budget_left - 1, len(ratings))
         return _spread(bot, ratings, n, 1.25)
-    n = min(9, budget_left - 1, len(ratings))
-    w = 2.5 if abs(bot.mu - 25) > 25 else 1.5
-    return _spread(bot, ratings, n, w)
+    if budget_left > 5:
+        return _spread(bot, ratings, min(4, budget_left - 1, len(ratings)), 1.25)
+    return _spread(bot, ratings, min(4, budget_left - 1, len(ratings)), 1.875)
