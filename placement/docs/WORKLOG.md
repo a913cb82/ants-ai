@@ -521,3 +521,9 @@
 - Score: corr 0.9931 (-0.0001, tie).
 - Verdict: DISCARD (tie keeps incumbent). Within-bin spread adds nothing over nearest-mu; quota alone does the work. Fold family fully priced: F1/F3/F4 tie, F2 loses.
 - Misses: 42.
+
+## Iter 86: outcome-spread sandwich (glazier G3)
+- Forced 2/1/2 refine + signed-triple 4p + 5 info duels.
+- Score: corr 0.9910 (-0.0022).
+- Verdict: DISCARD. The 4p tax costs real slots and forced quota beats mass quota nowhere; granularity confirmed free-but-useless. Signed-spread family closes, no further quota variants.
+- Misses: 43.
