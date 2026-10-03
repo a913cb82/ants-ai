@@ -631,3 +631,8 @@
 - First 3 duels above-only over 60 nearest; back 4 flat over 40.
 - Score: corr 0.9933 (+0.0001, tie).
 - Verdict: breadth carries nothing (cf iter33). Next: A5 front-3 + alternating back-4.
+
+## Iter 105 (camp A5): front-3 + alternating back-4
+- Duels 1-3 above-only; duels 4-7 strict below/above alternation, info within gate.
+- Score: corr 0.9931 (-0.0001, tie).
+- Verdict: TRACK A CLOSED. Five legs: +0.0002/-0.0001/+0.0000/+0.0001/-0.0001. Front-load dose peaks at 3 duels with a thin lead that held seeds vetoed (iter76); breadth and back-alternation add nothing. Tail stays flat-info.
