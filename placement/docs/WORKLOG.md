@@ -557,3 +557,9 @@
 - Score: corr 0.9930 (-0.0001, tie).
 - Verdict: DISCARD (tie keeps incumbent). Quota exponent is a free parameter; linear stands as simplest.
 - Misses: 48.
+
+## Iter 92: mass-blind fixed-quota refine
+- Fixed [2,2,1] below/peer/above quota ignoring bin mass + champion rest.
+- Score: corr 0.9930 (-0.0002).
+- Verdict: DISCARD. Mass itself carries signal: weighting bins by where rulers live beats fixed shares. Iter-43 quota win confirmed as mass, not just binning. Quota axis closed (linear/sqrt tie, blind loses).
+- Misses: 49.
