@@ -180,11 +180,11 @@ def _strata(
     return out[:k]
 
 
-def _bounty(bot: Rating, ratings: list[Rating]) -> list[int]:
+def _bounty(bot: Rating, ratings: list[Rating], mult: float = 1.0) -> list[int]:
     """Max-sigma ruler in the peer band over the last-400 window."""
     n = len(ratings)
     lo = max(0, n - 400)
-    band = max(bot.sigma, 0.5)
+    band = max(bot.sigma, 0.5) * mult
     elig = [c for c in range(lo, n) if abs(ratings[c].mu - bot.mu) <= band] or list(
         range(lo, n)
     )
@@ -617,7 +617,7 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 141 (camp I1): terminal bounty duel retest.
+    # Iter 142 (camp I2): terminal bounty, wider +-1.5-sigma band.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
@@ -626,4 +626,4 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
         return _strata(bot, ratings, n)
     if budget_left > 2:
         return _info_duel(bot, ratings, 0, 40, 0)
-    return _bounty(bot, ratings)
+    return _bounty(bot, ratings, 1.5)
