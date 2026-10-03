@@ -429,3 +429,12 @@ One entry per iteration:
 - what changed: unfiltered opener widened from 3.0 to 3.5 sigma.
 - what you learned: wins by 4.58 with seeds 0/2/3/4 improving (seed 3 down 16 to 119.79) and only seed 1 regressing slightly; unfiltered reach pays wider than anchored reach.
 - next: full-pool opener at 4.0.
+
+## 47 — full-pool opener at 4.0 (2026-10-03)
+- commit: 0d52b79
+- score: mean 222.4811 over seeds 0-4 (190.7783, 271.6876, 344.8539, 117.0290, 188.0568)
+- champion mean: 223.8133 (95e521f)
+- verdict: keep
+- what changed: unfiltered opener widened from 3.5 to 4.0 sigma.
+- what you learned: wins by 1.33 with seeds 2/3/4 improving (seed 2 down 20, seed 3 at 117.03) while seeds 0/1 regressed; gradient diminishing, top near.
+- next: full-pool opener at 4.5.
