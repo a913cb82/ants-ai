@@ -56,8 +56,8 @@ Rules:
 The goal is to maximize the iteration score. The score is
 `mu`, the skill estimate after the fixed budget of games.
 The harness writes it to `autoresearch/docs/PROGRESS.jsonl` when the
-budget ends. Every fresh bot gets 3 games of 10 players, picked
-by fixed rule, so the comparison is fair. A bot's live
+budget ends. Every fresh bot gets 8 games, 5 duels and 3 FFA, against
+fairly chosen opponents, so the comparison is fair. A bot's live
 rating keeps moving after the iteration. The recorded score does not
 move. The champion is the best recorded score for the current budget.
 
@@ -101,10 +101,9 @@ Each iteration must run a fresh bot entry. Change the bot code first.
 
 The harness sets the budget and the selection. No flag changes them.
 
-- Game 1 spreads 9 opponents across the pool skill range.
-- Game 2 centers 9 opponents on the candidate at width 1.25.
-- Game 3 centers 9 opponents on the candidate at width 1.875.
-  Anchors come from recent bots with the lowest sigma.
+- 5 duels. Each duel uses a different 2p map.
+- 3 FFA games. The harness picks one of two size sets: {4, 6, 10} or
+  {5, 7, 8}.
 
 Every game goes to `league/games.jsonl`. A commit cannot play more.
 A completed commit plays no game on a second run. A run stopped
