@@ -68,17 +68,6 @@ def _census(ratings: list[Rating], k: int, mode: str = "range") -> list[int]:
     return picked
 
 
-def _duel_rank(bot: Rating, ratings: list[Rating], rank: int) -> list[int]:
-    """rank-th nearest ruler, low sigma then low index on ties."""
-    order = sorted(
-        range(len(ratings)),
-        key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
-    )
-    if not order:
-        return []
-    return [order[min(rank, len(order) - 1)]]
-
-
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
     """Pool index nearest bot.mu, low sigma then low index on ties."""
     return min(
@@ -304,11 +293,12 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 22 (corr): duel rank rotation in the tail.
+    # Bold 7 (corr): interleave, census + 3d + 6p + 4d.
     if budget_left > 20:
         return _census(ratings, min(9, budget_left - 1, len(ratings)))
     if budget_left > 14:
+        return [_closest(bot, ratings)]
+    if budget_left > 8:
         n = min(5, budget_left - 1, len(ratings))
         return _spread(bot, ratings, n, 1.0)
-    d = (14 - budget_left) // 2
-    return _duel_rank(bot, ratings, d)
+    return [_closest(bot, ratings)]
