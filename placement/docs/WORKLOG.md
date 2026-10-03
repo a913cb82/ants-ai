@@ -159,3 +159,9 @@
 - Score: corr 0.9894 (-0.0007, 4/5 regress).
 - Verdict: DISCARD. Same loss as hard-50; fresh-ruler quarantine loses twice. Recency direction stands.
 - Misses: 8.
+
+## Iter 26 (bold 8): double refine + 5-duel tail
+- Census + 6p at 1.0 + 4p at 1.0 + 5 closest duels.
+- Score: corr 0.9893 (-0.0008).
+- Verdict: DISCARD. Bold 8 judged: refuted. Tail length beats refine depth; 2 extra duels out-teach a second small refine.
+- Misses: 9.
