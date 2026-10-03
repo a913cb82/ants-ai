@@ -355,7 +355,7 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 102 (camp A2): front-loaded upsets, first 2 duels above-only.
+    # Iter 103 (camp A3): front-loaded upsets, first 4 duels above-only.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
@@ -363,4 +363,4 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
         n = min(5, budget_left - 1, len(ratings))
         return _strata(bot, ratings, n)
     d = (14 - budget_left) // 2
-    return _info_duel(bot, ratings, 1 if d < 2 else 0)
+    return _info_duel(bot, ratings, 1 if d < 4 else 0)
