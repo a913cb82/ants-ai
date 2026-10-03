@@ -43,3 +43,15 @@ Use this format.
   tie best, so the shipped mu stands.
 - idea: shipped as the harness. Old-budget rows stay filed under
   their tag and no longer count for champion.
+
+## Mu scoring on the old exam (2026-10-04)
+- source: /tmp/validate_harness.py 2x2 plus sigma-discount ladder,
+  faithful 30-slot shapes, seeds 0-5
+- claim: the old exam ranks truest with mu scoring; the discount ladder
+  falls monotonically under both exams.
+- evidence: corr with truth is 0.9655 old+mu (tied best), 0.9654
+  new+mu, 0.9632 new+lb, 0.9619 old+lb. Ladder for k=0/1/2/3 is
+  0.9655/0.9650/0.9638/0.9619 old and 0.9654/0.9655/0.9648/0.9632
+  new. Shipped: old exam, mu score, budget tag score=mu. Old-lb rows
+  stay filed and no longer count.
+- idea: keep this package unless a new exam beats 0.9655 with mu.

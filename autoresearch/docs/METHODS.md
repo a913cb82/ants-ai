@@ -5,17 +5,17 @@ budget, the maps, the seeds, or the selection.
 
 ## Budget
 
-One iteration has 3 games of 10 players for each candidate commit:
+One iteration has 8 games for each candidate commit:
 
-| Game | Opponents | Time |
-|---|---|---|
-| 1 | 9 rulers across the pool skill range | 60 to 90 s |
-| 2 | 9 rulers near the candidate at width 1.25 | 60 to 90 s |
-| 3 | 9 rulers near the candidate at width 1.875 | 60 to 90 s |
-| Total | 27 opponent slots, 30 slots with the bot | about 3 to 5 min |
+| Part | Count | Maps | Time |
+|---|---|---|---|
+| Duels | 5 | 5 different 2p maps | about 5 s each |
+| FFA | 3 | one map for each size in one set | 20 to 90 s each |
+| Total | 8 | all different in one iteration | about 1 to 4 min |
 
-- Anchors come from recent bots with the lowest sigma: the
-  lowest-sigma third of the last 400 arrivals.
+- The FFA sizes are one of two fixed sets: `{4, 6, 10}` or `{5, 7, 8}`.
+  The harness picks the set from the bot id, so a partly played budget
+  resumes with the same set.
 - The candidate is a fresh bot entry: a new commit with changed bot code.
   A commit that changes the bot directory is a new bot id. A docs-only
   commit keeps the old id.
@@ -52,7 +52,7 @@ iteration. The object has these keys:
 | `score` | the recorded score (`mu` under the current budget) |
 | `games` | the number of games in the budget |
 | `champion` | the best bot id before this line, or `null` |
-| `budget` | the budget tag (`games=3x10p,turns=1000,...`) |
+| `budget` | the budget tag (`duels=5,ffa=3,turns=1000`) |
 
 Rows with an older `budget` stay in the file. The harness ignores
 them for the champion.
@@ -65,11 +65,14 @@ and `timeout`). In an FFA game the index in `result` is the rank.
 
 ## Selection
 
-- Game 1: the candidate plays 9 rulers across the pool skill range.
-  This skeleton binds the tails before any refine game.
-- Games 2 and 3: the candidate plays 9 rulers near Gaussian
-  quantiles of its estimate, at widths 1.25 and 1.875. Picks come
-  from the recent low-sigma tertile first, the full pool after.
+- A duel: the candidate is in the game. The opponent has the best
+  information score. The top 3 opponents are eligible.
+  In 20 percent of duels the harness picks one of the top 3 at random.
+- An FFA game: the candidate is in the field. The harness fills the
+  other slots by the same information score.
+- The FFA sizes come from one fixed set per candidate: `{4, 6, 10}` or
+  `{5, 7, 8}` (see Budget).
+- The information score is `predict_draw + 0.02 * sum(sigma)`.
 - The maps are random and different in one iteration.
 - The slots and both seeds are random. The record keeps the seeds.
 - The harness does not pair games. The rating model accounts for the
