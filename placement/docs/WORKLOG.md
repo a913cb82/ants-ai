@@ -846,3 +846,13 @@ One entry per iteration:
 - what changed: games 2 and 3 swapped to 1.875 then 1.25 sigma.
 - what you learned: cost about 9.97 with every seed regressing; the valley shape is real and monotone zoom loses everywhere.
 - next: flat narrow rest (1.25/1.25) to test the valley's second wall.
+
+## 89 — flat narrow rest 1.25 1.25 (2026-10-03)
+- commit: de29969
+- score: selection mean 215.7012 over seeds 0-4 (175.4163, 243.5805, 357.6261, 114.3843, 187.4988)
+- champion selection mean: 216.0193 (fde75b9)
+- confirmation: 201.1719 over seeds 5-9 (149.2020, 239.9402, 234.7598, 220.3959, 161.5618) vs champion held-out 195.5568
+- verdict: discard
+- what changed: third bulk 10p narrowed from 1.875 to 1.25 sigma.
+- what you learned: won selection by 0.32 but lost held-out by 5.62 with every seed regressing; game-3 width does real work and the valley wall holds both sides. Bold 15 judged refuted (iter 88).
+- next: hunt outside priced space; the valley (4.0/1.25/1.875) stands on all sets.
