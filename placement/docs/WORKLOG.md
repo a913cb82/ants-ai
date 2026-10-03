@@ -865,3 +865,12 @@ One entry per iteration:
 - what changed: second bulk 10p narrowed from 1.25 to 1.1875 sigma.
 - what you learned: cost about 1.41 with seed 0 regressing hard; game-2 stays 1.25, bisection between rejected and confirmed loses.
 - next: game-3 at 1.8125 (bisect 1.75/1.875); misses at 89-90 need bold 16 after one more miss.
+
+## 91 — game-3 at 1.8125 (2026-10-03)
+- commit: f9961ac
+- score: mean 216.0851 over seeds 0-4 (170.5843, 245.2475, 366.2536, 112.3918, 185.9484)
+- champion mean: 216.0193 selection, 205.7881 pooled (fde75b9)
+- verdict: discard
+- what changed: third bulk 10p narrowed from 1.875 to 1.8125 sigma.
+- what you learned: cost about 0.07, a pure tie with seeds 0 and 3 canceling; game-3 1.75-1.875 is a flat floor and the incumbent holds.
+- next: bold 16 territory (three straight misses at 89-91); hunt outside priced space.
