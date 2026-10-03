@@ -161,7 +161,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Closest-cluster ring closer (poker/epi). |
 | dropped | Mu-gated closer 2.5/1.5 on |mu-25|>25 (poker P4). |
 | dropped | Undercut 0.75/2.75 rest (race A). |
-| trying | Overcut 3.0/1.0 rest (bold 21). |
+| dropped | Overcut 3.0/1.0 rest (bold 21). |
 | open | Chase-combining repeat-wide 4.0/4.0/1.5 (info; diversity-combine before zoom). |
 | open | Double-tap opener 4.0/4.0/1.25 (adversary; second wide after recentering, full-pool G2 untested at 4.0). |
 | open | Split-middle 10+5+5+10 valley halves (info/poker; mid-schedule re-aim, halves sandwiched not late). |

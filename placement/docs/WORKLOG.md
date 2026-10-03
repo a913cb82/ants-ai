@@ -1157,3 +1157,12 @@ One entry per iteration:
 - what changed: rest widths pushed to 0.75 then 2.75 sigma.
 - what you learned: cost about 2.79 with two of five improving; the exaggerated valley overshoots both ends and priced widths stand.
 - next: overcut 3.0/1.0 rest (race B); then misses force bold 21.
+
+## 121 — overcut 3.0 1.0 bold 21 (2026-10-03)
+- commit: ed0b19f
+- score: mean 244.1784 over seeds 0-4 (217.6853, 293.4024, 362.2129, 130.5422, 217.0491)
+- champion mean: 216.0193 selection, 205.7881 pooled (fde75b9)
+- verdict: discard
+- what changed: rest widths inverted to 3.0 then 1.0 sigma.
+- what you learned: cost about 28.16 with only seed 2 improving; the dip direction matters and inversion loses everywhere else.
+- next: judge bold 21 after 124; quintile game-2 0.875 plus 1.0 closer.
