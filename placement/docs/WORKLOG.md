@@ -831,3 +831,7 @@
 - Decile sites from last-400 mus, snapped to full pool.
 - Score: corr 0.9932 (+0.0000, exact tie).
 - Verdict: retest CONFIRMS window==history for the opener. Next: window-800 census (J2).
+
+## Iter 147 (camp J2): window-800 decile opener
+- Score: corr 0.9932 (+0.0000, tie).
+- Verdict: opener window (400/800/history) fully free. Next: heavy-middle retest (J3).
