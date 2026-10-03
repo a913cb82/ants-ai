@@ -321,3 +321,12 @@ One entry per iteration:
 - what changed: tertile anchor filter removed; full-pool spreads at 3.0/2.0/2.0.
 - what you learned: cost about 38.15 with seeds 0/1/2/4 regressing (seed 2 up 90) while seed 3 improved; calibrated rulers matter with or without duels.
 - next: Augusta Cut fixed (four 6p opens plus 3 closing duels).
+
+## 35 — Augusta Cut four 6ps closing duels (2026-10-03)
+- commit: 63f5411
+- score: mean 409.9362 over seeds 0-4 (402.6176, 462.8777, 489.0574, 312.7057, 382.4224)
+- champion mean: 235.2613 (04eeed2)
+- verdict: discard
+- what changed: four 6p spreads at 2.0 followed by 3 closing closest duels.
+- what you learned: cost about 174.67 with every seed catastrophic; 6p fragments cannot bound tails and closing duels cannot rescue unpositioned mus.
+- next: D-optimal 4-duel screen at +- {0.5, 1.5} sigma.
