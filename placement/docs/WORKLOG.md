@@ -48,3 +48,10 @@
 - Score: corr 0.9861 (-0.0009, only seed 3 improves).
 - Verdict: DISCARD. Era-splitting starves both games of the best rulers; recency wants all 400 together.
 - Misses: 6.
+
+## Iter 8: credibility 7+2 blend closer
+- Census + 1.25 tertile + 1.875 (7 tertile + 2 high-sigma-half).
+- Selection: corr 0.9878 (+0.0008; seed3 +0.0044, seed2 -0.0017).
+- Held-out 5-9: iter8 0.98844 vs baseline 0.98868 (-0.0002). Pooled-10 +0.0003 but fresh disagrees.
+- Verdict: DISCARD per overturn rule. No dose escalation (fresh half must improve; it did not).
+- Misses: 7.
