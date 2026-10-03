@@ -587,3 +587,8 @@
 - Champion: 0.9947, 0.9926, 0.9824 (mean 0.98990). Rival: 0.9946, 0.9925, 0.9829 (mean 0.99000).
 - Seed 23 is hard for both (~0.982); rival +0.0005 there but -0.0001 elsewhere on the leg.
 - Cumulative seeds 15-23: champion 0.99187, rival 0.99186 (diff -0.00001, dead even). Rival needs +0.0015/seed over the last 6 to clear the bar.
+
+## Iter 97: shootout leg 4 (seeds 24-26)
+- Champion: 0.9945, 0.9939, 0.9897 (mean 0.99270). Rival: 0.9943, 0.9941, 0.9904 (mean 0.99293).
+- Rival takes the leg (+0.00023, all three seeds within 0.0007). Cumulative seeds 15-26: champion 0.99208, rival 0.99213 (rival +0.00005).
+- Bar watch: rival needs +0.0012/seed over seeds 27-29. Final leg runs to honor the pre-registration.
