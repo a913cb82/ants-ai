@@ -178,6 +178,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Recency window 200 (tuning 133b; starves anchors). |
 | dropped | Recency window 600 (tuning 133c; dilutes recency). |
 | dropped | Game-2 1.5 under census regime (tuning 133d). |
+| trying | 8p-band sizes 8+8+8+6 slots (bold 23). |
 | open | Chase-combining repeat-wide 4.0/4.0/1.5 (info; diversity-combine before zoom). |
 | open | Double-tap opener 4.0/4.0/1.25 (adversary; second wide after recentering, full-pool G2 untested at 4.0). |
 | open | Split-middle 10+5+5+10 valley halves (info/poker; mid-schedule re-aim, halves sandwiched not late). |
@@ -370,6 +371,12 @@ position routes better than sigma did, or routing stays dead. Judge
 after iteration 133.
 Judged: refuted at iteration 130 (232.9551, every seed regressed);
 routing stays dead.
+
+Two misses in a row (iters 135-136) force bold line 23
+(2026-10-03): 8p-band sizes 7+7+7+5. Four slimmer games test
+refresh-vs-depth at champion widths; extra re-aim at the cost of
+per-game pull density. Predicts rhythm matters, or density wins.
+Judge after iteration 140.
 
 Three misses in a row (iters 89-91) force bold line 16 (2026-10-03):
 flat wide rest. Both rest games at 1.875: the rest may do one job
