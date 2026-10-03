@@ -18,7 +18,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Champion with 5th duel moved late (4 early + 1 late). |
 | done | Low-sigma-only FFA anchors (median-sigma cutoff, full-pool fallback). |
 | dropped | Low-sigma-only duel opponents (anchors everywhere). |
-| trying | Mid-size late games: 4x5p spread instead of 2x10p. |
+| dropped | Mid-size late games: 4x5p spread instead of 2x10p. |
 | open | Approach 2: zooming bracket 10p/5p/5p/2p x5, spread mu+-k·sigma, low-sigma anchors. |
 | open | Approach 3: 10p/6p/2p x7, quantile spread at 1.0 sigma, large-first coarse-to-fine. |
 | done | Champion order with spread FFA opponents (quantiles of N(mu, sigma), low-sigma ties). |

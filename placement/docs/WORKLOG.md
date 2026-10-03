@@ -156,3 +156,12 @@ One entry per iteration:
 - what changed: restricted duel opponents to the low-sigma half of the pool, same as the FFA anchors.
 - what you learned: duel anchors cost about 0.69 mean error; early positioning needs mu-closeness more than anchor certainty, while late thresholds need the reverse.
 - next: mid-size late games (4x5p instead of 2x10p).
+
+## 17 — mid-size late games 4x5p spread (2026-10-03)
+- commit: 4db400c
+- score: mean 20.3905 over seeds 0-4 (20.5200, 21.4683, 21.4389, 18.2434, 20.2817)
+- champion mean: 15.8333 (2d70af7)
+- verdict: discard
+- what changed: kept 5 positioning duels but played four spread 5p games late instead of two spread 10ps.
+- what you learned: 4-look updates cost about 4.56 mean error versus 9-look ones despite double the updates; late bulk size dominates update count.
+- next: other mid sizes (4p, 6p, 8p) or 10p plus 2x5p late mixes.
