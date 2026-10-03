@@ -454,7 +454,7 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 123 (camp E3): low-to-high gated sweep (below/peer/above thirds).
+    # Iter 124 (camp E4): gated sweep at width 60.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
@@ -463,4 +463,4 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
         return _strata(bot, ratings, n)
     d = (14 - budget_left) // 2
     sweep = [-1, -1, 0, 0, 0, 1, 1][d] if 0 <= d < 7 else 0
-    return _info_duel(bot, ratings, sweep, 40, 0)
+    return _info_duel(bot, ratings, sweep, 60, 0)
