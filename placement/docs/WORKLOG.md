@@ -788,3 +788,8 @@
 - Even arrivals <200 get 10p quantile + 10p full-pool 1.5 + 10p tertile 1.875, zero duels.
 - Score: corr 0.9914 (-0.0018, every seed regressed).
 - Verdict: DISCARD decisively. Young bots need duels too; FFA averaging cannot finish. Early regime wants the same shape, not more averaging. Next: recapture-spine early (H3).
+
+## Iter 138 (camp H3): recapture-spine early window
+- Even arrivals <200 get 2 recomputed-census-nearest + 3 fresh strata in G2.
+- Score: corr 0.9933 (+0.0001, tie).
+- Verdict: recapture ties fresh even for young bots. Next: window-300 odd-parity (H4).
