@@ -18,8 +18,8 @@ class Rating:
     sigma: float
 
 
-def _info_duel(bot: Rating, ratings: list[Rating]) -> list[int]:
-    """Tail duel: argmax predict_draw + 0.02 sigma over 40 nearest."""
+def _info_duel(bot: Rating, ratings: list[Rating], w: float = 0.02) -> list[int]:
+    """Tail duel: argmax predict_draw + w * sigma over 40 nearest."""
     order = sorted(
         range(len(ratings)),
         key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
@@ -34,7 +34,7 @@ def _info_duel(bot: Rating, ratings: list[Rating]) -> list[int]:
         for i in (c,):
             teams.append([_MODEL.rating(mu=ratings[i].mu, sigma=ratings[i].sigma)])
             sig += ratings[i].sigma
-        v = _MODEL.predict_draw(teams) + 0.02 * sig
+        v = _MODEL.predict_draw(teams) + w * sig
         if best_v is None or v > best_v:
             best, best_v = c, v
     return [best]
@@ -354,11 +354,12 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Bold 16 (corr): refine-heavy 10+10+10.
+    # Iter 60 (corr): tail weight descent 0.05/0.02/0.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
-    if budget_left > 10:
-        n = min(9, budget_left - 1, len(ratings))
+    if budget_left > 14:
+        n = min(5, budget_left - 1, len(ratings))
         return _strata(bot, ratings, n)
-    return _info_duel(bot, ratings)
+    d = (14 - budget_left) // 2
+    return _info_duel(bot, ratings, 0.05 if d < 2 else (0.02 if d < 6 else 0.0))
