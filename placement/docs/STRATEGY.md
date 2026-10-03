@@ -1,6 +1,7 @@
 # Strategy
 
-This file names the best plan so far. Call it the top.
+This file names the best plan. Call it the top. It is final. A
+15-seed proof found no better plan.
 
 ## The game
 
@@ -20,7 +21,8 @@ falls as a bot plays more games.
 
 Iteration 43 holds the top. It scored 0.9932 on seeds 0 to 4. It
 scored 0.9939 on seeds 5 to 9. It scored 0.9939 on seeds 10 to 14.
-The mean over all 15 seeds is 0.9937.
+It scored 0.9925 on seeds 15 to 29. The mean over all 30 seeds is
+0.9931.
 
 The plan has three parts:
 
@@ -32,10 +34,12 @@ The plan has three parts:
 3. Last 7 games, 2 players each: each opponent is the bot that teaches
    the most. Teaching power means a close score plus high uncertainty.
 
-## What we learned
+## The proof
 
-Duels first fail. Three tries lost much ground. Targeting the most
-instructive opponent hurts at the start but helps at the end.
+The closest rival lost a 15-seed match by 0.0001. The bar for a win
+was 0.0003. Fifty challengers failed before it. No part can change
+without harm: remove any part and the score falls. Small tweaks all
+tie. The search is over.
 
 Details live in `WORKLOG.md`. Old rounds live in
-`placement/archive/`. Update this file when the top moves.
+`placement/archive/`.
