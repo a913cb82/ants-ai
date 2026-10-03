@@ -23,7 +23,7 @@ def _info_duel(bot: Rating, ratings: list[Rating]) -> list[int]:
     order = sorted(
         range(len(ratings)),
         key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
-    )[:80]
+    )[:40]
     if not order:
         return []
     best = order[0]
@@ -322,9 +322,10 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 33 (corr): tail prefilter 80.
+    # Iter 34 (corr): quantile-census opener under duel tail.
     if budget_left > 20:
-        return _census(ratings, min(9, budget_left - 1, len(ratings)))
+        n = min(9, budget_left - 1, len(ratings))
+        return _census(ratings, n, mode="quantile")
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
         return _spread(bot, ratings, n, 1.0)
