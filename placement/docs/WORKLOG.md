@@ -365,3 +365,9 @@
 - Score: corr 0.9882 (-0.005).
 - Verdict: DISCARD. Bold 16 judged: refuted. Nine refine rulers cannot buy back 2 lost duels; the tail-length wall holds. Split frontier closed: 10+6+14 priced optimum.
 - Misses: 16.
+
+## Iter 60: tail weight descent 0.05/0.02/0
+- Champion shape with per-duel weight schedule.
+- Score: corr 0.9932 (-0.0000, exact tie).
+- Verdict: DISCARD (tie keeps incumbent). Per-duel weight schedules closed; flat 0.02 stands.
+- Misses: 17.
