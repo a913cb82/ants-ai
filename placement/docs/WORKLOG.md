@@ -542,3 +542,12 @@ One entry per iteration:
 - what changed: opener split into two 5p spreads (4.25 full-pool, 2.0 tertile) before two 10ps.
 - what you learned: cost about 35.03 with every seed regressing; 4 opener looks cannot bound and the 9-threshold opener stands.
 - next: opener at 4.125 (bisect down from 4.25).
+
+## 59 — full-pool opener at 4.125 (2026-10-03)
+- commit: 5d51245
+- score: mean 224.4548 over seeds 0-4 (189.9996, 274.5994, 351.2539, 116.0737, 190.3476)
+- champion mean: 221.5778 (9b38f80)
+- verdict: discard
+- what changed: unfiltered opener narrowed from 4.25 to 4.125 sigma.
+- what you learned: cost about 2.88, worse than both 4.0 and 4.25 neighbors; the width top is flat-topped noise, stop bisecting.
+- next: judge bold 9 (refuted); third validation on seeds 5-9 for the 4.25 champion.
