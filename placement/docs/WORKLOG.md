@@ -1074,3 +1074,12 @@ One entry per iteration:
 - what changed: game-3 forced 3 below plus 3 above current mu, filled to 9 with nearest.
 - what you learned: cost about 4.04 with only seed 2 improving; greedy quantile pulls beat forced pots and balance is not the mechanism.
 - next: game-2 halo mixture 5x1.25 plus 4x2.5 (adversary S2).
+
+## 112 — game-2 halo mixture (2026-10-03)
+- commit: 4ffe9fe
+- score: mean 232.6411 over seeds 0-4 (202.0063, 282.1212, 346.3346, 128.3128, 204.4305)
+- champion mean: 216.0193 selection, 205.7881 pooled (fde75b9)
+- verdict: discard
+- what changed: game-2 matched 5 inner targets at 1.25 sigma and 4 extreme targets at 2.5 sigma.
+- what you learned: cost about 16.62 with only seed 2 improving; the halo widens too early and precision timing stays load-bearing.
+- next: game-3 mixture 5x1.25 plus 4x2.5 (bayes P3).
