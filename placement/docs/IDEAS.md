@@ -77,6 +77,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Flat narrow rest 1.25/1.25: test the valley wall. |
 | dropped | Game-2 at 1.1875: bisect 1.125 and 1.25. |
 | dropped | Game-3 at 1.8125: bisect 1.75 and 1.875. |
+| trying | Flat wide rest 1.875/1.875 (bold 16). |
 | dropped | Quartile anchors retest (cleaner thresholds for hard seeds). |
 | dropped | 3p opening: 2x3p closest-pair instead of 3x2p (same 6 slots). |
 | dropped | 4p mid game: bot plus above, below, closest replaces bracket pair. |
@@ -236,6 +237,13 @@ Predicts monotone zoom beats the valley, or the valley shape is
 real. Judge after iteration 89.
 Judged: refuted at iteration 88 (225.9928, every seed regressed);
 the valley shape is real.
+
+Three misses in a row (iters 89-91) force bold line 16 (2026-10-03):
+flat wide rest. Both rest games at 1.875: the rest may do one job
+(refine against rulers) and game-2 narrowness may be selection-set
+overfit. Completes the shape matrix with flat-narrow and zoom.
+Predicts one rest width suffices, or the valley dip is load-bearing.
+Judge after iteration 94.
 
 Two misses in a row (iters 81-82) force bold line 14 (2026-10-03):
 tertile opener under the confirmed shape. The anchor factorial
