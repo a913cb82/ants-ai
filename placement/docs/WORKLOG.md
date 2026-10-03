@@ -1785,3 +1785,9 @@ One entry per iteration:
 - Verdict: DISCARD. Clean vs iter-89 reuse at same widths: disjointness itself costs ~13 points.
 - Learned: cryptographer family closed (S1/S2/S4 dead, S3 plumbing-parked). Best-ruler reuse beats independence.
 - Next: iter 197 clipped undercut 0.75/2.75 (control S3, anti-windup repair of 160).
+
+## Iter 197: anti-windup clipped undercut (control S3)
+- Score: sel 190.5645 (-7.18); held 175.8423 (-1.37); fresh 159.9654 (+1.46 veto); pooled-15 175.4574 vs 177.8219 (-2.36).
+- Verdict: DISCARD per overturn rule (4th fresh veto: 153/160/166/177/197 family pattern).
+- Learned: triple replication of iter-160 to 2 decimals on all 3 sets — clipping is a no-op at match level (175 mechanism confirmed). Undercut direction irreparably seed-fragile; control family closed.
+- Next: iter 198 mu-gated closer under census (archivist2 S4, closes routing).
