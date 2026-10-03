@@ -35,7 +35,7 @@ A refinement is a new row. Leave old rows as they were.
 | open | Adaptive refine at 4.0: sigma probe says refine-time mean is 3.9. |
 | open | Tail-chasing spread: one-sided thresholds toward the bot tail. |
 | open | Closing duel: 8p refine plus a final closest duel (28+2 slots). |
-| open | Forward bracketing: duel 1 closest, duels 2-3 above/below (archive). |
+| trying | Forward bracketing: duel 1 closest, duels 2-3 above/below (archive). |
 | open | Median anchors under twin-wide 2.0 spreads (archive). |
 | open | Positioning depth 6/7 duels with twin bulk kept (archive). |
 | open | Equal-bits ladder 2+4+6+8+10, spread 1.0 throughout (info). |
