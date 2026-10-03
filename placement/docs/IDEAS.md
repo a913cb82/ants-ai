@@ -38,6 +38,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Forward bracketing: duel 1 closest, duels 2-3 above/below (archive). |
 | dropped | Median anchors under twin-wide 2.0 spreads (archive). |
 | dropped | Positioning depth 6/7 duels with twin bulk kept (archive). |
+| trying | Bulk-only: three 10ps at 2.0, zero duels (bold 3). |
 | open | Equal-bits ladder 2+4+6+8+10, spread 1.0 throughout (info). |
 | open | Zoom widths: 1 duel, 9p at 2.0, 9p at 1.0, 10p at 0.5 (info). |
 | open | Split-budget recenter: 2+3+10 then 5+10 halves (info). |
@@ -79,5 +80,11 @@ run twin-wide 10ps. Predicts seeds 1/2 fall and seeds 0/3 hold.
 Judge after iteration 11.
 Judged: confirmed at iteration 8 by adoption (302.2418, new champion);
 lead fragile (seed 2 regressed 13.5), refine pulls weight on hard seeds.
+
+Eleven misses in a row (iters 9-19) force bold line 3 (2026-10-03):
+bulk-only. Three spread 10ps at 2.0 sigma with zero duels tests
+whether positioning duels matter at all under MSE; wide fields from
+the prior may bound directly. Predicts catastrophe or a surprise.
+Judge after iteration 23.
 | done | Interleaved bulk retest (3d, wide 10p, 2d, narrow 10p): lost MAE by 0.009; mid re-positioning may cut tails. |
 | done | Bracket duels retest (closest 1-3, then above/below): deliberate tail insurance. |
