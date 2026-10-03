@@ -111,3 +111,9 @@
 - Selection: corr 0.9901 (+0.0031, 4/5 improve). Held-out 5-9: 0.9905 (+0.0018). Fresh 10-14: 0.9915. Pooled-15: 0.9907.
 - Verdict: ADOPT. Duel tails rank after positioning; duel openers stay dead. The 6p refine + terminal matched duels collapse sigma where corr lives.
 - Bold 5 judged: confirmed. Misses reset to 0.
+
+## Iter 18: duel-count ablation (8p + 6 duels)
+- Census + 8p (7 rulers) at 1.0 + 6 closest duels.
+- Score: corr 0.9900, exact tie with champion (-0.00004).
+- Verdict: DISCARD (tie keeps incumbent). The 7-duel count stands; size carries nothing either way.
+- Misses: 1.
