@@ -694,3 +694,8 @@
 - Last duel = lowest-sigma of 10 nearest; first 6 flat info.
 - Score: corr 0.9933 (+0.0001, tie).
 - Verdict: retest CONFIRMS the tie. Next: 5 info + 2 closest closers (D3).
+
+## Iter 118 (camp D3): 5 info + 2 closest closers
+- Last two duels = nearest-mu opponent each; first 5 flat info.
+- Score: corr 0.9932 (+0.0000, tie).
+- Verdict: closer flavor (closest/credpin/2x) all tie. Next: bounty closer (D4).
