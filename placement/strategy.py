@@ -21,13 +21,18 @@ def _established(ratings: list[Rating], k: int) -> list[int]:
     return pool
 
 
-def _census(ratings: list[Rating], k: int) -> list[int]:
-    """Nearest ruler to each site spanning the pool range."""
-    lo = min(r.mu for r in ratings)
-    hi = max(r.mu for r in ratings)
-    if hi - lo < 1e-9:
-        return list(range(min(k, len(ratings))))
-    sites = [lo + (hi - lo) * (j + 1) / (k + 1) for j in range(k)]
+def _census(ratings: list[Rating], k: int, quantile: bool = False) -> list[int]:
+    """Nearest ruler to each site spanning the pool range (or pool deciles)."""
+    if quantile:
+        pool = sorted(r.mu for r in ratings)
+        n = len(pool)
+        sites = [pool[min(int(n * (j + 1) / (k + 1)), n - 1)] for j in range(k)]
+    else:
+        lo = min(r.mu for r in ratings)
+        hi = max(r.mu for r in ratings)
+        if hi - lo < 1e-9:
+            return list(range(min(k, len(ratings))))
+        sites = [lo + (hi - lo) * (j + 1) / (k + 1) for j in range(k)]
     picked: list[int] = []
     used: set[int] = set()
     for t in sites:
@@ -83,7 +88,7 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
         return []
     # Champion (iter 133, MSE): census opener, recent-tertile 1.25/1.875.
     if budget_left > 20:
-        return _census(ratings, min(9, budget_left - 1, len(ratings)))
+        return _census(ratings, min(9, budget_left - 1, len(ratings)), True)
     if budget_left > 10:
         return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.25)
     return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.875)
