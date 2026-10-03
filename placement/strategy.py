@@ -18,15 +18,12 @@ class Rating:
     sigma: float
 
 
-def _info_duel(bot: Rating, ratings: list[Rating], flank: bool = False) -> list[int]:
+def _info_duel(bot: Rating, ratings: list[Rating]) -> list[int]:
     """Tail duel: argmax predict_draw + 0.02 sigma over 40 nearest."""
     order = sorted(
         range(len(ratings)),
         key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
     )[:40]
-    if flank:
-        band = max(bot.sigma, 0.5)
-        order = [c for c in order if abs(ratings[c].mu - bot.mu) >= band] or order
     if not order:
         return []
     best = order[0]
@@ -129,6 +126,23 @@ def _strata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
             key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
         )
         out += rest[: k - len(out)]
+    return out[:k]
+
+
+def _ladder(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
+    """Nearest tertile rulers at or above bot mu."""
+    pool = _established(ratings, k, 0)
+    above = sorted(
+        (c for c in pool if ratings[c].mu >= bot.mu),
+        key=lambda c: (ratings[c].mu - bot.mu, ratings[c].sigma, c),
+    )
+    out = above[:k]
+    if len(out) < k:
+        below = sorted(
+            (c for c in pool if c not in set(out)),
+            key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
+        )
+        out += below[: k - len(out)]
     return out[:k]
 
 
@@ -357,11 +371,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Bold 30 (corr): flank-forced tail, peer band excluded.
+    # Iter 81 (corr): upset-ladder refine.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
-        return _strata(bot, ratings, n)
-    return _info_duel(bot, ratings, flank=True)
+        return _ladder(bot, ratings, n)
+    return _info_duel(bot, ratings)
