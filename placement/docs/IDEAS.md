@@ -34,6 +34,30 @@ A refinement is a new row. Leave old rows as they were.
 | trying | Adaptive refine width: 2.0 iff mid sigma above 6.5 else 0.5. |
 | open | Tail-chasing spread: one-sided thresholds toward the bot tail. |
 | open | Closing duel: 8p refine plus a final closest duel (28+2 slots). |
+| open | Forward bracketing: duel 1 closest, duels 2-3 above/below (archive). |
+| open | Median anchors under twin-wide 2.0 spreads (archive). |
+| open | Positioning depth 6/7 duels with twin bulk kept (archive). |
+| open | Equal-bits ladder 2+4+6+8+10, spread 1.0 throughout (info). |
+| open | Zoom widths: 1 duel, 9p at 2.0, 9p at 1.0, 10p at 0.5 (info). |
+| open | Split-budget recenter: 2+3+10 then 5+10 halves (info). |
+| open | Augusta Cut: 2x6p open, 2x6p anchors-only, 10 closing duels (sports). |
+| open | World Cup pots: each FFA draws 3 bottom + 3 mid + 3 top mu (sports). |
+| open | Swiss 12 duels no-rematch, then two 10p finals (sports). |
+| open | Gatekeeper FFA: second 10p shifted a tier stronger than mu (sports). |
+| open | Gradient fields: weak 10p heat, peer semi, shark-tank final (sports). |
+| open | Successive-halving duel tournament with FFA confirmation (bayes). |
+| open | Deterministic UCB rotation: score -dist + 0.5 sigma, cycle top 6 (bayes). |
+| open | D-optimal 4-duel screen at mu +- {0.5, 1.5} sigma, then bulks (bayes). |
+| open | Wide-grid quantiles: fixed CDF grid 0.05..0.95 at 2.0 sigma (bayes). |
+| open | Push-fold routing: wide twin-10p for high-sigma, duels-only for settled (poker). |
+| open | Bounty sniper: 1 max-sigma duel then 28-slot champion core (poker). |
+| open | Refine at 1.0 under twin-wide: 2.0 then 1.0 widths (poker). |
+| parked | Rank-entropy 4p opponent choice (info; 4p mid failed iter 12). |
+| parked | Hot sigma-weighted draw targeting 0.10 (info; draw lost MSE iter). |
+| parked | Conditional one-sided tail-hedge above mu 60 (bayes; bold 2 refuted). |
+| parked | Expected-improvement duel filter skipping clone mus (bayes). |
+| parked | Satellite lock-up: duels-only once settled (poker; needs sigma rule). |
+| parked | Shot-taking directional FFA for extremes (poker; one-sided refuted). |
 | dropped | Tail-chasing one-sided spread for tail bots (bold 2). |
 
 ## Bold lines
