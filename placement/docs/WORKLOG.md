@@ -213,3 +213,12 @@ One entry per iteration:
 - what changed: first bulk 10p widened from 2.5 to 3.0 sigma.
 - what you learned: wins by 18.01 with every seed improving (seed 1 down 51); the first-10p gradient still climbs.
 - next: first 10p at 3.5.
+
+## 23 — bulk-only first 10p at 3.5 (2026-10-03)
+- commit: 034a1f9
+- score: mean 239.6700 over seeds 0-4 (209.9613, 318.3675, 292.8458, 145.0876, 232.0876)
+- champion mean: 235.2613 (04eeed2)
+- verdict: discard
+- what changed: first bulk 10p widened from 3.0 to 3.5 sigma.
+- what you learned: cost about 4.41 with seed 1 blowing up 51 while seeds 0/3 hit round bests; first-width optimum sits between 3.0 and 3.5 and differs per seed.
+- next: second-10p width sweep under bulk-only.
