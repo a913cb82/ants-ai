@@ -311,3 +311,9 @@
 - Verdict: DISCARD. Quantile opener stands with the new rest; mass beats range in both regimes.
 - Halfway: 50/100. Champion iter 43 (pooled-15 0.9937).
 - Misses: 7.
+
+## Iter 51 (bold 13): quantile skeleton + 10 info duels, no refine
+- No mid refine; 10-duel info tail.
+- Score: corr 0.9911 (-0.0021).
+- Verdict: DISCARD. Bold 13 judged: refuted. The strata refine matters under info tails too.
+- Misses: 8.
