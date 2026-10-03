@@ -18,18 +18,24 @@ class Rating:
     sigma: float
 
 
-def _info_duel(bot: Rating, ratings: list[Rating]) -> list[int]:
+def _info_duel(bot: Rating, ratings: list[Rating], side: int = 0) -> list[int]:
     """Tail duel: argmax predict_draw + 0.02 sigma over 40 nearest."""
     order = sorted(
         range(len(ratings)),
         key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
     )[:40]
-    if not order:
+    gated = [c for c in order if (ratings[c].mu - bot.mu) * side > 0] or order
+    if not gated:
         return []
-    best = order[0]
+    best = gated[0]
     best_v = None
-    for c in order:
-        v = _infoscore(bot, [], ratings, c, 0.02)
+    for c in gated:
+        teams = [[_MODEL.rating(mu=bot.mu, sigma=bot.sigma)]]
+        sig = bot.sigma
+        for i in (c,):
+            teams.append([_MODEL.rating(mu=ratings[i].mu, sigma=ratings[i].sigma)])
+            sig += ratings[i].sigma
+        v = _MODEL.predict_draw(teams) + 0.02 * sig
         if best_v is None or v > best_v:
             best, best_v = c, v
     return [best]
@@ -122,59 +128,6 @@ def _strata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
         )
         out += rest[: k - len(out)]
     return out[:k]
-
-
-def _infostrata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
-    """Mass-quota bins; within-bin pick by info score."""
-    pool = _established(ratings, k, 0)
-    s = max(bot.sigma, 0.5)
-    bins: list[list[int]] = [[], [], []]
-    for c in pool:
-        d = ratings[c].mu - bot.mu
-        bins[0 if d < -s else (2 if d > s else 1)].append(c)
-    masses = [len(b) for b in bins]
-    total = sum(masses) or 1
-    quota = [max(1 if m else 0, round(k * m / total)) for m in masses]
-    while sum(quota) > k:
-        j = max(range(3), key=lambda j: quota[j] - k * masses[j] / total)
-        quota[j] -= 1
-    while sum(quota) < k:
-        j = max(range(3), key=lambda j: k * masses[j] / total - quota[j])
-        quota[j] += 1
-    picked: list[int] = []
-    used: set[int] = set()
-    for b, q in zip(bins, quota, strict=True):
-        near = sorted(
-            b, key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c)
-        )[:40]
-        for _ in range(max(q, 0)):
-            cands = [c for c in near if c not in used]
-            if not cands:
-                break
-            i = max(
-                cands,
-                key=lambda c: (_infoscore(bot, picked, ratings, c), c),
-            )
-            used.add(i)
-            picked.append(i)
-    if len(picked) < k:
-        rest = sorted(
-            (c for c in pool if c not in used),
-            key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
-        )
-        picked += rest[: k - len(picked)]
-    return picked[:k]
-
-
-def _infoscore(
-    bot: Rating, field: list[int], ratings: list[Rating], c: int, w: float = 0.02
-) -> float:
-    teams = [[_MODEL.rating(mu=bot.mu, sigma=bot.sigma)]]
-    sig = bot.sigma
-    for i in field + [c]:
-        teams.append([_MODEL.rating(mu=ratings[i].mu, sigma=ratings[i].sigma)])
-        sig += ratings[i].sigma
-    return _MODEL.predict_draw(teams) + w * sig
 
 
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
@@ -402,11 +355,12 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 75 (corr): info-inside-strata refine.
+    # Iter 76 (corr): front-loaded upsets, first 3 duels above-only.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
-        return _infostrata(bot, ratings, n)
-    return _info_duel(bot, ratings)
+        return _strata(bot, ratings, n)
+    d = (14 - budget_left) // 2
+    return _info_duel(bot, ratings, 1 if d < 3 else 0)
