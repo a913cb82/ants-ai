@@ -442,3 +442,9 @@
 - Score: corr 0.9932 (+0.0000, exact tie).
 - Verdict: DISCARD (tie keeps incumbent). Bin edges are free parameters; 3-bin stands on peer insurance, not edge signal.
 - Misses: 29.
+
+## Iter 73 (bold 20): sandwich with 4p closer
+- Quantile + 4p strata + 6 info duels + 4p strata closer.
+- Score: corr 0.9925 (-0.0007).
+- Verdict: DISCARD. Bold 20 judged: refuted. A closing refine cannot beat the 7th duel; terminal duels finish best.
+- Misses: 30.
