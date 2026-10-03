@@ -142,7 +142,7 @@ A refinement is a new row. Leave old rows as they were.
 | open | Opener 3.75 under valley rest (archivist; iter 62 pooled tie priced under 2.0/2.0 rest). |
 | open | Closer 2.5 under 1.25-second (archivist; iter 66 held-out -0.13, thinnest cell). |
 | dropped | Game-3 1.8125 with two-set judging (archivist revival). |
-| trying | Cross-bulk no-rematch valley (consensus structural). |
+| dropped | Cross-bulk no-rematch valley (consensus structural). |
 | open | Chase-combining repeat-wide 4.0/4.0/1.5 (info; diversity-combine before zoom). |
 | open | Double-tap opener 4.0/4.0/1.25 (adversary; second wide after recentering, full-pool G2 untested at 4.0). |
 | open | Split-middle 10+5+5+10 valley halves (info/poker; mid-schedule re-aim, halves sandwiched not late). |

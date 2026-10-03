@@ -33,28 +33,21 @@ def _spread(
     k: int,
     width: float = 1.0,
     anchors: bool = True,
-    ban: set[int] | None = None,
 ) -> list[int]:
     """k distinct opponents nearest quantiles of N(mu, w*sigma)."""
     dist = NormalDist(bot.mu, max(width * bot.sigma, 0.5))
     targets = [dist.inv_cdf((j + 1) / (k + 1)) for j in range(k)]
     pool = _established(ratings, k) if anchors else list(range(len(ratings)))
-    avail = [c for c in pool if c not in (ban or set())]
-    if len(avail) < k:
-        avail = pool
     picked: list[int] = []
     used: set[int] = set()
     for t in targets:
         i = min(
-            (c for c in avail if c not in used),
+            (c for c in pool if c not in used),
             key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c),
         )
         used.add(i)
         picked.append(i)
     return picked
-
-
-_seen: dict[tuple[int, int], list[int]] = {}
 
 
 def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> list[int]:
@@ -67,25 +60,9 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Exp (iter 102, MSE): cross-bulk no-rematch.
-    n = len(ratings)
-    seq = 0
-    while (n, seq) in _seen:
-        seq += 1
-    ban: set[int] = set()
-    for j in range(seq):
-        ban |= set(_seen[(n, j)])
+    # Champion (iter 85, MSE): widths 4.0/1.25/1.875.
     if budget_left > 20:
-        picks = _spread(
-            bot, ratings, min(9, budget_left - 1, len(ratings)), 4.0, False, ban
-        )
-    elif budget_left > 10:
-        picks = _spread(
-            bot, ratings, min(9, budget_left - 1, len(ratings)), 1.25, True, ban
-        )
-    else:
-        picks = _spread(
-            bot, ratings, min(9, budget_left - 1, len(ratings)), 1.875, True, ban
-        )
-    _seen[(n, seq)] = picks
-    return picks
+        return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 4.0, False)
+    if budget_left > 10:
+        return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.25)
+    return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.875)

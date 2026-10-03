@@ -985,3 +985,12 @@ One entry per iteration:
 - what changed: nothing new, iter 91 re-run with the held-out judging it never got.
 - what you learned: selection tie (+0.07) plus held-out loss (-1.39, seed 7 regresses 9); the flat floor stands under two-set judging.
 - next: cross-bulk no-rematch valley (consensus structural candidate).
+
+## 102 — cross-bulk no-rematch valley (2026-10-03)
+- commit: 5b5795a
+- score: mean 230.5171 over seeds 0-4 (206.0107, 260.1334, 349.1061, 144.5218, 192.8134)
+- champion mean: 216.0193 selection, 205.7881 pooled (fde75b9)
+- verdict: discard
+- what changed: games 2 and 3 banned rematches of earlier games via a module-global used-set.
+- what you learned: cost about 14.50 with only seed 2 improving; rematches are informative replicates and ruler-noise averaging beats novelty (audit showed 1.25/3.32 dups in games 2/3).
+- next: flat-mid rest 1.5625 (shape-matrix cell).
