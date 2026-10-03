@@ -1772,3 +1772,10 @@ One entry per iteration:
 - Verdict: DISCARD. Duel leg validated nothing; 8p deductible taxed the settled end.
 - Learned: size book closed under census (5p/6p/8p/duels all dead in every position).
 - Next: iter 194 fractional-Kelly sizing (economist E3, stillborn check first).
+
+## Iters 194-195: Kelly sizing + insurance premium — STILLBORN (economist E3/E4)
+- E3: small-branch fires 0/204 on 200-bot quick (post-census sigma never <5.0). Killed pre-full-run per own falsifier.
+- E4: coincidence diagnostic 150/150 (100%): nearest G2 ruler always in greedy @1.875 set. Premium buys nothing.
+- Verdict: both STILLBORN, champion restored, no full runs. Economist family closed 0-for-4.
+- Learned: size-routing dies with width-routing (no live signal); replicates coincide with greed (102/151 mechanism confirmed constructively).
+- Next: iter 196 same-grid disjoint shares (crypto S1).
