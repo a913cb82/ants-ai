@@ -651,3 +651,8 @@
 - Peer split at bot.mu + 0.5 sigma instead of bot.mu.
 - Score: corr 0.9931 (-0.0001, tie).
 - Verdict: split point is a free parameter. Next: narrow outer edges (B4).
+
+## Iter 109 (camp B4): 4-bin narrow-edge strata
+- Center-split peer + outer edges at +-0.5 sigma.
+- Score: corr 0.9932 (+0.0000, tie; seed-2 +0.0009 spike, regress elsewhere).
+- Verdict: narrow edges do not stack with 4-bin. Next: B5 4-bin + sqrt quota.
