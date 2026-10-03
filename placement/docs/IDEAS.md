@@ -37,14 +37,14 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | 3p opening: 2x3p closest-pair instead of 3x2p (same 6 slots). |
 | dropped | 4p mid game: bot plus above, below, closest replaces bracket pair. |
 | dropped | All-3p schedule: ten 3p games, positioning and bulk unified. |
-| open | Duel-heavy sandwich: 4d, 10p, 2d, 6p, 2d (30 slots). |
-| open | Twin mid-bulk: 7 duels, 6p, 2 duels, 6p. |
-| open | Bookend brackets: closest, bracket pair, 10p, bracket pair, 10p. |
-| open | Bracket triple mid: 2d, 10p, above/below/closest, 10p. |
-| open | Opening duel ladder under MSE shape: 2, 4, 6 opening duels. |
+| parked | Duel-heavy sandwich: 4d, 10p, 2d, 6p, 2d (duels cost ~74, iters 30/33). |
+| parked | Twin mid-bulk: 7 duels, 6p, 2 duels, 6p (duels cost ~74). |
+| parked | Bookend brackets: closest, bracket pair, 10p, bracket pair, 10p (duels cost ~74). |
+| parked | Bracket triple mid: 2d, 10p, above/below/closest, 10p (duels cost ~74). |
+| parked | Opening duel ladder under MSE shape: 2, 4, 6 opening duels (duels cost ~74). |
 | dropped | Adaptive refine width: 2.0 iff mid sigma above 6.5 else 0.5. |
 | dropped | Adaptive refine at 4.0: sigma probe says refine-time mean is 3.9. |
-| open | Tail-chasing spread: one-sided thresholds toward the bot tail. |
+| dropped | Tail-chasing spread: one-sided thresholds toward the bot tail. |
 | dropped | Closing duel: 8p refine plus a final closest duel (28+2 slots). |
 | dropped | Pool-size-adaptive opener: 4.0 sigma under pool 200 (bold 6). |
 | dropped | Forward bracketing: duel 1 closest, duels 2-3 above/below (archive). |
@@ -57,9 +57,9 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Bulk widths 3.0/2.5/2.0: sweep the second 10p. |
 | dropped | Bulk widths 3.0/2.0/1.0: narrow the third 10p. |
 | dropped | Equal-bits ladder 2+4+6+8+10, spread 1.0 throughout (info). |
-| open | Zoom widths: 1 duel, 9p at 2.0, 9p at 1.0, 10p at 0.5 (info). |
+| dropped | Zoom widths: 1 duel, 9p at 2.0, 9p at 1.0, 10p at 0.5 (info). |
 | dropped | Split-budget recenter: 2+3+10 then 5+10 halves (info). |
-| open | Augusta Cut: 2x6p open, 2x6p anchors-only, 10 closing duels (sports). |
+| dropped | Augusta Cut: 2x6p open, 2x6p anchors-only, 10 closing duels (sports). |
 | dropped | World Cup pots: each FFA draws 3 bottom + 3 mid + 3 top mu (sports). |
 | dropped | Swiss 12 duels no-rematch, then two 10p finals (sports; fixed to 5 walk-out + 2 bulks for slots). |
 | dropped | Shrinking zoom: duel, 9p at 2.0, 9p at 1.0, 10p at 0.5 (bold 4). |
@@ -73,7 +73,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Wide-grid quantiles: fixed CDF grid 0.05..0.95 at 2.0 sigma (bayes). |
 | dropped | Push-fold routing: wide twin-10p for high-sigma, duels-only for settled (poker). |
 | dropped | Bounty sniper: 1 max-sigma duel then 28-slot champion core (poker). |
-| open | Refine at 1.0 under twin-wide: 2.0 then 1.0 widths (poker). |
+| dropped | Refine at 1.0 under twin-wide: 2.0 then 1.0 widths (poker). |
 | parked | Rank-entropy 4p opponent choice (info; 4p mid failed iter 12). |
 | parked | Hot sigma-weighted draw targeting 0.10 (info; draw lost MSE iter). |
 | parked | Conditional one-sided tail-hedge above mu 60 (bayes; bold 2 refuted). |
