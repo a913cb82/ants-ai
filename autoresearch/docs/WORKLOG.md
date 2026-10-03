@@ -1718,3 +1718,15 @@ Use this format.
 - what changed: the harness records mu instead of mu-3sigma, under budget tag score=mu. The 5-duel plus FFA exam stands: it ranks truest with mu scoring (0.9655, tied best over 6 seeds), and the sigma-discount ladder falls monotonically under both exams.
 - what you learned: doubt belongs in the exam, not the score. The next recorded mu under the new tag sets the baseline.
 - next: continue the bot loop under mu scoring.
+
+## 141 — backstop seconds hills (2026-10-03)
+- commit: f43c57c
+- start: f7a6148 (bold line)
+- budget: 7 duels, 10p + 6p
+- score: mu 21.93, sigma 4.00
+- champion mu: none (first row under sel=place43, baseline)
+- verdict: champion (baseline)
+- games: 3-4, FFA ranks 10p:10 6p:1
+- what changed: Battling as Backstop in Backstop.bot + Backstop.py; reinforce falls back to the second-nearest hill, walk-off loses the food step.
+- what you learned: Backstops went 3-4, beating Seance, LeftyBot and Flank but losing twice to Alarum plus Relief and Flank; finished last in the 10p census, won the 6p refine; second-hill fallback spreads defenders thin without helping the hunt, so mu reached 21.93 with no champion to beat.
+- next: Flood — move a group of ants to one target.
