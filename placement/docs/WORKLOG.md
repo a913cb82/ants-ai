@@ -783,3 +783,8 @@
 - Even arrivals <200 get range census + full-pool 1.5 refine; crossover estimable.
 - Score: corr 0.9932 (+0.0000, exact tie).
 - Verdict: retest CONFIRMS regime-robustness. Next: FFA-heavy early, zero duels (H2).
+
+## Iter 137 (camp H2): FFA-heavy early window
+- Even arrivals <200 get 10p quantile + 10p full-pool 1.5 + 10p tertile 1.875, zero duels.
+- Score: corr 0.9914 (-0.0018, every seed regressed).
+- Verdict: DISCARD decisively. Young bots need duels too; FFA averaging cannot finish. Early regime wants the same shape, not more averaging. Next: recapture-spine early (H3).
