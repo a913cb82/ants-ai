@@ -42,3 +42,12 @@ One entry per iteration:
 - what changed: first FFA spread widened from 2.0 to 2.5 sigma.
 - what you learned: cost about 1.12 with seeds 1/2 regressing while seed 3 hit a round-best 246.74; width optimum sits between 2.0 and 2.5 and differs per seed.
 - next: interleaved bulk retest from the archive trawl.
+
+## 4 — interleaved bulk 3d wide 2d narrow (2026-10-03)
+- commit: e9d728c
+- score: mean 311.2044 over seeds 0-4 (273.0052, 357.2504, 363.7061, 258.3359, 303.7243)
+- champion mean: 316.7159 (c05a544)
+- verdict: keep
+- what changed: 2 duels moved between the FFAs (3d, 2.0-sigma 10p, 2d, 0.5-sigma 10p).
+- what you learned: wins by 5.51 with every seed improving (seed 0 down 14.8); mid re-positioning before the refine FFA cuts tails under MSE.
+- next: bracket duels retest, the other archive-mined idea.
