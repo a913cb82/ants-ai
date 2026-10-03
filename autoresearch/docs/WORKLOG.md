@@ -1706,3 +1706,9 @@ Use this format.
 - what changed: nothing in the loop. Ported the placement champion (census-tertile) into iteration.py on main, validated it synthetic-side, then reverted: mean budget-end lb 5.72 vs 9.76 and rank correlation 0.940 vs 0.957 for info-score, all seeds. MSE-optimal is not lb-optimal.
 - what you learned: validate selection changes on lb and rank correlation, never on rating error alone.
 - next: continue the bot loop as before.
+
+## Harness note — 3x10p census-tertile exam (2026-10-04)
+- verdict: new budget and score from this line on. Old rows stay filed, ignored for champion.
+- what changed: the harness, not the bot. Each iteration now plays 3 games of 10 players: census skeleton, then 1.25 and 1.875 spreads off recent low-sigma rulers. The recorded score is mu, not mu-3sigma. Validation (6 seeds, faithful 30-slot shapes) ranks the new exam truer, 0.964 vs 0.962, winning 5 of 6 seeds.
+- what you learned: old champions keep their lines but not their crown. The next recorded score under the new tag sets the baseline.
+- next: continue the bot loop under the new exam.
