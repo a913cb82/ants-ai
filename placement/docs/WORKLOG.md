@@ -479,3 +479,9 @@
 - Score: corr 0.9932 (+0.0001, tie).
 - Verdict: DISCARD (tie keeps incumbent). Terminal and mid-tail herding both tie; pool-rent undetectable at any single-slot position. Herding axis closed, S2/S4 stay parked.
 - Misses: 35.
+
+## Iter 79: range-grid early window (midwife S1)
+- Even arrivals <200 get range census + full-pool 1.5 refine; crossover estimable.
+- Score: corr 0.9932 (+0.0000, exact tie, mixed seed signs).
+- Verdict: DISCARD (tie keeps incumbent). Champion is regime-robust; thin-pool bots need no special leg. Early-window family parked, S2/S3/S4 unrun.
+- Misses: 36.
