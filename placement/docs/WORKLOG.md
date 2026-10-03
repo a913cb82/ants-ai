@@ -454,3 +454,9 @@
 - Score: corr 0.9932 (+0.0001, exact tie).
 - Verdict: DISCARD (tie keeps incumbent). Scale-link buys nothing; rebind family closed.
 - Misses: 31. Wave-3 brainstorm (blacksmith/midwife/glazier/shepherd/auditor) in flight.
+
+## Iter 75: info-inside-strata refine (blacksmith F1)
+- Mass quota bins, info-scored within-bin picks + champion rest.
+- Score: corr 0.9931 (-0.0001, exact tie).
+- Verdict: DISCARD (tie keeps incumbent). Mass quota does the work; within-bin pick rule is free.
+- Misses: 32.
