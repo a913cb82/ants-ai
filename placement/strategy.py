@@ -56,11 +56,15 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Exp (iter 5, MSE): mid duel pair brackets above/below, rest champion.
+    # Exp (iter 6, MSE): wide FFA narrows to 0.5 outside anchor range.
     if budget_left > 24:
         return [_closest(bot, ratings)]
     if budget_left > 14:
-        return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.0)
+        pool = _established(ratings, 9)
+        mus = [ratings[c].mu for c in pool]
+        edge = bot.mu < min(mus) or bot.mu > max(mus)
+        width = 0.5 if edge else 2.0
+        return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), width)
     if budget_left > 10:
         order = sorted(
             range(len(ratings)),
