@@ -551,3 +551,9 @@
 - Score: corr 0.9896 (-0.0036).
 - Verdict: DISCARD. Bold 40 judged: refuted hard. A re-aimed skeleton cannot substitute bot-centered strata personalization, and 5 duels starve the finish. Skeleton-refresh family closed schedule-wide.
 - Misses: 47.
+
+## Iter 91: sqrt-mass quota refine
+- Quota proportional to sqrt(bin mass) instead of linear mass.
+- Score: corr 0.9930 (-0.0001, tie).
+- Verdict: DISCARD (tie keeps incumbent). Quota exponent is a free parameter; linear stands as simplest.
+- Misses: 48.

@@ -88,3 +88,4 @@
 {"date": "2026-10-04", "commit": "iter88", "corr": 0.9929, "seeds": [0.994, 0.9926, 0.989, 0.9941, 0.9949], "champion": "396b8f0", "note": "window200 -0.0003; 800 next"}
 {"date": "2026-10-04", "commit": "iter89", "corr": 0.9933, "seeds": [0.9937, 0.9926, 0.9906, 0.9946, 0.995], "champion": "396b8f0", "note": "window800 ties; 400 stands cheapest"}
 {"date": "2026-10-04", "commit": "iter90", "corr": 0.9896, "seeds": [0.9879, 0.9909, 0.9844, 0.9922, 0.9927], "champion": "396b8f0", "note": "bold40 re-census -0.0036; strata personalization stands"}
+{"date": "2026-10-04", "commit": "iter91", "corr": 0.993, "seeds": [0.9935, 0.992, 0.9899, 0.995, 0.9948], "champion": "396b8f0", "note": "sqrt quota ties; exponent free"}
