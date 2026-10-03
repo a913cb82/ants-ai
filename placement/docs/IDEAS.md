@@ -209,6 +209,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Ring closer under census (retest). |
 | dropped | Edge-dense closer under census (retest; fresh vetoes). |
 | dropped | F1 anchor ladder census/half/tertile (duplicate of iter 150). |
+| trying | Chase-combining under census (bold 29). |
 | open | Chase-combining repeat-wide 4.0/4.0/1.5 (info; diversity-combine before zoom). |
 | open | Double-tap opener 4.0/4.0/1.25 (adversary; second wide after recentering, full-pool G2 untested at 4.0). |
 | open | Split-middle 10+5+5+10 valley halves (info/poker; mid-schedule re-aim, halves sandwiched not late). |
@@ -447,11 +448,14 @@ Judged: refuted at iteration 162 (259.3278, every seed regressed);
 wide re-observe stays redundant.
 
 Two misses in a row (iters 165-166) force bold line 29
-(2026-10-03): F1 anchor ladder under census. Census opener, then
-half anchors at 1.25, then recent-tertile at 1.875; anchor strictness
-ramps while widths trace the valley. Stillborn at iteration 167:
+(2026-10-03): chase-combining under census. Census opener, tertile
+4.0 game-2, 1.5 closer; wide re-observe with settled rulers after a
+bot-independent skeleton. Predicts ruler quality saves wide-second,
+or wide stays redundant. Judge after iteration 171.
+
+(F1 ladder stillborn at iteration 167:
 the schedule duplicates iter 150 (census is full-pool); bit-identical
-quick caught it before any full run.
+quick caught it before any full run.)
 
 Two misses in a row (iters 145-146) force bold line 25
 (2026-10-03): ancient-tertile anchors. Tertile drawn from the
