@@ -663,3 +663,12 @@ One entry per iteration:
 - what changed: unfiltered opener widened from 4.0 to 4.5 sigma under the 1.5-second shape.
 - what you learned: won selection by 1.74 but lost held-out by 7.67 with only seed 7 improving; opener optimum stays 4.0 and dimensions stay near-orthogonal. Bold 11 judged refuted (iter 68).
 - next: game-2 anchor re-check (quartile) under the confirmed shape.
+
+## 71 — game-2 quartile confirmed shape (2026-10-03)
+- commit: a559723
+- score: mean 223.1147 over seeds 0-4 (179.8775, 259.9609, 362.2260, 123.0320, 190.4771)
+- champion mean: 221.8680 selection, 211.9454 pooled (43b260f)
+- verdict: discard
+- what changed: second 10p drew from low-sigma quartile instead of tertile.
+- what you learned: cost about 1.25 with seed 3 regressing hard; tertile holds under the confirmed shape, no interaction.
+- next: game-3 quartile under the confirmed shape (last anchor cell).
