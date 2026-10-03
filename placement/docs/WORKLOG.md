@@ -402,3 +402,12 @@ One entry per iteration:
 - what changed: first 10p spread from the full pool; later 10ps stay tertile-anchored.
 - what you learned: wins by 6.87 with seeds 0/1/3/4 improving hugely (seed 0 down 36, seed 4 down 33) while seed 2 regressed 74; opener reach beats calibration, later bulks still need rulers.
 - next: judge bold 7 (refuted); no-rematch diversity across bulks.
+
+## 44 — full-pool first two 10ps (2026-10-03)
+- commit: 020c0ee
+- score: mean 245.8308 over seeds 0-4 (201.2458, 281.8275, 412.1120, 126.9929, 206.9758)
+- champion mean: 228.3885 (a607580)
+- verdict: discard
+- what changed: full-pool spreads extended from the opener to the second 10p.
+- what you learned: cost about 17.44 with only seed 3 improving (down 9 to round-best 126.99); reach helps only the unpositioned opener, game 2 needs rulers. Bold 7 judged refuted (iter 42).
+- next: tertile opener with full-pool rest (invert the mix).
