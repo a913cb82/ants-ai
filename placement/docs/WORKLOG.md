@@ -237,3 +237,12 @@ One entry per iteration:
 - what changed: first late 10p spreads anchors at N(mu, sigma), second tightens to N(mu, 0.5 sigma).
 - what you learned: bound-then-refine gained about 0.31 with 4 of 5 seeds improving; the second FFA works better as a precision instrument than a second bound.
 - next: width pairs around it (1.5/0.5, 1.0/0.3), or 6-duel opener.
+
+## 26 — refine width 0.3 sigma (2026-10-03)
+- commit: 5a362ea
+- score: mean 15.2847 over seeds 0-4 (13.6544, 17.1910, 16.4306, 13.7159, 15.4318)
+- champion mean: 14.8370 (067b331)
+- verdict: discard
+- what changed: second late FFA tightened from N(mu, 0.5 sigma) to N(mu, 0.3 sigma).
+- what you learned: extra-tight refine cost about 0.45 with seeds 1 and 4 regressing; 0.5 keeps enough threshold breadth for the second look.
+- next: bound width 1.5 with refine 0.5, or 6-duel opener.
