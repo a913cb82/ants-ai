@@ -714,3 +714,7 @@
 - Duels alternate nearest-above / nearest-below by parity; no info scoring.
 - Score: corr 0.9932 (+0.0001, tie; seed-2 +0.0010 spike, seeds 0/1 regress).
 - Verdict: retest CONFIRMS the tie. Next: below-first parity (E2).
+
+## Iter 122 (camp E2): below-first side alternation
+- Score: corr 0.9933 (+0.0002, tie; seed-2 +0.0015 spike, seeds 0/1 -0.0005 each).
+- Verdict: parity direction free. SIGNATURE NOTE: B4/B5/E1/E2 all spike seed 2 (+0.0008..+0.0015) while regressing seeds 0/1 — reshaped tails help seed-2's pool geometry but hurt 0/1. Breadth rule holds: spikes without breadth are noise. Next: low-to-high gated sweep (E3).
