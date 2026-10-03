@@ -1166,3 +1166,12 @@ One entry per iteration:
 - what changed: rest widths inverted to 3.0 then 1.0 sigma.
 - what you learned: cost about 28.16 with only seed 2 improving; the dip direction matters and inversion loses everywhere else.
 - next: judge bold 21 after 124; quintile game-2 0.875 plus 1.0 closer.
+
+## 122 — quintile game-2 0.875 plus 1.0 closer (2026-10-03)
+- commit: 66bb2ee
+- score: mean 220.4249 over seeds 0-4 (176.9225, 258.2944, 372.0459, 116.9369, 177.9246)
+- champion mean: 216.0193 selection, 205.7881 pooled (fde75b9)
+- verdict: discard
+- what changed: game-2 drew quintile rulers at 0.875 sigma, closer narrowed to 1.0.
+- what you learned: cost about 4.41 with one of five improving; stricter rulers exclude needed coverage and below-ladder widths under-reach.
+- next: judge bold 21 after 124; edge-dense closer grid.
