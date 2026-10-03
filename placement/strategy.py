@@ -60,7 +60,7 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Champion (corrected): full-pool opener at 4.0 (see validation).
-    if budget_left > 20:
-        return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 4.0, False)
-    return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.0)
+    # Exp (iter 64, MSE): five uniform 6p spreads.
+    if budget_left > 24:
+        return _spread(bot, ratings, min(5, budget_left - 1, len(ratings)), 4.0, False)
+    return _spread(bot, ratings, min(5, budget_left - 1, len(ratings)), 2.0)
