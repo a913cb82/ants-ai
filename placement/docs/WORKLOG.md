@@ -1678,3 +1678,12 @@ One entry per iteration:
 - Verdict: DISCARD. Recenter chases noise; no drift-correction signal in G2 landing.
 - Learned: spread-center axis closed (outward 178, receiver 179). Center stays on bot mu.
 - Next: iter 180 antipodal closer (period review at 180).
+
+## Iter 180: antipodal closer (seismo S1) + PERIOD REVIEW
+- Score: sel 261.2163 (246.03, 299.52, 375.07, 169.94, 215.51) vs champ 197.7410 (+63.48). Every seed crushed.
+- Verdict: DISCARD. Forcing distance destroys the grid; proximity is load-bearing, not incidental.
+- PERIOD REVIEW (172-180, second wave): 9 tests, all discard/stillborn. Site geometry (quantile/sinh/bell) closed.
+  Center axis (kick/recenter) closed. Crossing-antipodal dead. Mixture third veto. Survivor: mirror-cross
+  (preserves greedy distances) + cohort-cartel + derby-day + survey/calibration + Kelly/E1-E4 + S3/S4 scheduled.
+- Learned: greedy nearest-to-uniform-target is the mechanism; every displacement scheme pays.
+- Next: iter 181 mirror-cross closer.
