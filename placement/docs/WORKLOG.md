@@ -488,3 +488,12 @@ One entry per iteration:
 - what changed: third bulk 10p narrowed from 2.0 to 1.5 sigma.
 - what you learned: cost about 1.92 with seed 2 regressing 12.5 while seed 0 improved; the third bulk wants 2.0, completing the width grid under mixed anchors.
 - next: docket triage, then a fresh probe for the remaining error.
+
+## 53 — hollow-spread opener bold 8 (2026-10-03)
+- commit: 90ce055
+- score: mean 267.6182 over seeds 0-4 (270.9846, 313.4050, 354.2070, 159.8596, 239.6346)
+- champion mean: 222.4811 (0d52b79)
+- verdict: discard
+- what changed: opener targets replaced with 8 edge quantiles plus one center pin.
+- what you learned: cost about 45.14 with every seed regressing; middle thresholds are load-bearing, hollowing them starves the middle game.
+- next: game-3 full-pool (last anchor-factorial cell).

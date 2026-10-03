@@ -33,7 +33,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Quartile anchors under 4.0-opener shape (anchor ladder). |
 | dropped | Widths 4.0/2.5/2.0: second-10p re-sweep under mixed anchors. |
 | dropped | Widths 4.0/2.0/1.5: third-10p at 1.5 under mixed anchors. |
-| trying | Hollow-spread opener: 8 edge quantiles + center pin (bold 8). |
+| dropped | Hollow-spread opener: 8 edge quantiles + center pin (bold 8). |
 | dropped | Quartile anchors retest (cleaner thresholds for hard seeds). |
 | dropped | 3p opening: 2x3p closest-pair instead of 3x2p (same 6 slots). |
 | dropped | 4p mid game: bot plus above, below, closest replaces bracket pair. |
