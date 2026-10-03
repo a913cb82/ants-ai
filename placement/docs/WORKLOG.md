@@ -646,3 +646,8 @@
 - Peer bin split into mu-tertiles (5 bins total), mass quota.
 - Score: corr 0.9930 (-0.0001).
 - Verdict: DISCARD vs B1; bin-count ladder 3/4/5 = +0.0000/+0.0002/-0.0001, peaks at 4. Next: off-center peer split (B3).
+
+## Iter 108 (camp B3): 4-bin off-center peer split
+- Peer split at bot.mu + 0.5 sigma instead of bot.mu.
+- Score: corr 0.9931 (-0.0001, tie).
+- Verdict: split point is a free parameter. Next: narrow outer edges (B4).
