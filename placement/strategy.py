@@ -59,17 +59,7 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Exp (iter 33, MSE): 5 UCB-rotation duels, then 3.0/2.0 10ps.
+    # Champion (iter 22, MSE): bulk-only, first 10p at 3.0.
     if budget_left > 20:
-        top = sorted(
-            range(len(ratings)),
-            key=lambda i: (
-                abs(ratings[i].mu - bot.mu) - 0.5 * ratings[i].sigma,
-                ratings[i].sigma,
-                i,
-            ),
-        )[:6]
-        return [top[(30 - budget_left) // 2 % max(1, len(top))]]
-    if budget_left > 10:
         return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 3.0)
     return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.0)

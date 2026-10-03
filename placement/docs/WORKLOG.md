@@ -303,3 +303,12 @@ One entry per iteration:
 - what changed: final 10p mixed 3 closest opponents with a 6-target spread ring.
 - what you learned: cost about 16.72 with seeds 1/2 blowing up while seeds 0/3/4 improved; closest-core crowds out the far thresholds hard seeds need.
 - next: deterministic UCB rotation under bulk-only.
+
+## 33 — UCB rotation duels then bulks (2026-10-03)
+- commit: 2564fc2
+- score: mean 308.8207 over seeds 0-4 (287.0037, 379.1673, 342.3745, 236.1024, 299.4558)
+- champion mean: 235.2613 (04eeed2)
+- verdict: discard
+- what changed: 5 opening duels cycling top-6 by -dist + 0.5 sigma, then 3.0 and 2.0 10ps.
+- what you learned: cost about 73.56 with every seed regressing; 5 duels cost a whole bulk and the sigma bonus drags noisy opponents into positioning.
+- next: D-optimal 4-duel screen, or accept the bulk-only shape.
