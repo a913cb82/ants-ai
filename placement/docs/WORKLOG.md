@@ -1291,3 +1291,12 @@ One entry per iteration:
 - what changed: anchor window narrowed from last-400 to last-200.
 - what you learned: cost about 31.86 with only seed 1 improving and seed 2 annihilated plus 61; 200 starves the anchor pool on hard seeds.
 - next: recency window 600 (tuning 133c).
+
+## 135 — recency window 600 (2026-10-03)
+- commit: bea0086
+- score: mean 199.5438 over seeds 0-4 (146.3129, 227.7538, 324.3291, 122.7230, 176.6003)
+- champion mean: 197.7410 selection, 187.4788 pooled (5faf0b0)
+- verdict: discard
+- what changed: anchor window widened from last-400 to last-600.
+- what you learned: cost about 1.80 with two of five improving; 600 dilutes recency and 400 stands as the window.
+- next: census-site count for small pools (tuning 126e); then misses force bold 23.
