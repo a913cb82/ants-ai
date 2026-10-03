@@ -240,3 +240,12 @@ One entry per iteration:
 - what changed: third bulk 10p narrowed from 2.0 to 1.0 sigma.
 - what you learned: cost about 16.29 with every seed regressing; later bulks want the full 2.0 width, so only the opener zooms wider.
 - next: World Cup pots (cross-pot FFA composition).
+
+## 26 — World Cup pots cross-pot fields (2026-10-03)
+- commit: a5d20db
+- score: mean 350.5191 over seeds 0-4 (340.0084, 426.6418, 403.9221, 257.8552, 324.1678)
+- champion mean: 235.2613 (04eeed2)
+- verdict: discard
+- what changed: each 10p forced 3 opponents from each mu third of the pool.
+- what you learned: cost about 115 with every seed regressing; pot quotas break target proximity, and far opponents on near targets waste thresholds.
+- next: gatekeeper FFA (second 10p shifted a tier stronger).
