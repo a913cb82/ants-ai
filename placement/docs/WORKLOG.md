@@ -393,3 +393,12 @@ One entry per iteration:
 - what changed: spread grid mass shifted 0.05 toward the bot tail side, both sides kept.
 - what you learned: cost about 20.20 with every seed regressing; even soft skew displaces load-bearing median-side thresholds, symmetric grids stand.
 - next: mixed anchors per game (full-pool opener, tertile rest).
+
+## 43 — mixed anchors full-pool opener (2026-10-03)
+- commit: a607580
+- score: mean 228.3885 over seeds 0-4 (179.0323, 254.2174, 368.3620, 136.1036, 204.2272)
+- champion mean: 235.2613 (04eeed2)
+- verdict: keep
+- what changed: first 10p spread from the full pool; later 10ps stay tertile-anchored.
+- what you learned: wins by 6.87 with seeds 0/1/3/4 improving hugely (seed 0 down 36, seed 4 down 33) while seed 2 regressed 74; opener reach beats calibration, later bulks still need rulers.
+- next: judge bold 7 (refuted); no-rematch diversity across bulks.
