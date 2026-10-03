@@ -781,3 +781,10 @@ One entry per iteration:
 - what changed: unfiltered opener narrowed from 4.0 to 3.875 sigma.
 - what you learned: won selection by 2.00 but lost held-out by 5.08 with only seed 5 improving; opener 4.0 interior-confirmed both sides under the confirmed shape.
 - next: fresh-seed audit of the champion on seeds 10-14.
+
+## Audit — champion vs prior shape, fresh seeds 10-14 (2026-10-03)
+- champion f8ba828 (4.0/1.25/1.75): 98.0481, 177.1954, 137.5694, 178.2967, 322.5080, mean 182.7235
+- rival (4.0/1.25/2.0): 94.9219, 187.7922, 134.9855, 165.5075, 311.8668, mean 179.0148
+- verdict: rival wins fresh by 3.71 (4 of 5 seeds); but pooled-15 still favors champion 199.3272 vs 199.7266.
+- rule: overturn iff pooled and unbiased-fresh agree (as in the 4.0 correction); here they disagree, so the incumbent holds. Game-3 width 1.75-2.0 is an unresolved flat region.
+- next: hunt genuinely new mechanisms; width/anchor/size grids are priced.
