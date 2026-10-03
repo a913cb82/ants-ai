@@ -98,3 +98,10 @@
 - Score: corr 0.9820 (-0.005, seed 3 -0.0148).
 - Verdict: DISCARD. The 1.875 closer's reach is not MSE overhead; tails need binding for rank order too. Valley dip stands.
 - Misses: 14.
+
+## Iter 16: deferred propose-commit 1.5/1.875
+- Census + 1.5 tertile + 1.875 tertile.
+- Selection: corr 0.9872 (+0.0002, 3/5 improve).
+- Held-out 5-9: 0.98842 vs 0.98868 (-0.0003). Pooled-10 loses by 0.00004.
+- Verdict: DISCARD. Near-neighbor noise; game-2 1.25 wall stands.
+- Misses: 15.
