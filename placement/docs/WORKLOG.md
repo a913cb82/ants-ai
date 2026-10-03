@@ -771,3 +771,13 @@ One entry per iteration:
 - what changed: unfiltered opener widened from 4.0 to 4.125 sigma.
 - what you learned: cost about 4.93 with seeds 1/2 collapsing; opener stays 4.0 under every rest-shape. Bold 13 judged refuted (iter 79).
 - next: opener 3.875 under confirmed shape, then a fresh-seed audit of the champion.
+
+## 82 — opener 3.875 with confirmation (2026-10-03)
+- commit: 51ebb45
+- score: selection mean 215.5556 over seeds 0-4 (175.9403, 239.9743, 362.6588, 111.8455, 187.3589)
+- champion selection mean: 217.5528 (f8ba828)
+- confirmation: 202.7807 over seeds 5-9 (153.4281, 234.8102, 243.0993, 220.4267, 162.1394) vs champion held-out 197.7054
+- verdict: discard
+- what changed: unfiltered opener narrowed from 4.0 to 3.875 sigma.
+- what you learned: won selection by 2.00 but lost held-out by 5.08 with only seed 5 improving; opener 4.0 interior-confirmed both sides under the confirmed shape.
+- next: fresh-seed audit of the champion on seeds 10-14.
