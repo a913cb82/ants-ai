@@ -98,7 +98,7 @@ def _spread(
     disjoint_shares: bool = False,
     antiwindup: bool = False,
     senior: bool = False,
-    seeded: bool = False,
+    hightile: bool = False,
 ) -> list[int]:
     """k distinct opponents nearest quantiles of N(mu, w*sigma)."""
     center = bot.mu
@@ -144,9 +144,16 @@ def _spread(
         targets = [dist.inv_cdf((j + 1) / (k + 1)) for j in range(k)]
     pool = (
         _established(ratings, k, 25 if senior else 0)
-        if anchors
+        if anchors and not hightile
         else list(range(len(ratings)))
     )
+    if hightile:
+        start = max(0, len(ratings) - 400)
+        recent = ratings[start:]
+        cut = sorted(r.sigma for r in recent)[2 * len(recent) // 3]
+        pool = [c for c in range(start, len(ratings)) if ratings[c].sigma >= cut]
+        if len(pool) < k:
+            pool = list(range(len(ratings)))
     if antiwindup and ratings:
         plo = min(r.mu for r in ratings)
         phi = max(r.mu for r in ratings)
@@ -259,11 +266,6 @@ def _spread(
         ref = [ratings[i].mu for i in _spread(bot, ratings, k, 1.25)]
     picked: list[int] = []
     used: set[int] = set()
-    if seeded and pool:
-        s = max(pool, key=lambda c: (ratings[c].sigma, -c))
-        used.add(s)
-        picked.append(s)
-        targets = targets[: k - 1]
     for n_t, t in enumerate(targets):
         ban = disjoint if checksum and n_t == len(targets) - 1 else set()
         live = [c for c in pool if c not in used and c not in ban] or [
@@ -299,11 +301,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 3 (corr): census opener, highest-sigma-seeded refines.
+    # Bold 1 (corr): drunk-witness closer, high-sigma-tertile G3.
     if budget_left > 20:
         return _census(ratings, min(9, budget_left - 1, len(ratings)))
     if budget_left > 10:
         n = min(9, budget_left - 1, len(ratings))
-        return _spread(bot, ratings, n, 1.25, seeded=True)
+        return _spread(bot, ratings, n, 1.25)
     n = min(9, budget_left - 1, len(ratings))
-    return _spread(bot, ratings, n, 1.875, seeded=True)
+    return _spread(bot, ratings, n, 1.875, hightile=True)
