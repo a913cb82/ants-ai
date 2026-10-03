@@ -86,3 +86,9 @@
 - Score: corr 0.9855 (-0.0015, seed 2 -0.0084).
 - Verdict: DISCARD. Anchor order carries no signal; full-pool mid-game poisons hard seeds.
 - Misses: 12.
+
+## Iter 14 (bold 4): Approach-2 zooming bracket
+- Personal 1.6 10p (NO census) + 5p/5p at 1.0 + 5 closest duels.
+- Score: corr 0.8909 (-0.096, seed 2 0.8145).
+- Verdict: DISCARD. Bold 4 judged: refuted catastrophically. The census opener is load-bearing under corr too; a personal spread cannot bind from the prior. Approach-2-as-written closed.
+- Misses: 13.
