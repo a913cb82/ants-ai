@@ -60,9 +60,9 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Exp (iter 65, MSE): game-2 at 1.5.
+    # Exp (iter 66, MSE): game-3 at 2.5.
     if budget_left > 20:
         return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 4.0, False)
     if budget_left > 10:
         return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.5)
-    return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.0)
+    return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.5)
