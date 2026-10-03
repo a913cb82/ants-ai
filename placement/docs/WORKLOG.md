@@ -226,3 +226,9 @@
 - Score: corr 0.9931 (+0.0001, exact tie).
 - Verdict: DISCARD (tie keeps incumbent). Grid vs comp equivalence holds under quantile regime too.
 - Misses: 2.
+
+## Iter 37 (bold 10): skeleton-second under duel tail
+- 6p refine from the prior + quantile census + 7 info duels.
+- Score: corr 0.9855 (-0.0075).
+- Verdict: DISCARD. Bold 10 judged: refuted. Early skeleton timing stands under duel tails too.
+- Misses: 3.

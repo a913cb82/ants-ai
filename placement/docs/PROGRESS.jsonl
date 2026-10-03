@@ -34,3 +34,4 @@
 {"date": "2026-10-04", "commit": "iter34", "corr": 0.993, "seeds": [0.9932, 0.9914, 0.991, 0.9948, 0.9945], "champion": "10b3c72827130034ec72b7e8f32a7aabb54774ea", "note": "CHAMPION quantile-census opener; fresh5-9 0.9932 fresh10-14 0.9935 pooled-15 0.9932"}
 {"date": "2026-10-04", "commit": "iter35", "corr": 0.9901, "seeds": [0.9913, 0.9935, 0.9864, 0.987, 0.9922], "champion": "10b3c72", "note": "sinh census; -0.0029; deciles stand"}
 {"date": "2026-10-04", "commit": "iter36", "corr": 0.9931, "seeds": [0.9931, 0.9916, 0.991, 0.995, 0.9947], "champion": "10b3c72", "note": "comp refine under quantile ties +0.0001; targeting equivalent"}
+{"date": "2026-10-04", "commit": "iter37", "corr": 0.9855, "seeds": [0.9876, 0.9881, 0.9782, 0.9854, 0.988], "champion": "10b3c72", "note": "bold10 skeleton-second; -0.0075; skeleton-first stands"}
