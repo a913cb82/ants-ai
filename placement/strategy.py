@@ -19,6 +19,6 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Exp: duel the highest sigma opponent (most uncertain).
-    best = max(range(len(ratings)), key=lambda i: ratings[i].sigma)
+    # Baseline: duel the closest mu.
+    best = min(range(len(ratings)), key=lambda i: abs(ratings[i].mu - bot.mu))
     return [best]

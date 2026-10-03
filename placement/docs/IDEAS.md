@@ -11,7 +11,7 @@ A refinement is a new row. Leave old rows as they were.
 | status | idea |
 |---|---|
 | done | Duel the closest `mu` (baseline). |
-| trying | Duel the highest `sigma` opponent. |
+| dropped | Duel the highest `sigma` opponent. |
 | open | Duel the strongest pool estimate. |
 | open | All duels versus mixed FFA schedule. |
 | open | Duels first, then FFA with late budget. |
