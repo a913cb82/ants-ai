@@ -1038,3 +1038,12 @@ One entry per iteration:
 - what changed: third bulk 10p widened from 1.875 to 2.5 sigma.
 - what you learned: cost about 10.41 with only seed 1 improving; the narrower game-2 licenses no wider closer and 1.875 stands.
 - next: chase-combining repeat-wide 4.0/4.0/1.5 (info P1).
+
+## 108 — chase-combining 4.0 4.0 1.5 bold 19 (2026-10-03)
+- commit: 515b11f
+- score: mean 247.2454 over seeds 0-4 (226.3645, 297.6859, 357.0346, 148.1914, 206.9504)
+- champion mean: 216.0193 selection, 205.7881 pooled (fde75b9)
+- verdict: discard
+- what changed: second 10p widened from 1.25 to 4.0 tertile, closer narrowed to 1.5.
+- what you learned: cost about 31.23 with only seed 2 improving; the second wide is redundant power and narrow game-2 precision is load-bearing.
+- next: double-tap opener 4.0/4.0/1.25 (adversary S3).
