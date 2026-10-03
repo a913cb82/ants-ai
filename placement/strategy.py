@@ -18,11 +18,10 @@ class Rating:
     sigma: float
 
 
-def _info_duel(bot: Rating, ratings: list[Rating], cal: bool = False) -> list[int]:
+def _info_duel(bot: Rating, ratings: list[Rating]) -> list[int]:
     """Tail duel: argmax predict_draw + 0.02 sigma over 40 nearest."""
-    pool = _established(ratings, 40, 0) if cal else list(range(len(ratings)))
     order = sorted(
-        pool,
+        range(len(ratings)),
         key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
     )[:40]
     if not order:
@@ -355,11 +354,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 93 (corr): calibrated-only tail duels.
+    # Iter 43 (corr): proportional-strata refine.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
         return _strata(bot, ratings, n)
-    return _info_duel(bot, ratings, cal=True)
+    return _info_duel(bot, ratings)
