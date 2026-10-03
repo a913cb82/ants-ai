@@ -1003,3 +1003,11 @@ One entry per iteration:
 - what changed: games 2 and 3 both at 1.5625 sigma (valley midpoint).
 - what you learned: cost about 3.68 with seeds 0/1 regressing hard; the valley dip is real and the shape book closes (flat-narrow, flat-mid, flat-wide, zoom all lose).
 - next: game-2 1.125 under 1.875 closer (archivist revival).
+
+## 104 — game-2 1.125 under 1.875 closer (2026-10-03)
+- commit: 97497c0
+- score: mean 220.0122, bit-identical to iter 80 down to all five seeds
+- verdict: discard as duplicate
+- what changed: nothing, this schedule is iter 80 (joint 1.125/1.875); the archivist misfiled it as unrun.
+- what you learned: determinism catches duplicates for free; the 1.125 cell stands priced under both closers. Distrust revival claims without checking WORKLOG first.
+- next: per-quantile mixed anchors (auctioneer S2).
