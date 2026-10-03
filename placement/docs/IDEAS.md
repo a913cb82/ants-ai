@@ -85,6 +85,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Edge-heavy opener grid: dense edges, sparse middle. |
 | dropped | Split closer 5p+5p: mid-schedule update (bold 18). |
 | dropped | Split game-2 5p+5p mid: complete the split family. |
+| trying | Opener 4.0625: last opener sliver. |
 | dropped | Quartile anchors retest (cleaner thresholds for hard seeds). |
 | dropped | 3p opening: 2x3p closest-pair instead of 3x2p (same 6 slots). |
 | dropped | 4p mid game: bot plus above, below, closest replaces bracket pair. |
@@ -260,6 +261,8 @@ split closer. Two 5p spreads (10+10+5+5): a mid-schedule update
 sharpens the second half. Splits the closer, not the opener.
 Predicts fresher mus compensate fewer looks, or 5p looks stay
 weak. Judge after iteration 100.
+Judged: refuted at iteration 98 (258.2711, only seed 1 improved);
+5p looks stay weak.
 
 Three misses in a row (iters 89-91) force bold line 16 (2026-10-03):
 flat wide rest. Both rest games at 1.875: the rest may do one job
