@@ -40,7 +40,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Positioning depth 6/7 duels with twin bulk kept (archive). |
 | done | Bulk-only: three 10ps at 2.0, zero duels (bold 3). |
 | done | Bulk-only width sweep: first 10p at 2.5, rest 2.0. |
-| trying | Bulk-only first 10p at 3.0: trace the new gradient. |
+| done | Bulk-only first 10p at 3.0: trace the new gradient. |
 | open | Equal-bits ladder 2+4+6+8+10, spread 1.0 throughout (info). |
 | open | Zoom widths: 1 duel, 9p at 2.0, 9p at 1.0, 10p at 0.5 (info). |
 | open | Split-budget recenter: 2+3+10 then 5+10 halves (info). |

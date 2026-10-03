@@ -204,3 +204,12 @@ One entry per iteration:
 - what changed: first of three bulk 10ps widened from 2.0 to 2.5 sigma.
 - what you learned: wins by 37.07 with every seed improving (seeds 2/3 down 74/61); first-10p width is the big lever once duels are gone.
 - next: first 10p at 3.0 to trace the new gradient.
+
+## 22 — bulk-only first 10p at 3.0 (2026-10-03)
+- commit: 04eeed2
+- score: mean 235.2613 over seeds 0-4 (215.5600, 267.6422, 294.4307, 161.0474, 237.6262)
+- champion mean: 253.2682 (9e87b2c)
+- verdict: keep
+- what changed: first bulk 10p widened from 2.5 to 3.0 sigma.
+- what you learned: wins by 18.01 with every seed improving (seed 1 down 51); the first-10p gradient still climbs.
+- next: first 10p at 3.5.
