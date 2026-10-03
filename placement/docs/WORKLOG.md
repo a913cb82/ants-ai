@@ -743,3 +743,13 @@ One entry per iteration:
 - what changed: second bulk 10p widened from 1.25 to 1.375 sigma.
 - what you learned: won selection by 2.49 but lost held-out by 7.07 with only seed 5 improving; game-2 stays 1.25 on both sets.
 - next: opener micro re-check (3.875/4.125) under the confirmed shape, then a fresh hunt.
+
+## 79 — joint 1.375 1.625 bold 13 (2026-10-03)
+- commit: dc03482
+- score: selection mean 212.8835 over seeds 0-4 (178.1306, 237.6838, 353.2927, 107.8727, 187.4375)
+- champion selection mean: 217.5528 (f8ba828)
+- confirmation: 204.9540 over seeds 5-9 (152.1419, 249.9687, 241.3939, 217.1208, 164.1449) vs champion held-out 197.7054
+- verdict: discard
+- what changed: games 2 and 3 moved together to 1.375/1.625 sigma.
+- what you learned: won selection by 4.67 but lost held-out by 7.25 with seeds 6/7 collapsing; no interaction, singles already price the joint.
+- next: opposite diagonal (1.125/1.875) or opener micro under confirmed shape.
