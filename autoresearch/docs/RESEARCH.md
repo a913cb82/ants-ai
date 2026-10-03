@@ -340,3 +340,14 @@ Use this format.
   punishes sigma threefold.
 - idea: keep info-score selection. Do not port MSE policies without
   validating on lb and rank correlation first.
+
+## Census-tertile harness (2026-10-04)
+- source: placement round champion iter 133; validation scripts
+  /tmp/validate_harness.py (faithful 30-slot shapes, seeds 0-5)
+- claim: the 3x10p census-tertile exam with mu scoring ranks bots
+  truer than the duel+FFA info-score exam with lb scoring.
+- evidence: corr(recorded score, true skill) is 0.964 new vs 0.962
+  old across 6 seeds; new wins 5 of 6 (loses seed 3 only). Both
+  budgets are 30 slots, so density is priced, not gifted.
+- idea: shipped as the harness. Old-budget rows stay filed under
+  their tag and no longer count for champion.
