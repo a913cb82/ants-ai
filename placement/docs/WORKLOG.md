@@ -674,3 +674,7 @@
 ## Iter 113 (camp C3): calsnap tolerance 0.10
 - Score: corr 0.9933 (+0.0001, tie).
 - Verdict: tol ladder 0.10/0.15/0.25 all +0.0001; tolerance is free. Next: wide 0.30 (C4).
+
+## Iter 114 (camp C4): calsnap tolerance 0.30
+- Score: corr 0.9934 (+0.0003, 4/5 seeds improve; seed-2 +0.0008).
+- Verdict: strongest camp signal so far. Wide tolerance (nearly always quality-snap) beats narrow. If C5 confirms the family direction, escalate best-of to seeds 5-9 per confirmation rule.
