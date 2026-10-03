@@ -85,6 +85,7 @@ def _spread(
     mirror: bool = False,
     cohort: bool = False,
     survey: bool = False,
+    derby: bool = False,
 ) -> list[int]:
     """k distinct opponents nearest quantiles of N(mu, w*sigma)."""
     center = bot.mu
@@ -96,7 +97,12 @@ def _spread(
         mus = sorted(ratings[i].mu for i in landing)
         center = mus[len(mus) // 2]
     dist = NormalDist(center, max(width * bot.sigma, 0.5))
-    if halo and k >= 3:
+    if derby:
+        lo = min(r.mu for r in ratings)
+        hi = max(r.mu for r in ratings)
+        sites = [lo + (hi - lo) * f for f in (0.25, 0.50, 0.75)]
+        targets = (sites + [dist.inv_cdf((j + 1) / 7) for j in range(6)])[:k]
+    elif halo and k >= 3:
         outer = NormalDist(center, max(2.5 * bot.sigma, 0.5))
         targets = (
             [outer.inv_cdf(1 / (k + 1))]
@@ -204,4 +210,18 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
         n = min(9, budget_left - 1, len(ratings))
         return _spread(bot, ratings, n, 1.25)
     n = min(9, budget_left - 1, len(ratings))
-    return _spread(bot, ratings, n, 2.0)
+    return _spread(
+        bot,
+        ratings,
+        n,
+        1.875,
+        True,
+        False,
+        False,
+        False,
+        False,
+        False,
+        False,
+        False,
+        True,
+    )
