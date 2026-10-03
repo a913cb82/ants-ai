@@ -11,12 +11,16 @@ class Rating:
     sigma: float
 
 
-def _established(ratings: list[Rating], k: int) -> list[int]:
+def _established(ratings: list[Rating], k: int, exclude: int = 0) -> list[int]:
     """Recent low-sigma tertile (last 400), or full pool if too few."""
-    start = max(0, len(ratings) - 400)
-    recent = ratings[start:]
+    end = max(0, len(ratings) - exclude)
+    start = max(0, end - 400)
+    if end <= start:
+        end = len(ratings)
+        start = max(0, end - 400)
+    recent = ratings[start:end]
     cutoff = sorted(r.sigma for r in recent)[len(recent) // 3]
-    pool = [c for c in range(start, len(ratings)) if ratings[c].sigma <= cutoff]
+    pool = [c for c in range(start, end) if ratings[c].sigma <= cutoff]
     if len(pool) < k:
         pool = list(range(len(ratings)))
     return pool
@@ -93,6 +97,7 @@ def _spread(
     rewarp: bool = False,
     disjoint_shares: bool = False,
     antiwindup: bool = False,
+    senior: bool = False,
 ) -> list[int]:
     """k distinct opponents nearest quantiles of N(mu, w*sigma)."""
     center = bot.mu
@@ -136,7 +141,11 @@ def _spread(
         )
     else:
         targets = [dist.inv_cdf((j + 1) / (k + 1)) for j in range(k)]
-    pool = _established(ratings, k) if anchors else list(range(len(ratings)))
+    pool = (
+        _established(ratings, k, 25 if senior else 0)
+        if anchors
+        else list(range(len(ratings)))
+    )
     if antiwindup and ratings:
         plo = min(r.mu for r in ratings)
         phi = max(r.mu for r in ratings)
@@ -285,12 +294,10 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     if not ratings or budget_left < 2:
         return []
     # Champion (iter 133, MSE): census opener, recent-tertile 1.25/1.875.
-    # Iter 199 (archivist2 S5): split closer 10+10+5+5, narrow half first.
     if budget_left > 20:
         return _census(ratings, min(9, budget_left - 1, len(ratings)))
     if budget_left > 10:
         n = min(9, budget_left - 1, len(ratings))
         return _spread(bot, ratings, n, 1.25)
-    if budget_left > 5:
-        return _spread(bot, ratings, min(4, budget_left - 1, len(ratings)), 1.25)
-    return _spread(bot, ratings, min(4, budget_left - 1, len(ratings)), 1.875)
+    n = min(9, budget_left - 1, len(ratings))
+    return _spread(bot, ratings, n, 1.875)
