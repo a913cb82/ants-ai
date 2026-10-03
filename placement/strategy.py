@@ -97,7 +97,9 @@ def _census(ratings: list[Rating], k: int, mode: str = "range") -> list[int]:
     return picked
 
 
-def _strata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
+def _strata(
+    bot: Rating, ratings: list[Rating], k: int, root: bool = False
+) -> list[int]:
     """k rulers across below/peer/above bins, quota by bin mass."""
     pool = _established(ratings, k, 0)
     s = max(bot.sigma, 0.5)
@@ -106,6 +108,8 @@ def _strata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
         d = ratings[c].mu - bot.mu
         bins[0 if d < -s else (2 if d > s else 1)].append(c)
     masses = [len(b) for b in bins]
+    if root:
+        masses = [m**0.5 for m in masses]
     total = sum(masses) or 1
     quota = [max(1 if m else 0, round(k * m / total)) for m in masses]
     while sum(quota) > k:
@@ -127,25 +131,6 @@ def _strata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
         )
         out += rest[: k - len(out)]
     return out[:k]
-
-
-def _livecensus(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
-    """Quantile sites recentered on live mu: pool-mus shifted by (bot.mu - median)."""
-    pool = sorted(r.mu for r in ratings)
-    n = len(pool)
-    med = pool[n // 2]
-    shift = bot.mu - med
-    sites = [pool[min(int(n * (j + 1) / (k + 1)), n - 1)] + shift for j in range(k)]
-    picked: list[int] = []
-    used: set[int] = set()
-    for t in sites:
-        i = min(
-            (c for c in range(len(ratings)) if c not in used),
-            key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c),
-        )
-        used.add(i)
-        picked.append(i)
-    return picked
 
 
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
@@ -373,11 +358,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Bold 40 (corr): re-census schedule, live-aimed second skeleton.
+    # Iter 91 (corr): sqrt-mass quota refine.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
-    if budget_left > 10:
-        n = min(9, budget_left - 1, len(ratings))
-        return _livecensus(bot, ratings, n)
+    if budget_left > 14:
+        n = min(5, budget_left - 1, len(ratings))
+        return _strata(bot, ratings, n, root=True)
     return _info_duel(bot, ratings)
