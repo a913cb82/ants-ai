@@ -68,23 +68,20 @@ def _census(ratings: list[Rating], k: int, mode: str = "range") -> list[int]:
     return picked
 
 
-def _spine(ratings: list[Rating]) -> list[int]:
-    """3 rulers nearest pool 25/50/75 mu percentiles (equating spine)."""
+def _vintage(ratings: list[Rating], k: int, half: int) -> list[int]:
+    """Low-sigma tertile of old (1) or fresh (2) half of last 400."""
     n = len(ratings)
-    if n <= 3:
+    mid = max(0, n - 200)
+    start = max(0, n - 400)
+    lo, hi = (start, mid) if half == 1 else (mid, n)
+    recent = ratings[lo:hi]
+    if not recent:
         return list(range(n))
-    mus = sorted(r.mu for r in ratings)
-    qs = [mus[min(int(n * f), n - 1)] for f in (0.25, 0.50, 0.75)]
-    picked: list[int] = []
-    used: set[int] = set()
-    for q in qs:
-        cands = [c for c in range(n) if c not in used]
-        if not cands:
-            break
-        i = min(cands, key=lambda c: (abs(ratings[c].mu - q), ratings[c].sigma, c))
-        used.add(i)
-        picked.append(i)
-    return picked
+    cutoff = sorted(r.sigma for r in recent)[len(recent) // 3]
+    pool = [c for c in range(lo, hi) if ratings[c].sigma <= cutoff]
+    if len(pool) < k:
+        pool = list(range(n))
+    return pool
 
 
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
@@ -117,9 +114,7 @@ def _spread(
     disjoint_shares: bool = False,
     antiwindup: bool = False,
     senior: bool = False,
-    exclude: tuple = (),
-    parity: int = -1,
-    spine: bool = False,
+    vintage: int = 0,
 ) -> list[int]:
     """k distinct opponents nearest quantiles of N(mu, w*sigma)."""
     center = bot.mu
@@ -165,14 +160,11 @@ def _spread(
         targets = [dist.inv_cdf((j + 1) / (k + 1)) for j in range(k)]
     pool = (
         _established(ratings, k, 25 if senior else 0)
-        if anchors
+        if anchors and not vintage
         else list(range(len(ratings)))
     )
-    if parity >= 0 and pool:
-        ordered = sorted(pool, key=lambda c: (ratings[c].mu, ratings[c].sigma, c))
-        half = [c for j, c in enumerate(ordered) if j % 2 == parity]
-        if len(half) >= k:
-            pool = half
+    if vintage:
+        pool = _vintage(ratings, k, vintage)
     if antiwindup and ratings:
         plo = min(r.mu for r in ratings)
         phi = max(r.mu for r in ratings)
@@ -286,7 +278,7 @@ def _spread(
     picked: list[int] = []
     used: set[int] = set()
     for n_t, t in enumerate(targets):
-        ban = disjoint if checksum and n_t == len(targets) - 1 else set(exclude)
+        ban = disjoint if checksum and n_t == len(targets) - 1 else set()
         live = [c for c in pool if c not in used and c not in ban] or [
             c for c in pool if c not in used
         ]
@@ -320,12 +312,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 6 (corr): equating spine recaptured G2+G3, even/odd adaptive.
+    # Iter 7 (corr): split-vintage witnesses, old G2 / fresh G3.
     if budget_left > 20:
         return _census(ratings, min(9, budget_left - 1, len(ratings)))
-    sp = tuple(_spine(ratings))
     if budget_left > 10:
-        n = min(6, budget_left - 4, max(len(ratings) - len(sp), 0))
-        return list(sp) + _spread(bot, ratings, n, 1.25, exclude=sp, parity=0)
-    n = min(6, budget_left - 4, max(len(ratings) - len(sp), 0))
-    return list(sp) + _spread(bot, ratings, n, 1.875, exclude=sp, parity=1)
+        n = min(9, budget_left - 1, len(ratings))
+        return _spread(bot, ratings, n, 1.25, vintage=1)
+    n = min(9, budget_left - 1, len(ratings))
+    return _spread(bot, ratings, n, 1.875, vintage=2)
