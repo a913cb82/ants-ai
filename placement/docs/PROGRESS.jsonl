@@ -17,3 +17,4 @@
 {"date": "2026-10-04", "commit": "iter17", "corr": 0.9901, "seeds": [0.9898, 0.9861, 0.9891, 0.9934, 0.992], "champion": "732059c", "note": "CHAMPION census+6p@1.0+7 closest duels; fresh5-9 0.9905 fresh10-14 0.9915 pooled-15 0.9907"}
 {"date": "2026-10-04", "commit": "iter18", "corr": 0.99, "seeds": [0.9909, 0.9873, 0.9875, 0.993, 0.9915], "champion": "732059c", "note": "8p+6duel ablation ties champion -0.00004; 7 stands"}
 {"date": "2026-10-04", "commit": "iter19", "corr": 0.99, "seeds": [0.9886, 0.9854, 0.99, 0.9941, 0.9921], "champion": "732059c", "note": "6p at 1.25 ties champion; width carries nothing"}
+{"date": "2026-10-04", "commit": "iter20", "corr": 0.9846, "seeds": [0.9881, 0.9761, 0.9843, 0.9886, 0.9857], "champion": "732059c", "note": "bold6 no-refine 10-duel tail; -0.0055 all regress; refine matters"}

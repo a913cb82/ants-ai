@@ -123,3 +123,9 @@
 - Score: corr 0.9900, second consecutive exact tie (-0.00004).
 - Verdict: DISCARD (tie keeps incumbent). The 6p refine width carries nothing under a duel tail.
 - Misses: 2. BOLD 6 due.
+
+## Iter 20 (bold 6): census + 10-duel tail, no refine
+- Census opener + 10 closest-mu duels, no mid refine.
+- Score: corr 0.9846 (-0.0055, all 5 regress).
+- Verdict: DISCARD. Bold 6 judged: refuted. The 6p refine matters; duels alone cannot finish.
+- Misses: 3.
