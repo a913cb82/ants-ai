@@ -293,10 +293,13 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 25 (corr): senior-25 refine under duel tail.
+    # Bold 8 (corr): double refine 6p + 4p, 5-duel tail.
     if budget_left > 20:
         return _census(ratings, min(9, budget_left - 1, len(ratings)))
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
-        return _spread(bot, ratings, n, 1.0, senior=True)
+        return _spread(bot, ratings, n, 1.0)
+    if budget_left > 10:
+        n = min(3, budget_left - 1, len(ratings))
+        return _spread(bot, ratings, n, 1.0)
     return [_closest(bot, ratings)]
