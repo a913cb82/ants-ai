@@ -40,12 +40,10 @@ def _info_duel(bot: Rating, ratings: list[Rating]) -> list[int]:
     return [best]
 
 
-def _established(
-    ratings: list[Rating], k: int, exclude: int = 0, win: int = 400
-) -> list[int]:
-    """Recent low-sigma tertile (last win), or full pool if too few."""
+def _established(ratings: list[Rating], k: int, exclude: int = 0) -> list[int]:
+    """Recent low-sigma tertile (last 400), or full pool if too few."""
     end = max(0, len(ratings) - exclude)
-    start = max(0, end - win)
+    start = max(0, end - 400)
     if end <= start:
         end = len(ratings)
         start = max(0, end - 400)
@@ -99,9 +97,9 @@ def _census(ratings: list[Rating], k: int, mode: str = "range") -> list[int]:
     return picked
 
 
-def _strata(bot: Rating, ratings: list[Rating], k: int, win: int = 400) -> list[int]:
+def _strata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
     """k rulers across below/peer/above bins, quota by bin mass."""
-    pool = _established(ratings, k, 0, win)
+    pool = _established(ratings, k, 0)
     s = max(bot.sigma, 0.5)
     bins: list[list[int]] = [[], [], []]
     for c in pool:
@@ -129,6 +127,25 @@ def _strata(bot: Rating, ratings: list[Rating], k: int, win: int = 400) -> list[
         )
         out += rest[: k - len(out)]
     return out[:k]
+
+
+def _livecensus(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
+    """Quantile sites recentered on live mu: pool-mus shifted by (bot.mu - median)."""
+    pool = sorted(r.mu for r in ratings)
+    n = len(pool)
+    med = pool[n // 2]
+    shift = bot.mu - med
+    sites = [pool[min(int(n * (j + 1) / (k + 1)), n - 1)] + shift for j in range(k)]
+    picked: list[int] = []
+    used: set[int] = set()
+    for t in sites:
+        i = min(
+            (c for c in range(len(ratings)) if c not in used),
+            key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c),
+        )
+        used.add(i)
+        picked.append(i)
+    return picked
 
 
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
@@ -356,11 +373,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 89 (corr): refine window 800.
+    # Bold 40 (corr): re-census schedule, live-aimed second skeleton.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
-    if budget_left > 14:
-        n = min(5, budget_left - 1, len(ratings))
-        return _strata(bot, ratings, n, 800)
+    if budget_left > 10:
+        n = min(9, budget_left - 1, len(ratings))
+        return _livecensus(bot, ratings, n)
     return _info_duel(bot, ratings)
