@@ -250,3 +250,9 @@
 - Score: corr 0.9909 (-0.0021).
 - Verdict: DISCARD. Bold 11 judged: refuted. Nine skeleton looks are load-bearing even mass-spaced.
 - Misses: 6.
+
+## Iter 41: colour-balance refine
+- Quantile opener + side-constrained 1.0 refine + info tail.
+- Score: corr 0.9929 (-0.0001, exact tie).
+- Verdict: DISCARD (tie keeps incumbent). Greedy snap already balances sides; forced alternation displaces nothing and gains nothing.
+- Misses: 7.
