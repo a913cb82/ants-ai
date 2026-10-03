@@ -249,3 +249,12 @@ One entry per iteration:
 - what changed: each 10p forced 3 opponents from each mu third of the pool.
 - what you learned: cost about 115 with every seed regressing; pot quotas break target proximity, and far opponents on near targets waste thresholds.
 - next: gatekeeper FFA (second 10p shifted a tier stronger).
+
+## 27 — gatekeeper second 10p shifted up (2026-10-03)
+- commit: 397b740
+- score: mean 251.4521 over seeds 0-4 (226.2027, 293.7582, 301.4661, 179.6260, 256.2074)
+- champion mean: 235.2613 (04eeed2)
+- verdict: discard
+- what changed: second 10p targets shifted 1 sigma stronger than mu.
+- what you learned: cost about 16.19 with every seed regressing; shifted fields bias estimates upward and symmetric coverage is load-bearing.
+- next: gradient fields (weak heat, peer semi, shark final).

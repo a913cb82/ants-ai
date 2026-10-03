@@ -50,7 +50,7 @@ A refinement is a new row. Leave old rows as they were.
 | open | Augusta Cut: 2x6p open, 2x6p anchors-only, 10 closing duels (sports). |
 | dropped | World Cup pots: each FFA draws 3 bottom + 3 mid + 3 top mu (sports). |
 | open | Swiss 12 duels no-rematch, then two 10p finals (sports). |
-| trying | Gatekeeper FFA: second 10p shifted a tier stronger than mu (sports). |
+| dropped | Gatekeeper FFA: second 10p shifted a tier stronger than mu (sports). |
 | open | Gradient fields: weak 10p heat, peer semi, shark-tank final (sports). |
 | open | Successive-halving duel tournament with FFA confirmation (bayes). |
 | open | Deterministic UCB rotation: score -dist + 0.5 sigma, cycle top 6 (bayes). |
