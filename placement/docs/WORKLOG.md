@@ -599,3 +599,9 @@
 - Paired diffs range -0.0002...+0.0007 across 15 seeds, 8/15 favor rival: pure noise, no shape signal.
 - Verdict: the pre-registered falsification failed to falsify. The loop is CONVERGED at 3x the selection ruler (pooled-30: champion 0.9931ish across 0-29). Nearest-mu snap stands; calibrated-snap is the same shape to every ruler we own.
 - Corr round record: baseline 0.9870 -> champion pooled-30 ~0.9931. Fifty misses, four adoptions, one proof.
+
+## Iter 100: coronation
+- 100 iterations complete: 1 baseline, 4 adoptions, 89 discards, 1 stillborn, 1 pre-registered shootout (iters 94-98), 1 final write-up (99), this seal (100).
+- Champion: iteration 43, `396b8f0`. Selection 0.9932, held 0.9939, fresh 0.9939, shootout-fresh 0.9925, pooled-30 0.9931.
+- Tree verified identical to champion; smoke 0.9854 at 200 bots.
+- Corr round: 0.9870 -> 0.9931. The top is final.
