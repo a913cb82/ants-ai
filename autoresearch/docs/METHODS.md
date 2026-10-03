@@ -5,17 +5,18 @@ budget, the maps, the seeds, or the selection.
 
 ## Budget
 
-One iteration has 8 games for each candidate commit:
+One iteration has 9 games (30 slots) for each candidate commit:
 
 | Part | Count | Maps | Time |
 |---|---|---|---|
-| Duels | 5 | 5 different 2p maps | about 5 s each |
-| FFA | 3 | one map for each size in one set | 20 to 90 s each |
-| Total | 8 | all different in one iteration | about 1 to 4 min |
+| Duels | 7 | 7 different 2p maps | about 5 s each |
+| Census | 1 × 10p | one 10p map | 60 to 90 s |
+| Refine | 1 × 6p | one 6p map | 20 to 40 s |
+| Total | 9 | all different in one iteration | about 2 to 5 min |
 
-- The FFA sizes are one of two fixed sets: `{4, 6, 10}` or `{5, 7, 8}`.
-  The harness picks the set from the bot id, so a partly played budget
-  resumes with the same set.
+- The schedule is the placement champion: quantile census, mass-quota
+  strata refine, seven info duels. The harness fixes the opponents;
+  no flag changes them.
 - The candidate is a fresh bot entry: a new commit with changed bot code.
   A commit that changes the bot directory is a new bot id. A docs-only
   commit keeps the old id.
@@ -52,7 +53,7 @@ iteration. The object has these keys:
 | `score` | the recorded score (`mu` under the current budget) |
 | `games` | the number of games in the budget |
 | `champion` | the best bot id before this line, or `null` |
-| `budget` | the budget tag (`duels=5,ffa=3,turns=1000`) |
+| `budget` | the schedule tag (`duels=7,ffa=10+6,turns=1000,score=mu,sel=place43`) |
 
 Rows with an older `budget` stay in the file. The harness ignores
 them for the champion.
@@ -66,13 +67,16 @@ and `timeout`). In an FFA game the index in `result` is the rank.
 ## Selection
 
 - A duel: the candidate is in the game. The opponent has the best
-  information score. The top 3 opponents are eligible.
-  In 20 percent of duels the harness picks one of the top 3 at random.
-- An FFA game: the candidate is in the field. The harness fills the
-  other slots by the same information score.
-- The FFA sizes come from one fixed set per candidate: `{4, 6, 10}` or
-  `{5, 7, 8}` (see Budget).
+  draw odds + 0.02 sigma over the 40 nearest rulers. Deterministic:
+  first wins ties, no epsilon, no breadth.
+- The 10p game is a census: the candidate plus quantile-decile rulers
+  spanning full-pool mass, nearest snap. Mass decides the sites.
+- The 6p game is a refine: the candidate plus bot-centered
+  below/peer/above rulers by mass quota (min 1 each) from the
+  low-sigma tertile of the last 400 pool members by commit order,
+  oldest first. Quota allocates, proximity binds.
 - The information score is `predict_draw + 0.02 * sum(sigma)`.
+  Duels score the candidate plus one opponent.
 - The maps are random and different in one iteration.
 - The slots and both seeds are random. The record keeps the seeds.
 - The harness does not pair games. The rating model accounts for the

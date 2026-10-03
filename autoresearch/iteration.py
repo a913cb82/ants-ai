@@ -1,8 +1,16 @@
-"""One autoresearch iteration: play the fixed duel + FFA budget, score it.
+"""One autoresearch iteration: play the placement champion schedule.
+
+The schedule is the placement champion (iter 43, corr 0.9931 over
+30 seeds): one 10-player census over full-pool mass, one 6-player
+refine over bot-centered below/peer/above bins by mass quota from
+the low-sigma tertile of the last 400, then seven duels at the best
+draw odds + 0.02 sigma over the 40 nearest rulers. Recency is
+commit order, oldest first: the window is the last 400 pool
+members by commit. Duels stay flat-info.
 
 Every game enters league/games.jsonl. The harness rebuilds the ratings
 from that log at the start, so the log is the single source of truth.
-The score is the snapshot mu - 3 * sigma at the end of the budget, and
+The score is the snapshot mu at the end of the budget, and
 the harness appends it to docs/PROGRESS.jsonl. Later games may move a
 bot's live rating; the recorded score never moves.
 
@@ -33,15 +41,14 @@ import ratings as R  # noqa: E402
 from matchmake import (  # noqa: E402
     MAPS_ROOT,
     assign_positions,
-    info_score,
     maps_for_players,
     new_model,
-    propose,
     read_log,
 )
 from play import play_match  # noqa: E402
 from pool import (  # noqa: E402
     WORKBASE,
+    all_commits,
     bot_id,
     content_hash,
     engine_on_main,
@@ -64,21 +71,25 @@ PROGRESS = ROOT / "autoresearch" / "docs" / "PROGRESS.jsonl"
 DEFAULT_BOT = "autoresearch/bot/main.bot"
 
 # Binding numbers. The harness fixes them; no flag changes them.
-DUELS = 5
-FFA_SETS = ((4, 6, 10), (5, 7, 8))
+# The schedule is the placement champion: 10p census, 6p refine,
+# seven duels (30 slots). A commit cannot play more than one schedule.
+DUELS = 7
+FFA_SIZES = (10, 6)
 TURNS = 1000
 TURNTIME = 1000
 LOADTIME = 3000
 SEED = 0
-EPSILON = 0.2
-BREADTH = 3
 SIGMA_WEIGHT = 0.02
 
-# One tag for one budget. PROGRESS.jsonl is append-only; rows with an
-# older tag stay in the file and are ignored for the champion.
-# score=mu ports the placement finding: the recorded score ranks truer
-# without the sigma discount (corr 0.9655 vs 0.9619 on the old exam).
-BUDGET = f"duels={DUELS},ffa={len(FFA_SETS[0])},turns={TURNS},score=mu"
+# One tag for one schedule. PROGRESS.jsonl is append-only; rows with
+# an older tag stay in the file and are ignored for the champion.
+# score=mu ports the placement finding: the recorded score ranks
+# truer without the sigma discount. sel=place43 is the placement
+# champion opponent logic, ported exactly (quantile census, mass
+# quota strata over the recency window, 40-nearest info duels).
+BUDGET = (
+    f"duels={DUELS},ffa={'+'.join(map(str, FFA_SIZES))},turns=1000,score=mu,sel=place43"
+)
 
 
 def candidate_id(root: str | Path, botfile: str, rev: str | None = None) -> str:
@@ -91,13 +102,6 @@ def candidate_id(root: str | Path, botfile: str, rev: str | None = None) -> str:
     rel = p.resolve().relative_to(root.resolve())
     sha = short(root, rev) if rev else last_touch(root, rel.parent.as_posix())
     return bot_id(rel.as_posix(), sha)
-
-
-def ffa_sizes_for(bid: str) -> list[int]:
-    """The FFA sizes for this candidate: one of the two fixed sets,
-    chosen by the bot id. Stable across reruns so a partly played
-    budget resumes with the same set."""
-    return list(random.Random(f"{SEED}:{bid}").choice(FFA_SETS))
 
 
 def counts(records: list[dict], bid: str) -> dict:
@@ -125,23 +129,136 @@ def planned(
     )
 
 
-def duel_opponent(
+def census_opponents(bid: str, cands: list[str], ratings: dict, k: int) -> list[str]:
+    """Rulers spanning full-pool mass: quantile-decile sites snapped
+    to the nearest ruler. Exact port of the champion census opener."""
+    others = [c for c in cands if c != bid]
+    mus = sorted(R.for_id(ratings, c)["mu"] for c in others)
+    k = max(0, min(k, len(others)))
+    sites = (
+        [mus[min(int(len(mus) * (j + 1) / (k + 1)), len(mus) - 1)] for j in range(k)]
+        if mus and k
+        else []
+    )
+    picked: list[str] = []
+    used = {bid}
+    for t in sites:
+        live = [c for c in others if c not in used]
+        if not live:
+            break
+        i = min(
+            live,
+            key=lambda c: (
+                abs(R.for_id(ratings, c)["mu"] - t),
+                R.for_id(ratings, c)["sigma"],
+                c,
+            ),
+        )
+        used.add(i)
+        picked.append(i)
+    return picked
+
+
+def recency_order(cands: list[str], commits: list[str]) -> list[str]:
+    """Pool oldest first by commit order. Unknown shas count as now:
+    an uncommitted bot is a recent arrival."""
+    rank = {sha: i for i, sha in enumerate(commits)}
+    now = len(commits)
+    return sorted(cands, key=lambda c: (rank.get(parse_id(c)[1], now), c))
+
+
+def strata_opponents(bid: str, ordered: list[str], ratings: dict, k: int) -> list[str]:
+    """Bot-centered below/peer/above rulers by mass quota from the
+    low-sigma tertile of the last 400. Exact port of the refine."""
+    me = R.for_id(ratings, bid)
+    window = [c for c in ordered[-400:] if c != bid]
+    sigmas = sorted(R.for_id(ratings, c)["sigma"] for c in window)
+    if not sigmas:
+        return []
+    cutoff = sigmas[len(sigmas) // 3]
+    pool = [c for c in window if R.for_id(ratings, c)["sigma"] <= cutoff]
+    if len(pool) < k:
+        pool = [c for c in ordered if c != bid]
+    k = max(0, min(k, len(pool)))
+    s = max(me["sigma"], 0.5)
+    bins: list[list[str]] = [[], [], []]
+    for c in pool:
+        d = R.for_id(ratings, c)["mu"] - me["mu"]
+        bins[0 if d < -s else (2 if d > s else 1)].append(c)
+    masses = [len(b) for b in bins]
+    total = sum(masses) or 1
+    quota = [max(1 if m else 0, round(k * m / total)) for m in masses]
+    while sum(quota) > k:
+        j = max(range(3), key=lambda j: quota[j] - k * masses[j] / total)
+        quota[j] -= 1
+    while sum(quota) < k:
+        j = max(range(3), key=lambda j: k * masses[j] / total - quota[j])
+        quota[j] += 1
+    out: list[str] = []
+    for b, q in zip(bins, quota, strict=True):
+        near = sorted(
+            b,
+            key=lambda c: (
+                abs(R.for_id(ratings, c)["mu"] - me["mu"]),
+                R.for_id(ratings, c)["sigma"],
+                c,
+            ),
+        )
+        out += near[: max(q, 0)]
+    if len(out) < k:
+        rest = sorted(
+            (c for c in pool if c not in set(out)),
+            key=lambda c: (
+                abs(R.for_id(ratings, c)["mu"] - me["mu"]),
+                R.for_id(ratings, c)["sigma"],
+                c,
+            ),
+        )
+        out += rest[: k - len(out)]
+    return out[:k]
+
+
+def info_duel_opponent(model, bid: str, cands: list[str], ratings: dict) -> str | None:
+    """Best draw odds + 0.02 sigma over the 40 nearest rulers.
+    Exact port of the champion tail duel. First wins ties."""
+    me = R.for_id(ratings, bid)
+    order = sorted(
+        (c for c in cands if c != bid),
+        key=lambda c: (
+            abs(R.for_id(ratings, c)["mu"] - me["mu"]),
+            R.for_id(ratings, c)["sigma"],
+            c,
+        ),
+    )[:40]
+    best = None
+    best_v = None
+    for c in order:
+        e = R.for_id(ratings, c)
+        teams = [
+            [model.rating(mu=me["mu"], sigma=me["sigma"])],
+            [model.rating(mu=e["mu"], sigma=e["sigma"])],
+        ]
+        v = model.predict_draw(teams) + SIGMA_WEIGHT * (me["sigma"] + e["sigma"])
+        if best_v is None or v > best_v:
+            best, best_v = c, v
+    return best
+
+
+def stage_field(
     model,
     bid: str,
     cands: list[str],
+    ordered: list[str],
     ratings: dict,
-    rng: random.Random,
-    eps: float,
-    breadth: int,
-    sigma_weight: float = SIGMA_WEIGHT,
-) -> str:
-    """Opponent with the best information score, epsilon-random among
-    the top breadth."""
-    scored = sorted(
-        cands, key=lambda k: -info_score(model, [bid, k], ratings, sigma_weight)
-    )
-    top = scored[: max(1, min(breadth, len(scored)))]
-    return rng.choice(top) if rng.random() < eps else top[0]
+    n: int,
+) -> list[str]:
+    """Full FFA field: bid first, then champion opponents (9 census
+    rulers for 10p, 5 strata rulers for 6p)."""
+    if n == 10:
+        return [bid] + census_opponents(bid, cands, ratings, 9)
+    if n == 6:
+        return [bid] + strata_opponents(bid, ordered, ratings, 5)
+    raise ValueError(f"no champion stage for {n}p")
 
 
 def pick_maps(rng: random.Random, candidates: list[str], k: int) -> list[str]:
@@ -328,7 +445,7 @@ def main(argv=None) -> int:
         print("bot tree is dirty; commit before logged play", file=sys.stderr)
         return 2
     bid = candidate_id(root, args.bot, args.rev)
-    ffa_sizes = ffa_sizes_for(bid)
+    ffa_sizes = list(FFA_SIZES)
     records = read_log(GAMES_LOG)
     ratings = R.rebuild(records)
     R.save(RATINGS_PATH, ratings)
@@ -354,6 +471,7 @@ def main(argv=None) -> int:
     prune_replays(runs, int(args.max_replay_gb * 1e9), protect={str(runs / sha)})
     rng = random.Random(f"{SEED}:{bid}:{done['duels']}:{sum(done['ffa'].values())}")
     model = new_model()
+    ordered = recency_order([c for c in pool if c != bid], all_commits(root))
     used = {r["map"] for r in records if bid in r["field"]}
 
     with open(GAMES_LOG, "a") as fh:
@@ -365,9 +483,9 @@ def main(argv=None) -> int:
             for map_rel in pick_maps(rng, maps, duels_left):
                 used.add(map_rel)
                 cands = [c for c in pool_ids(root, ratings) if c != bid]
-                opp = duel_opponent(
-                    model, bid, cands, ratings, rng, EPSILON, BREADTH, SIGMA_WEIGHT
-                )
+                opp = info_duel_opponent(model, bid, cands, ratings)
+                if opp is None:
+                    raise ValueError("pool too small: no duel opponent")
                 field = [bid, opp] if rng.random() < 0.5 else [opp, bid]
                 done["duels"] += 1
                 log_dir = runs / sha / f"duel_{done['duels']:02d}"
@@ -393,16 +511,8 @@ def main(argv=None) -> int:
                 raise ValueError(f"no unused {n}p map")
             map_rel = rng.choice(maps)
             used.add(map_rel)
-            field = propose(
-                model,
-                pool_ids(root, ratings),
-                ratings,
-                n,
-                rng,
-                eps=EPSILON,
-                breadth=BREADTH,
-                sigma_weight=SIGMA_WEIGHT,
-                seed_bot=bid,
+            field = stage_field(
+                model, bid, pool_ids(root, ratings), ordered, ratings, n
             )
             if len(field) != n:
                 raise ValueError(f"pool too small: wanted {n}, got {len(field)}")
