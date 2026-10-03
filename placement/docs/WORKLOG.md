@@ -491,3 +491,9 @@
 - Score: corr 0.9926 (-0.0006).
 - Verdict: DISCARD. Bold 30 judged: refuted. Peer duels are load-bearing; flanks complement but cannot substitute. Redundancy/tail-diversity axis closed.
 - Misses: 37.
+
+## Iter 81: upset-ladder refine (glazier G1)
+- 5 nearest tertile rulers above mu + champion rest.
+- Score: corr 0.9916 (-0.0016, one-sided: seeds 0/1 down 0.002+).
+- Verdict: DISCARD. Leverage-up shows the elite-separator signature (cf iter 9); symmetric bins stand. Update-size targeting refuted in the refine.
+- Misses: 38.
