@@ -1730,3 +1730,15 @@ Use this format.
 - what changed: Battling as Backstop in Backstop.bot + Backstop.py; reinforce falls back to the second-nearest hill, walk-off loses the food step.
 - what you learned: Backstops went 3-4, beating Seance, LeftyBot and Flank but losing twice to Alarum plus Relief and Flank; finished last in the 10p census, won the 6p refine; second-hill fallback spreads defenders thin without helping the hunt, so mu reached 21.93 with no champion to beat.
 - next: Flood — move a group of ants to one target.
+
+## 142 — flood marches one hill (2026-10-04)
+- commit: c96f1c9
+- start: f43c57c (champion)
+- budget: 7 duels, 10p + 6p
+- score: mu 52.52, sigma 4.03
+- champion mu: 21.93 (Backstop)
+- verdict: champion (new best)
+- games: 3-4, FFA ranks 10p:1 6p:1
+- what changed: Battling as Flood in Flood.bot + Flood.py; all hill-hunters march on one target, the remembered hill nearest the army as a whole, instead of each ant's own nearest hill.
+- what you learned: Floods went 3-4 in duels (beating Backstop twice and Alarum, losing twice to Relief, Alarum, and Backstop) but won both FFAs outright; a united hunt concentrates enough force to raze hills in crowded fields, so mu reached 52.52 against 21.93.
+- next: Food denial — hold a contested food field.
