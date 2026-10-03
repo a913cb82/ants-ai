@@ -636,3 +636,8 @@
 - Duels 1-3 above-only; duels 4-7 strict below/above alternation, info within gate.
 - Score: corr 0.9931 (-0.0001, tie).
 - Verdict: TRACK A CLOSED. Five legs: +0.0002/-0.0001/+0.0000/+0.0001/-0.0001. Front-load dose peaks at 3 duels with a thin lead that held seeds vetoed (iter76); breadth and back-alternation add nothing. Tail stays flat-info.
+
+## Iter 106 (camp B1): 4-bin signed-peer retest
+- Peer bin split at bot.mu (below-peer/above-peer), mass quota over 4 bins.
+- Score: corr 0.9934 (+0.0002, 4/5 seeds, same pattern as iter64).
+- Verdict: retest CONFIRMS the thin lead. Tune bin count next (B2: 5-bin).
