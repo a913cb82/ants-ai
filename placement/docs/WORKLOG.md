@@ -51,3 +51,12 @@ One entry per iteration:
 - what changed: 2 duels moved between the FFAs (3d, 2.0-sigma 10p, 2d, 0.5-sigma 10p).
 - what you learned: wins by 5.51 with every seed improving (seed 0 down 14.8); mid re-positioning before the refine FFA cuts tails under MSE.
 - next: bracket duels retest, the other archive-mined idea.
+
+## 5 — bracket mid duel pair above below (2026-10-03)
+- commit: 814c58d
+- score: mean 302.9460 over seeds 0-4 (268.5222, 354.2697, 352.7147, 246.8385, 292.3848)
+- champion mean: 311.2044 (e9d728c)
+- verdict: keep
+- what changed: mid duel pair changed from closest to nearest-above then nearest-below.
+- what you learned: wins by 8.26 with every seed improving (seeds 2/3/4 down about 11 each); deliberate two-sided tests beat closest rematches under MSE.
+- next: edge-conditional narrow bound for extreme bots.
