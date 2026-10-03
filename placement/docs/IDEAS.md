@@ -55,6 +55,7 @@ A refinement is a new row. Leave old rows as they were.
 | parked | Gradient fields: weak 10p heat, peer semi, shark-tank final (sports; gatekeeper verdict covers asymmetry). |
 | dropped | Successive-halving duel tournament with FFA confirmation (bayes). |
 | dropped | Deterministic UCB rotation: score -dist + 0.5 sigma, cycle top 6 (bayes). |
+| trying | Unfiltered bulk-only: full-pool spreads, no tertile (bold 5). |
 | open | D-optimal 4-duel screen at mu +- {0.5, 1.5} sigma, then bulks (bayes). |
 | dropped | Wide-grid quantiles: fixed CDF grid 0.05..0.95 at 2.0 sigma (bayes). |
 | dropped | Push-fold routing: wide twin-10p for high-sigma, duels-only for settled (poker). |
@@ -103,5 +104,11 @@ Predicts failure (mid sizes and narrow widths both lost alone) but
 prices the interaction. Judge after iteration 33.
 Judged: refuted at iteration 31 (327.2455, seed 2 at 516);
 size and width zoom have no redeeming interaction.
+
+Eleven misses in a row (iters 23-33) force bold line 5 (2026-10-03):
+unfiltered bulk-only. The tertile filter was priced with duels in
+the schedule; without duels the pool is the only instrument, and
+full-pool spreads may reach tail thresholds anchors cannot. Three
+10ps at 3.0/2.0/2.0 from the whole pool. Judge after iteration 37.
 | done | Interleaved bulk retest (3d, wide 10p, 2d, narrow 10p): lost MAE by 0.009; mid re-positioning may cut tails. |
 | done | Bracket duels retest (closest 1-3, then above/below): deliberate tail insurance. |
