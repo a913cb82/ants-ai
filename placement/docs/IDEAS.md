@@ -197,7 +197,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Halo mixture game-3 under census (retest; fresh vetoes). |
 | dropped | Split-middle 10+5+5+10 under census (retest). |
 | dropped | Flat-mid rest 1.5625 under census (retest). |
-| trying | Ratio upshift 1.5/2.25 under census (retest). |
+| dropped | Ratio upshift 1.5/2.25 under census (retest). |
 | open | Chase-combining repeat-wide 4.0/4.0/1.5 (info; diversity-combine before zoom). |
 | open | Double-tap opener 4.0/4.0/1.25 (adversary; second wide after recentering, full-pool G2 untested at 4.0). |
 | open | Split-middle 10+5+5+10 valley halves (info/poker; mid-schedule re-aim, halves sandwiched not late). |

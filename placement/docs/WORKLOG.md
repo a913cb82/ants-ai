@@ -1484,3 +1484,12 @@ One entry per iteration:
 - what changed: games 2 and 3 both at 1.5625 sigma.
 - what you learned: cost about 6.48 with only seed 3 improving; the valley dip is real under census too. Bold 26 judged refuted (iter 152).
 - next: ratio upshift under census (retest); then misses force bold 27.
+
+## 156 — ratio upshift census retest (2026-10-03)
+- commit: 0594487
+- score: mean 198.2817 over seeds 0-4 (161.7505, 235.2713, 307.6345, 115.4203, 171.3319)
+- champion mean: 197.7410 selection, 187.4788 pooled (5faf0b0)
+- verdict: discard
+- what changed: rest widths scaled to 1.5 then 2.25 sigma.
+- what you learned: cost about 0.54 with three of five improving but seeds 0/1 regressing hard; extra width re-opens settled bins under census too.
+- next: misses force bold 27; per-quantile mixed anchors under census (retest).
