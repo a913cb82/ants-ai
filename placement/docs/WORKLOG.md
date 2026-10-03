@@ -754,3 +754,8 @@
 ## Iter 130 (camp F5): farthest-in-bin mirror kill
 - Score: corr 0.9911 (-0.0021, every seed regressed).
 - Verdict: TRACK F CLOSED with the camp's first LESSON: within-bin proximity is a gradient (nearest -0.0000 > info/grid/comp ties > median -0.0014 > farthest -0.0021). Quota allocates across bins; proximity binds within them. Nearest-to-bot stands proven, not default.
+
+## Iter 131 (camp G1): 3-stage depth retest
+- 10p census + 6p strata + 4p strata + 5 info duels.
+- Score: corr 0.9932 (+0.0000, exact tie).
+- Verdict: retest CONFIRMS depth idleness. Next: 4-stage micro retest (G2).
