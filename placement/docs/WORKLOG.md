@@ -611,3 +611,8 @@
 - Tracks: A upset-front-load tail (iter76) | B 4-bin signed-peer refine (iter64) | C calibrated-snap opener (iter70/shootout) | D blend/credible closers (iter8/28/61/62) | E gated/alternating tail (iter53/83) | F within-bin refine picks (iter75/85/36/27) | G multi-stage depth (iter56/63) | H early-window crossover (iter79/MID) | I bounty/herding tail (iter77/78) | J pool-window/mass opener (iter68/69/89).
 - Leg 1 of each track = faithful retest on current champion code; legs 2-5 = tuned variants.
 - Adoption rules unchanged: beat champion selection, confirm on seeds 5-9, pooled agreement; STRATEGY.md + tag on win.
+
+## Iter 101 (camp A1): front-loaded upset retest
+- First 3 duels above-only info, last 4 flat. Faithful iter76 re-implementation.
+- Score: corr 0.9934 (+0.0002, 4/5 seeds, same pattern as iter76).
+- Verdict: retest CONFIRMS the thin lead exists on selection but held veto stands from iter76; tune dose next (A2: above-first-2).
