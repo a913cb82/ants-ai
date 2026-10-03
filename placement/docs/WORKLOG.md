@@ -1455,3 +1455,14 @@ One entry per iteration:
 - what changed: game-3 forced 3 below plus 3 above current mu, filled to 9 with nearest.
 - what you learned: cost about 9.14 with only seed 4 improving; greed stands and forced balance loses with fresh anchors too.
 - next: judge bold 26 after 155; halo mixture game-3 under census (retest).
+
+## 153 — halo game-3 census retest (2026-10-03)
+- commit: 1de24be
+- score: selection mean 195.6969 (162.8354, 224.0302, 317.4241, 115.3265, 158.8683)
+- champion selection mean: 197.7410 (5faf0b0)
+- confirmation: 174.2527 over seeds 5-9 (141.2324, 196.3899, 215.0552, 165.5047, 153.0812) vs champion held-out 177.2165
+- fresh audit: 159.9336 over seeds 10-14 (91.1017, 175.4374, 118.6434, 154.3851, 260.1002) vs champion fresh 158.5081
+- verdict: discard
+- what changed: closer matched 5 inner targets at 1.25 sigma and 4 extreme targets at 2.5 sigma.
+- what you learned: selection and held-out both favored the mixture but fresh lost 1.43 with two of five; pooled-15 wins 1.19 yet fresh vetoes per the overturn rule. Second fresh veto for mixtures.
+- next: judge bold 26 after 155; split-middle under census (retest).
