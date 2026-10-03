@@ -692,3 +692,14 @@ One entry per iteration:
 - what changed: games 2 and 3 drew from the low-sigma half instead of tertile.
 - what you learned: won selection by 0.34 on seed 2 alone but lost held-out by 2.08; tertile strictness is exact, interior-confirmed both sides.
 - next: game-2 at 1.25 (width interior micro-grid).
+
+## 74 — game-2 at 1.25 with confirmation (2026-10-03)
+- commit: d87c207
+- score: selection mean 221.7594 over seeds 0-4 (182.7957, 252.1771, 372.5235, 117.5623, 183.7384)
+- prior champion selection mean: 221.8680 (43b260f)
+- confirmation: 198.4055 over seeds 5-9 (147.3650, 229.3517, 235.0543, 213.4387, 166.8177), four of five improve
+- pooled: 210.0825 vs 211.9454
+- verdict: keep
+- what changed: second bulk 10p narrowed from 1.5 to 1.25 sigma.
+- what you learned: selection margin was pure noise (0.11) but held-out confirms by 3.62; the confirmation rule cuts both ways. Game-2 optimum slides narrower, 1.25 beats 1.5 pooled by 1.86.
+- next: game-2 at 1.125 vs game-3 micro-bisects; judge bold 12.
