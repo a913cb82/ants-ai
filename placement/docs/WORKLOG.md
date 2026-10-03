@@ -294,3 +294,12 @@ One entry per iteration:
 - what changed: duel plus 9p at 2.0, 9p at 1.0, 10p at 0.5.
 - what you learned: cost about 91.98 with seed 2 at 516.08; size and width zoom have no redeeming interaction, uniform wide bulk stands.
 - next: successive-halving duel tournament with FFA confirmation.
+
+## 32 — mixed final 10p closest plus spread (2026-10-03)
+- commit: 9c7f58d
+- score: mean 251.9776 over seeds 0-4 (211.6670, 306.3179, 375.3259, 140.2548, 226.3223)
+- champion mean: 235.2613 (04eeed2)
+- verdict: discard
+- what changed: final 10p mixed 3 closest opponents with a 6-target spread ring.
+- what you learned: cost about 16.72 with seeds 1/2 blowing up while seeds 0/3/4 improved; closest-core crowds out the far thresholds hard seeds need.
+- next: deterministic UCB rotation under bulk-only.

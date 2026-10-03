@@ -19,33 +19,6 @@ def _established(ratings: list[Rating], k: int) -> list[int]:
     return pool
 
 
-def _mixed(
-    bot: Rating,
-    ratings: list[Rating],
-    k_close: int,
-    k_spread: int,
-    width: float,
-) -> list[int]:
-    """k_close nearest plus k_spread quantile targets, all distinct."""
-    order = sorted(
-        range(len(ratings)),
-        key=lambda i: (abs(ratings[i].mu - bot.mu), ratings[i].sigma, i),
-    )
-    picked = order[: min(k_close, len(order))]
-    used = set(picked)
-    dist = NormalDist(bot.mu, max(width * bot.sigma, 0.5))
-    targets = [dist.inv_cdf((j + 1) / (k_spread + 1)) for j in range(k_spread)]
-    pool = _established(ratings, k_close + k_spread)
-    for t in targets:
-        cands = [c for c in pool if c not in used]
-        if not cands:
-            break
-        i = min(cands, key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c))
-        used.add(i)
-        picked.append(i)
-    return picked
-
-
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
     """Pool index nearest bot.mu, low sigma then low index on ties."""
     return min(
@@ -86,9 +59,9 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Exp (iter 32, MSE): mixed final 10p (3 closest + 6 spread).
+    # Champion (iter 22, MSE): bulk-only, first 10p at 3.0.
     if budget_left > 20:
         return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 3.0)
     if budget_left > 10:
         return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.0)
-    return _mixed(bot, ratings, 3, 6, 2.0)
+    return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.0)
