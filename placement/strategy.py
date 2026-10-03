@@ -617,8 +617,8 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 138 (camp H3): recapture-spine early window.
-    early = len(ratings) < 200 and len(ratings) % 2 == 0
+    # Iter 139 (camp H4): recapture-early at window 300, odd parity.
+    early = len(ratings) < 300 and len(ratings) % 2 == 1
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
