@@ -1666,3 +1666,9 @@ One entry per iteration:
 - Verdict: DISCARD. Held-out vetoes; easy-seed gains fund hard-seed losses, the 160/166 disease.
 - Learned: mixture/edge family closed (153 halo, 166 edge, 177 halo-lite all vetoed). No further mixture variants.
 - Next: iter 178 integral residual closer (control S2, novel center axis).
+
+## Iter 178: integral residual closer (control S2)
+- Score: sel 214.8565 (188.62, 242.76, 338.07, 132.10, 172.74) vs champ 197.7410 (+17.11). All seeds regress.
+- Verdict: DISCARD. Outward kick extrapolates past tails; integrator windup in the open loop too.
+- Learned: spread CENTER must stay on bot mu (outward dead); inward receiver-centering (seismo S4) is the remaining center cell.
+- Next: iter 179 receiver-centered closer.
