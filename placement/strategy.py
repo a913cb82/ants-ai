@@ -60,7 +60,9 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Champion (iter 55, MSE): full-pool opener at 4.25.
+    # Exp (iter 58, MSE): split bulks 5+5+10+10 (bold 9).
+    if budget_left > 25:
+        return _spread(bot, ratings, min(4, budget_left - 1, len(ratings)), 4.25, False)
     if budget_left > 20:
-        return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 4.25, False)
+        return _spread(bot, ratings, min(4, budget_left - 1, len(ratings)), 2.0)
     return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.0)
