@@ -171,3 +171,10 @@
 - Score: corr 0.9902 (+0.0001, exact tie).
 - Verdict: DISCARD (tie keeps incumbent). Quantile grids and comp-picks are equivalent targeting; density adapts either way.
 - Misses: 10.
+
+## Iter 28: BF prior-weighted refine
+- Census + 6p split-center (3 census-centroid + 2 live-mu at 1.0) + 7 duels.
+- Selection: corr 0.9906 (+0.0006, 3/5 improve).
+- Held-out 5-9: 0.99026 vs 0.99050 (-0.0002). Pooled-10 +0.0002 but fresh disagrees.
+- Verdict: DISCARD per overturn rule. The posterior needs no reserve; G2 personalization is not chasing noise.
+- Misses: 11.
