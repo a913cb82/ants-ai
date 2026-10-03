@@ -84,3 +84,12 @@ One entry per iteration:
 - what changed: large-first 10p then 6p with quantile-spread opponents, duels last.
 - what you learned: large-first loses with or without spread (19.76 vs 16.07) and seed 2 blew up to 24.28 again; duels-first ordering is confirmed, so the outside advice optimises a different objective (final sigma, not mu error).
 - next: Approach 2 schedule (10p, 5p, 5p, then duels) or refine champion duel count/spread width.
+
+## 9 — sandwich duels, spread FFA, precision duels (2026-10-03)
+- commit: 5cc4575
+- score: mean 17.0155 over seeds 0-4 (16.1090, 17.7366, 19.8270, 14.6591, 16.7458)
+- champion mean: 16.0723 (f2a2568)
+- verdict: discard
+- what changed: 5 duels, one spread FFA-10, then 5 closest-mu precision duels on the last 10 slots.
+- what you learned: swapping the second FFA for late duels cost about 0.94 mean error; bulk comparisons fix bias better than precision duels on this objective.
+- next: refine champion spread width (0.5 and 1.5 sigma).
