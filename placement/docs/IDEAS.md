@@ -23,7 +23,7 @@ A refinement is a new row. Leave old rows as they were.
 | done | Twin-wide 10ps 2.0/2.0, no narrow refine (bold 1). |
 | open | Symmetric pairs recheck under MSE (0.5/0.5, 1.0/1.0). |
 | dropped | Quartile anchors retest (cleaner thresholds for hard seeds). |
-| trying | 3p opening: 2x3p closest-pair instead of 3x2p (same 6 slots). |
+| dropped | 3p opening: 2x3p closest-pair instead of 3x2p (same 6 slots). |
 | open | 4p mid game: bot plus above, below, closest replaces bracket pair. |
 | open | All-3p schedule: ten 3p games, positioning and bulk unified. |
 | open | Duel-heavy sandwich: 4d, 10p, 2d, 6p, 2d (30 slots). |

@@ -96,3 +96,12 @@ One entry per iteration:
 - what changed: anchor cutoff from low-sigma tertile to quartile.
 - what you learned: cost about 3.10 with every seed but seed 4 regressing; stricter rulers thin the pool too far and wide targets overshoot sparser anchors.
 - next: symmetric pairs recheck under MSE.
+
+## 10 — 3p opening closest pair (2026-10-03)
+- commit: 0302394
+- score: mean 304.1436 over seeds 0-4 (272.7167, 355.9928, 368.1019, 235.8973, 288.0093)
+- champion mean: 302.2418 (07e94d0)
+- verdict: discard
+- what changed: opening 3 duels swapped for two 3p games with the closest pair.
+- what you learned: cost about 1.90 with only seed 3 improving (round-best 235.90); sequential updates position better than richer-but-fewer opening games.
+- next: bold idea required (two misses); tail-chasing one-sided spread.
