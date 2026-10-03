@@ -485,3 +485,9 @@
 - Score: corr 0.9932 (+0.0000, exact tie, mixed seed signs).
 - Verdict: DISCARD (tie keeps incumbent). Champion is regime-robust; thin-pool bots need no special leg. Early-window family parked, S2/S3/S4 unrun.
 - Misses: 36.
+
+## Iter 80 (bold 30): flank-forced tail
+- All 7 duels info-argmax with peer band excluded; refine/census unchanged.
+- Score: corr 0.9926 (-0.0006).
+- Verdict: DISCARD. Bold 30 judged: refuted. Peer duels are load-bearing; flanks complement but cannot substitute. Redundancy/tail-diversity axis closed.
+- Misses: 37.
