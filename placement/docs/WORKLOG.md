@@ -238,3 +238,9 @@
 - Score: corr 0.9927 (-0.0002, 4/5 regress).
 - Verdict: DISCARD. Recaptures add nothing; fresh thresholds win every time.
 - Misses: 4.
+
+## Iter 39: 8p refine + 6 info duels
+- Quantile opener + 8p (7 rulers) at 1.0 + 6 info duels.
+- Score: corr 0.9919 (-0.0011).
+- Verdict: DISCARD. The 7-duel count stands under quantile regime too.
+- Misses: 5.
