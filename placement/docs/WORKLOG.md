@@ -1687,3 +1687,9 @@ One entry per iteration:
   (preserves greedy distances) + cohort-cartel + derby-day + survey/calibration + Kelly/E1-E4 + S3/S4 scheduled.
 - Learned: greedy nearest-to-uniform-target is the mechanism; every displacement scheme pays.
 - Next: iter 181 mirror-cross closer.
+
+## Iter 181: mirror-cross closer (seismo S2)
+- Score: sel 199.6217 (169.61, 232.50, 316.57, 116.76, 162.66) vs champ 197.7410 (+1.88). Seed 0 +21.1.
+- Verdict: DISCARD. Opposite-side forcing displaces needed thresholds despite matched ranges.
+- Learned: crossing family closed (antipodal 180, mirror 181). Same-side greed stands.
+- Next: iter 182 cohort-cartel breaker (librarian S4).
