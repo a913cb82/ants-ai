@@ -1732,3 +1732,9 @@ One entry per iteration:
 - Verdict: DISCARD. Forcing fresh rulers into every game poisons both refine stages.
 - Learned: tertile purity stands; any crew-mixing (vintage 182, home/away 187) loses big.
 - Next: iter 188 round-robin whistle (referee S1).
+
+## Iter 188: round-robin whistle (referee S1)
+- Score: sel 219.5721 vs champ 197.7410 (+21.83). All seeds regress.
+- Verdict: DISCARD. Disjoint crews halve anchor density per game; cross-validation worth nothing.
+- Learned: referee family 0-for-4 (mercy stillborn, derby, home/away, round-robin). Fairness axes closed.
+- Next: iter 189 moveout recapture (seismo S3) + period review at 190.
