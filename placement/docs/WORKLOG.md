@@ -327,3 +327,12 @@ One entry per iteration:
 - what changed: per threshold, took a closer unrated pool member when the nearest anchor sat farther than 1 sigma.
 - what you learned: cost about 1.37 with every seed regressing; unrated mus are unreliable thresholds even when nearer, so anchor reliability beats proximity.
 - next: first-duel versus established median, or pool-service game.
+
+## 36 — factorial S0xB1 no anchor filter (2026-10-03)
+- commit: c411a66
+- score: mean 16.2270 over seeds 0-4 (15.8540, 17.4213, 18.8015, 13.4905, 15.5675)
+- champion mean: 14.8370 (067b331)
+- verdict: discard
+- what changed: factorial cell S0xB1, champion sizes with the tertile filter removed (tiebreaks only).
+- what you learned: no filter cost about 1.39 with every seed regressing; the anchor filter is strongly load-bearing.
+- next: factorial S1xB1 to test orthogonality.
