@@ -49,7 +49,7 @@ A refinement is a new row. Leave old rows as they were.
 | open | Split-budget recenter: 2+3+10 then 5+10 halves (info). |
 | open | Augusta Cut: 2x6p open, 2x6p anchors-only, 10 closing duels (sports). |
 | dropped | World Cup pots: each FFA draws 3 bottom + 3 mid + 3 top mu (sports). |
-| trying | Swiss 12 duels no-rematch, then two 10p finals (sports; fixed to 5 walk-out + 2 bulks for slots). |
+| dropped | Swiss 12 duels no-rematch, then two 10p finals (sports; fixed to 5 walk-out + 2 bulks for slots). |
 | dropped | Gatekeeper FFA: second 10p shifted a tier stronger than mu (sports). |
 | parked | Gradient fields: weak 10p heat, peer semi, shark-tank final (sports; gatekeeper verdict covers asymmetry). |
 | open | Successive-halving duel tournament with FFA confirmation (bayes). |

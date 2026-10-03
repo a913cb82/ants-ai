@@ -276,3 +276,12 @@ One entry per iteration:
 - what changed: bulk fragmented into 4p, 6p, 8p, 10p after one duel, all at 2.0.
 - what you learned: cost about 108.63 with seed 2 at 481.88; mid-size fragments cannot bound tails and per-slot efficiency theory fails on tail risk.
 - next: Swiss 12 duels no-rematch, then two 10p finals.
+
+## 30 — Swiss walk-out duels then bulks (2026-10-03)
+- commit: 599afa9
+- score: mean 309.5240 over seeds 0-4 (277.2032, 380.6048, 343.6314, 242.8154, 303.3651)
+- champion mean: 235.2613 (04eeed2)
+- verdict: discard
+- what changed: 5 opening duels walking outward by closeness rank, then 3.0 and 2.0 10ps.
+- what you learned: cost about 74.26 with every seed regressing; duels cost a whole bulk and outward walks spend games on ever-worse opponents.
+- next: successive-halving duel tournament with FFA confirmation.
