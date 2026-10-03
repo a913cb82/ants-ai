@@ -18,28 +18,26 @@ class Rating:
     sigma: float
 
 
-def _info_duel(
-    bot: Rating, ratings: list[Rating], side: int = 0, width: int = 40, rank: int = 0
-) -> list[int]:
-    """Tail duel: rank-th best predict_draw + 0.02 sigma over width nearest."""
+def _info_duel(bot: Rating, ratings: list[Rating]) -> list[int]:
+    """Tail duel: argmax predict_draw + 0.02 sigma over 40 nearest."""
     order = sorted(
         range(len(ratings)),
         key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
-    )[:width]
-    gated = [c for c in order if (ratings[c].mu - bot.mu) * side > 0] or order
-    if not gated:
+    )[:40]
+    if not order:
         return []
-    scored: list[tuple[float, int, int]] = []
-    for pos, c in enumerate(gated):
+    best = order[0]
+    best_v = None
+    for c in order:
         teams = [[_MODEL.rating(mu=bot.mu, sigma=bot.sigma)]]
         sig = bot.sigma
         for i in (c,):
             teams.append([_MODEL.rating(mu=ratings[i].mu, sigma=ratings[i].sigma)])
             sig += ratings[i].sigma
         v = _MODEL.predict_draw(teams) + 0.02 * sig
-        scored.append((v, pos, c))
-    scored.sort(key=lambda t: (-t[0], t[1]))
-    return [scored[min(rank, len(scored) - 1)][2]]
+        if best_v is None or v > best_v:
+            best, best_v = c, v
+    return [best]
 
 
 def _established(ratings: list[Rating], k: int, exclude: int = 0) -> list[int]:
@@ -99,71 +97,22 @@ def _census(ratings: list[Rating], k: int, mode: str = "range") -> list[int]:
     return picked
 
 
-def _calsnap(
-    ratings: list[Rating], k: int, tol: float = 0.15, mid: bool = False
-) -> list[int]:
-    """Decile sites; lowest-sigma snap within tol, else nearest."""
-    n = len(ratings)
-    pool = sorted(r.mu for r in ratings)
-    sites = [pool[min(int(n * (j + 1) / (k + 1)), n - 1)] for j in range(k)]
-    picked: list[int] = []
-    used: set[int] = set()
-    for j, t in enumerate(sites):
-        cands = [c for c in range(n) if c not in used]
-        if not cands:
-            break
-        extreme = mid and (j == 0 or j == len(sites) - 1)
-        near = [] if extreme else [c for c in cands if abs(ratings[c].mu - t) <= tol]
-        src = near or cands
-        if near:
-            i = min(src, key=lambda c: (ratings[c].sigma, abs(ratings[c].mu - t), c))
-        else:
-            i = min(src, key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c))
-        used.add(i)
-        picked.append(i)
-    return picked
-
-
-def _strata(
-    bot: Rating,
-    ratings: list[Rating],
-    k: int,
-    split: bool = False,
-    five: bool = False,
-    off: float = 0.0,
-    edge: float = 1.0,
-    root: bool = False,
-) -> list[int]:
-    """k rulers across bins by mass quota (3-bin, or 4-bin signed-peer)."""
+def _strata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
+    """k rulers across below/peer/above bins, quota by bin mass."""
     pool = _established(ratings, k, 0)
-    s = max(bot.sigma, 0.5) * edge
+    s = max(bot.sigma, 0.5)
     bins: list[list[int]] = [[], [], []]
     for c in pool:
         d = ratings[c].mu - bot.mu
         bins[0 if d < -s else (2 if d > s else 1)].append(c)
-    if five:
-        ordered = sorted(bins[1], key=lambda c: ratings[c].mu)
-        t1, t2 = len(ordered) // 3, 2 * len(ordered) // 3
-        bins = [bins[0], ordered[:t1], ordered[t1:t2], ordered[t2:], bins[2]]
-    elif split or off:
-        cut = bot.mu + off * max(bot.sigma, 0.5)
-        bins = [
-            bins[0],
-            [c for c in bins[1] if ratings[c].mu < cut],
-            [c for c in bins[1] if ratings[c].mu >= cut],
-            bins[2],
-        ]
     masses = [len(b) for b in bins]
-    if root:
-        masses = [m**0.5 for m in masses]
     total = sum(masses) or 1
-    nb = len(bins)
     quota = [max(1 if m else 0, round(k * m / total)) for m in masses]
     while sum(quota) > k:
-        j = max(range(nb), key=lambda j: quota[j] - k * masses[j] / total)
+        j = max(range(3), key=lambda j: quota[j] - k * masses[j] / total)
         quota[j] -= 1
     while sum(quota) < k:
-        j = max(range(nb), key=lambda j: k * masses[j] / total - quota[j])
+        j = max(range(3), key=lambda j: k * masses[j] / total - quota[j])
         quota[j] += 1
     out: list[int] = []
     for b, q in zip(bins, quota, strict=True):
@@ -178,300 +127,6 @@ def _strata(
         )
         out += rest[: k - len(out)]
     return out[:k]
-
-
-def _audit(bot: Rating, ratings: list[Rating]) -> list[int]:
-    """Max-sigma ruler among the 10 nearest-mu rulers."""
-    order = sorted(
-        range(len(ratings)),
-        key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
-    )[:10]
-    if not order:
-        return []
-    return [max(order, key=lambda c: (ratings[c].sigma, -c))]
-
-
-def _bounty(bot: Rating, ratings: list[Rating], mult: float = 1.0) -> list[int]:
-    """Max-sigma ruler in the peer band over the last-400 window."""
-    n = len(ratings)
-    lo = max(0, n - 400)
-    band = max(bot.sigma, 0.5) * mult
-    elig = [c for c in range(lo, n) if abs(ratings[c].mu - bot.mu) <= band] or list(
-        range(lo, n)
-    )
-    if not elig:
-        return []
-    return [
-        max(
-            elig,
-            key=lambda c: (ratings[c].sigma, -abs(ratings[c].mu - bot.mu), -c),
-        )
-    ]
-
-
-def _infoscore(
-    bot: Rating, field: list[int], ratings: list[Rating], c: int, w: float = 0.02
-) -> float:
-    """Draw probability + sigma weight for bot+field+c (info value proxy)."""
-    teams = [[_MODEL.rating(mu=bot.mu, sigma=bot.sigma)]]
-    sig = bot.sigma
-    for i in field + [c]:
-        teams.append([_MODEL.rating(mu=ratings[i].mu, sigma=ratings[i].sigma)])
-        sig += ratings[i].sigma
-    return _MODEL.predict_draw(teams) + w * sig
-
-
-def _infostrata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
-    """Mass-quota bins; within-bin sequential argmax of info score."""
-    pool = _established(ratings, k, 0)
-    s = max(bot.sigma, 0.5)
-    bins: list[list[int]] = [[], [], []]
-    for c in pool:
-        d = ratings[c].mu - bot.mu
-        bins[0 if d < -s else (2 if d > s else 1)].append(c)
-    masses = [len(b) for b in bins]
-    total = sum(masses) or 1
-    quota = [max(1 if m else 0, round(k * m / total)) for m in masses]
-    while sum(quota) > k:
-        j = max(range(3), key=lambda j: quota[j] - k * masses[j] / total)
-        quota[j] -= 1
-    while sum(quota) < k:
-        j = max(range(3), key=lambda j: k * masses[j] / total - quota[j])
-        quota[j] += 1
-    picked: list[int] = []
-    used: set[int] = set()
-    for b, q in zip(bins, quota, strict=True):
-        near = sorted(
-            b, key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c)
-        )[:40]
-        for _ in range(max(q, 0)):
-            cands = [c for c in near if c not in used]
-            if not cands:
-                break
-            i = max(cands, key=lambda c: (_infoscore(bot, picked, ratings, c), c))
-            used.add(i)
-            picked.append(i)
-    if len(picked) < k:
-        rest = sorted(
-            (c for c in pool if c not in used),
-            key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
-        )
-        picked += rest[: k - len(picked)]
-    return picked[:k]
-
-
-def _gridstrata(
-    bot: Rating, ratings: list[Rating], k: int, width: float = 1.0
-) -> list[int]:
-    """Mass-quota bins; within-bin picks at Gaussian quantile targets."""
-    pool = _established(ratings, k, 0)
-    s = max(bot.sigma, 0.5)
-    bins: list[list[int]] = [[], [], []]
-    for c in pool:
-        d = ratings[c].mu - bot.mu
-        bins[0 if d < -s else (2 if d > s else 1)].append(c)
-    masses = [len(b) for b in bins]
-    total = sum(masses) or 1
-    quota = [max(1 if m else 0, round(k * m / total)) for m in masses]
-    while sum(quota) > k:
-        j = max(range(3), key=lambda j: quota[j] - k * masses[j] / total)
-        quota[j] -= 1
-    while sum(quota) < k:
-        j = max(range(3), key=lambda j: k * masses[j] / total - quota[j])
-        quota[j] += 1
-    grid = NormalDist(bot.mu, max(width * bot.sigma, 0.5))
-    picked: list[int] = []
-    used: set[int] = set()
-    for b, q in zip(bins, quota, strict=True):
-        cands = [c for c in b if c not in used]
-        for i in range(max(q, 0)):
-            live = [c for c in cands if c not in used]
-            if not live:
-                break
-            t = grid.inv_cdf((i + 1) / (q + 1))
-            pick = min(
-                live, key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c)
-            )
-            used.add(pick)
-            picked.append(pick)
-    if len(picked) < k:
-        rest = sorted(
-            (c for c in pool if c not in used),
-            key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
-        )
-        picked += rest[: k - len(picked)]
-    return picked[:k]
-
-
-def _comp(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
-    """k nearest established rulers, no bins, no grid."""
-    pool = _established(ratings, k, 0)
-    near = sorted(
-        pool, key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c)
-    )
-    return near[:k]
-
-
-def _medstrata(
-    bot: Rating, ratings: list[Rating], k: int, far: bool = False
-) -> list[int]:
-    """Mass-quota bins; within-bin picks nearest the bin median (or farthest)."""
-    pool = _established(ratings, k, 0)
-    s = max(bot.sigma, 0.5)
-    bins: list[list[int]] = [[], [], []]
-    for c in pool:
-        d = ratings[c].mu - bot.mu
-        bins[0 if d < -s else (2 if d > s else 1)].append(c)
-    masses = [len(b) for b in bins]
-    total = sum(masses) or 1
-    quota = [max(1 if m else 0, round(k * m / total)) for m in masses]
-    while sum(quota) > k:
-        j = max(range(3), key=lambda j: quota[j] - k * masses[j] / total)
-        quota[j] -= 1
-    while sum(quota) < k:
-        j = max(range(3), key=lambda j: k * masses[j] / total - quota[j])
-        quota[j] += 1
-    out: list[int] = []
-    used: set[int] = set()
-    for b, q in zip(bins, quota, strict=True):
-        if not b or q <= 0:
-            continue
-        mus = sorted(ratings[c].mu for c in b)
-        med = mus[len(mus) // 2]
-        near = sorted(
-            [c for c in b if c not in used],
-            key=lambda c: (abs(ratings[c].mu - med), ratings[c].sigma, c),
-            reverse=far,
-        )
-        for c in near[: max(q, 0)]:
-            used.add(c)
-            out.append(c)
-    if len(out) < k:
-        rest = sorted(
-            (c for c in pool if c not in used),
-            key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
-        )
-        out += rest[: k - len(out)]
-    return out[:k]
-
-
-def _rescue(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
-    """2 recomputed-census-nearest + fresh strata to fill k."""
-    g1 = _census(ratings, min(9, len(ratings)), mode="quantile")
-    near = sorted(g1, key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c))[
-        :2
-    ]
-    used = set(near)
-    out = list(near)
-    for c in _strata(bot, ratings, k):
-        if len(out) >= k:
-            break
-        if c not in used:
-            used.add(c)
-            out.append(c)
-    return out[:k]
-
-
-def _dec400(ratings: list[Rating], k: int, win: int = 400) -> list[int]:
-    """Decile sites from last-win mus, snapped to full pool."""
-    n = len(ratings)
-    winmus = sorted(r.mu for r in ratings[max(0, n - win) :])
-    m = len(winmus)
-    sites = [winmus[min(int(m * (j + 1) / (k + 1)), m - 1)] for j in range(k)]
-    picked: list[int] = []
-    used: set[int] = set()
-    for t in sites:
-        i = min(
-            (c for c in range(n) if c not in used),
-            key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c),
-        )
-        used.add(i)
-        picked.append(i)
-    return picked
-
-
-def _heavy(ratings: list[Rating], k: int) -> list[int]:
-    """Shaped sites [12..88] of pool mu, full-pool snap."""
-    mus = sorted(r.mu for r in ratings)
-    n = len(mus)
-    pct = (0.12, 0.22, 0.32, 0.41, 0.50, 0.59, 0.68, 0.78, 0.88)[:k]
-    sites = [mus[min(int(n * f), n - 1)] for f in pct]
-    picked: list[int] = []
-    used: set[int] = set()
-    for t in sites:
-        i = min(
-            (c for c in range(n) if c not in used),
-            key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c),
-        )
-        used.add(i)
-        picked.append(i)
-    return picked
-
-
-def _tdec(ratings: list[Rating], k: int, skip: int = 0) -> list[int]:
-    """Decile sites from established-pool mus (minus skip newest), full-pool snap."""
-    pool = _established(ratings, k, 0)
-    mus = sorted(ratings[c].mu for c in pool)
-    m = len(mus)
-    sites = [mus[min(int(m * (j + 1) / (k + 1)), m - 1)] for j in range(k)]
-    picked: list[int] = []
-    used: set[int] = set()
-    for t in sites:
-        i = min(
-            (c for c in range(len(ratings)) if c not in used),
-            key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c),
-        )
-        used.add(i)
-        picked.append(i)
-    return picked
-
-
-def _survseat(ratings: list[Rating], k: int) -> list[int]:
-    """Quantile census with 9th seat = max-sigma ruler of last-400."""
-    seats = _census(ratings, k, mode="quantile")
-    n = len(ratings)
-    lo = max(0, n - 400)
-    pool = sorted(r.mu for r in ratings)
-    site9 = pool[min(int(n * k / (k + 1)), n - 1)]
-    cands = [c for c in range(lo, n) if c not in set(seats)]
-    if not cands:
-        return seats
-    snipe = max(
-        cands,
-        key=lambda c: (ratings[c].sigma, -abs(ratings[c].mu - site9), -c),
-    )
-    return seats[:-1] + [snipe]
-
-
-def _side_duel(
-    bot: Rating, ratings: list[Rating], rank: int, first: int = 1
-) -> list[int]:
-    """Nearest ruler strictly above/below bot mu, parity from first."""
-    side = first if rank % 2 == 0 else -first
-    cands = [
-        c for c in range(len(ratings)) if (ratings[c].mu - bot.mu) * side > 0
-    ] or list(range(len(ratings)))
-    if not cands:
-        return []
-    return [
-        min(
-            cands,
-            key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
-        )
-    ]
-
-
-def _credpin(bot: Rating, ratings: list[Rating]) -> list[int]:
-    """Lowest sigma among 10 nearest rulers (credible pin)."""
-    order = sorted(
-        range(len(ratings)),
-        key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
-    )[:10]
-    if not order:
-        return []
-    return [
-        min(order, key=lambda c: (ratings[c].sigma, abs(ratings[c].mu - bot.mu), c))
-    ]
 
 
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
@@ -699,25 +354,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 150 (camp J5): senior-window decile opener (exclude last 25).
+    # Iter 43 (corr): proportional-strata refine.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
-        win = sorted(r.mu for r in ratings[: max(0, len(ratings) - 25)])
-        m = len(win)
-        if m >= n:
-            sites = [win[min(int(m * (j + 1) / (n + 1)), m - 1)] for j in range(n)]
-            picked: list[int] = []
-            used: set[int] = set()
-            for t in sites:
-                i = min(
-                    (c for c in range(len(ratings)) if c not in used),
-                    key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c),
-                )
-                used.add(i)
-                picked.append(i)
-            return picked
         return _census(ratings, n, mode="quantile")
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
         return _strata(bot, ratings, n)
-    return _info_duel(bot, ratings, 0, 40, 0)
+    return _info_duel(bot, ratings)

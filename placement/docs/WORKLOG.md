@@ -844,3 +844,14 @@
 - Decile sites from low-sigma-tertile mus, snapped to full pool.
 - Score: corr 0.9922 (-0.0010; seed 3 -0.0036).
 - Verdict: DISCARD. Asymmetric lesson: the refine wants calibrated rulers but the opener must read FULL-pool mass; calibrated-pool sites distort badly on some seeds. Next: senior-window deciles, the mirror (J5).
+
+## Iter 150 (camp J5): senior-window decile opener + CAMP VERDICT
+- Sites from pool minus last 25 arrivals, full-pool snap.
+- Score: corr 0.9931 (-0.0001, tie).
+- TRACK J CLOSED: +0.0000/+0.0000/-0.0000/-0.0010/-0.0001. Opener window free; mass source matters (full mass ties, calibrated mass loses).
+
+## Second-50 camp verdict (iters 101-150)
+- Scoreboard (selection margins by track): A +0.0002 best | B +0.0002 | C +0.0003 (CAMP LEADER, held +0.0001/pooled +0.0002) | D +0.0002 | E +0.0002 | F lesson, no leader | G +0.0003 (fails breadth) | H regime-robust | I dead | J lesson, no leader.
+- Three new LESSONS: (1) within-bin proximity is a gradient (nearest > median -0.0014 > farthest -0.0021); (2) opener must read full-pool mass, calibrated-pool sites lose -0.0010; (3) young bots need duels too, FFA-heavy early loses -0.0018.
+- Recurring signature: reshaped tails spike seed 2 (+0.0008..+0.0015) while regressing seeds 0/1 — spikes without breadth are noise (B4/B5/E1/E2/F3/G5 all show it).
+- No adoption: C4's pooled +0.0002 over 10 seeds does not clear the overturn bar. Champion iter43 (396b8f0) stands at pooled-30 0.9931. Tree restored to champion.
