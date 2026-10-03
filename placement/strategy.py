@@ -301,8 +301,10 @@ def _comp(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
     return near[:k]
 
 
-def _medstrata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
-    """Mass-quota bins; within-bin picks nearest the bin median."""
+def _medstrata(
+    bot: Rating, ratings: list[Rating], k: int, far: bool = False
+) -> list[int]:
+    """Mass-quota bins; within-bin picks nearest the bin median (or farthest)."""
     pool = _established(ratings, k, 0)
     s = max(bot.sigma, 0.5)
     bins: list[list[int]] = [[], [], []]
@@ -328,6 +330,7 @@ def _medstrata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
         near = sorted(
             [c for c in b if c not in used],
             key=lambda c: (abs(ratings[c].mu - med), ratings[c].sigma, c),
+            reverse=far,
         )
         for c in near[: max(q, 0)]:
             used.add(c)
@@ -597,11 +600,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 129 (camp F4): bin-median within-bin picks.
+    # Iter 130 (camp F5): farthest-in-bin mirror kill.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
-        return _medstrata(bot, ratings, n)
+        return _medstrata(bot, ratings, n, far=True)
     return _info_duel(bot, ratings, 0, 40, 0)
