@@ -503,3 +503,9 @@
 - Score: corr 0.9913 (-0.0019).
 - Verdict: DISCARD. Witness noise, no compounding gain; early-soft-witness axis closed per G2 rule (no dose escalation). Uncertain rulers hurt everywhere they fire.
 - Misses: 39.
+
+## Iter 83: strata-gated tail (blacksmith F3)
+- Duel rotation peer/below/above with info-argmax inside each gate + champion rest.
+- Score: corr 0.9932 (+0.0001, tie).
+- Verdict: DISCARD (tie keeps incumbent). Per-duel greed already balances sides; the gate adds code for no insurance. Flat info stands.
+- Misses: 40.
