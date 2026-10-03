@@ -839,3 +839,8 @@
 ## Iter 148 (camp J3): heavy-middle shaped opener retest
 - Score: corr 0.9931 (-0.0000, tie; mixed signs).
 - Verdict: retest CONFIRMS uniform mass stands. Next: tertile-pool deciles (J4).
+
+## Iter 149 (camp J4): tertile-pool decile opener
+- Decile sites from low-sigma-tertile mus, snapped to full pool.
+- Score: corr 0.9922 (-0.0010; seed 3 -0.0036).
+- Verdict: DISCARD. Asymmetric lesson: the refine wants calibrated rulers but the opener must read FULL-pool mass; calibrated-pool sites distort badly on some seeds. Next: senior-window deciles, the mirror (J5).
