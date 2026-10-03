@@ -129,12 +129,12 @@ def _strata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
     return out[:k]
 
 
-def _dec400(ratings: list[Rating], k: int) -> list[int]:
-    """Decile sites from last-400 mus, snapped to full pool."""
+def _heavy(ratings: list[Rating], k: int) -> list[int]:
+    """Shaped sites [12..88] of pool mu, full-pool snap."""
     n = len(ratings)
-    win = sorted(r.mu for r in ratings[max(0, n - 400) :])
-    m = len(win)
-    sites = [win[min(int(m * (j + 1) / (k + 1)), m - 1)] for j in range(k)]
+    pool = sorted(r.mu for r in ratings)
+    pct = (0.12, 0.22, 0.32, 0.41, 0.50, 0.59, 0.68, 0.78, 0.88)[:k]
+    sites = [pool[min(int(n * f), n - 1)] for f in pct]
     picked: list[int] = []
     used: set[int] = set()
     for t in sites:
@@ -372,10 +372,10 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 68 (corr): recent-400 decile opener.
+    # Bold 19 (corr): heavy-middle quantile opener.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
-        return _dec400(ratings, n)
+        return _heavy(ratings, n)
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
         return _strata(bot, ratings, n)
