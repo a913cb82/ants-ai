@@ -35,7 +35,7 @@ def _spread(
 ) -> list[int]:
     """k distinct established opponents nearest quantiles of N(mu, w*sigma)."""
     dist = NormalDist(bot.mu, max(width * bot.sigma, 0.5))
-    targets = [dist.inv_cdf((j + 0.5) / k) for j in range(k)]
+    targets = [dist.inv_cdf((j + 1) / (k + 1)) for j in range(k)]
     pool = _established(ratings, k)
     picked: list[int] = []
     used: set[int] = set()
@@ -59,7 +59,7 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Exp (iter 28, MSE): wide-grid quantiles under bulk-only champion.
+    # Champion (iter 22, MSE): bulk-only, first 10p at 3.0.
     if budget_left > 20:
         return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 3.0)
     return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.0)

@@ -55,7 +55,7 @@ A refinement is a new row. Leave old rows as they were.
 | open | Successive-halving duel tournament with FFA confirmation (bayes). |
 | open | Deterministic UCB rotation: score -dist + 0.5 sigma, cycle top 6 (bayes). |
 | open | D-optimal 4-duel screen at mu +- {0.5, 1.5} sigma, then bulks (bayes). |
-| trying | Wide-grid quantiles: fixed CDF grid 0.05..0.95 at 2.0 sigma (bayes). |
+| dropped | Wide-grid quantiles: fixed CDF grid 0.05..0.95 at 2.0 sigma (bayes). |
 | dropped | Push-fold routing: wide twin-10p for high-sigma, duels-only for settled (poker). |
 | dropped | Bounty sniper: 1 max-sigma duel then 28-slot champion core (poker). |
 | open | Refine at 1.0 under twin-wide: 2.0 then 1.0 widths (poker). |

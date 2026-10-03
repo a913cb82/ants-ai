@@ -258,3 +258,12 @@ One entry per iteration:
 - what changed: second 10p targets shifted 1 sigma stronger than mu.
 - what you learned: cost about 16.19 with every seed regressing; shifted fields bias estimates upward and symmetric coverage is load-bearing.
 - next: gradient fields (weak heat, peer semi, shark final).
+
+## 28 — wide-grid quantiles 0.05 0.95 (2026-10-03)
+- commit: 0181492
+- score: mean 242.8302 over seeds 0-4 (209.1506, 334.4954, 290.6181, 126.7537, 253.1332)
+- champion mean: 235.2613 (04eeed2)
+- verdict: discard
+- what changed: spread targets moved from (j+1)/(k+1) to a wider (j+0.5)/k CDF grid.
+- what you learned: cost about 7.57 with violent seed splits (seed 3 down 34 to 126.75, seed 1 up 67); wider grids redistribute coverage without adding it and destabilize hard seeds.
+- next: equal-bits ladder 2+4+6+8+10.
