@@ -467,3 +467,9 @@
 - Held: exp 0.9938 vs champion 0.9939 (champion wins 4/5, +0.0002). Pooled-10 exact tie.
 - Verdict: DISCARD (overturn rule: fresh disagrees with selection). Front-loaded upsets add nothing; sequencing/instrument axis closed.
 - Misses: 33.
+
+## Iter 77: terminal bounty duel (shepherd S1)
+- Duel 7 = max-sigma peer-banded last-400 ruler; 6 info duels + champion rest.
+- Score: corr 0.9932 (+0.0000, exact tie).
+- Verdict: DISCARD (tie keeps incumbent). Pool-rent invisible at 1-slot dose; S2/S4 parked per stop rules, S3 (mid-tail repair position) runs next.
+- Misses: 34.
