@@ -205,7 +205,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Overcut 3.0/1.0 under census (retest). |
 | dropped | Wide-second after skeleton census/4.0/1.5 (bold 28). |
 | dropped | DPP repulsion under census (retest). |
-| trying | Mark-recapture under census (retest). |
+| dropped | Mark-recapture under census (retest). |
 | open | Chase-combining repeat-wide 4.0/4.0/1.5 (info; diversity-combine before zoom). |
 | open | Double-tap opener 4.0/4.0/1.25 (adversary; second wide after recentering, full-pool G2 untested at 4.0). |
 | open | Split-middle 10+5+5+10 valley halves (info/poker; mid-schedule re-aim, halves sandwiched not late). |

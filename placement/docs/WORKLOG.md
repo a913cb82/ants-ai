@@ -1558,3 +1558,12 @@ One entry per iteration:
 - what changed: games 2 and 3 excluded rulers within 1.0 mu of already-picked ones.
 - what you learned: cost about 1.27 with three of five improving but seeds 0/1 regressing hard; de-collision still displaces needed thresholds. Note: 200-bot quick matched iter-132 code bit-identically (game-1 rarely binds differently at small pools); full runs diverge properly.
 - next: judge bold 28 after 165; mark-recapture under census (retest).
+
+## 164 — mark-recapture census retest (2026-10-03)
+- commit: 8cd9eed
+- score: mean 235.2649 over seeds 0-4 (205.7786, 282.7948, 386.8603, 111.5144, 189.3766)
+- champion mean: 197.7410 selection, 187.4788 pooled (5faf0b0)
+- verdict: discard
+- what changed: game-3 took 4 nearest recency rulers plus 5 fresh outside beats.
+- what you learned: cost about 37.52 with only seed 3 improving; fresh beats are noisy under census too.
+- next: judge bold 28 after 165; ring closer under census (retest).
