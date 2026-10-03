@@ -533,3 +533,9 @@
 - Score: corr 0.9921 (-0.0011).
 - Verdict: DISCARD. Fewer sites cost more than the extra duel buys; 9-site census stands. Constants-attack program opened.
 - Misses: 44.
+
+## Iter 88: refine window 200
+- Refine pool = low-sigma tertile of last 200 (window param on _established).
+- Score: corr 0.9929 (-0.0003, 3/5 seeds down).
+- Verdict: DISCARD. Narrower recency starves ruler choice; 400 stands so far. Window 800 next.
+- Misses: 45.
