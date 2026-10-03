@@ -59,7 +59,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | First duel versus pool median anchor. |
 | dropped | Pool-service game: wide FFA rates 2 highest-sigma members (bold 3). |
 | dropped | Approach 2 exact: 10p at 1.6s, two 5ps at 1.0s, then duels. |
-| trying | Symmetric narrow pair: 0.5-sigma then 0.5-sigma. |
+| dropped | Symmetric narrow pair: 0.5-sigma then 0.5-sigma. |
 | dropped | Approach 2: zooming bracket 10p/5p/5p/2p x5, spread mu+-k·sigma, low-sigma anchors. |
 | open | Approach 3: 10p/6p/2p x7, quantile spread at 1.0 sigma, large-first coarse-to-fine. |
 | done | Champion order with spread FFA opponents (quantiles of N(mu, sigma), low-sigma ties). |
@@ -93,6 +93,9 @@ Thirteen misses in a row (iters 26-38) force bold line 3
 the wide FFA costs the current bot 2 of 9 thresholds but calibrates
 the pool for all future bots; compounding beats single-bot cost.
 Judge after iteration 41.
+Judged: refuted at iteration 39 (16.50, every seed regressed).
+Noisy members poison thresholds directly; no compounding within
+1000 bots.
 | done | Duels first, then FFA with late budget. |
 | dropped | Size from `budget_left`: big games early, duels late. |
 

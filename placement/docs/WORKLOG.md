@@ -372,3 +372,12 @@ One entry per iteration:
 - what changed: 10p at 1.6 sigma, two 5ps at 1.0 sigma, then closest duels; tertile anchors throughout.
 - what you learned: cost about 5.35 with seed 2 catastrophic at 28.02; all three outside recipes lose on mu error (18.95, 19.76, 20.18) because they optimise final sigma, not mu.
 - next: judge bold 3, then micro-widths or accept the floor.
+
+## 41 — symmetric narrow pair 0.5 0.5 (2026-10-03)
+- commit: 21232ef
+- score: mean 15.3848 over seeds 0-4 (14.5850, 16.6885, 16.9618, 13.5534, 15.1351)
+- champion mean: 14.8370 (067b331)
+- verdict: discard
+- what changed: both late FFAs at N(mu, 0.5 sigma) under tertile anchors.
+- what you learned: cost about 0.55 with seeds 1/2/4 regressing; the wide first bound is load-bearing and asymmetry itself matters. Bold 3 judged refuted (iter 39, 16.50).
+- next: symmetric wide pair 1.0 1.0, or accept the floor near 14.8.
