@@ -123,3 +123,12 @@ One entry per iteration:
 - what changed: mid bracket pair merged into one 4p game with above, below, closest.
 - what you learned: cost about 31.5 with seeds 0/1/2 blowing up; one parallel game cannot replace two sequential bracket duels, and the lost update hurts everywhere.
 - next: judge bold 1 after iter 14 window; meanwhile all-3p schedule.
+
+## 13 — all-3p schedule closest pair (2026-10-03)
+- commit: a55d3fa
+- score: mean 806.4453 over seeds 0-4 (846.4554, 898.4526, 771.6011, 716.9007, 798.8168)
+- champion mean: 302.2418 (07e94d0)
+- verdict: discard
+- what changed: all 30 slots as ten 3p games with the closest pair.
+- what you learned: cost about 504 with every seed catastrophic; sequential updates cannot replace threshold coverage, and unspread fields let tails drift to pool edges.
+- next: judge bold 1 (confirmed by adoption, fragile lead); judge bold 2 (refuted).

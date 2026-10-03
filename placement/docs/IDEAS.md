@@ -25,7 +25,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Quartile anchors retest (cleaner thresholds for hard seeds). |
 | dropped | 3p opening: 2x3p closest-pair instead of 3x2p (same 6 slots). |
 | dropped | 4p mid game: bot plus above, below, closest replaces bracket pair. |
-| trying | All-3p schedule: ten 3p games, positioning and bulk unified. |
+| dropped | All-3p schedule: ten 3p games, positioning and bulk unified. |
 | open | Duel-heavy sandwich: 4d, 10p, 2d, 6p, 2d (30 slots). |
 | open | Twin mid-bulk: 7 duels, 6p, 2 duels, 6p. |
 | open | Bookend brackets: closest, bracket pair, 10p, bracket pair, 10p. |
