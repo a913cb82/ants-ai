@@ -594,3 +594,12 @@ One entry per iteration:
 - what changed: third 10p replaced with a 6p spread plus a 4p above/below/closest closer.
 - what you learned: cost about 68.13 with every seed regressing; small games stay weak as closers and the third 10p is load-bearing.
 - next: uniform small bulks (5x6p) to close the size book.
+
+## 64 — five uniform 6p spreads (2026-10-03)
+- commit: 0a30b60
+- score: mean 344.9974 over seeds 0-4 (330.7500, 404.0225, 445.6413, 239.8667, 304.7066)
+- champion mean: 222.4811 selection, 215.6631 pooled (84b606d)
+- verdict: discard
+- what changed: three 10p bulks replaced with five 6p spreads (4.0 full-pool opener, 2.0 tertile rest).
+- what you learned: cost about 122.52 with every seed regressing; comparisons-per-slot dominate update count and the size book closes monotonic (3p +504, 6p +123, 10p champion).
+- next: judge bold 10; then a mechanism hunt outside schedule-space.
