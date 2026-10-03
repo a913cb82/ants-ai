@@ -231,3 +231,12 @@ One entry per iteration:
 - what changed: second bulk 10p widened from 2.0 to 2.5 sigma.
 - what you learned: cost about 14.05 with every seed regressing; the second bulk wants 2.0, so wide-then-narrower holds across all three bulks.
 - next: third-10p width sweep (1.0 or 1.5 refine under bulk-only).
+
+## 25 — bulk widths 3.0 2.0 1.0 (2026-10-03)
+- commit: c4c3d14
+- score: mean 251.5510 over seeds 0-4 (213.5372, 323.1962, 304.4905, 167.0818, 249.4491)
+- champion mean: 235.2613 (04eeed2)
+- verdict: discard
+- what changed: third bulk 10p narrowed from 2.0 to 1.0 sigma.
+- what you learned: cost about 16.29 with every seed regressing; later bulks want the full 2.0 width, so only the opener zooms wider.
+- next: World Cup pots (cross-pot FFA composition).
