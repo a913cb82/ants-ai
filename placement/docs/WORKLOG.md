@@ -228,3 +228,12 @@ One entry per iteration:
 - what changed: retried 4 early duels plus 1 late duel around two spread 10ps, now under tertile anchors.
 - what you learned: the late duel still cost about 1.28 with seed 2 back at 19.10; late single looks destabilize hard seeds under any anchor rule.
 - next: 6-duel opener, or probe where the remaining error concentrates.
+
+## 25 — wide-then-narrow late FFAs (2026-10-03)
+- commit: 067b331
+- score: mean 14.8370 over seeds 0-4 (13.7425, 16.1204, 16.3392, 13.0445, 14.9386)
+- champion mean: 14.8370 (067b331, new best; prior 15.1426 d792747)
+- verdict: keep (new champion)
+- what changed: first late 10p spreads anchors at N(mu, sigma), second tightens to N(mu, 0.5 sigma).
+- what you learned: bound-then-refine gained about 0.31 with 4 of 5 seeds improving; the second FFA works better as a precision instrument than a second bound.
+- next: width pairs around it (1.5/0.5, 1.0/0.3), or 6-duel opener.
