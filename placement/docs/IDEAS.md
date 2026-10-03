@@ -151,7 +151,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Chase-combining repeat-wide 4.0/4.0/1.5 (bold 19). |
 | dropped | Double-tap opener 4.0/4.0/1.25 (adversary S3). |
 | dropped | F1 Q2-half anchor ladder full/half/tertile (sports). |
-| trying | Stratified 3-3-3 closer (sports pots variant). |
+| dropped | Stratified 3-3-3 closer (sports pots variant). |
 | open | Chase-combining repeat-wide 4.0/4.0/1.5 (info; diversity-combine before zoom). |
 | open | Double-tap opener 4.0/4.0/1.25 (adversary; second wide after recentering, full-pool G2 untested at 4.0). |
 | open | Split-middle 10+5+5+10 valley halves (info/poker; mid-schedule re-aim, halves sandwiched not late). |

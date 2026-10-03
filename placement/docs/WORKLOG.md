@@ -1065,3 +1065,12 @@ One entry per iteration:
 - what changed: second 10p drew from low-sigma half instead of tertile.
 - what you learned: cost about 8.73 with seed 2 annihilated plus 51; half-pool destabilizes hard seeds and tertile stands exact everywhere. Bold 19 judged refuted (iter 108).
 - next: stratified 3-3-3 closer (sports pots variant).
+
+## 111 — stratified 3-3-3 closer (2026-10-03)
+- commit: 094b582
+- score: mean 220.0639 over seeds 0-4 (181.8501, 248.6786, 358.9378, 117.2064, 193.6464)
+- champion mean: 216.0193 selection, 205.7881 pooled (fde75b9)
+- verdict: discard
+- what changed: game-3 forced 3 below plus 3 above current mu, filled to 9 with nearest.
+- what you learned: cost about 4.04 with only seed 2 improving; greedy quantile pulls beat forced pots and balance is not the mechanism.
+- next: game-2 halo mixture 5x1.25 plus 4x2.5 (adversary S2).
