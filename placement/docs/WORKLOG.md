@@ -1511,3 +1511,12 @@ One entry per iteration:
 - what changed: games 2 and 3 matched inner targets to recency tertile and outer targets to the full pool.
 - what you learned: cost about 15.09 with two of five improving and seeds 0/1/2 regressing hard; anchor-mixing still disturbs the center.
 - next: judge bold 27 after 160; tight early-position under census (retest).
+
+## 159 — tight early census retest (2026-10-03)
+- commit: e789050
+- score: mean 207.9749 over seeds 0-4 (203.8317, 235.0106, 316.8599, 113.3624, 170.8101)
+- champion mean: 197.7410 selection, 187.4788 pooled (5faf0b0)
+- verdict: discard
+- what changed: pools under 90 opened 1.5 tertile instead of census.
+- what you learned: cost about 10.23 with three of five improving but seed 0 annihilated plus 55; early census for small pools matters and tight-early poisons the foundation.
+- next: judge bold 27 after 160; undercut rest under census (retest).

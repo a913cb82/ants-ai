@@ -200,7 +200,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Ratio upshift 1.5/2.25 under census (retest). |
 | dropped | Skeleton-second 4.0/census/1.875 (bold 27). |
 | dropped | Per-quantile mixed anchors under census (retest). |
-| trying | Tight early-position under census (retest). |
+| dropped | Tight early-position under census (retest). |
 | open | Chase-combining repeat-wide 4.0/4.0/1.5 (info; diversity-combine before zoom). |
 | open | Double-tap opener 4.0/4.0/1.25 (adversary; second wide after recentering, full-pool G2 untested at 4.0). |
 | open | Split-middle 10+5+5+10 valley halves (info/poker; mid-schedule re-aim, halves sandwiched not late). |
