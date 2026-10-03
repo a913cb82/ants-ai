@@ -46,7 +46,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Bulk widths 3.0/2.0/1.0: narrow the third 10p. |
 | dropped | Equal-bits ladder 2+4+6+8+10, spread 1.0 throughout (info). |
 | open | Zoom widths: 1 duel, 9p at 2.0, 9p at 1.0, 10p at 0.5 (info). |
-| open | Split-budget recenter: 2+3+10 then 5+10 halves (info). |
+| trying | Split-budget recenter: 2+3+10 then 5+10 halves (info). |
 | open | Augusta Cut: 2x6p open, 2x6p anchors-only, 10 closing duels (sports). |
 | dropped | World Cup pots: each FFA draws 3 bottom + 3 mid + 3 top mu (sports). |
 | dropped | Swiss 12 duels no-rematch, then two 10p finals (sports; fixed to 5 walk-out + 2 bulks for slots). |
@@ -111,5 +111,7 @@ unfiltered bulk-only. The tertile filter was priced with duels in
 the schedule; without duels the pool is the only instrument, and
 full-pool spreads may reach tail thresholds anchors cannot. Three
 10ps at 3.0/2.0/2.0 from the whole pool. Judge after iteration 37.
+Judged: refuted at iteration 34 (273.4087, seeds 0/1/2/4 regress);
+calibrated rulers matter with or without duels.
 | done | Interleaved bulk retest (3d, wide 10p, 2d, narrow 10p): lost MAE by 0.009; mid re-positioning may cut tails. |
 | done | Bracket duels retest (closest 1-3, then above/below): deliberate tail insurance. |
