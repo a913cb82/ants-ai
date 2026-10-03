@@ -92,3 +92,9 @@
 - Score: corr 0.8909 (-0.096, seed 2 0.8145).
 - Verdict: DISCARD. Bold 4 judged: refuted catastrophically. The census opener is load-bearing under corr too; a personal spread cannot bind from the prior. Approach-2-as-written closed.
 - Misses: 13.
+
+## Iter 15: twin-narrow 1.25/1.25 parallel forms
+- Census + 1.25 even-tertile + 1.25 odd-tertile (disjoint).
+- Score: corr 0.9820 (-0.005, seed 3 -0.0148).
+- Verdict: DISCARD. The 1.875 closer's reach is not MSE overhead; tails need binding for rank order too. Valley dip stands.
+- Misses: 14.
