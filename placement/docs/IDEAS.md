@@ -57,7 +57,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Deterministic UCB rotation: score -dist + 0.5 sigma, cycle top 6 (bayes). |
 | dropped | Unfiltered bulk-only: full-pool spreads, no tertile (bold 5). |
 | dropped | Augusta Cut fixed: four 6p spreads then 3 closing duels. |
-| open | D-optimal 4-duel screen at mu +- {0.5, 1.5} sigma, then bulks (bayes). |
+| trying | D-optimal 4-duel screen at mu +- {0.5, 1.5} sigma, then bulks (bayes). |
 | dropped | Wide-grid quantiles: fixed CDF grid 0.05..0.95 at 2.0 sigma (bayes). |
 | dropped | Push-fold routing: wide twin-10p for high-sigma, duels-only for settled (poker). |
 | dropped | Bounty sniper: 1 max-sigma duel then 28-slot champion core (poker). |

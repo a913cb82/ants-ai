@@ -59,7 +59,16 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Champion (iter 22, MSE): bulk-only, first 10p at 3.0.
-    if budget_left > 20:
+    # Exp (iter 36, MSE): D-optimal 4-duel screen, 3.0/2.0, closer.
+    if budget_left > 22:
+        s = max(bot.sigma, 1.0)
+        pts = [bot.mu - 1.5 * s, bot.mu - 0.5 * s, bot.mu + 0.5 * s]
+        pts.append(bot.mu + 1.5 * s)
+        t = pts[min((30 - budget_left) // 2, 3)]
+        pool = _established(ratings, 1)
+        return [min(pool, key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c))]
+    if budget_left > 12:
         return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 3.0)
-    return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.0)
+    if budget_left > 2:
+        return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.0)
+    return [_closest(bot, ratings)]
