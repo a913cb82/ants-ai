@@ -81,11 +81,9 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Exp (iter 141, MSE): triage rapids 2+2+2+10+10+4.
-    if budget_left > 24:
-        return [_closest(bot, ratings)]
-    if budget_left > 14:
+    # Champion (iter 133, MSE): census opener, recent-tertile 1.25/1.875.
+    if budget_left > 20:
         return _census(ratings, min(9, budget_left - 1, len(ratings)))
-    if budget_left > 4:
+    if budget_left > 10:
         return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.25)
-    return _spread(bot, ratings, min(3, budget_left - 1, len(ratings)), 1.875)
+    return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 1.875)

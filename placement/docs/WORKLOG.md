@@ -1347,3 +1347,12 @@ One entry per iteration:
 - what changed: closer split into 7-pull 1.875 plus a final closest duel.
 - what you learned: cost about 7.64 with only seed 4 improving; the duel book closes again and 9-pull closer density is load-bearing. Bold 23 judged refuted (iter 137).
 - next: triage rapids 2+2+2+10+10+4 (expected kill).
+
+## 141 — triage rapids 2 2 2 10 10 4 (2026-10-03)
+- commit: 47d3f88
+- score: mean 297.7350 over seeds 0-4 (288.6015, 347.0571, 353.5471, 218.9023, 280.5669)
+- champion mean: 197.7410 selection, 187.4788 pooled (5faf0b0)
+- verdict: discard
+- what changed: three opening duels, then census 10p, 1.25 10p, 1.875 4-pull closer.
+- what you learned: cost about 100 with every seed crushed; prior-conditioning duels poison everything and bulks need the full budget.
+- next: misses force bold 24; census-site spacing (center-dense vs edge-dense).
