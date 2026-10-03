@@ -1742,3 +1742,15 @@ Use this format.
 - what changed: Battling as Flood in Flood.bot + Flood.py; all hill-hunters march on one target, the remembered hill nearest the army as a whole, instead of each ant's own nearest hill.
 - what you learned: Floods went 3-4 in duels (beating Backstop twice and Alarum, losing twice to Relief, Alarum, and Backstop) but won both FFAs outright; a united hunt concentrates enough force to raze hills in crowded fields, so mu reached 52.52 against 21.93.
 - next: Food denial — hold a contested food field.
+
+## 143 — sow gather-only opening (2026-10-04)
+- commit: 43a2a9f
+- start: c96f1c9 (champion)
+- budget: 7 duels, 10p + 6p
+- score: mu 31.00, sigma 3.77
+- champion mu: 52.52 (Flood)
+- verdict: keep Flood
+- games: 4-3, FFA ranks 10p:7 6p:2
+- what changed: Battling as Sow in Sow.bot + Sow.py; no hill-hunting before turn 30, so the whole army gathers first, then Flood's united hunt takes over. Combat and hill tactics untouched.
+- what you learned: Sows went 4-3 in duels (3-0 vs Alarum plus Guerrilla, 0-3 vs Relief) but ranked only 7th in the 10p census; the gather opening banks early ants yet arrives late to crowded hill races, and Relief still out-grows it, so mu reached 31.00 against 52.52.
+- next: Food denial — hold a contested food field.

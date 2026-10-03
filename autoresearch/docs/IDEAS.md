@@ -174,3 +174,4 @@ row. Leave the old row as it was.
 | dropped | Homeward: explore to hills. |
 | trying | Relief: fearless reinforce. |
 | trying | Farmstead: feet plus fallback. |
+| done | Sow: gather-only opening, hunt after turn 30. |
