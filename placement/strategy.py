@@ -81,6 +81,7 @@ def _spread(
     halo: bool = False,
     kick: bool = False,
     recenter: bool = False,
+    antipodal: bool = False,
 ) -> list[int]:
     """k distinct opponents nearest quantiles of N(mu, w*sigma)."""
     center = bot.mu
@@ -102,13 +103,27 @@ def _spread(
     else:
         targets = [dist.inv_cdf((j + 1) / (k + 1)) for j in range(k)]
     pool = _established(ratings, k) if anchors else list(range(len(ratings)))
+    ref: list[float] = []
+    if antipodal:
+        ref = [ratings[i].mu for i in _spread(bot, ratings, k, 1.25)]
     picked: list[int] = []
     used: set[int] = set()
     for t in targets:
-        i = min(
-            (c for c in pool if c not in used),
-            key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c),
-        )
+        if antipodal and ref:
+            i = min(
+                (c for c in pool if c not in used),
+                key=lambda c: (
+                    -min(abs(ratings[c].mu - m) for m in ref),
+                    abs(ratings[c].mu - t),
+                    ratings[c].sigma,
+                    c,
+                ),
+            )
+        else:
+            i = min(
+                (c for c in pool if c not in used),
+                key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c),
+            )
         used.add(i)
         picked.append(i)
     return picked
@@ -131,4 +146,4 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
         n = min(9, budget_left - 1, len(ratings))
         return _spread(bot, ratings, n, 1.25)
     n = min(9, budget_left - 1, len(ratings))
-    return _spread(bot, ratings, n, 1.875, True, False, False, True)
+    return _spread(bot, ratings, n, 1.875, True, False, False, False, True)
