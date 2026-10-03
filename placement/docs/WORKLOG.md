@@ -165,3 +165,12 @@ One entry per iteration:
 - what changed: kept 5 positioning duels but played four spread 5p games late instead of two spread 10ps.
 - what you learned: 4-look updates cost about 4.56 mean error versus 9-look ones despite double the updates; late bulk size dominates update count.
 - next: other mid sizes (4p, 6p, 8p) or 10p plus 2x5p late mixes.
+
+## 18 — late mix 10p then two 5ps (2026-10-03)
+- commit: 68d0be9
+- score: mean 16.0973 over seeds 0-4 (15.2965, 17.1124, 19.3189, 13.7855, 14.9730)
+- champion mean: 15.8333 (2d70af7)
+- verdict: discard
+- what changed: kept 5 duels and the first 10p, but split the second 10p into two spread 5ps.
+- what you learned: splitting only the second 10p cost about 0.26 mean error; every 10p split tried so far hurts, so full-size late bulk is the stable optimum.
+- next: 6p/8p spot checks, or sigma-triggered duel-to-FFA switch.
