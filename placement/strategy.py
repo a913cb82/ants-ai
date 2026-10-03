@@ -16,6 +16,10 @@ def _established(ratings: list[Rating], k: int) -> list[int]:
     recent = ratings[start:]
     cutoff = sorted(r.sigma for r in recent)[len(recent) // 3]
     pool = [c for c in range(start, len(ratings)) if ratings[c].sigma <= cutoff]
+    if len(ratings) > 460:
+        senior = [c for c in pool if c < len(ratings) - 50]
+        if len(senior) >= k:
+            return senior
     if len(pool) < k:
         pool = list(range(len(ratings)))
     return pool
@@ -81,7 +85,7 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Champion (iter 133, MSE): census opener, recent-tertile 1.25/1.875.
+    # Exp (iter 148, MSE): senior-tertile under census.
     if budget_left > 20:
         return _census(ratings, min(9, budget_left - 1, len(ratings)))
     if budget_left > 10:
