@@ -339,3 +339,12 @@ One entry per iteration:
 - what changed: 4 opening duels at fixed mu +- {0.5, 1.5} sigma points, then 3.0/2.0 10ps plus a closer.
 - what you learned: cost about 91.59 with seed 2 at 505; fixed design points from an unpositioned prior misfire and duels cost bulk.
 - next: split-budget recenter (2+3+10 halves, then 5+10).
+
+## 37 — split-budget recenter halves (2026-10-03)
+- commit: a2f0846
+- score: mean 335.4714 over seeds 0-4 (374.7197, 330.0085, 441.3099, 269.9206, 261.3985)
+- champion mean: 235.2613 (04eeed2)
+- verdict: discard
+- what changed: confirm half (duel, 3p cluster, wide 10p) then exploit half (5p, narrow 10p).
+- what you learned: cost about 100.21 with every seed regressing; small sizes cannot recenter what they cannot bound, and narrow late widths collapse under MSE.
+- next: candidates double round-robin (rematch-heavy positioning).

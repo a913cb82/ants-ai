@@ -46,7 +46,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Bulk widths 3.0/2.0/1.0: narrow the third 10p. |
 | dropped | Equal-bits ladder 2+4+6+8+10, spread 1.0 throughout (info). |
 | open | Zoom widths: 1 duel, 9p at 2.0, 9p at 1.0, 10p at 0.5 (info). |
-| trying | Split-budget recenter: 2+3+10 then 5+10 halves (info). |
+| dropped | Split-budget recenter: 2+3+10 then 5+10 halves (info). |
 | open | Augusta Cut: 2x6p open, 2x6p anchors-only, 10 closing duels (sports). |
 | dropped | World Cup pots: each FFA draws 3 bottom + 3 mid + 3 top mu (sports). |
 | dropped | Swiss 12 duels no-rematch, then two 10p finals (sports; fixed to 5 walk-out + 2 bulks for slots). |
