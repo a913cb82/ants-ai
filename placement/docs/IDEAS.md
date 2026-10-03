@@ -241,6 +241,37 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Valley-repriced closing duel 10+10+8+2 (auctioneer; expected kill, closes duel book). [tested iter 140; duels dead]. |
 | dropped | Triage rapids 2+2+2+10+10+4 (epi; expected kill, prior-conditioning duels). [tested iter 141; duels dead]. |
 | dropped | NYSE close 2.25 tertile (auctioneer; wide re-open after narrow game-2). [tested iter 139]. |
+| open | Equal-area census: opener sites at pool mu deciles 10..90 (carto S1; mass not range). |
+| open | Sinh-warped census k=1.5 tail resolution, center kept (carto S2; smooth Mercator). |
+| open | Bell-projection census N(pool median, pool sigma) deciles clipped to range (carto S3). |
+| open | Re-projected game-2 grid: sinh warp around POST-game-1 posterior, same width/anchors (carto S4). |
+| open | Scheduled re-widen closer 2.0 under census, index-only (control S1; next curve point). |
+| open | Integral residual closer: center += 0.5*(mu - census centroid), fixed formula (control S2). |
+| open | Anti-windup clipped undercut 0.75/2.75, targets clipped to pool range (control S3; repair 160). |
+| open | Damped undercut 1.0/2.375 rest under census (archivist2 S1; repair 160 amplitude). |
+| open | Halo-lite closer 7x1.625 + 2x2.5 under census (archivist2 S2; repair 153/166). |
+| open | Senior-25 quarantine dose-response under census (archivist2 S3; 148 tied at 50). |
+| open | Mu-gated closer under census, exact iter-119 gate (archivist2 S4; closes routing family). |
+| open | Split closer 10+10+5+5 under census, narrow half first (archivist2 S5; last size cell). |
+| open | Antipodal closer: max-min-distance from G2 picks at 1.875 (seismo S1; true crossing). |
+| open | Mirror-cross closer: opposite-side conjugates of G2 offsets (seismo S2; crossing fan). |
+| open | Moveout recapture: 3 nearest-G2 rulers + 6 fresh at 1.875 (seismo S3; spread majority kept). |
+| open | Receiver-centered closer on median(G2 pick mus) at 1.875 (seismo S4; novel center axis). |
+| open | Round-robin whistle: G2 even-indexed tertile, G3 odd-indexed tertile (referee S1). |
+| open | Mercy-rule clipping: spread targets clipped to anchor range, unconditional (referee S2). |
+| open | Home/away split: alternate settled / last-50 rulers down target list (referee S3). |
+| open | Derby-day closer: 3 pool-range pins + 6 inner at 1.875 (referee S4; bookend with focus). |
+| open | Cohort-cartel breaker: 3+3+3 arrival-vintage stratified closer at 1.875 (librarian S4). |
+| open | Survey closer: 9 lowest-sigma last-400 rulers, bot-independent (librarian S3 proxy). |
+| open | Known-good calibration game-2: 9 lowest-sigma last-400, then 1.875 closer (crypto S2). |
+| open | Same-grid independent shares: 1.25/1.25 with disjoint G2/G3 ruler sets (crypto S1). |
+| open | Checksum closer: 8 at 1.875 + 1 disjoint median-target re-ask (crypto S4). |
+| open | Risk-parity 8+10+10+2: 7-site skeleton funds closing duel (economist E1). |
+| open | Mid-duel barbell 10+2+10+8: closest duel after skeleton, 8p closer (economist E2). |
+| open | Fractional-Kelly sizing: G2 10 vs 7 on post-census sigma>=5.0, 3p kicker funds (economist E3; stillborn check). |
+| open | Insurance premium: 1 exact nearest recapture + 8 fresh at 1.875 (economist E4; stillborn check). |
+| open | Index-dithered closer: even quantiles 1.75, odd 2.0 (control S4; fine-grain average). |
+| parked | Game-count anchor axes (librarian S1/S2 authority, crypto S3 usage): Rating is mu/sigma-only, evaluate.py frozen; proxies listed as open rows. |
 
 ## Bold lines
 
