@@ -47,7 +47,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Full-pool opener at 3.75: gradient point between winners. |
 | dropped | Front-loaded mop-up 10+10+6p+4p closer (bold 10). |
 | dropped | Five uniform 6p spreads: close the size book. |
-| trying | Game-2 at 1.5: complete the game-2 width ladder. |
+| done | Game-2 at 1.5: complete the game-2 width ladder. |
 | dropped | Quartile anchors retest (cleaner thresholds for hard seeds). |
 | dropped | 3p opening: 2x3p closest-pair instead of 3x2p (same 6 slots). |
 | dropped | 4p mid game: bot plus above, below, closest replaces bracket pair. |

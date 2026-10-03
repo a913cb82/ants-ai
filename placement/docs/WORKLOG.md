@@ -603,3 +603,14 @@ One entry per iteration:
 - what changed: three 10p bulks replaced with five 6p spreads (4.0 full-pool opener, 2.0 tertile rest).
 - what you learned: cost about 122.52 with every seed regressing; comparisons-per-slot dominate update count and the size book closes monotonic (3p +504, 6p +123, 10p champion).
 - next: judge bold 10; then a mechanism hunt outside schedule-space.
+
+## 65 — game-2 at 1.5 with confirmation (2026-10-03)
+- commit: 43b260f
+- score: selection mean 221.8680 over seeds 0-4 (182.8709, 262.3690, 360.7857, 113.4359, 189.8785)
+- prior champion selection mean: 222.4811 (84b606d)
+- confirmation: 202.0228 over seeds 5-9 (151.9866, 238.7065, 237.5904, 217.0294, 164.8009), all five improve
+- pooled: 211.9454 vs 215.6631
+- verdict: keep
+- what changed: second bulk 10p narrowed from 2.0 to 1.5 sigma.
+- what you learned: game-2 optimum is interior at 1.5 (ladder 1.5 < 2.0 < 2.25 < 2.5); the confirmation rule converts a 0.61 margin into a 3.7 pooled win. Bold 10 judged refuted (iter 63).
+- next: game-3 width re-sweep under the 1.5-second shape.
