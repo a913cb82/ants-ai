@@ -933,3 +933,12 @@ One entry per iteration:
 - what changed: opener targets replaced with 8 edge quantiles plus one center pin.
 - what you learned: cost about 55.41 with every seed regressing; middle thresholds load-bearing under every rest shape, division of labor refuted twice.
 - next: judge bold 17; then dense-edge opener (keep middle, add reach).
+
+## 97 — edge-heavy opener grid (2026-10-03)
+- commit: d9a0ada
+- score: mean 239.5498 over seeds 0-4 (212.1871, 269.8966, 363.0465, 142.7078, 209.9110)
+- champion mean: 216.0193 selection, 205.7881 pooled (fde75b9)
+- verdict: discard
+- what changed: opener targets redistributed to dense edges plus sparse middle.
+- what you learned: cost about 23.53 with only seed 2 improving; uniform grid stands and edge-redistribution loses. Bold 17 judged refuted (iter 96).
+- next: hunt outside priced space; grids join the priced list.
