@@ -769,3 +769,7 @@
 - 10p census + 7-ruler strata + 6 info duels.
 - Score: corr 0.9929 (-0.0003; seeds 3/4 regress).
 - Verdict: DISCARD-leaning. Heavy refine cannot pay for the 7th duel; tail wall holds. Next: two 4p strata + 6 duels (G4).
+
+## Iter 134 (camp G4): two 4p strata + 6 duels
+- Score: corr 0.9928 (-0.0004).
+- Verdict: DISCARD. Light refines cannot pay for the 7th duel either. Next: differentiated second look, narrow-peer 4p (G5).
