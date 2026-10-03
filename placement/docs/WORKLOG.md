@@ -731,3 +731,8 @@
 ## Iter 125 (camp E5): peer-double gate rotation
 - Score: corr 0.9931 (-0.0001, tie).
 - Verdict: TRACK E CLOSED. Five legs: +0.0001/+0.0002/+0.0000/+0.0001/-0.0001. Every gate, sweep, parity, and breadth variant ties; per-duel greed already balances sides. Tail scheduling stays flat-info.
+
+## Iter 126 (camp F1): info-inside-strata refine retest
+- Mass-quota bins, within-bin sequential info-argmax.
+- Score: corr 0.9931 (-0.0001, tie).
+- Verdict: retest CONFIRMS the tie. Next: grid-inside-strata at width 1.5 (F2).
