@@ -330,3 +330,12 @@ One entry per iteration:
 - what changed: four 6p spreads at 2.0 followed by 3 closing closest duels.
 - what you learned: cost about 174.67 with every seed catastrophic; 6p fragments cannot bound tails and closing duels cannot rescue unpositioned mus.
 - next: D-optimal 4-duel screen at +- {0.5, 1.5} sigma.
+
+## 36 — D-optimal 4-duel screen (2026-10-03)
+- commit: 2c6d7c2
+- score: mean 326.8473 over seeds 0-4 (322.8224, 300.9601, 505.1301, 250.5289, 254.7951)
+- champion mean: 235.2613 (04eeed2)
+- verdict: discard
+- what changed: 4 opening duels at fixed mu +- {0.5, 1.5} sigma points, then 3.0/2.0 10ps plus a closer.
+- what you learned: cost about 91.59 with seed 2 at 505; fixed design points from an unpositioned prior misfire and duels cost bulk.
+- next: split-budget recenter (2+3+10 halves, then 5+10).
