@@ -97,27 +97,36 @@ def _census(ratings: list[Rating], k: int, mode: str = "range") -> list[int]:
     return picked
 
 
-def _dither(bot: Rating, ratings: list[Rating], k: int, width: float) -> list[int]:
-    """1.0-quantile targets with +-0.15 sigma deterministic jitter."""
-    sig = max(width * bot.sigma, 0.5)
-    dist = NormalDist(bot.mu, sig)
-    seed = int(bot.mu * 1000)
-    tg = [dist.inv_cdf((j + 1) / (k + 1)) for j in range(k)]
+def _strata(bot: Rating, ratings: list[Rating], k: int) -> list[int]:
+    """k rulers across below/peer/above bins, quota by bin mass."""
     pool = _established(ratings, k, 0)
-    picked: list[int] = []
-    used: set[int] = set()
-    for j, t in enumerate(tg):
-        u = ((seed * 31 + j * 101) % 2000 - 1000) / 1000
-        t = t + 0.15 * u * sig
-        cands = [c for c in pool if c not in used] or [
-            c for c in range(len(ratings)) if c not in used
-        ]
-        if not cands:
-            break
-        i = min(cands, key=lambda c: (abs(ratings[c].mu - t), ratings[c].sigma, c))
-        used.add(i)
-        picked.append(i)
-    return picked
+    s = max(bot.sigma, 0.5)
+    bins: list[list[int]] = [[], [], []]
+    for c in pool:
+        d = ratings[c].mu - bot.mu
+        bins[0 if d < -s else (2 if d > s else 1)].append(c)
+    masses = [len(b) for b in bins]
+    total = sum(masses) or 1
+    quota = [max(1 if m else 0, round(k * m / total)) for m in masses]
+    while sum(quota) > k:
+        j = max(range(3), key=lambda j: quota[j] - k * masses[j] / total)
+        quota[j] -= 1
+    while sum(quota) < k:
+        j = max(range(3), key=lambda j: k * masses[j] / total - quota[j])
+        quota[j] += 1
+    out: list[int] = []
+    for b, q in zip(bins, quota, strict=True):
+        near = sorted(
+            b, key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c)
+        )
+        out += near[: max(q, 0)]
+    if len(out) < k:
+        rest = sorted(
+            (c for c in pool if c not in set(out)),
+            key=lambda c: (abs(ratings[c].mu - bot.mu), ratings[c].sigma, c),
+        )
+        out += rest[: k - len(out)]
+    return out[:k]
 
 
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
@@ -345,11 +354,11 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 42 (corr): micro-dithered refine.
+    # Iter 43 (corr): proportional-strata refine.
     if budget_left > 20:
         n = min(9, budget_left - 1, len(ratings))
         return _census(ratings, n, mode="quantile")
     if budget_left > 14:
         n = min(5, budget_left - 1, len(ratings))
-        return _dither(bot, ratings, n, 1.0)
+        return _strata(bot, ratings, n)
     return _info_duel(bot, ratings)
