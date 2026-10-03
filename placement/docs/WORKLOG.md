@@ -111,3 +111,12 @@ One entry per iteration:
 - what changed: widened FFA opponent spread from quantiles of N(mu, sigma) to N(mu, 1.5 sigma).
 - what you learned: wider spread fixed seed 2 (17.52 vs 18.72) but cost seeds 0-1, net about 0.10 worse; 1.0 sigma is the balanced width.
 - next: champion duel count 7 (boundary 16) with 10p plus 6p late.
+
+## 12 — champion duel count 7 with 10p plus 6p late (2026-10-03)
+- commit: 1cab46b
+- score: mean 18.5864 over seeds 0-4 (21.8836, 18.0122, 20.4557, 16.1167, 16.4637)
+- champion mean: 16.0723 (f2a2568)
+- verdict: discard
+- what changed: 7 positioning duels (boundary 16), leaving 10p plus 6p late instead of two 10ps.
+- what you learned: shrinking late bulk cost about 2.51 mean error; two full 10ps beat extra duels plus a 6p, so late bulk size is critical.
+- next: low-sigma-preferring duel opponents, or FFA opponent sets anchored on low-sigma pool only.

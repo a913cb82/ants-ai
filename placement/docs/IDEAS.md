@@ -22,7 +22,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Sandwich: duels, one spread FFA-10, precision duels last. |
 | dropped | Champion spread width 0.5 sigma (tighter late thresholds). |
 | dropped | Champion spread width 1.5 sigma (wider late thresholds). |
-| trying | Champion duel count 7 (boundary 16) with 10p plus 6p late. |
+| dropped | Champion duel count 7 (boundary 16) with 10p plus 6p late. |
 | dropped | Champion split: 3 duels then FFA bulk (boundary 24). |
 | done | Full-budget FFA-10 versus closest mus (bold: 3 updates per bot). |
 
