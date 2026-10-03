@@ -467,6 +467,6 @@ One entry per iteration:
 - score: mean 226.4948 over seeds 0-4 (197.2486, 271.6056, 356.5259, 119.4636, 187.6302)
 - champion mean: 222.4811 (0d52b79)
 - verdict: discard
-- what changed:anchor cutoff from low-sigma tertile to quartile.
+- what changed: anchor cutoff from low-sigma tertile to quartile.
 - what you learned: cost about 4.01 with seeds 0/2 regressing; tertile optimum holds under the 4.0-opener shape.
 - next: second-10p width re-sweep under 4.0 opener.
