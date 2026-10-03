@@ -59,7 +59,7 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Exp (iter 21, MSE): bulk-only, first 10p at 2.5.
+    # Exp (iter 22, MSE): bulk-only, first 10p at 3.0.
     if budget_left > 20:
-        return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.5)
+        return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 3.0)
     return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.0)
