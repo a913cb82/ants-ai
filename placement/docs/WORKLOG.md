@@ -1356,3 +1356,12 @@ One entry per iteration:
 - what changed: three opening duels, then census 10p, 1.25 10p, 1.875 4-pull closer.
 - what you learned: cost about 100 with every seed crushed; prior-conditioning duels poison everything and bulks need the full budget.
 - next: misses force bold 24; census-site spacing (center-dense vs edge-dense).
+
+## 142 — recency-without-census bold 24 (2026-10-03)
+- commit: bb20798
+- score: mean 213.7231 over seeds 0-4 (174.3347, 242.0297, 355.3109, 109.3530, 187.5870)
+- champion mean: 197.7410 selection, 187.4788 pooled (5faf0b0)
+- verdict: discard
+- what changed: old 4.0 full-pool opener with recent-tertile rest.
+- what you learned: cost about 15.98 with only seed 3 improving; recency alone gains ~2.3 over iter-85 while census plus recency gains ~18.3. Census carries the gain and recency sweetens it.
+- next: judge bold 24 after 145; census-site spacing center-dense vs edge-dense.
