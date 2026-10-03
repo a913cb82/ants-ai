@@ -159,6 +159,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | HARQ sigma-gated closer 2.5/1.5 (bold 20). |
 | dropped | Tight early-position pool-gated opener (poker P2). |
 | dropped | Closest-cluster ring closer (poker/epi). |
+| trying | Mu-gated closer 2.5/1.5 on |mu-25|>25 (poker P4). |
 | open | Chase-combining repeat-wide 4.0/4.0/1.5 (info; diversity-combine before zoom). |
 | open | Double-tap opener 4.0/4.0/1.25 (adversary; second wide after recentering, full-pool G2 untested at 4.0). |
 | open | Split-middle 10+5+5+10 valley halves (info/poker; mid-schedule re-aim, halves sandwiched not late). |
@@ -332,6 +333,8 @@ sigma after game-2 exceeds 4.0 (NACK), else 1.5; wide redundancy only
 where uncertainty remains. Predicts the gate spends wide on the
 right bots, or sigma carries no routable signal. Judge after
 iteration 119.
+Judged: refuted at iteration 116 (219.2764, only seed 2 improved);
+the gate misfires.
 
 Three misses in a row (iters 89-91) force bold line 16 (2026-10-03):
 flat wide rest. Both rest games at 1.875: the rest may do one job
