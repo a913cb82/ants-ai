@@ -220,3 +220,9 @@
 - Score: corr 0.9901 (-0.0029).
 - Verdict: DISCARD. Deciles stand; smooth tail resolution buys nothing over mass spacing.
 - Misses: 1.
+
+## Iter 36: comp-pick refine under quantile regime
+- Quantile opener + 5 nearest tertile rulers + info tail.
+- Score: corr 0.9931 (+0.0001, exact tie).
+- Verdict: DISCARD (tie keeps incumbent). Grid vs comp equivalence holds under quantile regime too.
+- Misses: 2.
