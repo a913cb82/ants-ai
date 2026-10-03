@@ -293,11 +293,14 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Iter 13 (corr): bad-cop/good-cop anchors at flat 1.5.
+    # Bold 4 (corr): Approach-2 zooming bracket 10/5/5 + 5 duels.
     if budget_left > 20:
-        return _census(ratings, min(9, budget_left - 1, len(ratings)))
-    if budget_left > 10:
         n = min(9, budget_left - 1, len(ratings))
-        return _spread(bot, ratings, n, 1.5, anchors=False)
-    n = min(9, budget_left - 1, len(ratings))
-    return _spread(bot, ratings, n, 1.5)
+        return _spread(bot, ratings, n, 1.6)
+    if budget_left > 15:
+        n = min(4, budget_left - 1, len(ratings))
+        return _spread(bot, ratings, n, 1.0)
+    if budget_left > 10:
+        n = min(4, budget_left - 1, len(ratings))
+        return _spread(bot, ratings, n, 1.0)
+    return [_closest(bot, ratings)]
