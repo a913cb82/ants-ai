@@ -45,6 +45,7 @@ A refinement is a new row. Leave old rows as they were.
 | dropped | Game-2 quartile anchors: per-game strictness. |
 | dropped | Sizes 9p+9p+10p+duel: 9-player games with closing duel. |
 | dropped | Full-pool opener at 3.75: gradient point between winners. |
+| trying | Front-loaded mop-up 10+10+6p+4p closer (bold 10). |
 | dropped | Quartile anchors retest (cleaner thresholds for hard seeds). |
 | dropped | 3p opening: 2x3p closest-pair instead of 3x2p (same 6 slots). |
 | dropped | 4p mid game: bot plus above, below, closest replaces bracket pair. |
@@ -162,6 +163,13 @@ whether the opener needs 9 thresholds or 4 suffice; opener 5p at
 precision, or 4 looks cannot bound. Judge after iteration 60.
 Judged: refuted at iteration 58 (256.6085, every seed regressed);
 4 opener looks cannot bound.
+
+Two misses in a row (iters 61-62) force bold line 10 (2026-10-03):
+front-loaded mop-up. Two full bulks position, then 6p and 4p games
+refine cheaply (10+10+6+4). Every size-varying test was small-first
+or uniform; big-first-then-small is untested. Predicts cheap late
+looks add precision, or small games stay weak as closers. Judge
+after iteration 65.
 
 Nineteen misses in a row (iters 23-41) force bold line 7 (2026-10-03):
 tail-skewed two-sided grid. Bold 2 failed binary (one side only);
