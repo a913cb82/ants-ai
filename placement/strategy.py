@@ -19,15 +19,6 @@ def _established(ratings: list[Rating], k: int) -> list[int]:
     return pool
 
 
-def _short_stack(bot: Rating, ratings: list[Rating]) -> bool:
-    """True when the bot is uncertain or far from the anchor median."""
-    pool = _established(ratings, 2)
-    mus = sorted(ratings[c].mu for c in pool)
-    med = mus[len(mus) // 2]
-    spread = max((sum((m - med) ** 2 for m in mus) / len(mus)) ** 0.5, 1.0)
-    return bot.sigma > 7.0 or abs(bot.mu - med) > spread
-
-
 def _closest(bot: Rating, ratings: list[Rating]) -> int:
     """Pool index nearest bot.mu, low sigma then low index on ties."""
     return min(
@@ -41,12 +32,11 @@ def _spread(
     ratings: list[Rating],
     k: int,
     width: float = 1.0,
-    anchors: bool = True,
 ) -> list[int]:
-    """k distinct opponents nearest quantiles of N(mu, w*sigma)."""
+    """k distinct established opponents nearest quantiles of N(mu, w*sigma)."""
     dist = NormalDist(bot.mu, max(width * bot.sigma, 0.5))
     targets = [dist.inv_cdf((j + 1) / (k + 1)) for j in range(k)]
-    pool = _established(ratings, k) if anchors else list(range(len(ratings)))
+    pool = _established(ratings, k)
     picked: list[int] = []
     used: set[int] = set()
     for t in targets:
@@ -69,42 +59,28 @@ def select_next_game(bot: Rating, ratings: list[Rating], budget_left: int) -> li
     """
     if not ratings or budget_left < 2:
         return []
-    # Exp (iter 16, MSE): push-fold routing after 2 opening duels.
-    if budget_left > 26:
+    # Champion (iter 8, MSE): 3d, twin-wide 10ps, bracket pair (bold 1).
+    if budget_left > 24:
         return [_closest(bot, ratings)]
-    if _short_stack(bot, ratings):
-        if budget_left > 6:
-            return _spread(
-                bot,
-                ratings,
-                min(9, budget_left - 1, len(ratings)),
-                2.5,
-                False,
-            )
+    if budget_left > 14:
+        return _spread(
+            bot,
+            ratings,
+            min(9, budget_left - 1, len(ratings)),
+            2.0,
+        )
+    if budget_left > 10:
         order = sorted(
             range(len(ratings)),
             key=lambda i: (abs(ratings[i].mu - bot.mu), ratings[i].sigma, i),
         )
-        idx = (budget_left // 2) % 3
-        if idx == 0:
+        if (budget_left // 2) % 2:
             for i in order:
                 if ratings[i].mu >= bot.mu:
                     return [i]
-        elif idx == 1:
+        else:
             for i in order:
                 if ratings[i].mu < bot.mu:
                     return [i]
         return [order[0]]
-    if budget_left > 6:
-        pool = _established(ratings, 1)
-        return [
-            min(
-                pool,
-                key=lambda c: (
-                    abs(ratings[c].mu - bot.mu),
-                    ratings[c].sigma,
-                    c,
-                ),
-            )
-        ]
-    return _spread(bot, ratings, min(5, budget_left - 1, len(ratings)), 0.5)
+    return _spread(bot, ratings, min(9, budget_left - 1, len(ratings)), 2.0)

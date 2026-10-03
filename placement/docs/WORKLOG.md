@@ -150,3 +150,12 @@ One entry per iteration:
 - what changed: first game duels the max-sigma pool member; other 28 slots champion.
 - what you learned: cost about 0.49 with only seed 1 improving (down 12); the bounty eats the best positioning duel and pool gains do not repay within 1000 bots.
 - next: push-fold routing (adaptive schedules by stack).
+
+## 16 — push-fold routing by stack (2026-10-03)
+- commit: 8ffc9d7
+- score: mean 404.5076 over seeds 0-4 (410.1610, 460.2390, 524.5075, 288.3950, 339.2354)
+- champion mean: 302.2418 (07e94d0)
+- verdict: discard
+- what changed: after 2 duels, short stacks played twin 2.5-sigma full-pool 10ps plus brackets while settled bots played duels plus a narrow 6p.
+- what you learned: cost about 102 with seed 2 at 524; routing starves settled bots of bulk precision and the full-pool wide fields are too wild.
+- next: forward bracketing from the archive docket.
