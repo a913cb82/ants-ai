@@ -1,8 +1,13 @@
 """One autoresearch iteration: play the fixed duel + FFA budget, score it.
 
+The FFA games stage the placement selection: the first spans
+full-pool mass (census), the second refines bot-centered
+below/peer/above bins by mass quota from low-sigma rulers (strata),
+the rest fill info-greedy. Duels stay flat-info.
+
 Every game enters league/games.jsonl. The harness rebuilds the ratings
 from that log at the start, so the log is the single source of truth.
-The score is the snapshot mu - 3 * sigma at the end of the budget, and
+The score is the snapshot mu at the end of the budget, and
 the harness appends it to docs/PROGRESS.jsonl. Later games may move a
 bot's live rating; the recorded score never moves.
 
@@ -78,7 +83,14 @@ SIGMA_WEIGHT = 0.02
 # older tag stay in the file and are ignored for the champion.
 # score=mu ports the placement finding: the recorded score ranks truer
 # without the sigma discount (corr 0.9655 vs 0.9619 on the old exam).
-BUDGET = f"duels={DUELS},ffa={len(FFA_SETS[0])},turns={TURNS},score=mu"
+# sel=census-strata ports the placement game selection (corr 0.9931
+# over 30 seeds): the first FFA spans full-pool mass (the opener must
+# read mass, not calibrated rulers), the second refines bot-centered
+# below/peer/above bins by mass quota from low-sigma rulers, the rest
+# stay info-greedy. Duels were already flat-info, so they stay.
+BUDGET = (
+    f"duels={DUELS},ffa={len(FFA_SETS[0])},turns={TURNS},score=mu,sel=census-strata"
+)
 
 
 def candidate_id(root: str | Path, botfile: str, rev: str | None = None) -> str:
@@ -122,6 +134,135 @@ def planned(
     return (
         max(0, duels - done["duels"]),
         [n for n in ffa_sizes if done["ffa"].get(n, 0) < 1],
+    )
+
+
+def census_field(
+    bid: str, cands: list[str], ratings: dict, n: int, tol: float = 0.30
+) -> list[str]:
+    """First FFA: the candidate plus rulers spanning full-pool mass.
+    Sites sit at quantiles of every rival mu; each snaps to the
+    lowest-sigma ruler within tol, else the nearest. Ports the
+    placement opener: mass decides the sites, quality wins the ties."""
+    others = [c for c in cands if c != bid]
+    mus = sorted(R.for_id(ratings, c)["mu"] for c in others)
+    k = max(0, min(n - 1, len(others)))
+    sites = (
+        [mus[min(int(len(mus) * (j + 1) / (k + 1)), len(mus) - 1)] for j in range(k)]
+        if mus and k
+        else []
+    )
+    picked: list[str] = []
+    used = {bid}
+    for t in sites:
+        live = [c for c in others if c not in used]
+        if not live:
+            break
+        near = [c for c in live if abs(R.for_id(ratings, c)["mu"] - t) <= tol]
+        src = near or live
+        if near:
+            i = min(
+                src,
+                key=lambda c: (
+                    R.for_id(ratings, c)["sigma"],
+                    abs(R.for_id(ratings, c)["mu"] - t),
+                    c,
+                ),
+            )
+        else:
+            i = min(
+                src,
+                key=lambda c: (
+                    abs(R.for_id(ratings, c)["mu"] - t),
+                    R.for_id(ratings, c)["sigma"],
+                    c,
+                ),
+            )
+        used.add(i)
+        picked.append(i)
+    return [bid] + picked
+
+
+def strata_field(bid: str, cands: list[str], ratings: dict, n: int) -> list[str]:
+    """Middle FFA: the candidate plus bot-centered below/peer/above
+    rulers by mass quota from low-sigma rulers. Ports the placement
+    refine: quota allocates across bins, proximity binds within them."""
+    others = [c for c in cands if c != bid]
+    me = R.for_id(ratings, bid)
+    sigmas = sorted(R.for_id(ratings, c)["sigma"] for c in others)
+    if not sigmas:
+        return [bid]
+    cutoff = sigmas[len(sigmas) // 3]
+    pool = [c for c in others if R.for_id(ratings, c)["sigma"] <= cutoff]
+    k = max(0, min(n - 1, len(pool)))
+    if len(pool) < max(0, n - 1):
+        pool = list(others)
+    s = max(me["sigma"], 0.5)
+    bins: list[list[str]] = [[], [], []]
+    for c in pool:
+        d = R.for_id(ratings, c)["mu"] - me["mu"]
+        bins[0 if d < -s else (2 if d > s else 1)].append(c)
+    masses = [len(b) for b in bins]
+    total = sum(masses) or 1
+    quota = [max(1 if m else 0, round(k * m / total)) for m in masses]
+    while sum(quota) > k:
+        j = max(range(3), key=lambda j: quota[j] - k * masses[j] / total)
+        quota[j] -= 1
+    while sum(quota) < k:
+        j = max(range(3), key=lambda j: k * masses[j] / total - quota[j])
+        quota[j] += 1
+    out: list[str] = []
+    for b, q in zip(bins, quota, strict=True):
+        near = sorted(
+            b,
+            key=lambda c: (
+                abs(R.for_id(ratings, c)["mu"] - me["mu"]),
+                R.for_id(ratings, c)["sigma"],
+                c,
+            ),
+        )
+        out += near[: max(q, 0)]
+    if len(out) < k:
+        rest = sorted(
+            (c for c in pool if c not in set(out)),
+            key=lambda c: (
+                abs(R.for_id(ratings, c)["mu"] - me["mu"]),
+                R.for_id(ratings, c)["sigma"],
+                c,
+            ),
+        )
+        out += rest[: k - len(out)]
+    return [bid] + out[:k]
+
+
+def ffa_field(
+    model,
+    bid: str,
+    cands: list[str],
+    ratings: dict,
+    n: int,
+    stage: int,
+    rng: random.Random,
+    eps: float = EPSILON,
+    breadth: int = BREADTH,
+    sigma_weight: float = SIGMA_WEIGHT,
+) -> list[str]:
+    """FFA field by stage: census coverage first, strata refine
+    second, info-greedy propose after."""
+    if stage <= 0:
+        return census_field(bid, cands, ratings, n)
+    if stage == 1:
+        return strata_field(bid, cands, ratings, n)
+    return propose(
+        model,
+        cands,
+        ratings,
+        n,
+        rng,
+        eps=eps,
+        breadth=breadth,
+        seed_bot=bid,
+        sigma_weight=sigma_weight,
     )
 
 
@@ -393,16 +534,9 @@ def main(argv=None) -> int:
                 raise ValueError(f"no unused {n}p map")
             map_rel = rng.choice(maps)
             used.add(map_rel)
-            field = propose(
-                model,
-                pool_ids(root, ratings),
-                ratings,
-                n,
-                rng,
-                eps=EPSILON,
-                breadth=BREADTH,
-                sigma_weight=SIGMA_WEIGHT,
-                seed_bot=bid,
+            stage = ffa_sizes.index(n)
+            field = ffa_field(
+                model, bid, pool_ids(root, ratings), ratings, n, stage, rng
             )
             if len(field) != n:
                 raise ValueError(f"pool too small: wanted {n}, got {len(field)}")

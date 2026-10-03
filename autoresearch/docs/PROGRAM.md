@@ -115,8 +115,9 @@ The harness selects the maps, the slots, the seeds, and the opponents.
 You do not select them.
 
 - A duel: the opponent has the best information score.
-- An FFA game: the candidate is always in the field. The other slots
-  have the best information score.
+- The first FFA game spans full-pool mass (census), the second
+  refines bot-centered bins from low-sigma rulers (strata), the
+  third fills by information score.
 
 The map, the slot, and the seeds are random. This keeps the test honest.
 Do not try to control the selection.

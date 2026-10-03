@@ -52,7 +52,7 @@ iteration. The object has these keys:
 | `score` | the recorded score (`mu` under the current budget) |
 | `games` | the number of games in the budget |
 | `champion` | the best bot id before this line, or `null` |
-| `budget` | the budget tag (`duels=5,ffa=3,turns=1000`) |
+| `budget` | the budget tag (`duels=5,ffa=3,turns=1000,score=mu,sel=census-strata`) |
 
 Rows with an older `budget` stay in the file. The harness ignores
 them for the champion.
@@ -68,8 +68,13 @@ and `timeout`). In an FFA game the index in `result` is the rank.
 - A duel: the candidate is in the game. The opponent has the best
   information score. The top 3 opponents are eligible.
   In 20 percent of duels the harness picks one of the top 3 at random.
-- An FFA game: the candidate is in the field. The harness fills the
-  other slots by the same information score.
+- The first FFA game is a census: the candidate plus rulers spanning
+  full-pool mass (quantile deciles, lowest sigma within 0.30 mu wins
+  each site). Mass decides the sites, quality wins the ties.
+- The second FFA game is a strata refine: the candidate plus
+  bot-centered below/peer/above rulers by mass quota from low-sigma
+  rulers. Quota allocates across bins, proximity binds within them.
+- Later FFA games fill by the same information score as duels.
 - The FFA sizes come from one fixed set per candidate: `{4, 6, 10}` or
   `{5, 7, 8}` (see Budget).
 - The information score is `predict_draw + 0.02 * sum(sigma)`.

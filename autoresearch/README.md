@@ -28,7 +28,8 @@ One iteration has 8 games:
 
 - 5 duels. Each duel uses a different 2p map.
 - 3 FFA games. The harness picks one of two size sets: {4, 6, 10}
-  or {5, 7, 8}.
+  or {5, 7, 8}. The first spans full-pool mass, the second refines
+  bot-centered bins from low-sigma rulers, the third fills greedy.
 
 The harness sets the numbers. No flag changes them.
 Every game goes to `league/games.jsonl`. A commit cannot play more.

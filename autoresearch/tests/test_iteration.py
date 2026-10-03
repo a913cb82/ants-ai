@@ -315,3 +315,125 @@ def test_main_plays_records_and_never_replays(tmp_path, monkeypatch):
     assert iteration.main([]) == 0
     assert len((tmp_path / "games.jsonl").read_text().splitlines()) == 1
     assert len(iteration.read_progress(tmp_path / "PROGRESS.jsonl")) == 1
+
+
+def _rated(mu, sigma, games=20):
+    return {"mu": mu, "sigma": sigma, "games": games}
+
+
+def test_census_field_spans_full_pool_mass():
+    from iteration import census_field
+
+    ratings = {"cand": _rated(50, 8.0, 0)}
+    for i, mu in enumerate([0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]):
+        ratings[f"r{i}"] = _rated(mu, 2.0)
+    cands = [k for k in ratings if k != "cand"]
+    field = census_field("cand", cands, ratings, 6)
+    assert len(field) == 6 and field[0] == "cand"
+    mus = sorted(ratings[c]["mu"] for c in field[1:])
+    assert mus[0] <= 10 and mus[-1] >= 90
+
+
+def test_census_quality_snap_prefers_low_sigma():
+    from iteration import census_field
+
+    ratings = {
+        "cand": _rated(50, 8.0, 0),
+        "noisy": _rated(10.0, 6.0),
+        "solid": _rated(10.1, 1.0),
+        "top": _rated(90.0, 1.0),
+    }
+    cands = ["noisy", "solid", "top"]
+    field = census_field("cand", cands, ratings, 3)
+    assert "solid" in field and "noisy" not in field
+
+
+def test_strata_field_covers_all_three_bins_from_calibrated_rulers():
+    from iteration import strata_field
+
+    ratings = {"cand": _rated(50, 8.0, 0)}
+    pool = []
+    for i in range(60):
+        ratings[f"cal{i}"] = _rated(i * 1.5, 1.0)
+        pool.append(f"cal{i}")
+    for i in range(30):
+        ratings[f"raw{i}"] = _rated(i * 3.0, 7.0)
+        pool.append(f"raw{i}")
+    field = strata_field("cand", pool, ratings, 7)
+    assert len(field) == 7 and field[0] == "cand"
+    sigmas = [r["sigma"] for r in ratings.values() if r["games"] > 0]
+    cutoff = sorted(sigmas)[len(sigmas) // 3]
+    assert all(ratings[c]["sigma"] <= cutoff for c in field[1:])
+    mus = [ratings[c]["mu"] for c in field[1:]]
+    assert any(m < 42 for m in mus) and any(m > 58 for m in mus)
+
+
+def test_strata_quota_follows_bin_mass():
+    from iteration import strata_field
+
+    ratings = {"cand": _rated(50, 8.0, 0)}
+    pool = []
+    for i in range(40):
+        ratings[f"peer{i}"] = _rated(48.0 + i * 0.1, 1.0)
+        pool.append(f"peer{i}")
+    for name, mu in (("lo", 10.0), ("hi", 90.0)):
+        ratings[name] = _rated(mu, 1.0)
+        pool.append(name)
+    field = strata_field("cand", pool, ratings, 6)
+    peer = [c for c in field[1:] if 42 <= ratings[c]["mu"] <= 58]
+    assert len(peer) >= 3
+
+
+def test_ffa_field_uses_census_then_strata_then_propose(monkeypatch):
+    import iteration
+
+    calls = []
+
+    def rec(name, val):
+        calls.append(name)
+        return val
+
+    monkeypatch.setattr(
+        iteration, "census_field", lambda bid, c, r, n: rec("census", [bid])
+    )
+    monkeypatch.setattr(
+        iteration, "strata_field", lambda bid, c, r, n: rec("strata", [bid])
+    )
+    monkeypatch.setattr(iteration, "propose", lambda *a, **k: rec("propose", ["x"]))
+    ratings = {"cand": _rated(50, 8.0, 0)}
+    iteration.ffa_field(None, "cand", [], ratings, 4, 0, None)
+    iteration.ffa_field(None, "cand", [], ratings, 4, 1, None)
+    iteration.ffa_field(None, "cand", [], ratings, 4, 2, None)
+    assert calls == ["census", "strata", "propose"]
+
+
+def test_budget_selects_census_strata_and_scores_mu():
+    from iteration import BUDGET
+
+    assert "score=mu" in BUDGET
+    assert "sel=census-strata" in BUDGET
+
+
+def test_previous_budget_rows_are_ignored(tmp_path):
+    import json
+
+    import iteration
+
+    p = tmp_path / "PROGRESS.jsonl"
+    p.write_text(
+        json.dumps(
+            {
+                "bot": "old-1",
+                "mu": 60.0,
+                "sigma": 1.0,
+                "score": 60.0,
+                "games": 8,
+                "champion": None,
+                "date": "2026-01-01",
+                "budget": "duels=5,ffa=3,turns=1000,score=mu",
+            }
+        )
+        + "\n"
+    )
+    row, prior, appended = iteration.record_report("new-2", 30.0, 5.0, 30.0, 8, path=p)
+    assert appended and prior is None
