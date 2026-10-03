@@ -740,3 +740,8 @@
 ## Iter 127 (camp F2): grid-inside-strata at width 1.5
 - Score: corr 0.9932 (+0.0000, exact tie).
 - Verdict: grid width free like grid presence. Next: pure comp-pick, no bins (F3).
+
+## Iter 128 (camp F3): pure comp-pick refine, no bins
+- 5 nearest established rulers, no binning or quota.
+- Score: corr 0.9931 (-0.0001, tie; seed-2 +0.0014 spike, seeds 0/1 down hard).
+- Verdict: bins stabilize the refine; comp-pick swings wilder for the same mean. Next: bin-median picks (F4).

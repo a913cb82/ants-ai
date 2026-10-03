@@ -120,3 +120,4 @@
 {"date": "2026-10-04", "commit": "iter125", "corr": 0.9931, "seeds": [0.994, 0.9932, 0.9895, 0.9941, 0.9946], "champion": "396b8f0", "note": "camp E5 peer-double ties -0.0001; TRACK E CLOSED"}
 {"date": "2026-10-04", "commit": "iter126", "corr": 0.9931, "seeds": [0.9941, 0.9928, 0.9886, 0.9947, 0.9951], "champion": "396b8f0", "note": "camp F1 infostrata retest ties -0.0001"}
 {"date": "2026-10-04", "commit": "iter127", "corr": 0.9932, "seeds": [0.9941, 0.9928, 0.9896, 0.9941, 0.9952], "champion": "396b8f0", "note": "camp F2 grid-1.5 exact tie; grid width free"}
+{"date": "2026-10-04", "commit": "iter128", "corr": 0.9931, "seeds": [0.9931, 0.9916, 0.991, 0.995, 0.9947], "champion": "396b8f0", "note": "camp F3 comp-pick ties -0.0001; wilder swings, bins stabilize"}
