@@ -2078,3 +2078,15 @@ Use this format.
 - what changed: Battling as Outcast in Outcast.bot + Outcast.py; Denial's united hunt, denial, and combat untouched, but a failed challenge benches the last challenger from ALL hills for one turn instead of just the failed hill.
 - what you learned: Outcasts went 5-2 in duels, won the refine, but ranked 9th in the census, so mu reached 22.1 against 66.6 — benching everywhere wastes challengers; the rotation family is closed with per-hill 1-turn standing as the tied best.
 - next: quadrant income ledger for food ties (Ledger exp committed, queued for exam).
+
+## 172 — quadrant tie-breaking is noise (2026-10-04)
+- commit: f84c3f9 (bid Ledger.bot-f84c3f9)
+- start: 8dee7ed (champion Denial files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 37.8, sigma 3.10
+- champion mu: 66.6 (Denial)
+- verdict: keep Denial
+- games: 2-5, FFA ranks 10p:5 6p:3
+- what changed: Battling as Ledger in Ledger.bot + Ledger.py; Denial's united hunt, denial, and combat untouched, but equal-distance food claims break ties toward the richest-harvest quadrant over a trailing 100 turns.
+- what you learned: Ledgers went 2-5 in duels with mid-pack FFAs, so mu reached 37.8 against 66.6 — harvest history predicts nothing about the next food; ties stay ties.
+- next: pre-contact evacuation (Bailiff exp committed, queued for exam).

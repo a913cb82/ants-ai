@@ -85,6 +85,7 @@ row. Leave the old row as it was.
 | dropped | Understudy2: 2-turn exclusion (mu 55.5 vs 66.6; benches winners). |
 | dropped | Coroner: avoid death squares 20 turns (mu 53.7 vs 66.6; 2-5 duels). |
 | dropped | Census: explore on quiet maps (mu 45.6 vs 66.6; 2-5 duels). |
+| dropped | Ledger: quadrant income tie-breaks (mu 37.8 vs 66.6; 2-5 duels). |
 | dropped | Patrol3: 30-step ranged patrol (mu 40.8 vs 66.6; range was never the bleed). |
 | dropped | Volunteers: duty drafts from spares only. |
 | dropped | Sentry: 2 volunteers per hill (mu 14.5 vs 66.6; 10/10 census). |
