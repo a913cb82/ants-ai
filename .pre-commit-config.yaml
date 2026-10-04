@@ -29,11 +29,13 @@ repos:
         entry: .venv/bin/ruff check --force-exclude --fix
         language: system
         types: [python]
+        exclude: '^vendor/'
       - id: ruff-format
         name: ruff format
         entry: .venv/bin/ruff format --force-exclude
         language: system
         types: [python]
+        exclude: '^vendor/'
       - id: mypy
         name: mypy
         entry: .venv/bin/mypy
