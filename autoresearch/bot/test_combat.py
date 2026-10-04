@@ -37,6 +37,13 @@ filter accepts equal trades (friends + 1 == enemies) with
 combat.EQUAL_TRADE_NEAR (10) near friends instead of champion's
 14. Strict superiority, grinder 1v1s, join packs, and everything
 else match champion exactly.
+
+Leg 6 implements the RESEARCH.md row "Gang: hunt only with a
+pack": an ant advances on a nearby enemy only with 3+ friends
+within 10 steps (combat.has_pack); a packless ant packs up one
+step toward its nearest friend instead of advancing. Packed ants
+seek exactly as leg 1; join, grinder, screen, and the 10-gate
+stay as the legs defined them.
 """
 
 import os
@@ -47,10 +54,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import combat as CX  # noqa: E402
 
-# Leg 5: Odds.py carries the same seek + join + grinder + screen
-# wiring; OP now aliases Odds. champion14_orders below patches the
+# Leg 5: Gang.py carries the same seek + join + grinder + screen
+# wiring; GP now aliases Gang. champion14_orders below patches the
 # gate back to 14 to reproduce true champion Denial exactly.
-import Odds as GP  # noqa: E402
+import Gang as GP  # noqa: E402
 
 Loc = tuple[int, int]
 ROWS = 20
@@ -131,9 +138,9 @@ def run_turn(
     water: set[Loc] | None = None,
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
-) -> tuple[list[tuple[Loc, str]], GP.Odds]:
+) -> tuple[list[tuple[Loc, str]], GP.Gang]:
     fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
-    bot = GP.Odds()
+    bot = GP.Gang()
     bot.do_turn(fake)
     return fake.orders, bot
 
@@ -145,9 +152,9 @@ def run_grinder_turn(
     water: set[Loc] | None = None,
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
-) -> tuple[list[tuple[Loc, str]], GP.Odds]:
+) -> tuple[list[tuple[Loc, str]], GP.Gang]:
     fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
-    bot = GP.Odds()
+    bot = GP.Gang()
     bot.do_turn(fake)
     return fake.orders, bot
 
@@ -188,12 +195,14 @@ def test_nearest_seek_enemy_picks_nearest_in_range() -> None:
 
 
 def test_idle_ant_near_enemy_steps_toward_it() -> None:
-    # No food, no hills: the idle ant at (5,5) with an enemy 5 steps
-    # east must advance east instead of exploring north as champion.
-    mine = [(5, 5)]
+    # No food, no hills: the packed ant at (5, 5) with an enemy 5
+    # steps east must advance east instead of exploring north as
+    # champion. (Gang, leg 6: a lone ant no longer seeks, so this
+    # leg-1 board carries three friends in range.)
+    mine = [(5, 5), (5, 3), (5, 4), (6, 5)]
     enemies = [(5, 10)]
     orders, _ = run_turn(mine, enemies)
-    assert orders == [((5, 5), "e")]
+    assert orders[0] == ((5, 5), "e")
     probe = FakeAnts(mine, enemies)
     assert probe.distance((5, 5), (5, 10)) == 5
     moved = probe.destination((5, 5), orders[0][1])
@@ -281,12 +290,16 @@ def test_committed_pair_engages_through_equal_trade_gate() -> None:
     # Two ants flank one foe: both seek steps land in attack range,
     # so the join releases both even though neither has 14 friends
     # near (champion demands 14 for equal trades, so both retreat).
-    mine = [(5, 5), (5, 9)]
+    # (Gang, leg 6: the pair carries two packed fillers -- a lone
+    # pair now packs up instead of seeking.)
+    mine = [(5, 5), (5, 9), (5, 1), (5, 13)]
     enemies = [(5, 7)]
     orders, _ = run_turn(mine, enemies)
-    assert orders == [((5, 5), "e"), ((5, 9), "w")]
+    assert orders[0] == ((5, 5), "e")
+    assert orders[1] == ((5, 9), "w")
     champ = champion_orders(mine, enemies)
-    assert champ == [((5, 5), "w"), ((5, 9), "e")]
+    assert champ[0] == ((5, 5), "w")
+    assert champ[1] == ((5, 9), "e")
     assert orders != champ
 
 
@@ -302,10 +315,11 @@ def test_lone_ant_without_joiner_holds_as_champion() -> None:
 
 def test_three_ants_split_across_two_foes() -> None:
     # The flanking pair joins on their shared foe while the lone ant
-    # on the second foe holds exactly as champion. Even 3v3 army so
-    # the Grinder gate stays shut for the loner; the join itself
-    # ignores the army count.
-    mine = [(5, 5), (5, 9), (15, 15)]
+    # on the second foe holds exactly as champion. (Gang, leg 6: the
+    # pair carries two packed fillers, and the packless loner's
+    # pack-up step fails safety here, so it still explores exactly
+    # as champion. The join itself ignores the army count.)
+    mine = [(5, 5), (5, 9), (15, 15), (5, 3), (5, 11)]
     enemies = [(5, 7), (15, 17), (0, 0)]
     orders, _ = run_turn(mine, enemies)
     champ = champion_orders(mine, enemies)
@@ -350,8 +364,11 @@ def test_grinder_release_only_ahead_lone_duels() -> None:
 def test_ahead_lone_ant_engages_1v1() -> None:
     # 3v1 visible army: the contact ant at (5, 5) has no friend in
     # range of its step onto (5, 6), but the army leads, so Grinder
-    # engages east where champion retreats west.
-    mine = [(5, 5), (15, 15), (15, 16)]
+    # engages east where champion retreats west. (Gang, leg 6: the
+    # duelist carries three packed friends outside contact range --
+    # pals stays 0 so the gate still fires; a truly lone duelist
+    # now packs up.)
+    mine = [(5, 5), (15, 15), (15, 16), (5, 2), (5, 1), (5, 0)]
     enemies = [(5, 7)]
     orders, _ = run_grinder_turn(mine, enemies)
     assert orders[0] == ((5, 5), "e")
@@ -382,9 +399,11 @@ def test_even_lone_ant_holds_as_champion() -> None:
 
 def test_joined_pair_engages_even_when_behind() -> None:
     # The join ignores the army gate: the flanking pair shares one
-    # foe, so both engage though the visible army trails 3v4.
-    mine = [(5, 5), (5, 9), (0, 0)]
-    enemies = [(5, 7), (0, 10), (0, 11), (0, 12)]
+    # foe, so both engage though the visible army trails 5v6. (Gang,
+    # leg 6: the pair carries two packed fillers, and two far enemies
+    # hold the trail -- a lone pair now packs up.)
+    mine = [(5, 5), (5, 9), (0, 0), (5, 3), (5, 11)]
+    enemies = [(5, 7), (0, 10), (0, 11), (0, 12), (19, 19), (19, 18)]
     orders, _ = run_grinder_turn(mine, enemies)
     assert orders[0] == ((5, 5), "e")
     assert orders[1] == ((5, 9), "w")
@@ -582,9 +601,11 @@ def test_nine_near_refuses_exactly_as_champion() -> None:
 
 
 def test_strict_superiority_engages_under_both_gates() -> None:
-    # (c1) 2 backing friends vs 1 foe: strict superiority accepts
-    # under either gate, so Odds and champion agree east.
-    mine = [(5, 5), (5, 4), (4, 6)]
+    # (c1) 3 backing friends vs 1 foe: strict superiority accepts
+    # under either gate, so Gang and champion agree east. (Gang,
+    # leg 6: the third backer packs the trio, so the gate never
+    # fires on this board.)
+    mine = [(5, 5), (5, 4), (4, 6), (5, 3)]
     enemies = [(5, 7)]
     orders, _ = run_turn(mine, enemies)
     champ = champion14_orders(mine, enemies)
@@ -616,3 +637,89 @@ def test_equal_trade_gate_costs_under_half_ms_on_crowded_board() -> None:
             )
     elapsed = (time.perf_counter() - start) / reps
     assert elapsed < 0.0005
+
+
+def run_gang_turn(
+    mine: list[Loc],
+    enemies: list[Loc],
+    foods: list[Loc] | None = None,
+    water: set[Loc] | None = None,
+    enemy_hills: list[Loc] | None = None,
+    my_hills: list[Loc] | None = None,
+) -> tuple[list[tuple[Loc, str]], object]:
+    import Gang as GG  # noqa: E402
+
+    fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
+    bot = GG.Gang()
+    bot.do_turn(fake)
+    return fake.orders, bot
+
+
+def test_has_pack_needs_three_friends_in_ten() -> None:
+    # (pure) Solo and paired ants have no pack; three friends in
+    # range do. The ant itself never counts, and friends past 10
+    # steps do not count.
+    probe = FakeAnts([(5, 5)], [])
+    assert CX.has_pack((5, 5), [(5, 5)], probe.distance) is False
+    assert CX.has_pack((5, 5), [(5, 5), (5, 2)], probe.distance) is False
+    assert CX.has_pack((5, 5), [(5, 5), (5, 2), (5, 3)], probe.distance) is False
+    three = [(5, 5), (5, 2), (5, 3), (6, 5)]
+    assert CX.has_pack((5, 5), three, probe.distance) is True
+    far = [(5, 5), (5, 2), (5, 3), (15, 15)]
+    assert CX.has_pack((5, 5), far, probe.distance) is False
+    edge = [(5, 5), (5, 2), (5, 3), (5, 15)]
+    assert CX.has_pack((5, 5), edge, probe.distance) is True
+    assert CX.has_pack((5, 5), three, probe.distance, need=3, radius=10) is True
+
+
+def test_packless_ant_packs_up_toward_friend() -> None:
+    # (a) One friend is no pack: the ant at (5, 5) eyes an enemy 5
+    # steps east but steps west toward its friend at (5, 2) --
+    # closer to the friend, farther from the enemy, never east.
+    mine = [(5, 5), (5, 2)]
+    enemies = [(5, 10)]
+    orders, _ = run_gang_turn(mine, enemies)
+    assert orders[0] == ((5, 5), "w")
+    probe = FakeAnts(mine, enemies)
+    moved = probe.destination((5, 5), orders[0][1])
+    assert probe.distance(moved, (5, 2)) < probe.distance((5, 5), (5, 2))
+    assert probe.distance(moved, (5, 10)) > probe.distance((5, 5), (5, 10))
+
+
+def test_packed_ant_seeks_exactly_as_leg1() -> None:
+    # (b) Three friends in range: the ant advances east onto (5, 6),
+    # one step nearer the enemy, exactly the leg-1 seek order.
+    mine = [(5, 5), (5, 3), (5, 4), (6, 5)]
+    enemies = [(5, 10)]
+    orders, _ = run_gang_turn(mine, enemies)
+    assert orders[0] == ((5, 5), "e")
+    probe = FakeAnts(mine, enemies)
+    moved = probe.destination((5, 5), orders[0][1])
+    assert probe.distance(moved, (5, 10)) == 4
+
+
+def test_pack_boundary_three_seeks_two_packs_up() -> None:
+    # (c) Exactly 3 friends in range seeks east; 2 packs up west
+    # toward the nearest friend.
+    enemies = [(5, 10)]
+    three = [(5, 5), (5, 0), (5, 1), (5, 2)]
+    orders, _ = run_gang_turn(three, enemies)
+    assert orders[0] == ((5, 5), "e")
+    two = [(5, 5), (5, 0), (5, 1)]
+    orders2, _ = run_gang_turn(two, enemies)
+    assert orders2[0] == ((5, 5), "w")
+
+
+def test_pack_check_costs_under_1ms_on_crowded_board() -> None:
+    # (d) The pack check over all 48 ants costs under 1ms per pass
+    # on a crowded board.
+    mine = [(i % ROWS, (i * 7) % COLS) for i in range(48)]
+    foes = [((i * 13 + 5) % ROWS, (i * 11 + 3) % COLS) for i in range(10)]
+    probe = FakeAnts(mine, foes)
+    reps = 50
+    start = time.perf_counter()
+    for _ in range(reps):
+        for ant in mine:
+            CX.has_pack(ant, mine, probe.distance)
+    elapsed = (time.perf_counter() - start) / reps
+    assert elapsed < 0.001

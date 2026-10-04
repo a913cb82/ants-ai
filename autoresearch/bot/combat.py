@@ -28,6 +28,11 @@ crowded-board equal trades engage sooner. Entry bots read the
 constant in their safety filter; strict superiority, Grinder, and
 join are untouched.
 
+Leg 6 adds the Gang gate: has_pack reports whether an ant holds
+PACK_NEED+ friends within PACK_RADIUS steps, and a packless ant
+packs up toward its nearest friend instead of advancing, so
+fearless solo hunters stop donating into crowds.
+
 Research: "Approach forms fighting lines" (xathis approaching
 enemies) -- ants near enemies advance on them instead of walking
 only to food, hills, or empty ground.
@@ -48,6 +53,36 @@ SEEK_RANGE = 8
 # filter to accept them. Champion tuned 14 on its scale; Odds
 # tests 10 on ours.
 EQUAL_TRADE_NEAR = 10
+
+# Leg 6 (Gang): hunt only with a pack -- an ant advances on a
+# nearby enemy only with PACK_NEED+ friends within PACK_RADIUS
+# steps, else it packs up toward its nearest friend. Fearless
+# solo hunters donate into crowds.
+PACK_NEED = 3
+PACK_RADIUS = 10
+
+
+def has_pack(
+    ant_loc: Loc,
+    ants_list: list[Loc],
+    distance: DistFn,
+    need: int = PACK_NEED,
+    radius: int = PACK_RADIUS,
+) -> bool:
+    """Whether an ant holds a pack: need+ friends within radius steps.
+
+    The ant itself never counts toward its own pack. Pure: no board
+    state, no side effects.
+    """
+    found = 0
+    for friend in ants_list:
+        if friend == ant_loc:
+            continue
+        if distance(ant_loc, friend) <= radius:
+            found += 1
+            if found >= need:
+                return True
+    return False
 
 
 def nearest_seek_enemy(
