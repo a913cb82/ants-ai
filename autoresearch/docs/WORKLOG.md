@@ -2126,3 +2126,13 @@ Use this format.
 - what changed: Battling as Turnstile in Turnstile.bot + Turnstile.py; Denial's united hunt, denial, and combat untouched, but ants sitting 50+ consecutive turns rotate off toward the nearest non-sitter (threatened sitters stay).
 - what you learned: Turnstiles went 6-1 in duels, WON the census, and took 3rd in the refine, reaching mu 66.8 against 66.6 — first outright lead of the loop; stale sitters were costing map presence.
 - next: confirmation exam (same bid, fresh opponents), then crown-or-keep; bait-and-ambush (Anvil exp committed, queued for exam).
+
+## 176 — HOLD: a nose is not a crown (2026-10-04)
+- commit: 6b48f5c (bid Turnstile.bot-6b48f5c)
+- start: 8dee7ed (champion Denial files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 66.8, sigma 3.16
+- champion mu: 66.6 (Denial)
+- verdict: HOLD — keep Denial. +0.2 against sigma ~3.2 is indistinguishable from noise, and the harness records one exam per bid (re-run refused: "recorded earlier"), so a thin lead cannot validate on the same bid. Crown needs a leg with separation.
+- what you learned: the exam harness is one-shot per bid by design (record_report returns prior on repeat) — confirmation must come from fresh bids, i.e. tuning legs. Turnstile-2 (30-turn fuse) coding now; it and any further legs arbitrate the crown.
+- next: bait-and-ambush exam (Anvil picked), then Turnstile-2 exam.

@@ -88,7 +88,7 @@ row. Leave the old row as it was.
 | dropped | Ledger: quadrant income tie-breaks (mu 37.8 vs 66.6; 2-5 duels). |
 | dropped | Bailiff: pre-contact evacuation (mu 55.6 vs 66.6; surrenders squares). |
 | dropped | Phalanx: adjacent double-team (mu 34.9 vs 66.6; 6p:6). |
-| candidate | Turnstile: 50-turn sitter rotation (mu 66.8 vs 66.6; +0.2, confirming). |
+| candidate | Turnstile: 50-turn sitter rotation (mu 66.8 vs 66.6; +0.2 HOLD, legs arbitrate). |
 | dropped | Patrol3: 30-step ranged patrol (mu 40.8 vs 66.6; range was never the bleed). |
 | dropped | Volunteers: duty drafts from spares only. |
 | dropped | Sentry: 2 volunteers per hill (mu 14.5 vs 66.6; 10/10 census). |
