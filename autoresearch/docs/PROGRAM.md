@@ -92,7 +92,7 @@ Rules:
   here for a regression there. Report scenario scores with the commit.
   One-shot code without iteration wastes the budget. Split the budget
   across scenarios, implementation, and iteration; scenarios must
-  discriminate base from tuned, each with an anti-scenario.
+  discriminate base from tuned.
 - The coordinator merges, briefs, plays, compares, tags, logs, and
   pushes. It never edits bot code. At spawn it stages the
   measured-champion files as the coder's base, so every entry is
