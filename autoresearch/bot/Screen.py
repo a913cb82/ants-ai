@@ -250,7 +250,7 @@ def assign_food_targets(
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Grinder:
+class Screen:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -270,18 +270,15 @@ class Grinder:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Grinder: Denial's economy (a food cluster contested by 3+
-        # visible enemies draws two ants onto its two closest foods),
-        # except an ant with no food move and no guard move advances
-        # on its nearest enemy within combat.SEEK_RANGE, so approach
-        # forms fighting lines. A seek step landing in attack range
-        # of a foe queues as a commitment; when 2+ ants commit to the
-        # SAME foe this turn both engage with equal trades allowed
-        # (no 14-near gate). An unjoined friendless 1v1 contact
-        # engages only while the visible army strictly outnumbers
-        # theirs (combat.grinder_release); behind or even lone ants
-        # keep the safe seek and hold as champion. Everything else --
-        # muster, reinforce, explore, walk-off -- is champion.
+        # Screen: Grinder's wiring (Denial's economy, seek approach,
+        # committed-join packs, ahead-only 1v1 duels), except extra
+        # guards screen the razer off the hill: the first guard holds
+        # the threatened hill, but extras march to
+        # combat.intercept_square -- the passable square halfway
+        # between the hill and its nearest enemy -- instead of onto
+        # the hill, so the hill stays spawnable. Unthreatened hills,
+        # first guards, and everything else -- muster, reinforce,
+        # explore, walk-off -- is champion.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -476,12 +473,21 @@ class Grinder:
                 # extras screen the razer off it.
                 nearest = min(threatened, key=lambda h: ants.distance(ant_loc, h))
                 if nearest in anchored:
-                    screen = min(
+                    inter = combat.intercept_square(
+                        nearest,
                         enemy_locs,
-                        key=lambda e: ants.distance(nearest, e),
-                        default=nearest,
+                        ants.distance,
+                        ants.passable,
+                        ants.rows,
+                        ants.cols,
                     )
-                    step = first_step(ant_loc, screen)
+                    if inter is None:
+                        inter = min(
+                            enemy_locs,
+                            key=lambda e: ants.distance(nearest, e),
+                            default=nearest,
+                        )
+                    step = first_step(ant_loc, inter)
                 else:
                     anchored.add(nearest)
                     step = first_step(ant_loc, nearest)
@@ -587,6 +593,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Grinder())
+        Ants.run(Screen())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")

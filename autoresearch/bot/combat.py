@@ -17,16 +17,23 @@ Leg 3 adds the Grinder gate: grinder_release permits a friendless
 theirs, so ahead lone ants engage while behind or even ones hold
 as champion.
 
+Leg 4 adds the Screen intercept: intercept_square screens a razer
+by returning the passable square halfway between a threatened
+home hill and its nearest enemy, so extra guards meet the razer
+off the hill and the hill stays spawnable.
+
 Research: "Approach forms fighting lines" (xathis approaching
 enemies) -- ants near enemies advance on them instead of walking
 only to food, hills, or empty ground.
 """
 
+from collections import deque
 from collections.abc import Callable
 
 Loc = tuple[int, int]
 DistFn = Callable[[Loc, Loc], int]
 SqDistFn = Callable[[Loc, Loc], int]
+PassFn = Callable[[Loc], bool]
 
 SEEK_RANGE = 8
 
@@ -95,3 +102,53 @@ def grinder_release(friends: int, enemies: int, my_army: int, enemy_army: int) -
     champion does today. Pure: integer compare, no side effects.
     """
     return friends == 0 and enemies == 1 and my_army > enemy_army
+
+
+def intercept_square(
+    hill: Loc,
+    enemy_locs: list[Loc],
+    distance: DistFn,
+    passable: PassFn,
+    rows: int,
+    cols: int,
+) -> Loc | None:
+    """Off-hill intercept for one threatened home hill.
+
+    Screens the razer instead of piling onto the hill: take the
+    nearest enemy to the hill, halve the toroidal approach, and
+    return the nearest passable square to that midpoint (the
+    midpoint itself when open). Ties keep the first enemy in list
+    order so the branch is deterministic. No enemies -- or no
+    passable square on the whole board -- returns None so the
+    caller holds the champion fallback. Pure: no board state, no
+    side effects.
+    """
+    if not enemy_locs or rows <= 0 or cols <= 0:
+        return None
+    foe = min(enemy_locs, key=lambda e: distance(hill, e))
+    dr = foe[0] - hill[0]
+    if dr > rows // 2:
+        dr -= rows
+    elif dr < -(rows // 2):
+        dr += rows
+    dc = foe[1] - hill[1]
+    if dc > cols // 2:
+        dc -= cols
+    elif dc < -(cols // 2):
+        dc += cols
+    mid = ((hill[0] + int(dr / 2)) % rows, (hill[1] + int(dc / 2)) % cols)
+    if passable(mid):
+        return mid
+    seen = {mid}
+    queue: deque[Loc] = deque([mid])
+    while queue:
+        cur = queue.popleft()
+        for step in ((-1, 0), (0, 1), (1, 0), (0, -1)):
+            nxt = ((cur[0] + step[0]) % rows, (cur[1] + step[1]) % cols)
+            if nxt in seen:
+                continue
+            seen.add(nxt)
+            if passable(nxt):
+                return nxt
+            queue.append(nxt)
+    return None

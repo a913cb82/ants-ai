@@ -23,6 +23,13 @@ attack range of the step, exactly one foe) engages only when the
 visible army strictly outnumbers theirs, via combat.grinder_release.
 Behind or even lone ants hold exactly as champion; joined pairs
 still engage regardless of the army count.
+
+Leg 4 implements the RESEARCH.md row "Screen: intercept razers off
+the hill": the first guard still holds the threatened hill, but
+extra guards march to combat.intercept_square -- the passable
+square halfway between the hill and its nearest enemy -- instead
+of onto the hill, so the hill stays spawnable. Unthreatened
+hills, first guards, and everything else match champion exactly.
 """
 
 import os
@@ -32,7 +39,10 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import combat as CX  # noqa: E402
-import Grinder as GP  # noqa: E402
+
+# Leg 4: Grinder.py left with its entry; Screen carries the same
+# seek + join + grinder wiring, so GP now aliases Screen.
+import Screen as GP  # noqa: E402
 
 Loc = tuple[int, int]
 ROWS = 20
@@ -113,9 +123,9 @@ def run_turn(
     water: set[Loc] | None = None,
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
-) -> tuple[list[tuple[Loc, str]], GP.Grinder]:
+) -> tuple[list[tuple[Loc, str]], GP.Screen]:
     fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
-    bot = GP.Grinder()
+    bot = GP.Screen()
     bot.do_turn(fake)
     return fake.orders, bot
 
@@ -127,9 +137,9 @@ def run_grinder_turn(
     water: set[Loc] | None = None,
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
-) -> tuple[list[tuple[Loc, str]], GP.Grinder]:
+) -> tuple[list[tuple[Loc, str]], GP.Screen]:
     fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
-    bot = GP.Grinder()
+    bot = GP.Screen()
     bot.do_turn(fake)
     return fake.orders, bot
 
@@ -400,3 +410,92 @@ def test_grinder_gate_under_half_ms_on_crowded_board() -> None:
             CX.grinder_release(0, 1, len(mine), len(foes))
     elapsed = (time.perf_counter() - start) / reps
     assert elapsed < 0.0005
+
+
+def test_intercept_square_is_halfway_to_nearest_foe() -> None:
+    # The screen meets the razer off the hill: halfway between the
+    # hill and its nearest enemy, on an open board the midpoint.
+    probe = FakeAnts([], [])
+    mid = CX.intercept_square(
+        (10, 10), [(10, 16)], probe.distance, probe.passable, ROWS, COLS
+    )
+    assert mid == (10, 13)
+    assert (
+        CX.intercept_square((10, 10), [], probe.distance, probe.passable, ROWS, COLS)
+        is None
+    )
+    # Nearest of several foes sets the approach, not the first foe.
+    near = CX.intercept_square(
+        (10, 10),
+        [(10, 18), (10, 12)],
+        probe.distance,
+        probe.passable,
+        ROWS,
+        COLS,
+    )
+    assert near == (10, 11)
+
+
+def test_intercept_square_skirts_water() -> None:
+    # A flooded midpoint falls back to the nearest passable square,
+    # one step away, never onto water.
+    probe = FakeAnts([], [], water={(10, 13)})
+    found = CX.intercept_square(
+        (10, 10), [(10, 16)], probe.distance, probe.passable, ROWS, COLS
+    )
+    assert found is not None
+    assert found != (10, 13)
+    assert probe.passable(found)
+    assert probe.distance(found, (10, 13)) == 1
+
+
+def test_second_guard_screens_off_hill() -> None:
+    # (a) The extra guard marches east to the (10, 13) intercept,
+    # not west onto the (10, 10) hill it would pile onto.
+    mine = [(10, 8), (10, 11)]
+    enemies = [(10, 16)]
+    hill = (10, 10)
+    probe = FakeAnts(mine, enemies)
+    inter = CX.intercept_square(
+        hill, enemies, probe.distance, probe.passable, ROWS, COLS
+    )
+    assert inter == (10, 13) and inter != hill
+    orders, _ = run_turn(mine, enemies, my_hills=[hill])
+    assert orders[0] == ((10, 8), "e")
+    assert orders[1] == ((10, 11), "e")
+    assert orders[1] != ((10, 11), "w")
+
+
+def test_first_guard_holds_hill_as_champion() -> None:
+    # (b) The holder still steps onto the hill exactly as champion,
+    # alone or ahead of a screener.
+    mine = [(10, 8)]
+    enemies = [(10, 16)]
+    orders, _ = run_turn(mine, enemies, my_hills=[(10, 10)])
+    assert orders == [((10, 8), "e")]
+    assert orders == champion_orders(mine, enemies, my_hills=[(10, 10)])
+    pair, _ = run_turn([(10, 8), (10, 11)], enemies, my_hills=[(10, 10)])
+    assert pair[0] == orders[0]
+
+
+def test_no_threat_turn_matches_champion() -> None:
+    # (c) Unthreatened hill with a far enemy: Screen == champion.
+    mine = [(10, 8), (10, 11), (5, 5)]
+    enemies = [(0, 0)]
+    orders, _ = run_turn(mine, enemies, my_hills=[(10, 10)])
+    assert orders == champion_orders(mine, enemies, my_hills=[(10, 10)])
+
+
+def test_intercept_costs_under_1ms_on_crowded_board() -> None:
+    # (d) Three threatened hills screened against ten foes, well
+    # under 1ms per intercept on average.
+    foes = [((i * 13 + 5) % ROWS, (i * 11 + 3) % COLS) for i in range(10)]
+    hills = [(10, 10), (3, 17), (15, 4)]
+    probe = FakeAnts([], foes)
+    reps = 50
+    start = time.perf_counter()
+    for _ in range(reps):
+        for hill in hills:
+            CX.intercept_square(hill, foes, probe.distance, probe.passable, ROWS, COLS)
+    elapsed = (time.perf_counter() - start) / (reps * len(hills))
+    assert elapsed < 0.001
