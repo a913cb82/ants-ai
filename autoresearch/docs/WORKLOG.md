@@ -2208,3 +2208,15 @@ Use this format.
 - what changed: Combat-program leg 3. Battling as Grinder in Grinder.bot + Grinder.py + shared combat.py; seek + join kept, plus 1v1 engagement when our visible army strictly outnumbers theirs (focus-battle trade-down).
 - what you learned: Grinders went 1-6 in duels but WON the census outright, so mu reached 55.1 against 66.6 — trading down banks crowd points and donates duel armies; duel specialists punish every even trade.
 - next: off-hill interception (Screen exp with extended combat.py + test_combat.py committed, queued for exam).
+
+## 183 — screens guard the wrong squares (2026-10-04)
+- commit: 1c563c5 (bid Screen.bot-1c563c5)
+- start: 8dee7ed (champion Denial files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 47.1, sigma 3.37
+- champion mu: 66.6 (Denial; Turnstile-50 candidate 66.8 HOLD)
+- verdict: keep Denial
+- games: 2-5, FFA ranks 10p:3 6p:4
+- what changed: Combat-program leg 4. Battling as Screen in Screen.bot + Screen.py + shared combat.py; seek + join + grinder kept, plus off-hill interception (first guard holds, extras meet the razer at the halfway square).
+- what you learned: Screens went 2-5 in duels with mid-pack FFAs, so mu reached 47.1 against 66.6 — halfway squares are empty geometry, not the razer's path; extras mill off-hill while razers walk past.
+- next: cheaper equal trades at 10 near (Odds exp with extended combat.py + test_combat.py committed, queued for exam).

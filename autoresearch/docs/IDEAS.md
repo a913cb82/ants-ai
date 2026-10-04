@@ -94,6 +94,7 @@ row. Leave the old row as it was.
 | dropped | Seek: advance on enemies within 8 (mu 40.1 vs 66.6; 6-1 duels, 10p:6; combat leg 1). |
 | dropped | Wolfpack: committed-join pair attacks (mu 49.1 vs 66.6; 2-5 duels; combat leg 2). |
 | dropped | Grinder: 1v1 when ahead (mu 55.1 vs 66.6; 1-6 duels, 10p:1; combat leg 3). |
+| dropped | Screen: off-hill interception (mu 47.1 vs 66.6; 2-5 duels; combat leg 4). |
 | dropped | Anvil: bait-and-ambush (mu 17.0 vs 66.6; 10p:9). |
 | dropped | Patrol3: 30-step ranged patrol (mu 40.8 vs 66.6; range was never the bleed). |
 | dropped | Volunteers: duty drafts from spares only. |
