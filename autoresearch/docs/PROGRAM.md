@@ -47,9 +47,11 @@ Rules:
   Do not run pip.
 - One turn must finish in 1000 ms. A slow bot loses on time.
   The load time is 3000 ms.
-- The coordinator plays every game through `autoresearch/iteration.py`.
-  A game outside the harness is forbidden. Coders run no engine games;
-  they test with unit tests and replay reads.
+- The coordinator plays every game through `autoresearch/iteration.py`,
+  delegated to exam-runner subagents (one exam per subagent, run in
+  the coordinator tree, report the score line, change nothing else).
+  A game outside the harness is forbidden. Coders run no engine games
+  and never learn scores; exam-runners never code.
 - `league/games.jsonl` is the game log. The harness appends to it.
   Do not edit it. Commit it with your notes.
 - Read the code of the other bots. Do not edit their code.
