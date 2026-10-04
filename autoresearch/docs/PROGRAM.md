@@ -157,8 +157,9 @@ by worktree, never by discipline alone:
 
 The harness sets the budget and the selection. No flag changes them.
 
-- 7 duels. Each duel uses a different 2p map.
-- One 10p census and one 6p refine, fixed sizes.
+- One 10p census, then one 6p refine, then 7 duels. The order is
+  fixed: the census reads priors, the refine reads the census, the
+  duels read everything. Each duel uses a different 2p map.
 
 Every game goes to `league/games.jsonl`. A commit cannot play more.
 A completed commit plays no game on a second run. A run stopped

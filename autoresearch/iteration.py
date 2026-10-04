@@ -87,9 +87,7 @@ SIGMA_WEIGHT = 0.02
 # truer without the sigma discount. sel=place43 is the placement
 # champion opponent logic, ported exactly (quantile census, mass
 # quota strata over the recency window, 40-nearest info duels).
-BUDGET = (
-    f"duels={DUELS},ffa={'+'.join(map(str, FFA_SIZES))},turns=1000,score=mu,sel=place43"
-)
+BUDGET = f"duels={DUELS},ffa={'+'.join(map(str, FFA_SIZES))},turns=1000,score=mu,sel=place43,ord=10-6-2"
 
 
 def candidate_id(root: str | Path, botfile: str, rev: str | None = None) -> str:
@@ -129,9 +127,16 @@ def planned(
     )
 
 
-def census_opponents(bid: str, cands: list[str], ratings: dict, k: int) -> list[str]:
+def census_opponents(
+    bid: str,
+    cands: list[str],
+    ratings: dict,
+    k: int,
+    arrival: dict[str, int],
+) -> list[str]:
     """Rulers spanning full-pool mass: quantile-decile sites snapped
-    to the nearest ruler. Exact port of the champion census opener."""
+    to the nearest ruler. Exact port of the champion census opener.
+    Ties break by arrival rank, then id."""
     others = [c for c in cands if c != bid]
     mus = sorted(R.for_id(ratings, c)["mu"] for c in others)
     k = max(0, min(k, len(others)))
@@ -151,6 +156,7 @@ def census_opponents(bid: str, cands: list[str], ratings: dict, k: int) -> list[
             key=lambda c: (
                 abs(R.for_id(ratings, c)["mu"] - t),
                 R.for_id(ratings, c)["sigma"],
+                arrival.get(c, len(arrival)),
                 c,
             ),
         )
@@ -179,6 +185,7 @@ def strata_opponents(bid: str, ordered: list[str], ratings: dict, k: int) -> lis
     pool = [c for c in window if R.for_id(ratings, c)["sigma"] <= cutoff]
     if len(pool) < k:
         pool = [c for c in ordered if c != bid]
+    pos = {c: i for i, c in enumerate(ordered)}
     k = max(0, min(k, len(pool)))
     s = max(me["sigma"], 0.5)
     bins: list[list[str]] = [[], [], []]
@@ -201,7 +208,7 @@ def strata_opponents(bid: str, ordered: list[str], ratings: dict, k: int) -> lis
             key=lambda c: (
                 abs(R.for_id(ratings, c)["mu"] - me["mu"]),
                 R.for_id(ratings, c)["sigma"],
-                c,
+                (pos.get(c, len(pos)), c),
             ),
         )
         out += near[: max(q, 0)]
@@ -211,22 +218,30 @@ def strata_opponents(bid: str, ordered: list[str], ratings: dict, k: int) -> lis
             key=lambda c: (
                 abs(R.for_id(ratings, c)["mu"] - me["mu"]),
                 R.for_id(ratings, c)["sigma"],
-                c,
+                (pos.get(c, len(pos)), c),
             ),
         )
         out += rest[: k - len(out)]
     return out[:k]
 
 
-def info_duel_opponent(model, bid: str, cands: list[str], ratings: dict) -> str | None:
+def info_duel_opponent(
+    model,
+    bid: str,
+    cands: list[str],
+    ratings: dict,
+    arrival: dict[str, int],
+) -> str | None:
     """Best draw odds + 0.02 sigma over the 40 nearest rulers.
-    Exact port of the champion tail duel. First wins ties."""
+    Exact port of the champion tail duel. Ties break by arrival
+    rank, then id; first wins remaining ties."""
     me = R.for_id(ratings, bid)
     order = sorted(
         (c for c in cands if c != bid),
         key=lambda c: (
             abs(R.for_id(ratings, c)["mu"] - me["mu"]),
             R.for_id(ratings, c)["sigma"],
+            arrival.get(c, len(arrival)),
             c,
         ),
     )[:40]
@@ -251,11 +266,12 @@ def stage_field(
     ordered: list[str],
     ratings: dict,
     n: int,
+    arrival: dict[str, int],
 ) -> list[str]:
     """Full FFA field: bid first, then champion opponents (9 census
     rulers for 10p, 5 strata rulers for 6p)."""
     if n == 10:
-        return [bid] + census_opponents(bid, cands, ratings, 9)
+        return [bid] + census_opponents(bid, cands, ratings, 9, arrival)
     if n == 6:
         return [bid] + strata_opponents(bid, ordered, ratings, 5)
     raise ValueError(f"no champion stage for {n}p")
@@ -472,9 +488,38 @@ def main(argv=None) -> int:
     rng = random.Random(f"{SEED}:{bid}:{done['duels']}:{sum(done['ffa'].values())}")
     model = new_model()
     ordered = recency_order([c for c in pool if c != bid], all_commits(root))
+    arrival = {c: i for i, c in enumerate(ordered)}
     used = {r["map"] for r in records if bid in r["field"]}
 
     with open(GAMES_LOG, "a") as fh:
+        for n in sizes_left:
+            maps = [f"tools/maps/{m}" for m in maps_for_players(MAPS_ROOT, n)]
+            maps = [m for m in maps if m not in used]
+            if not maps:
+                raise ValueError(f"no unused {n}p map")
+            map_rel = rng.choice(maps)
+            used.add(map_rel)
+            field = stage_field(
+                model, bid, pool_ids(root, ratings), ordered, ratings, n, arrival
+            )
+            if len(field) != n:
+                raise ValueError(f"pool too small: wanted {n}, got {len(field)}")
+            field = assign_positions(field, rng)
+            done["ffa"][n] = done["ffa"].get(n, 0) + 1
+            log_dir = runs / sha / f"ffa_{n:02d}"
+            rec = play_one(root, field, map_rel, log_dir, rng, args.workbase)
+            fh.write(json.dumps(rec) + "\n")
+            fh.flush()
+            ratings = R.update(ratings, rec["field"], rec["result"])
+            R.save(RATINGS_PATH, ratings)
+            rank = rec["result"].index(bid) + 1
+            mu, sigma, sc = score(ratings, bid)
+            print(
+                f"ffa {n}p {Path(map_rel).name} {result_line(rec, bid)} "
+                f"-> rank {rank}/{n}  cand mu {mu:.1f} sigma {sigma:.2f} score {sc:.1f}",
+                flush=True,
+            )
+
         if duels_left:
             maps = [f"tools/maps/{m}" for m in maps_for_players(MAPS_ROOT, 2)]
             maps = [m for m in maps if m not in used]
@@ -483,7 +528,7 @@ def main(argv=None) -> int:
             for map_rel in pick_maps(rng, maps, duels_left):
                 used.add(map_rel)
                 cands = [c for c in pool_ids(root, ratings) if c != bid]
-                opp = info_duel_opponent(model, bid, cands, ratings)
+                opp = info_duel_opponent(model, bid, cands, ratings, arrival)
                 if opp is None:
                     raise ValueError("pool too small: no duel opponent")
                 field = [bid, opp] if rng.random() < 0.5 else [opp, bid]
@@ -503,34 +548,6 @@ def main(argv=None) -> int:
                     f"  cand mu {mu:.1f} sigma {sigma:.2f} score {sc:.1f}",
                     flush=True,
                 )
-
-        for n in sizes_left:
-            maps = [f"tools/maps/{m}" for m in maps_for_players(MAPS_ROOT, n)]
-            maps = [m for m in maps if m not in used]
-            if not maps:
-                raise ValueError(f"no unused {n}p map")
-            map_rel = rng.choice(maps)
-            used.add(map_rel)
-            field = stage_field(
-                model, bid, pool_ids(root, ratings), ordered, ratings, n
-            )
-            if len(field) != n:
-                raise ValueError(f"pool too small: wanted {n}, got {len(field)}")
-            field = assign_positions(field, rng)
-            done["ffa"][n] = done["ffa"].get(n, 0) + 1
-            log_dir = runs / sha / f"ffa_{n:02d}"
-            rec = play_one(root, field, map_rel, log_dir, rng, args.workbase)
-            fh.write(json.dumps(rec) + "\n")
-            fh.flush()
-            ratings = R.update(ratings, rec["field"], rec["result"])
-            R.save(RATINGS_PATH, ratings)
-            rank = rec["result"].index(bid) + 1
-            mu, sigma, sc = score(ratings, bid)
-            print(
-                f"ffa {n}p {Path(map_rel).name} {result_line(rec, bid)} "
-                f"-> rank {rank}/{n}  cand mu {mu:.1f} sigma {sigma:.2f} score {sc:.1f}",
-                flush=True,
-            )
 
     mu, sigma, sc = score(ratings, bid)
     games = done["duels"] + sum(done["ffa"].values())
