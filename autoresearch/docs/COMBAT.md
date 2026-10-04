@@ -21,7 +21,7 @@ shows the ports with many games and mu below our champions.
 | influence (Memetix) | 3 | 1 | 28.8 / 29.5 / 34.4 | Influence3 34.4 | tune3 coded, queued |
 | greedy fields | 2 | 2 | 16.1 / 26.6 | Greedy2 26.6 | tune2 coded, queued |
 | softmax 1-ply | 3 | 1 | 41.5 / 12.4 / 41.9 | Softmax3 41.9 | contest-zone holds, 10p 1/10, immune |
-| sequential fixing | 3 | 1 | 49.7 / 10.3 / 44.4 | Fixing 49.7 | engage-gate holds, 10p 1/10, immune |
+| sequential fixing | 4+0 | 0 | 49.7 / 10.3 / 44.4 / 42.5 | Fixing 49.7 | DEAD (no new best in last 3) |
 | precomputed tables | 4+0 | 0 | 55.5 / 17.4 / 15.8 / 23.0 | Tables 55.5 | DEAD (no new best in last 3); Tables5 orphaned |
 | two-stage | 1 | 3 | 13.7 | TwoStage 13.7 | weak, tune or close |
 
