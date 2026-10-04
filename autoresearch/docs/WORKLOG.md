@@ -2371,3 +2371,15 @@ Use this format.
 - what changed: xathis-tune2 — aggressive gate 14 to 10 near friends.
 - what you learned: 27.0 to 30.7 — steady climb (25.2/27.0/30.7); xathis's 14 was tuned for its scale, ours wants cheaper aggression. One exam left.
 - next: xathis-tune3 (own-death weight 180 to 120) codes while Dirichlet3 examines.
+
+## 197 — bigger budget barely moves (2026-10-04)
+- commit: 182aba0 (bid Dirichlet3.bot-182aba0; approach exam 3/4)
+- start: a9d4173 (champion Crowd files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 37.2, sigma 3.19
+- champion mu: 67.9 (Crowd)
+- verdict: keep Crowd
+- games: 4-3, FFA ranks 10p:5 6p:4
+- what changed: dirichlet-tune2 — fight budget 5 to 15ms (3x samples).
+- what you learned: 36.4 to 37.2 — more samples barely move the needle; the veto was the whole fix. One exam left.
+- next: dirichlet-tune3 (sample only in small fights) codes while Xathis4 examines (final xathis exam).
