@@ -2455,3 +2455,8 @@ Use this format.
 - what changed: greedy-tune1 — enemy-field weight 2.0 to 0.5.
 - what you learned: 16.1 to 26.6 (+10.5) — deluring works, but duels still collapse 1-6; greedy fields cannot price contact.
 - next: greedy-tune2 (kill-bonus gate sweep) codes while Influence3 examines.
+
+## 204 — pivot: bold structural fixes, round-robin, research fan-out (2026-10-04)
+- diagnosis (user): approaches fail structurally, not parametrically — likely a combat-priority issue (combat moves only fire when food/guard/muster fail). Knob tunes (+1-3 pts) cannot fix ordering.
+- plan change: (1) bold fixes per approach (reorder priorities, restructure phases — not weight tweaks); (2) round-robin across all 8 approaches, not approach-by-approach; (3) xathis + dirichlet reopened for 3 more iterations each (xathis won the tournament and would demolish our bots — replicate harder); (4) research subagents hunt best-bot source code + more postmortems in parallel with coding.
+- queue: influence3 exam, greedy3 exam, softmax/fixing/tables/twostage impl exams, then bold legs in rotation.
