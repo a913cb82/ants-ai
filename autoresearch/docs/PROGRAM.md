@@ -55,6 +55,11 @@ Rules:
 - `league/games.jsonl` is the game log. The harness appends to it.
   Do not edit it. Commit it with your notes.
 - Read the code of the other bots. Do not edit their code.
+- Know the 2011 top-bots: their sources live under
+  `vendor/ants-topbots/` with implementable specs in
+  `autoresearch/docs/RESEARCH.md`, and seven of them run in our pool
+  (`bots/`). Steal mechanisms, not constants: port the idea,
+  re-price every number on the scenarios.
 - The coder gets one idea and a fixed time budget (30 minutes unless
   the brief says otherwise). The coder manages its own clock: run
   `date +%s` first, compute the deadline, re-check before each major
@@ -89,6 +94,13 @@ Rules:
   the scenarios, re-run the whole suite each change, never trade a gain
   here for a regression there. Report scenario scores with the commit.
   One-shot code without iteration wastes the budget.
+- Budget discipline: roughly a third of the budget builds scenarios
+  plus failing tests, a third implements the idea, a third iterates —
+  measure, change one thing, re-measure. Scenarios must discriminate:
+  base versus tuned must score differently on at least one, or the
+  scenario is decoration. Pair every scenario with an anti-scenario
+  (a situation where the idea should NOT change behavior) so tuning
+  cannot buy points by breaking something unseen.
 - The coordinator merges, briefs, plays, compares, tags, logs, and
   pushes. It never edits bot code. At spawn it stages the
   measured-champion files as the coder's base, so every entry is
