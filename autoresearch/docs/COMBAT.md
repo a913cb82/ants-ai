@@ -12,8 +12,9 @@ Our champion tier must beat the ports head-to-head.
 Current ledger, 6 champ-tier vs ports FFAs (`f05dda9`):
 ports 4, loop 2. Port wins: runevision x2, greentea, xathis.
 Loop wins: Crowd+Denial, Denial+Turnstile.
-Re-run this calibration when a new crown lands.
-Milestone met when the loop takes the rematch series.
+No rematches: all further evidence comes from iteration.py
+exams, where ports serve as rulers. Milestone met when a
+loop candidate crowns over port-ruled fields.
 
 ## Scoreboard
 
