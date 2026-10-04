@@ -250,7 +250,7 @@ def assign_food_targets(
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Screen:
+class Odds:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -270,15 +270,13 @@ class Screen:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Screen: Grinder's wiring (Denial's economy, seek approach,
-        # committed-join packs, ahead-only 1v1 duels), except extra
-        # guards screen the razer off the hill: the first guard holds
-        # the threatened hill, but extras march to
-        # combat.intercept_square -- the passable square halfway
-        # between the hill and its nearest enemy -- instead of onto
-        # the hill, so the hill stays spawnable. Unthreatened hills,
-        # first guards, and everything else -- muster, reinforce,
-        # explore, walk-off -- is champion.
+        # Odds: Screen's wiring (Denial's economy, seek approach,
+        # committed-join packs, ahead-only 1v1 duels, off-hill
+        # screening), except the safety filter accepts equal trades
+        # (friends + 1 == enemies) with combat.EQUAL_TRADE_NEAR (10)
+        # near friends instead of champion's 14. Strict
+        # superiority, join, grinder, muster, reinforce, explore,
+        # and walk-off are champion.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -356,8 +354,9 @@ class Screen:
                     near += 1
             if friends + 1 > enemies:
                 return True
-            # Aggressive: 14+ friends near the fight accept equal trades.
-            return near >= 14 and friends + 1 >= enemies
+            # Odds: EQUAL_TRADE_NEAR (10) near friends accept equal
+            # trades, down from champion's tuned 14.
+            return near >= combat.EQUAL_TRADE_NEAR and friends + 1 >= enemies
 
         def first_step(
             start: tuple[int, int], goal: tuple[int, int], budget: int = 250
@@ -405,7 +404,7 @@ class Screen:
 
         def try_join(ant_loc: tuple[int, int], direction: str) -> bool:
             # Committed-join: the pack already holds this foe, so an
-            # equal trade goes through without the 14-near gate.
+            # equal trade goes through without the near gate.
             # Strictly losing fights still hold. Passable, occupancy,
             # and destination clashes check as usual.
             new_loc = ants.destination(ant_loc, direction)
@@ -593,6 +592,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Screen())
+        Ants.run(Odds())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")

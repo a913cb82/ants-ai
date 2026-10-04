@@ -30,6 +30,13 @@ extra guards march to combat.intercept_square -- the passable
 square halfway between the hill and its nearest enemy -- instead
 of onto the hill, so the hill stays spawnable. Unthreatened
 hills, first guards, and everything else match champion exactly.
+
+Leg 5 implements the RESEARCH.md row "Odds: equal trades at 10"
+(and "Aggression gate tuning: 14 is not gospel"): the safety
+filter accepts equal trades (friends + 1 == enemies) with
+combat.EQUAL_TRADE_NEAR (10) near friends instead of champion's
+14. Strict superiority, grinder 1v1s, join packs, and everything
+else match champion exactly.
 """
 
 import os
@@ -40,9 +47,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import combat as CX  # noqa: E402
 
-# Leg 4: Grinder.py left with its entry; Screen carries the same
-# seek + join + grinder wiring, so GP now aliases Screen.
-import Screen as GP  # noqa: E402
+# Leg 5: Odds.py carries the same seek + join + grinder + screen
+# wiring; OP now aliases Odds. champion14_orders below patches the
+# gate back to 14 to reproduce true champion Denial exactly.
+import Odds as GP  # noqa: E402
 
 Loc = tuple[int, int]
 ROWS = 20
@@ -123,9 +131,9 @@ def run_turn(
     water: set[Loc] | None = None,
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
-) -> tuple[list[tuple[Loc, str]], GP.Screen]:
+) -> tuple[list[tuple[Loc, str]], GP.Odds]:
     fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
-    bot = GP.Screen()
+    bot = GP.Odds()
     bot.do_turn(fake)
     return fake.orders, bot
 
@@ -137,9 +145,9 @@ def run_grinder_turn(
     water: set[Loc] | None = None,
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
-) -> tuple[list[tuple[Loc, str]], GP.Screen]:
+) -> tuple[list[tuple[Loc, str]], GP.Odds]:
     fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
-    bot = GP.Screen()
+    bot = GP.Odds()
     bot.do_turn(fake)
     return fake.orders, bot
 
@@ -499,3 +507,112 @@ def test_intercept_costs_under_1ms_on_crowded_board() -> None:
             CX.intercept_square(hill, foes, probe.distance, probe.passable, ROWS, COLS)
     elapsed = (time.perf_counter() - start) / (reps * len(hills))
     assert elapsed < 0.001
+
+
+def champion14_orders(
+    mine: list[Loc],
+    enemies: list[Loc],
+    foods: list[Loc] | None = None,
+    water: set[Loc] | None = None,
+    enemy_hills: list[Loc] | None = None,
+    my_hills: list[Loc] | None = None,
+) -> list[tuple[Loc, str]]:
+    # True champion Denial: Odds differs from the staged champion
+    # only in the equal-trade near gate, so patching
+    # combat.EQUAL_TRADE_NEAR back to 14 reproduces the champion
+    # safety filter exactly (unlike champion_orders, seek stays on).
+    orig = CX.EQUAL_TRADE_NEAR
+    CX.EQUAL_TRADE_NEAR = 14
+    try:
+        orders, _ = run_turn(mine, enemies, foods, water, enemy_hills, my_hills)
+    finally:
+        CX.EQUAL_TRADE_NEAR = orig
+    return orders
+
+
+# Leg 5 boards: ant (5, 5) eyes the step east onto (5, 6) against
+# two foes (5, 7) and (5, 8): enemies 2, backing friend (5, 4) in
+# attack range, so friends + 1 == enemies -- a pure equal trade.
+# The backer holds a food claim on (5, 3) so the join pre-pass
+# skips it and the step stays unjoined; fillers sit within 10
+# steps (near) but outside attack range (sq > 5) of (5, 6).
+_ODDS_FOES = [(5, 7), (5, 8)]
+_ODDS_BACK = (5, 4)
+_ODDS_FOOD = [(5, 3)]
+_ODDS_FILLERS = [
+    (5, 0),
+    (5, 1),
+    (5, 2),
+    (4, 0),
+    (4, 1),
+    (4, 2),
+    (4, 3),
+    (6, 0),
+    (6, 1),
+    (6, 2),
+    (6, 3),
+]
+_ODDS_MINE_12 = [(5, 5), _ODDS_BACK] + _ODDS_FILLERS
+_ODDS_MINE_9 = [(5, 5), _ODDS_BACK] + _ODDS_FILLERS[:8]
+
+
+def test_equal_trade_gate_constant_is_ten() -> None:
+    # (gate) The equal-trade near gate lives in combat as a named
+    # constant: 10, down from champion's tuned 14.
+    assert CX.EQUAL_TRADE_NEAR == 10
+
+
+def test_twelve_near_accepts_equal_trade_champion_refuses() -> None:
+    # (a) 12 near friends: Odds engages east onto (5, 6) while the
+    # 14-gate champion refuses and explores north instead.
+    orders, _ = run_turn(_ODDS_MINE_12, _ODDS_FOES, _ODDS_FOOD)
+    assert orders[0] == ((5, 5), "e")
+    champ = champion14_orders(_ODDS_MINE_12, _ODDS_FOES, _ODDS_FOOD)
+    assert champ[0] == ((5, 5), "n")
+    assert orders[0] != champ[0]
+
+
+def test_nine_near_refuses_exactly_as_champion() -> None:
+    # (b) 9 near friends: below both gates, so every order matches
+    # the 14-gate champion and nobody steps east into the trade.
+    orders, _ = run_turn(_ODDS_MINE_9, _ODDS_FOES, _ODDS_FOOD)
+    champ = champion14_orders(_ODDS_MINE_9, _ODDS_FOES, _ODDS_FOOD)
+    assert orders == champ
+    assert orders[0] != ((5, 5), "e")
+
+
+def test_strict_superiority_engages_under_both_gates() -> None:
+    # (c1) 2 backing friends vs 1 foe: strict superiority accepts
+    # under either gate, so Odds and champion agree east.
+    mine = [(5, 5), (5, 4), (4, 6)]
+    enemies = [(5, 7)]
+    orders, _ = run_turn(mine, enemies)
+    champ = champion14_orders(mine, enemies)
+    assert orders == champ
+    assert orders[0] == ((5, 5), "e")
+
+
+def test_losing_trade_refuses_under_both_gates() -> None:
+    # (c2) Friendless ant facing 3 foes: strictly losing, so Odds
+    # and champion both refuse and agree on every order.
+    mine = [(5, 5)]
+    enemies = [(5, 7), (5, 8), (6, 7)]
+    orders, _ = run_turn(mine, enemies)
+    champ = champion14_orders(mine, enemies)
+    assert orders == champ
+    assert orders[0] != ((5, 5), "e")
+
+
+def test_equal_trade_gate_costs_under_half_ms_on_crowded_board() -> None:
+    # (d) The gate predicate itself -- the only new arithmetic --
+    # costs far under 0.5ms per crowded-board pass.
+    counts = [(i % 14, i % 3, (i * 7) % 3) for i in range(48)]
+    reps = 2000
+    start = time.perf_counter()
+    for _ in range(reps):
+        for near, friends, enemies in counts:
+            _ = friends + 1 > enemies or (
+                near >= CX.EQUAL_TRADE_NEAR and friends + 1 >= enemies
+            )
+    elapsed = (time.perf_counter() - start) / reps
+    assert elapsed < 0.0005

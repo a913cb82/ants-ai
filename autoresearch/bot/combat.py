@@ -22,6 +22,12 @@ by returning the passable square halfway between a threatened
 home hill and its nearest enemy, so extra guards meet the razer
 off the hill and the hill stays spawnable.
 
+Leg 5 adds the Odds gate: EQUAL_TRADE_NEAR drops the equal-trade
+near-friend requirement from champion's tuned 14 to 10, so
+crowded-board equal trades engage sooner. Entry bots read the
+constant in their safety filter; strict superiority, Grinder, and
+join are untouched.
+
 Research: "Approach forms fighting lines" (xathis approaching
 enemies) -- ants near enemies advance on them instead of walking
 only to food, hills, or empty ground.
@@ -36,6 +42,12 @@ SqDistFn = Callable[[Loc, Loc], int]
 PassFn = Callable[[Loc], bool]
 
 SEEK_RANGE = 8
+
+# Leg 5 (Odds): equal trades (friends + 1 == enemies) need this
+# many near friends (within 10 steps of the step) for the safety
+# filter to accept them. Champion tuned 14 on its scale; Odds
+# tests 10 on ours.
+EQUAL_TRADE_NEAR = 10
 
 
 def nearest_seek_enemy(
