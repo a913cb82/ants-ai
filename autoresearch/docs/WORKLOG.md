@@ -2006,3 +2006,15 @@ Use this format.
 - what changed: Battling as Hedge in Hedge.bot + Hedge.py; Denial's united hunt, denial, and combat untouched, but even contact trades are refused when outnumbered on visible ant count, disengaging instead.
 - what you learned: Hedges went 5-2 in duels but ranked only 8th in the census, so mu reached 25.5 against 66.6 — walking away from contact surrenders the squares that grow armies; even trades stay even.
 - next: rotate failed challengers (Understudy exp committed, queued for exam).
+
+## 166 — TIE: rotation matches the champion, incumbent stands (2026-10-04)
+- commit: 66b4046 (bid Understudy.bot-66b4046)
+- start: 8dee7ed (champion Denial files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 66.6, sigma 3.20
+- champion mu: 66.6 (Denial)
+- verdict: TIE — keep Denial (ties keep the incumbent; a tie is not an improvement)
+- games: 5-2, FFA ranks 10p:1 6p:2
+- what changed: Battling as Understudy in Understudy.bot + Understudy.py; Denial's united hunt, denial, and combat untouched, but a failed hill challenge sends a different ant next turn (last challenger excluded for that hill only).
+- what you learned: Understudies went 5-2 in duels, WON the census outright, and took 2nd in the refine, reaching mu 66.6 against 66.6 — rotation is the first idea that does not lose anywhere, but equal is not better; most promising runner-up to date, queued for follow-up legs (longer exclusion window, per-army rotation).
+- next: ranged patrol within 30 steps (Patrol3 exp committed, queued for exam).
