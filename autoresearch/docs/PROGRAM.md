@@ -52,10 +52,11 @@ coordinator measures it.
 1. Coordinator: merge `main` into `autoresearch/main`:
    `git checkout autoresearch/main && git merge main`
    Resolve any conflict before briefing the coder.
-2. Coordinator: pick one idea from `autoresearch/docs/IDEAS.md`
+2. Coordinator: pick one problem from `autoresearch/docs/IDEAS.md`
    or from research. Choose the start. The champion is safe. An
    older bot or a new design also works. Brief a coder with
-   the idea and its time budget. At spawn, stage
+   the failure, the evidence, and the constraints — never the fix.
+   The coder finds the idea. Brief the time budget. At spawn, stage
    the measured-champion files as the coder base. Every entry is
    champion plus exactly one idea.
 3. Coder: write failing test cases first for the risky part. Then
