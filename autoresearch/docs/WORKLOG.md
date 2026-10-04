@@ -2395,3 +2395,15 @@ Use this format.
 - what changed: xathis-tune3 — own-death weight 180 to 120.
 - what you learned: 30.7 to 16.5 with DEAD LAST in the census — bloodier trades donate armies; xathis's 180 was load-bearing. Approach closes at 25.2/27.0/30.7/16.5, best Xathis3 30.7.
 - next: Dirichlet4 final exam, then Influence implementation exam.
+
+## 199 — small-fight gating hurts sampling; dirichlet closes (2026-10-04)
+- commit: 797666e (bid Dirichlet4.bot-797666e; approach exam 4/4 FINAL)
+- start: a9d4173 (champion Crowd files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 27.2, sigma 3.46
+- champion mu: 67.9 (Crowd)
+- verdict: keep Crowd
+- games: 4-3, FFA ranks 10p:8 6p:1
+- what changed: dirichlet-tune3 — sampler only with <10 enemies visible.
+- what you learned: 37.2 to 27.2 — gating that helped xathis hurts sampling; samples need volume. Approach closes at 26.3/36.4/37.2/27.2, best Dirichlet3 37.2 (suicide veto the whole fix).
+- next: Influence implementation exam.
