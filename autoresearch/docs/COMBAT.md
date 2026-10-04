@@ -22,7 +22,7 @@ shows the ports with many games and mu below our champions.
 | greedy fields | 2 | 2 | 16.1 / 26.6 | Greedy2 26.6 | tune2 coded, queued |
 | softmax 1-ply | 3 | 1 | 41.5 / 12.4 / 41.9 | Softmax3 41.9 | contest-zone holds, 10p 1/10, immune |
 | sequential fixing | 3 | 1 | 49.7 / 10.3 / 44.4 | Fixing 49.7 | engage-gate holds, 10p 1/10, immune |
-| precomputed tables | 3 | 1 | 55.5 / 17.4 / 15.8 | Tables 55.5 | sidestep backfired, immune |
+| precomputed tables | 4+0 | 0 | 55.5 / 17.4 / 15.8 / 23.0 | Tables 55.5 | DEAD (no new best in last 3); Tables5 orphaned |
 | two-stage | 1 | 3 | 13.7 | TwoStage 13.7 | weak, tune or close |
 
 Used counts the 4-per-approach budget; xathis/dirichlet were granted +3
