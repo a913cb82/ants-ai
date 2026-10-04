@@ -1,7 +1,10 @@
 # Autoresearch program
 
-You are a researcher. You improve one ants bot. You work alone.
-Do not ask the human anything. Commit, play, measure, and repeat.
+Two roles run the loop. A coder writes one bot change per
+iteration, inside a fixed time budget. A coordinator runs the exam
+and keeps the notes. Coders never play games or see scores; the
+coordinator never writes bot code. The loop still learns: commit,
+measure, keep the winner, repeat.
 
 ## Setup
 
@@ -11,21 +14,19 @@ Do this once for each run.
    `autoresearch/docs/IDEAS.md`, `autoresearch/docs/STRATEGY.md`,
    `autoresearch/docs/CEILING.md`, `autoresearch/docs/PROGRESS.jsonl`,
    and the end of `autoresearch/docs/WORKLOG.md`.
-2. Work on branch `autoresearch/main`:
-   `git checkout autoresearch/main`. The loop merges `main` at step 1.
-   Never commit to `main`. Never push `main`.
+2. Coders work on branch `autoresearch/main`, which the coordinator
+   keeps merged with `main`. Never commit to `main`. Never push `main`.
 3. The bot is in `autoresearch/bot/`. The file `main.bot` starts the bot.
    `main.bot` is a one-line command. The engine runs it with the bot
    directory as the working directory.
 
 ## Scope
 
-You can edit:
+The coder edits `autoresearch/bot/` (the bot) only, including scratch
+tests beside the bot. The coordinator edits `autoresearch/docs/`
+(the notes) only.
 
-- `autoresearch/bot/` (the bot)
-- `autoresearch/docs/` (the notes)
-
-You cannot edit:
+Nobody edits:
 
 - `tools/` (the engine)
 - `league/` (the league)
@@ -39,17 +40,29 @@ Rules:
 
 - Use `.venv/bin/python` for every command. Each command runs in a new
   shell, so an activated venv does not stay active.
-- Make a fresh bot entry each iteration. Change the bot code and commit it.
-  The harness counts games by bot id. An old entry cannot play again.
+- Coder: make a fresh bot entry each iteration. Change the bot code
+  and commit it. The harness counts games by bot id. An old entry
+  cannot play again.
 - Use only the Python standard library and the packages in the venv.
   Do not run pip.
 - One turn must finish in 1000 ms. A slow bot loses on time.
   The load time is 3000 ms.
-- Play every game through `autoresearch/iteration.py`.
-  A game outside the harness is forbidden.
+- The coordinator plays every game through `autoresearch/iteration.py`.
+  A game outside the harness is forbidden. Coders run no engine games;
+  they test with unit tests and replay reads.
 - `league/games.jsonl` is the game log. The harness appends to it.
   Do not edit it. Commit it with your notes.
 - Read the code of the other bots. Do not edit their code.
+- The coder gets one idea and a fixed time budget (30 minutes unless
+  the brief says otherwise). It writes test cases first for the risky
+  part, then the bot code, runs whatever tests it wants inside the
+  budget, commits `exp: <idea>`, reports, and stops. It never plays
+  games, never reads scores, never edits notes, never pushes, never
+  merges. Uncommitted work at budget end is dropped.
+- Scratch tests live in /tmp or beside the bot, committed with the
+  exp commit. They never go under `tests/`.
+- The coordinator merges, briefs, plays, compares, tags, logs, and
+  pushes. It never edits bot code.
 
 ## Goal
 
@@ -63,23 +76,26 @@ move. The champion is the best recorded score for the current budget.
 
 ## One iteration
 
-Each iteration must run a fresh bot entry. Change the bot code first.
+Each iteration makes a fresh bot entry. The coder writes it; the
+coordinator measures it.
 
-1. Merge `main` into `autoresearch/main`:
+1. Coordinator: merge `main` into `autoresearch/main`:
    `git checkout autoresearch/main && git merge main`
-   Resolve any conflict before you continue.
-2. Pick one idea from `autoresearch/docs/IDEAS.md` or from research.
-3. Choose the start. The champion is a safe start. An older bot or a
-   new design is also allowed.
-4. Edit `autoresearch/bot/`.
-5. Commit the change:
+   Resolve any conflict before briefing the coder.
+2. Coordinator: pick one idea from `autoresearch/docs/IDEAS.md` or
+   from research, choose the start (the champion is safe; an older
+   bot or a new design is allowed), and brief a coder with the idea
+   and its time budget.
+3. Coder: write failing test cases first for the risky part, then
+   the bot code. Run the tests inside the budget. Commit:
    `git add autoresearch/bot && git commit -m "exp: <idea>"`
-6. Play the budget:
-   `.venv/bin/python autoresearch/iteration.py --bot autoresearch/bot/main.bot`
-7. Read the score. The harness prints the score and adds one JSON line
+   Then report and stop. No games, no notes, no push.
+4. Coordinator: play the budget:
+   `.venv/bin/python autoresearch/iteration.py --bot <live bot file>`
+5. Read the score. The harness prints the score and adds one JSON line
    to `autoresearch/docs/PROGRESS.jsonl`. The champion is the best
    line for the current budget.
-8. Compare the new score with the champion score:
+6. Compare the new score with the champion score:
    - Baseline (no row for this budget) or new best: point the tag at
      this commit: `git tag -f champion/main`.
    - Lower or equal: point the tag at the best row's commit:
@@ -87,12 +103,14 @@ Each iteration must run a fresh bot entry. Change the bot code first.
    A missing tag is fine. The rule above rebuilds it. The tag is
    local. Never push tags. Keep the commit in all cases. Start the
    next idea from the champion.
-9. Add one entry to `autoresearch/docs/WORKLOG.md`. Commit the notes
-   and the new games:
+9. Coordinator: add one entry to `autoresearch/docs/WORKLOG.md`. Mark
+   the idea's row in `autoresearch/docs/IDEAS.md`. On a crown change,
+   update the Current bot section of `autoresearch/docs/STRATEGY.md`.
+   Commit the notes and the new games:
    `git add autoresearch/docs league/games.jsonl && git commit -m "log: <idea>"`
-10. Push your branch:
+10. Push the branch:
     `git push origin autoresearch/main`
-    You own this branch only. Never push `main` or tags. A failed
+    The coordinator owns this branch only. Never push `main` or tags. A failed
     push is not a lost iteration. Keep the commits and push again at
     the next log commit.
 11. Go to step 1. Do not stop.

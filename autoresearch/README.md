@@ -1,24 +1,20 @@
 # Autoresearch
 
-`autoresearch/` runs a bot development loop. One agent improves one bot.
-Each iteration makes a fresh bot entry: one commit, changed bot code,
-and one fixed set of games. The agent keeps a change when the recorded
-score improves.
+`autoresearch/` runs a bot development loop. A coder improves one bot,
+one idea per iteration. The coordinator runs the exam and keeps the
+notes. Each iteration makes a fresh bot entry: one commit, changed bot
+code, and one fixed set of games. The coordinator keeps a change when
+the recorded score improves.
 
 ## The loop
 
-1. Merge `main` into `autoresearch/main`.
-2. Read the notes. Pick one idea.
-3. Choose the start. You can start from the champion, an older bot, or
-   a new design.
-4. Edit `bot/`.
-5. Commit.
-6. Play the schedule: 7 duels, one 10p census, one 6p refine.
-7. The harness records the score in `docs/PROGRESS.jsonl`. Keep the
-   commit if the new score beats the champion score for the current
-   budget.
-8. Log the result. Push your branch:
-   `git push origin autoresearch/main`. Repeat.
+1. Coordinator: merge `main` into `autoresearch/main`.
+2. Coordinator: read the notes, pick one idea, brief a coder
+   (one idea, fixed time budget).
+3. Coder: test the risky part first, edit `bot/`, commit `exp:`.
+4. Coordinator: play the schedule: 7 duels, one 10p census, one 6p refine.
+5. Coordinator: record the score, keep the winner, log the result.
+   Push `origin autoresearch/main`. Repeat.
 
 The operating instructions are in `docs/PROGRAM.md`. Start there.
 
@@ -51,7 +47,7 @@ the file. The harness ignores them.
 - Fixed budget per commit. Each iteration makes a fresh bot entry.
   The bot cannot gain more games, so the rating cannot be ground up.
 - Recorded scores. The harness compares each bot after its fixed
-  8-game budget, not against a live rating that keeps changing.
+  9-game budget, not against a live rating that keeps changing.
 - Honest selection. The harness picks the maps, slots, seeds, and
   opponents. The agent cannot pick easy games.
 - One mutable surface. The agent edits the bot and the notes only.
