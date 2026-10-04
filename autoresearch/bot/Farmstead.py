@@ -10,47 +10,8 @@ DistFn = Callable[[Loc, Loc], int]
 CLUSTER_R = 8
 DENIAL_ENEMIES = 3
 DENIAL_CLAIMS = 2
+FOLLOW_RADIUS = 20
 _CELL = CLUSTER_R + 1
-
-FEARLESS_RAIDERS = 2
-FEARLESS_RADIUS = 15
-
-
-def count_raiders(
-    hill: Loc,
-    enemy_locs: list[Loc],
-    distance: DistFn,
-    closing: Callable[[Loc, Loc], bool],
-) -> int:
-    # Raiders on one home hill: visible enemies within 10 steps, or
-    # within 16 and closing on the hill. The same predicate the
-    # defense branch uses to call a hill threatened.
-    return sum(
-        1
-        for e in enemy_locs
-        if distance(hill, e) <= 10 or (distance(hill, e) <= 16 and closing(e, hill))
-    )
-
-
-def fearless_hills(
-    my_hills: list[Loc],
-    enemy_locs: list[Loc],
-    distance: DistFn,
-    closing: Callable[[Loc, Loc], bool],
-) -> list[Loc]:
-    # Hills hit by a real raid: FEARLESS_RAIDERS+ raiders each. A
-    # lone probe never qualifies.
-    return [
-        h
-        for h in my_hills
-        if count_raiders(h, enemy_locs, distance, closing) >= FEARLESS_RAIDERS
-    ]
-
-
-def needs_reinforcement(ant_loc: Loc, hills: list[Loc], distance: DistFn) -> bool:
-    # Every ant inside FEARLESS_RADIUS of a raided hill reinforces:
-    # no gatherer exception, no rank exception.
-    return any(distance(ant_loc, h) <= FEARLESS_RADIUS for h in hills)
 
 
 def _scan_board(
@@ -286,15 +247,37 @@ def assign_food_targets(
     return target
 
 
+def nearest_follow_target(
+    ant_loc: Loc,
+    tasked_locs: list[Loc],
+    distance: DistFn,
+    radius: int = FOLLOW_RADIUS,
+) -> Loc | None:
+    # Nearest tasked friend within radius; the feet an idle ant follows.
+    # Self never qualifies. Beyond radius there are no feet: None means
+    # the idle falls back to least-visited explore.
+    best: Loc | None = None
+    best_d = radius + 1
+    for t in tasked_locs:
+        if t == ant_loc:
+            continue
+        d = distance(ant_loc, t)
+        if d <= radius and d < best_d:
+            best_d = d
+            best = t
+    return best
+
+
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Relief:
+class Farmstead:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
         self.remembered_hills: set[tuple[int, int]] = set()
         self.prev_enemies: list[tuple[int, int]] = []
+        self.use_follow = True
 
     # do_setup is run once at the start of the game
     # after the bot has received the game settings
@@ -309,14 +292,15 @@ class Relief:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Relief: Denial's denial, except a home hill raided by 2+
-        # enemies pulls every ant within 15 off food to reinforce
-        # (no gatherer exception) until the raid clears. A food cluster contested by
-        # 3+ visible enemies draws two ants onto its two closest foods
-        # (local 2v2+ posture) instead of one ant per food. Battling as Flood. Homeward structure, wide fallback,
-        # aggression, walk-off, food, and exploration match iteration
-        # 76. Hunt always; ahead on hills, hunters skip the safety
-        # filter. Closeouts need teeth, not patience.
+        # Farmstead: Denial's denial, except an idle ant (no food move,
+        # no hill move) steps toward the nearest tasked friend within
+        # 20 instead of diffusing to least-visited squares. Followers
+        # join the pool, so loose chains form transitively; an idle
+        # with no tasked friend in range explores least-visited as
+        # before. Battling as Denial. Homeward structure, wide
+        # fallback, aggression, walk-off, food, and exploration match
+        # iteration 76. Hunt always; ahead on hills, hunters skip the
+        # safety filter. Closeouts need teeth, not patience.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -364,7 +348,6 @@ class Relief:
                 for e in enemy_locs
             )
         ]
-        raided = fearless_hills(my_hills, enemy_locs, ants.distance, closing)
         attack_r2 = ants.attackradius2 or 5
         rows, cols = ants.rows, ants.cols
 
@@ -445,16 +428,14 @@ class Relief:
         destinations: set[tuple[int, int]] = set()
         held: list[tuple[int, int]] = []
         anchored: set[tuple[int, int]] = set()
+        # Feet the idles follow: every food-claimed ant has a task even
+        # when its step is blocked, so the whole claim set seeds the
+        # pool. Hill movers and followers join as they move, which is
+        # what lets chains form transitively.
+        follow_pool: list[tuple[int, int]] = [ants_list[ai] for ai in target]
         for ai, ant_loc in enumerate(ants_list):
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
             best = target.get(ai)
-            if best is not None and needs_reinforcement(ant_loc, raided, ants.distance):
-                # Fearless: a raided home hill pulls every ant
-                # inside 15 off food this turn. The claim simply
-                # goes unworked; the economy resumes by itself when
-                # the raid clears. Defense, muster, and exploration
-                # below are untouched.
-                best = None
             moved = False
             if best is not None:
                 step = first_step(ant_loc, best)
@@ -480,6 +461,7 @@ class Relief:
                     step = first_step(ant_loc, nearest)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
+                    follow_pool.append(ant_loc)
             if not moved and hills:
                 # Flood: the group marches on one target, the hill
                 # nearest the army as a whole. Hunt always; fearless
@@ -493,6 +475,7 @@ class Relief:
                     ant_loc, step, safe=len(my_hills) <= len(hills)
                 ):
                     moved = True
+                    follow_pool.append(ant_loc)
             if not moved and hills:
                 # No hill move: reinforce the second-nearest hill.
                 ordered = sorted(hills, key=lambda h: ants.distance(ant_loc, h))
@@ -500,6 +483,24 @@ class Relief:
                 hstep = first_step(ant_loc, near)
                 if hstep is not None and try_step(ant_loc, hstep):
                     moved = True
+                    follow_pool.append(ant_loc)
+            if not moved and self.use_follow:
+                # Idle: no food move and no hill move. Step toward the
+                # nearest tasked friend first; only a truly isolated
+                # idle (no feet within 20) explores least-visited. One
+                # greedy step keeps it cheap no matter how far the feet
+                # are; passable, occupancy, and safety still apply.
+                goal = nearest_follow_target(ant_loc, follow_pool, ants.distance)
+                if goal is not None:
+                    feet = sorted(
+                        ("n", "e", "s", "w"),
+                        key=lambda d: ants.distance(ants.destination(ant_loc, d), goal),
+                    )
+                    for direction in feet:
+                        if try_step(ant_loc, direction):
+                            moved = True
+                            follow_pool.append(ant_loc)
+                            break
             if not moved:
                 # Still stuck: explore least-visited squares first.
                 dirs = sorted(
@@ -545,6 +546,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Relief())
+        Ants.run(Farmstead())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
