@@ -10,6 +10,22 @@ Group leaves by line (one line per approach). Cycle the lines
 round-robin. Take the oldest leaf of the next line. New lines
 join the cycle at once. No line jumps the queue.
 
+## Terminate
+
+Close a line when its budget is spent (4 iterations, plus
+grants). Close it early on 3 straight exams that trail both
+the line best and the champion with no upward trend. The
+champion line never closes. Log every close in WORKLOG.md.
+
+## Split
+
+Split when one failure has two competing diagnoses: one child
+leaf per diagnosis, examined in turn. Split when a leaf beats
+its parent by a wide margin on a new mechanism: the mechanism
+becomes its own line. Prune the weaker fork at its next exam.
+Grants (extra iterations) are explicit splits. Log every split
+in WORKLOG.md.
+
 ## Worktrees
 
 The coordinator owns a pool of 6 paths: /tmp/cbt-0 to /tmp/cbt-5.
