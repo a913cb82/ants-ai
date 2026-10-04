@@ -1898,3 +1898,15 @@ Use this format.
 - what changed: Battling as Hillfirst2 in Hillfirst2.bot + Hillfirst2.py; Denial's united hunt, denial, and combat untouched, but ants holding both a food claim and a hill move take the hill first, except ants within 5 steps of food finish the pickup.
 - what you learned: Hillfirst2s went 6-1 in duels and won the refine, but finished DEAD LAST (10/10) in the census, so mu reached 17.2 against 66.6 — marching past food loses the growth race before hills matter; food-first is load-bearing in crowds.
 - next: endgame closing, third attempt (Endgamer-3 exp committed, queued for exam).
+
+## 156 — endgame hill-sitting cedes the map (2026-10-04)
+- commit: c974371 (bid Endgame.bot-c974371)
+- start: 8dee7ed (champion Denial files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 44.1, sigma 3.30
+- champion mu: 66.6 (Denial)
+- verdict: keep Denial
+- games: 4-3, FFA ranks 10p:5 6p:1
+- what changed: Battling as Endgame in Endgame.bot + Endgame.py; Denial's united hunt, denial, and combat untouched, but past turn 600 exploration ants sit on held hills and challenge uncontrolled hills only with strict local superiority.
+- what you learned: Endgames went 4-3 in duels, won the refine, but ranked only 5th in the census, so mu reached 44.1 against 66.6 — sitting still loses races that movement wins; the idea is dead for the third and final time (two stacked attempts never isolated, one clean).
+- next: quartermaster food triage by ratio (Quartermaster exp committed, queued for exam).
