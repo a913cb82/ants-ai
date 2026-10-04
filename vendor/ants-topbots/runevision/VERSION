@@ -1,0 +1,12 @@
+This starter package zip was published on Fri Nov  4 13:33:44 UTC 2011.
+
+Last change on this starter package was:
+commit 3e4e18f936679e8cbf48d2bde6f29d9e9acc3f5a
+Merge: e625e06 310c2e5
+Date:   Fri Oct 21 19:24:59 2011 -0700
+
+    Merge pull request #314 from Suicidolt/epsilon
+
+    and it's declaration
+
+Check https://github.com/aichallenge/aichallenge/tree/epsilon/ants/dist/starter_bots/csharp for new versions.

@@ -463,3 +463,15 @@ Use this format.
 - claim: 3-tier combat with probabilistic trade tags p=(n/(0.6e))^3 and exhaustive subgroup minimax at tier 1.
 - evidence: tier 1 subgroup combat, tier 2 pathfinding, tier 3 probabilistic tags with density-estimated enemy counts.
 - idea: probabilistic (not binary) trade acceptance scaled by local odds.
+
+## Top-bot source archive log (2026-10-04)
+- recovered: res-topbots-src subagent wave (forum t=2161 + Wayback + live hosts).
+- archived: `vendor/ants-topbots/` (in-repo; survives /tmp clears).
+- contents and recovery:
+  - greentea (#2): `vendor/ants-topbots/greentea` (26 files). Recover: `git clone https://git.code.sf.net/p/ants2011/code`. Forum: groups t=2161, user GreenTea, 2011-12-19, "SixPoolRush.jar".
+  - lazarant (#6): `vendor/ants-topbots/lazarant` (19 files). Recover: Wayback `forums.aichallenge.org/download/file.php?id=282` (t=2161 attachment lazarant.zip).
+  - runevision (#4): `vendor/ants-topbots/runevision` (MyBot.cs 1175 lines). Recover: http://runevision.com/blog/files/2011_runevision_bot.zip + https://blog.runevision.com/2011/12/ai-challenge-my-bot-explained-part-i.html.
+  - fourmidable (#9): `vendor/ants-topbots/fourmidable` (26 files). Recover: Wayback `forums.aichallenge.org/download/file.php?id=303` (t=2161 attachment).
+  - xathis (#1): `vendor/ants-topbots/xathis` (T-Py-T/AntsAIBot clone). Recover: https://github.com/T-Py-T/AntsAIBot. Authoritative: docs/reference/xathis/Strategy.java + postmortem.txt. WARNING: src/bots/xathis_bot.py is a stub port, not xathis behavior.
+- missing (dead links even via Wayback): protocolocon (#3, C++ Rufes Band), teapotahedron (#5), ChrisH (#7, Go Area42), FlagCapper (#8, C).
+- implementable specs filed: GreenTea BattleCalculator, lazarant intentions, runevision resolution (see researcher reports in WORKLOG/respective rows). fourmidable spec still wanted.

@@ -1,0 +1,7 @@
+MajorityBonus 100 400 294
+MajorityThreshold 0 20 5
+BattleGoalCost 0 90 25
+BattleGoalRange 0 50 10
+BattleGoalAmount 1 30 10
+ClearMidway 0 1 0
+TakeRiskAtTie 0 1 0
