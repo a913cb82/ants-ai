@@ -47,6 +47,10 @@ babies donate in duels; press only with numbers.
 Research: "Approach forms fighting lines" (xathis approaching
 enemies) -- ants near enemies advance on them instead of walking
 only to food, hills, or empty ground.
+
+Leg 9 adds the Marshal urgency order: urgency_order sorts our
+ants by nearest-enemy distance, closest first, so threatened
+ants claim contested destinations before safer ants.
 """
 
 from collections import deque
@@ -85,6 +89,29 @@ CROWD_LIMIT = 10
 # visible; smaller armies keep full champion safety on every
 # advance regardless of enemy count.
 LEGION_MIN = 10
+
+
+def urgency_order(
+    ants_list: list[Loc],
+    enemy_locs: list[Loc],
+    distance: DistFn,
+) -> list[int]:
+    """Ant indices nearest-foe first, so danger moves first.
+
+    Each ant scores its distance to the closest visible enemy;
+    the closest ant moves first and claims contested destinations
+    before safer ants. Ties keep list order, and an empty enemy
+    list returns identity order, so no-enemy boards play exactly
+    as engine order. Pure: no board state, no side effects.
+    """
+    if not enemy_locs:
+        return list(range(len(ants_list)))
+    scored = [
+        (min(distance(ant, foe) for foe in enemy_locs), ai)
+        for ai, ant in enumerate(ants_list)
+    ]
+    scored.sort()
+    return [ai for _, ai in scored]
 
 
 def legion_ready(my_army: int, limit: int = LEGION_MIN) -> bool:

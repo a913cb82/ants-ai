@@ -250,7 +250,7 @@ def assign_food_targets(
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Legion:
+class Marshal:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -270,13 +270,13 @@ class Legion:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Legion: Crowd's wiring (Denial's economy, pack-gated seek
+        # Marshal: Legion's wiring (Denial's economy, pack-gated seek
         # approach, committed-join packs, ahead-only 1v1 duels,
         # off-hill screening, 10-gate equal trades, crowd-fearless
-        # small fights), except the fearless advance additionally
-        # needs combat.LEGION_MIN+ own ants visible -- press needs
-        # ten ants. Smaller armies keep full champion safety on every
-        # advance regardless of enemy count. Food, guard, muster,
+        # small fights with a real army), except the main ant loop
+        # iterates combat.urgency_order instead of engine order --
+        # danger moves first, so threatened ants claim contested
+        # destinations before safer ants. Food, guard, muster,
         # reinforce, explore, and walk-off are champion.
         foods = ants.food()
         ants_list = ants.my_ants()
@@ -456,7 +456,11 @@ class Legion:
         destinations: set[tuple[int, int]] = set()
         held: list[tuple[int, int]] = []
         anchored: set[tuple[int, int]] = set()
-        for ai, ant_loc in enumerate(ants_list):
+        for ai in combat.urgency_order(ants_list, enemy_locs, ants.distance):
+            # Urgency order carries the original ant index, so food
+            # claims and join commitments still key on the right ant;
+            # only the move sequence changes, danger first.
+            ant_loc = ants_list[ai]
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
             best = target.get(ai)
             moved = False
@@ -494,7 +498,7 @@ class Legion:
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved and enemy_locs:
-                # Legion: no food or guard move; hunt only with a
+                # Marshal: no food or guard move; hunt only with a
                 # pack, fearless in small fights with a real army. A
                 # packless ant never advances -- it packs up one step
                 # toward its nearest friend instead (below), under
@@ -619,6 +623,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Legion())
+        Ants.run(Marshal())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")

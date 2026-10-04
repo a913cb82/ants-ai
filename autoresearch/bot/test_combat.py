@@ -58,6 +58,14 @@ advance issues only with 10+ own ants visible
 (combat.LEGION_MIN); smaller armies keep full champion safety on
 every advance regardless of enemy count. Food, guard, muster,
 reinforce, and explore keep their existing filters.
+
+Leg 9 implements the RESEARCH.md row "Urgency ordering: danger
+moves first" (contested tiles go to arbitrary engine order): the
+Marshal entry processes ants in combat.urgency_order -- nearest
+foe first, ties by list order -- instead of engine order, so
+threatened ants claim contested destinations first. Every branch
+(food, guard, muster, seek, explore, walk-off) is the
+carried-forward Legion logic; only the iteration order changes.
 """
 
 import os
@@ -68,10 +76,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import combat as CX  # noqa: E402
 
-# Leg 8: Legion.py carries the same seek + join + grinder +
-# screen + odds + gang + crowd wiring, plus the army gate; CP
-# aliases the live Legion entry.
-import Legion as CP  # noqa: E402
+# Leg 9: Marshal.py carries the same seek + join + grinder +
+# screen + odds + gang + crowd + legion wiring, plus urgency
+# ordering of the main ant loop; CP aliases the live Marshal entry.
+import Marshal as CP  # noqa: E402
 
 Loc = tuple[int, int]
 ROWS = 20
@@ -152,9 +160,9 @@ def run_turn(
     water: set[Loc] | None = None,
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
-) -> tuple[list[tuple[Loc, str]], CP.Legion]:
+) -> tuple[list[tuple[Loc, str]], CP.Marshal]:
     fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
-    bot = CP.Legion()
+    bot = CP.Marshal()
     bot.do_turn(fake)
     return fake.orders, bot
 
@@ -166,9 +174,9 @@ def run_grinder_turn(
     water: set[Loc] | None = None,
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
-) -> tuple[list[tuple[Loc, str]], CP.Legion]:
+) -> tuple[list[tuple[Loc, str]], CP.Marshal]:
     fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
-    bot = CP.Legion()
+    bot = CP.Marshal()
     bot.do_turn(fake)
     return fake.orders, bot
 
@@ -437,8 +445,12 @@ def test_food_guard_orders_unchanged_when_army_ahead() -> None:
     orders, _ = run_grinder_turn(mine, enemies, foods, my_hills=[(10, 12)])
     champ = champion_orders(mine, enemies, foods, my_hills=[(10, 12)])
     assert orders == champ
-    assert orders[0] == ((5, 5), "e")
-    assert orders[1] == ((2, 2), "e")
+    # Marshal (leg 9): urgency moves (12, 14) first, so index order
+    # follows danger -- but each ant's move is unchanged, and the
+    # food steps still issue from (5, 5) and (2, 2).
+    by_ant = dict(orders)
+    assert by_ant[(5, 5)] == "e"
+    assert by_ant[(2, 2)] == "e"
 
 
 def test_grinder_gate_under_half_ms_on_crowded_board() -> None:
@@ -502,9 +514,12 @@ def test_second_guard_screens_off_hill() -> None:
     )
     assert inter == (10, 13) and inter != hill
     orders, _ = run_turn(mine, enemies, my_hills=[hill])
-    assert orders[0] == ((10, 8), "e")
-    assert orders[1] == ((10, 11), "e")
-    assert orders[1] != ((10, 11), "w")
+    # Marshal (leg 9): urgency processes (10, 11) first, so the
+    # nearer ant holds the hill stepping west while (10, 8) screens
+    # east -- same destinations as Legion, danger-first order, and
+    # the screener still never piles onto the hill.
+    assert orders == [((10, 11), "w"), ((10, 8), "e")]
+    assert ((10, 8), "w") not in orders
 
 
 def test_first_guard_holds_hill_as_champion() -> None:
@@ -516,7 +531,12 @@ def test_first_guard_holds_hill_as_champion() -> None:
     assert orders == [((10, 8), "e")]
     assert orders == champion_orders(mine, enemies, my_hills=[(10, 10)])
     pair, _ = run_turn([(10, 8), (10, 11)], enemies, my_hills=[(10, 10)])
-    assert pair[0] == orders[0]
+    # Marshal (leg 9): the nearer (10, 11) holds instead of (10, 8),
+    # stepping west onto the hill exactly as the champion holder --
+    # same held square, danger-first holder.
+    assert pair == [((10, 11), "w"), ((10, 8), "e")]
+    probe = FakeAnts([(10, 8), (10, 11)], enemies)
+    assert probe.destination((10, 11), pair[0][1]) == (10, 10)
 
 
 def test_no_threat_turn_matches_champion() -> None:
@@ -678,10 +698,10 @@ def run_gang_turn(
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
 ) -> tuple[list[tuple[Loc, str]], object]:
-    # The Gang entry files are gone; Legion carries their wiring,
-    # so the gang boards run on Legion exactly.
+    # The Gang entry files are gone; Marshal carries their wiring,
+    # so the gang boards run on Marshal exactly.
     fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
-    bot = CP.Legion()
+    bot = CP.Marshal()
     bot.do_turn(fake)
     return fake.orders, bot
 
@@ -763,9 +783,9 @@ def run_crowd_turn(
     water: set[Loc] | None = None,
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
-) -> tuple[list[tuple[Loc, str]], CP.Legion]:
+) -> tuple[list[tuple[Loc, str]], CP.Marshal]:
     fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
-    bot = CP.Legion()
+    bot = CP.Marshal()
     bot.do_turn(fake)
     return fake.orders, bot
 
@@ -778,7 +798,7 @@ def safe_orders(
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
 ) -> list[tuple[Loc, str]]:
-    # Gang-equivalent baseline on the Legion code: force the crowd
+    # Gang-equivalent baseline on the Marshal code: force the crowd
     # gate closed so the full champion safety filter applies to
     # every advancing move, exactly as legs 1-6 behave. (The army
     # gate is untouched: with the crowd gate closed both paths are
@@ -911,9 +931,9 @@ def run_legion_turn(
     water: set[Loc] | None = None,
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
-) -> tuple[list[tuple[Loc, str]], CP.Legion]:
+) -> tuple[list[tuple[Loc, str]], CP.Marshal]:
     fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
-    bot = CP.Legion()
+    bot = CP.Marshal()
     bot.do_turn(fake)
     return fake.orders, bot
 
@@ -1034,3 +1054,131 @@ def test_legion_count_costs_under_half_ms_on_crowded_board() -> None:
             _ = CX.legion_ready(len(mine), CX.LEGION_MIN)
     elapsed = (time.perf_counter() - start) / reps
     assert elapsed < 0.0005
+
+
+def _engine_order(
+    ants_list: list[Loc], enemy_locs: list[Loc], distance: CX.DistFn
+) -> list[int]:
+    # Engine order stand-in: identity indices, so the Marshal entry
+    # processes ants exactly as the carried-forward Legion code.
+    _ = enemy_locs, distance
+    return list(range(len(ants_list)))
+
+
+def run_marshal_turn(
+    mine: list[Loc],
+    enemies: list[Loc],
+    foods: list[Loc] | None = None,
+    water: set[Loc] | None = None,
+    enemy_hills: list[Loc] | None = None,
+    my_hills: list[Loc] | None = None,
+) -> tuple[list[tuple[Loc, str]], object]:
+    import Marshal as MP  # noqa: E402
+
+    fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
+    bot = MP.Marshal()
+    bot.do_turn(fake)
+    return fake.orders, bot
+
+
+def engine_orders(
+    mine: list[Loc],
+    enemies: list[Loc],
+    foods: list[Loc] | None = None,
+    water: set[Loc] | None = None,
+    enemy_hills: list[Loc] | None = None,
+    my_hills: list[Loc] | None = None,
+) -> list[tuple[Loc, str]]:
+    # Carried-forward order: the Marshal entry with urgency patched
+    # back to engine (identity) order.
+    orig = CX.urgency_order
+    CX.urgency_order = _engine_order
+    try:
+        orders, _ = run_marshal_turn(mine, enemies, foods, water, enemy_hills, my_hills)
+    finally:
+        CX.urgency_order = orig
+    return orders
+
+
+def test_urgency_order_sorts_by_nearest_enemy() -> None:
+    # (pure) Closest ant to any enemy moves first: the sort key is
+    # each ant's nearest-foe distance, so danger moves first.
+    probe = FakeAnts([(5, 5)], [])
+    order = CX.urgency_order([(5, 5), (5, 0), (5, 9)], [(5, 10)], probe.distance)
+    assert order == [2, 0, 1]
+
+
+def test_urgency_order_ties_keep_list_order() -> None:
+    # (pure) Equal danger keeps engine order either way round, so
+    # symmetric boards stay deterministic with no coin flips.
+    probe = FakeAnts([(5, 5)], [])
+    assert CX.urgency_order([(5, 5), (5, 9)], [(5, 7)], probe.distance) == [0, 1]
+    assert CX.urgency_order([(5, 9), (5, 5)], [(5, 7)], probe.distance) == [0, 1]
+
+
+def test_urgency_order_no_enemies_is_identity() -> None:
+    # (pure) No enemies, no danger: identity indices, so no-enemy
+    # boards play exactly as the carried-forward engine order.
+    probe = FakeAnts([(5, 5)], [])
+    mine = [(5, 5), (2, 2), (10, 10)]
+    assert CX.urgency_order(mine, [], probe.distance) == [0, 1, 2]
+
+
+def test_threatened_ant_wins_contested_square() -> None:
+    # (a) Both packless ants pack up onto (10, 11): engine order
+    # hands it to (10, 10) stepping east, urgency to the nearer
+    # (10, 12) stepping west, and the loser reroutes north.
+    mine = [(10, 10), (10, 12)]
+    enemies = [(10, 16)]
+    orders, _ = run_marshal_turn(mine, enemies)
+    assert ((10, 12), "w") in orders
+    assert ((10, 10), "e") not in orders
+    engine = engine_orders(mine, enemies)
+    assert ((10, 10), "e") in engine
+    assert ((10, 12), "w") not in engine
+
+
+def test_no_enemy_board_matches_engine_order() -> None:
+    # (b) No enemies anywhere: food claims, guards, and explore
+    # match engine order move for move on a busy board.
+    mine = [(5, 5), (2, 2), (10, 10), (12, 12)]
+    foods = [(5, 6), (2, 3)]
+    orders, _ = run_marshal_turn(mine, [], foods, my_hills=[(10, 12)])
+    assert orders == engine_orders(mine, [], foods, my_hills=[(10, 12)])
+
+
+def test_equal_danger_board_matches_engine_order() -> None:
+    # (b2) Equal danger keeps list order through the bot: two ants
+    # equidistant from the foe play exactly as engine order (both
+    # refuse the unsafe contact and retreat).
+    mine = [(5, 5), (5, 9)]
+    enemies = [(5, 7)]
+    orders, _ = run_marshal_turn(mine, enemies)
+    assert orders == engine_orders(mine, enemies) == [((5, 5), "w"), ((5, 9), "e")]
+
+
+def test_food_claims_follow_ant_indices_in_urgency_order() -> None:
+    # (c) One food nearest (5, 9): the claim still belongs to ant
+    # index 1 even though urgency processes it before index 0, so
+    # the food step issues from (5, 9) under either order.
+    mine = [(5, 5), (5, 9)]
+    foods = [(5, 8)]
+    enemies = [(5, 14)]
+    orders, _ = run_marshal_turn(mine, enemies, foods)
+    assert ((5, 9), "w") in orders
+    engine = engine_orders(mine, enemies, foods)
+    assert ((5, 9), "w") in engine
+
+
+def test_urgency_sort_costs_under_1ms_on_crowded_board() -> None:
+    # (d) The danger sort over 48 ants and 10 foes costs under 1ms
+    # per pass on a crowded board -- well inside the turn budget.
+    mine = [(i % ROWS, (i * 7) % COLS) for i in range(48)]
+    foes = [((i * 13 + 5) % ROWS, (i * 11 + 3) % COLS) for i in range(10)]
+    probe = FakeAnts(mine, foes)
+    reps = 50
+    start = time.perf_counter()
+    for _ in range(reps):
+        CX.urgency_order(mine, foes, probe.distance)
+    elapsed = (time.perf_counter() - start) / reps
+    assert elapsed < 0.001
