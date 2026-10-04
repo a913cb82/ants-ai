@@ -66,6 +66,16 @@ foe first, ties by list order -- instead of engine order, so
 threatened ants claim contested destinations first. Every branch
 (food, guard, muster, seek, explore, walk-off) is the
 carried-forward Legion logic; only the iteration order changes.
+
+Leg 10 implements the RESEARCH.md row "Memetix influence combat"
+(single-pass influence maps decide SAFE/KILL/DIE in 3-5 ms; KILL
+only to break deadlocks): combat.influence_field precomputes the
+per-square enemy count after one move, combat.classify_step rates
+each planned contact step DIE (influence strictly exceeds our
+side), KILL (equal, expect 1-for-1), or SAFE (we lead). The entry
+refuses DIE everywhere the old majority filter would accept, takes
+KILL only on contested-hill (hill-push) turns, and matches
+carried-forward behavior on SAFE.
 """
 
 import os
@@ -76,10 +86,11 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import combat as CX  # noqa: E402
 
-# Leg 9: Marshal.py carries the same seek + join + grinder +
+# Leg 9+10: Memetix.py carries the same seek + join + grinder +
 # screen + odds + gang + crowd + legion wiring, plus urgency
-# ordering of the main ant loop; CP aliases the live Marshal entry.
-import Marshal as CP  # noqa: E402
+# ordering of the main ant loop and the influence DIE/KILL/SAFE
+# contact gate; CP aliases the live Memetix entry.
+import Memetix as CP  # noqa: E402
 
 Loc = tuple[int, int]
 ROWS = 20
@@ -160,9 +171,9 @@ def run_turn(
     water: set[Loc] | None = None,
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
-) -> tuple[list[tuple[Loc, str]], CP.Marshal]:
+) -> tuple[list[tuple[Loc, str]], CP.Memetix]:
     fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
-    bot = CP.Marshal()
+    bot = CP.Memetix()
     bot.do_turn(fake)
     return fake.orders, bot
 
@@ -174,9 +185,9 @@ def run_grinder_turn(
     water: set[Loc] | None = None,
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
-) -> tuple[list[tuple[Loc, str]], CP.Marshal]:
+) -> tuple[list[tuple[Loc, str]], CP.Memetix]:
     fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
-    bot = CP.Marshal()
+    bot = CP.Memetix()
     bot.do_turn(fake)
     return fake.orders, bot
 
@@ -698,10 +709,10 @@ def run_gang_turn(
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
 ) -> tuple[list[tuple[Loc, str]], object]:
-    # The Gang entry files are gone; Marshal carries their wiring,
-    # so the gang boards run on Marshal exactly.
+    # The Gang entry files are gone; Memetix carries their wiring,
+    # so the gang boards run on Memetix exactly.
     fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
-    bot = CP.Marshal()
+    bot = CP.Memetix()
     bot.do_turn(fake)
     return fake.orders, bot
 
@@ -783,9 +794,9 @@ def run_crowd_turn(
     water: set[Loc] | None = None,
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
-) -> tuple[list[tuple[Loc, str]], CP.Marshal]:
+) -> tuple[list[tuple[Loc, str]], CP.Memetix]:
     fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
-    bot = CP.Marshal()
+    bot = CP.Memetix()
     bot.do_turn(fake)
     return fake.orders, bot
 
@@ -798,7 +809,7 @@ def safe_orders(
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
 ) -> list[tuple[Loc, str]]:
-    # Gang-equivalent baseline on the Marshal code: force the crowd
+    # Gang-equivalent baseline on the Memetix code: force the crowd
     # gate closed so the full champion safety filter applies to
     # every advancing move, exactly as legs 1-6 behave. (The army
     # gate is untouched: with the crowd gate closed both paths are
@@ -863,16 +874,15 @@ def test_crowd_fearless_boundary() -> None:
 
 
 def test_three_enemies_advance_fearlessly_where_safe_holds() -> None:
-    # (a) 3 enemies visible: the packed hunter steps east into the
-    # 1v2 contact fearlessly, where the safe baseline refuses and
-    # explores north instead.
+    # (a) Leg 10 (Memetix) reclassifies this 1v2 contact as DIE
+    # (influence 2 > ours 1), so the hunter refuses it exactly as
+    # the safe baseline -- north, on every order. Fearless-ahead
+    # survives on SAFE squares (see the leg-10 SAFE-fearless test).
     enemies = _CROWD_NEAR + _CROWD_FAR_POOL[:1]
     assert len(enemies) == 3
     orders, _ = run_crowd_turn(_CROWD_MINE_10, enemies)
-    assert orders[0] == ((5, 5), "e")
-    safe = safe_orders(_CROWD_MINE_10, enemies)
-    assert safe[0] == ((5, 5), "n")
-    assert orders != safe
+    assert orders == safe_orders(_CROWD_MINE_10, enemies)
+    assert orders[0] == ((5, 5), "n")
 
 
 def test_twelve_enemies_hold_exactly_as_safe() -> None:
@@ -886,12 +896,13 @@ def test_twelve_enemies_hold_exactly_as_safe() -> None:
 
 
 def test_crowd_boundary_nine_fearless_ten_safe() -> None:
-    # (c) 9 visible enemies advance east; 10 hold exactly as safe.
+    # (c) Leg 10 (Memetix): the 9-foe 1v2 contact is DIE, so both
+    # sides of the old 9/10 boundary now hold exactly as safe.
     nine = _CROWD_NEAR + _CROWD_FAR_POOL[:7]
     assert len(nine) == 9
     orders9, _ = run_crowd_turn(_CROWD_MINE_10, nine)
-    assert orders9[0] == ((5, 5), "e")
-    assert orders9 != safe_orders(_CROWD_MINE_10, nine)
+    assert orders9 == safe_orders(_CROWD_MINE_10, nine)
+    assert orders9[0] != ((5, 5), "e")
     ten = _CROWD_NEAR + _CROWD_FAR_POOL[:8]
     assert len(ten) == 10
     orders10, _ = run_crowd_turn(_CROWD_MINE_10, ten)
@@ -931,9 +942,9 @@ def run_legion_turn(
     water: set[Loc] | None = None,
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
-) -> tuple[list[tuple[Loc, str]], CP.Marshal]:
+) -> tuple[list[tuple[Loc, str]], CP.Memetix]:
     fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
-    bot = CP.Marshal()
+    bot = CP.Memetix()
     bot.do_turn(fake)
     return fake.orders, bot
 
@@ -996,16 +1007,16 @@ def test_legion_ready_boundary() -> None:
 
 
 def test_big_army_advances_fearlessly_where_safe_holds() -> None:
-    # (a) 12 own ants, 3 enemies: the packed hunter steps east
-    # into the 1v2 contact fearlessly, where the safe baseline
-    # refuses and explores north instead.
+    # (a) Leg 10 (Memetix) reclassifies this 1v2 contact as DIE
+    # (influence 2 > ours 1), so the packed hunter refuses it
+    # exactly as the safe baseline -- north, on every order.
+    # Fearless-ahead survives on SAFE squares (see the leg-10
+    # SAFE-fearless test).
     assert len(_LEGION_12) == 12
     assert len(_LEGION_FOES) == 3
     orders, _ = run_legion_turn(_LEGION_12, _LEGION_FOES)
-    assert orders[0] == ((5, 5), "e")
-    safe = safe_orders(_LEGION_12, _LEGION_FOES)
-    assert safe[0] == ((5, 5), "n")
-    assert orders != safe
+    assert orders == safe_orders(_LEGION_12, _LEGION_FOES)
+    assert orders[0] == ((5, 5), "n")
 
 
 def test_small_army_holds_exactly_as_safe() -> None:
@@ -1018,12 +1029,13 @@ def test_small_army_holds_exactly_as_safe() -> None:
 
 
 def test_legion_boundary_ten_fearless_nine_safe() -> None:
-    # (c) 10 own ants advance east; 9 hold exactly as safe.
+    # (c) Leg 10 (Memetix): the 10-ant 1v2 contact is DIE, so both
+    # sides of the old 10/9 boundary now hold exactly as safe.
     assert len(_LEGION_10) == 10
     assert len(_LEGION_9) == 9
     orders10, _ = run_legion_turn(_LEGION_10, _LEGION_FOES)
-    assert orders10[0] == ((5, 5), "e")
-    assert orders10 != safe_orders(_LEGION_10, _LEGION_FOES)
+    assert orders10 == safe_orders(_LEGION_10, _LEGION_FOES)
+    assert orders10[0] != ((5, 5), "e")
     orders9, _ = run_legion_turn(_LEGION_9, _LEGION_FOES)
     assert orders9 == safe_orders(_LEGION_9, _LEGION_FOES)
     assert orders9[0] != ((5, 5), "e")
@@ -1059,7 +1071,7 @@ def test_legion_count_costs_under_half_ms_on_crowded_board() -> None:
 def _engine_order(
     ants_list: list[Loc], enemy_locs: list[Loc], distance: CX.DistFn
 ) -> list[int]:
-    # Engine order stand-in: identity indices, so the Marshal entry
+    # Engine order stand-in: identity indices, so the Memetix entry
     # processes ants exactly as the carried-forward Legion code.
     _ = enemy_locs, distance
     return list(range(len(ants_list)))
@@ -1073,10 +1085,10 @@ def run_marshal_turn(
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
 ) -> tuple[list[tuple[Loc, str]], object]:
-    import Marshal as MP  # noqa: E402
+    import Memetix as MP  # noqa: E402
 
     fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
-    bot = MP.Marshal()
+    bot = MP.Memetix()
     bot.do_turn(fake)
     return fake.orders, bot
 
@@ -1089,7 +1101,7 @@ def engine_orders(
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
 ) -> list[tuple[Loc, str]]:
-    # Carried-forward order: the Marshal entry with urgency patched
+    # Carried-forward order: the Memetix entry with urgency patched
     # back to engine (identity) order.
     orig = CX.urgency_order
     CX.urgency_order = _engine_order
@@ -1182,3 +1194,152 @@ def test_urgency_sort_costs_under_1ms_on_crowded_board() -> None:
         CX.urgency_order(mine, foes, probe.distance)
     elapsed = (time.perf_counter() - start) / reps
     assert elapsed < 0.001
+
+
+def _always_safe(field: list[list[int]], dest: Loc, friends: int) -> str:
+    # Forced-SAFE classifier: reproduces the pre-influence
+    # carried-forward contact decision exactly (legs 1-9), so legacy
+    # boards pin what the old majority filter would accept.
+    _ = field, dest, friends
+    return CX.SAFE
+
+
+def legacy_orders(
+    mine: list[Loc],
+    enemies: list[Loc],
+    foods: list[Loc] | None = None,
+    water: set[Loc] | None = None,
+    enemy_hills: list[Loc] | None = None,
+    my_hills: list[Loc] | None = None,
+) -> list[tuple[Loc, str]]:
+    orig = CX.classify_step
+    CX.classify_step = _always_safe
+    try:
+        orders, _ = run_turn(mine, enemies, foods, water, enemy_hills, my_hills)
+    finally:
+        CX.classify_step = orig
+    return orders
+
+
+# Leg 10 (Memetix) boards. The hunter (5, 5) packs three friends
+# within 10 steps but none within attack range of its step east
+# onto (5, 6), so pals stays 0 and ours is 1: lurkers inside
+# manhattan 3 of (5, 6) but outside attack range decide DIE/KILL
+# while the old majority filter still accepts.
+_DIE_MINE = [(5, 5), (5, 1), (5, 2), (6, 1)]
+_DIE_FOES = [(5, 9), (2, 6), (8, 6), (2, 4), (8, 4), (6, 2)]
+_KILL_MINE = [(5, 5), (5, 1), (5, 2), (6, 1)]
+_KILL_FOES = [(5, 8), (15, 15), (15, 16), (16, 15), (0, 0)]
+_SAFE_FEARLESS_FILLERS = [
+    (15, 15),
+    (15, 16),
+    (15, 14),
+    (14, 15),
+    (16, 15),
+    (16, 16),
+    (14, 14),
+    (13, 13),
+]
+
+
+def test_threat_reach_derives_from_attack_radius() -> None:
+    # (pure) The one-move threat radius for the standard
+    # attackradius2 5 is manhattan 3: attack reach 2 plus the step.
+    assert CX.threat_reach(5) == 3
+
+
+def test_influence_field_counts_enemies_after_one_move() -> None:
+    # (pure) One enemy stamps its manhattan-3 diamond: axis 3 in,
+    # axis 4 and diagonals past 3 out, everything else quiet.
+    field = CX.influence_field([(5, 5)], ROWS, COLS, 3)
+    assert field[5][5] == 1
+    assert field[5][8] == 1
+    assert field[8][5] == 1
+    assert field[5][9] == 0
+    assert field[9][5] == 0
+    assert field[8][6] == 0
+    assert field[0][0] == 0
+    assert CX.influence_field([], ROWS, COLS, 3)[5][5] == 0
+
+
+def test_influence_field_stacks_and_wraps() -> None:
+    # (pure) Overlapping diamonds add, and the stamp wraps the
+    # torus: (0, 0) reaches row 19 and column 3 alike.
+    field = CX.influence_field([(5, 5), (5, 5), (0, 0)], ROWS, COLS, 3)
+    assert field[5][5] == 2
+    assert field[5][7] == 2
+    assert field[19][0] == 1
+    assert field[0][3] == 1
+    assert field[2][2] == 0
+
+
+def test_classify_step_die_kill_safe() -> None:
+    # (pure) Ours is friends + 1 (the moving ant): 3 lurkers DIE a
+    # lone step, KILL a backed pair, and lose to a packed triple.
+    field = CX.influence_field([(5, 9), (2, 6), (8, 6)], ROWS, COLS, 3)
+    assert CX.classify_step(field, (5, 6), 0) == CX.DIE
+    assert CX.classify_step(field, (5, 6), 2) == CX.KILL
+    assert CX.classify_step(field, (5, 6), 5) == CX.SAFE
+    empty = CX.influence_field([], ROWS, COLS, 3)
+    assert CX.classify_step(empty, (5, 6), 0) == CX.SAFE
+
+
+def test_die_square_refused_where_majority_filter_accepts() -> None:
+    # (a) Three lurkers sit 3 manhattan from (5, 6) but outside
+    # attack range, so the old filter sees zero foes and steps
+    # east while influence (3 > ours 1) calls DIE and refuses: the
+    # hunter issues no order from (5, 5) at all (every explore
+    # square is denied too). The legacy baseline still takes east.
+    legacy = legacy_orders(_DIE_MINE, _DIE_FOES)
+    assert dict(legacy)[(5, 5)] == "e"
+    orders, _ = run_turn(_DIE_MINE, _DIE_FOES)
+    assert (5, 5) not in dict(orders)
+    assert orders != legacy
+
+
+def test_kill_square_taken_only_on_contested_hill_turn() -> None:
+    # (b) One foe in range, no backup: influence 1 equals ours 1,
+    # so the step is KILL. With no hill target the carried-forward
+    # filter refuses (north, exactly as legacy); pushing a
+    # remembered hill breaks the deadlock and steps east.
+    quiet, _ = run_turn(_KILL_MINE, _KILL_FOES)
+    assert dict(quiet)[(5, 5)] == "n"
+    assert quiet == legacy_orders(_KILL_MINE, _KILL_FOES)
+    pushed, _ = run_turn(_KILL_MINE, _KILL_FOES, enemy_hills=[(15, 15)])
+    assert dict(pushed)[(5, 5)] == "e"
+    assert pushed != quiet
+
+
+def test_safe_squares_match_carried_forward_behavior() -> None:
+    # (c) No lurkers anywhere: the destination is SAFE (influence
+    # 0 < ours 3), so every order matches the legacy filter and the
+    # hunter still advances east exactly as leg 1.
+    mine = [(5, 5), (5, 3), (5, 4), (6, 5)]
+    orders, _ = run_turn(mine, [(5, 10)])
+    assert dict(orders)[(5, 5)] == "e"
+    assert orders == legacy_orders(mine, [(5, 10)])
+
+
+def test_safe_fearless_advance_survives() -> None:
+    # (c2) Big army, one foe, two backers: influence 1 < ours 3 is
+    # SAFE, so the crowd-fearless advance still fires east -- the
+    # influence gate only ever vetoes DIE, never courage.
+    mine = [(5, 5), (5, 4), (4, 6), (5, 3)] + _SAFE_FEARLESS_FILLERS
+    assert len(mine) == 12
+    orders, _ = run_turn(mine, [(5, 7)])
+    assert dict(orders)[(5, 5)] == "e"
+    assert orders == legacy_orders(mine, [(5, 7)])
+
+
+def test_influence_field_costs_under_2ms_on_crowded_board() -> None:
+    # (d) The whole field -- 30 enemies stamping diamonds on a
+    # 20x20 board in one pass -- costs far under 2ms per turn.
+    foes = [((i * 13 + 5) % ROWS, (i * 11 + 3) % COLS) for i in range(30)]
+    reach = CX.threat_reach(5)
+    reps = 20
+    start = time.perf_counter()
+    for _ in range(reps):
+        field = CX.influence_field(foes, ROWS, COLS, reach)
+    elapsed = (time.perf_counter() - start) / reps
+    assert elapsed < 0.002
+    assert field[foes[0][0]][foes[0][1]] >= 1

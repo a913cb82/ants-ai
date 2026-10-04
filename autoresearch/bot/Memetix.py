@@ -250,7 +250,7 @@ def assign_food_targets(
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Marshal:
+class Memetix:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -278,6 +278,10 @@ class Marshal:
         # danger moves first, so threatened ants claim contested
         # destinations before safer ants. Food, guard, muster,
         # reinforce, explore, and walk-off are champion.
+        # Memetix: one influence field per turn rates each planned
+        # contact step DIE/KILL/SAFE -- DIE refuses everywhere (even
+        # fearless), KILL issues only while pushing a hill, SAFE
+        # keeps every carried-forward rule below byte-identical.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -327,6 +331,13 @@ class Marshal:
         ]
         attack_r2 = ants.attackradius2 or 5
         rows, cols = ants.rows, ants.cols
+        # Memetix: single pass over the visible enemies stamps every
+        # square they could attack after one move; hill_push marks a
+        # contested-hill turn, the only deadlock KILL may break.
+        field = combat.influence_field(
+            enemy_locs, rows, cols, combat.threat_reach(attack_r2)
+        )
+        hill_push = bool(hills)
 
         def sq_dist(a: tuple[int, int], b: tuple[int, int]) -> int:
             dr = abs(a[0] - b[0])
@@ -530,9 +541,33 @@ class Marshal:
                     # otherwise the leg-1 safe seek holds.
                     step = first_step(ant_loc, foe)
                     if step is not None:
-                        if combat.crowd_fearless(
-                            len(enemy_locs), combat.CROWD_LIMIT
-                        ) and combat.legion_ready(len(ants_list)):
+                        # Memetix: the influence map decides the
+                        # contact first. DIE refuses everywhere (even
+                        # fearless); KILL breaks deadlocks only, so it
+                        # issues while pushing a hill and otherwise
+                        # falls through to the carried-forward rules;
+                        # SAFE falls through to them directly.
+                        nloc = ants.destination(ant_loc, step)
+                        pals = 0
+                        for f in ants_list:
+                            if f != ant_loc and sq_dist(nloc, f) <= attack_r2:
+                                pals += 1
+                        rating = combat.classify_step(field, nloc, pals)
+                        if rating == combat.DIE:
+                            pass
+                        elif (
+                            # KILL breaks deadlocks while pushing a
+                            # hill; SAFE advances fearlessly in small
+                            # fights with a real army -- both issue
+                            # the step unchecked. DIE (above) never
+                            # issues, even fearless.
+                            rating == combat.KILL
+                            and hill_push
+                            or combat.crowd_fearless(
+                                len(enemy_locs), combat.CROWD_LIMIT
+                            )
+                            and combat.legion_ready(len(ants_list))
+                        ):
                             if try_step(ant_loc, step, safe=False):
                                 moved = True
                         elif ai in joined:
@@ -586,6 +621,15 @@ class Marshal:
                 )
                 for direction in dirs:
                     new_loc = ants.destination(ant_loc, direction)
+                    # Memetix: never wander onto a DIE square, even
+                    # when the majority filter below would accept it;
+                    # KILL and SAFE explore exactly as champion.
+                    backup = 0
+                    for f in ants_list:
+                        if f != ant_loc and sq_dist(new_loc, f) <= attack_r2:
+                            backup += 1
+                    if combat.classify_step(field, new_loc, backup) == combat.DIE:
+                        continue
                     if (
                         new_loc not in destinations
                         and ants.passable(new_loc)
@@ -623,6 +667,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Marshal())
+        Ants.run(Memetix())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")

@@ -51,6 +51,17 @@ only to food, hills, or empty ground.
 Leg 9 adds the Marshal urgency order: urgency_order sorts our
 ants by nearest-enemy distance, closest first, so threatened
 ants claim contested destinations before safer ants.
+
+Leg 10 adds the Memetix influence map: influence_field
+precomputes, in one pass, for each board square the count of
+enemies that could attack that square after one move (toroidal
+manhattan diamond of threat_reach around each enemy), and
+classify_step rates each planned contact step DIE (enemy
+influence strictly exceeds our side: supporting friends at the
+destination plus the moving ant), KILL (equal -- expect a 1-for-1),
+or SAFE (we lead). Entries refuse DIE exactly as champion refuses
+losing fights, take KILL only on contested-hill turns, and keep
+carried-forward behavior on SAFE.
 """
 
 from collections import deque
@@ -89,6 +100,60 @@ CROWD_LIMIT = 10
 # visible; smaller armies keep full champion safety on every
 # advance regardless of enemy count.
 LEGION_MIN = 10
+
+# Leg 10 (Memetix): single-pass influence verdicts for one planned
+# contact step. DIE refuses exactly as a losing fight; KILL trades
+# 1-for-1 only to break deadlocks; SAFE keeps carried-forward play.
+SAFE = "SAFE"
+KILL = "KILL"
+DIE = "DIE"
+
+
+def threat_reach(attack_r2: int) -> int:
+    """Manhattan threat radius of one enemy after it moves one step.
+
+    Attack reach is the floor square root of attackradius2, plus the
+    one square the enemy may step before attacking. Pure: integer
+    arithmetic, no side effects.
+    """
+    return int(attack_r2**0.5) + 1
+
+
+def influence_field(
+    enemy_locs: list[Loc], rows: int, cols: int, reach: int
+) -> list[list[int]]:
+    """Per-square count of enemies within reach manhattan steps.
+
+    One pass: each enemy stamps its toroidal diamond once, so the
+    whole crowded board costs far under a millisecond. Pure: no
+    board state, no side effects.
+    """
+    field = [[0] * cols for _ in range(rows)]
+    if reach < 0 or rows <= 0 or cols <= 0:
+        return field
+    for er, ec in enemy_locs:
+        for dr in range(-reach, reach + 1):
+            width = reach - abs(dr)
+            row = field[(er + dr) % rows]
+            for dc in range(-width, width + 1):
+                row[(ec + dc) % cols] += 1
+    return field
+
+
+def classify_step(field: list[list[int]], dest: Loc, friends: int) -> str:
+    """Verdict for a planned step onto dest with friends backing it.
+
+    Ours is friends + 1 (the moving ant): DIE when enemy influence
+    strictly exceeds us, KILL when equal (expect a 1-for-1), SAFE
+    when we lead. Pure: table lookup plus compare, no side effects.
+    """
+    theirs = field[dest[0]][dest[1]]
+    ours = friends + 1
+    if theirs > ours:
+        return DIE
+    if theirs == ours:
+        return KILL
+    return SAFE
 
 
 def urgency_order(
