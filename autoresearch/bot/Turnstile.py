@@ -246,70 +246,115 @@ def assign_food_targets(
     return target
 
 
-def phalanx_mirrors(
+SIT_LIMIT = 50
+
+
+def turnstile_swaps(
+    sit: dict[Loc, int],
     ants_list: list[Loc],
     enemy_locs: list[Loc],
+    attackradius2: int,
     rows: int,
     cols: int,
 ) -> dict[Loc, Loc]:
-    # Adjacent double-team: for each enemy with 2+ friendly ants on
-    # toroid-manhattan-adjacent squares, the min-coords adjacent ant
-    # engages while the adjacent friend nearest the point-opposite
-    # square (across the enemy from the engager) mirrors it. Returns
-    # {mirror_ant: opposite_square}; a mirror already standing on
-    # its square holds it. Bucketed neighbor lookup: O(enemies),
-    # no distance calls.
-    mine = set(ants_list)
-    foes = set(enemy_locs)
-    mirrors: dict[Loc, Loc] = {}
-    used: set[Loc] = set()
-    for er, ec in sorted(foes):
-        adj = [
-            nb
-            for nb in (
-                ((er - 1) % rows, ec),
-                ((er + 1) % rows, ec),
-                (er, (ec - 1) % cols),
-                (er, (ec + 1) % cols),
-            )
-            if nb in mine
-        ]
-        if len(adj) < 2:
-            continue
-        engager = min(adj)
-        tsq = ((2 * er - engager[0]) % rows, (2 * ec - engager[1]) % cols)
-        if tsq in foes:
-            continue
-        friend: Loc | None = None
-        friend_d = 0
-        for a in adj:
-            if a == engager or a in used:
+    # Squares holding the same ant for SIT_LIMIT+ consecutive turns map
+    # to the nearest non-sitting ant's square. Sitters under direct
+    # threat (an enemy inside the attack radius) stay put, and squares
+    # below the limit -- or holding no ant -- never rotate.
+    fresh: list[Loc] = []
+    stale: list[Loc] = []
+    get = sit.get
+    for loc in ants_list:
+        if get(loc, 0) < SIT_LIMIT:
+            fresh.append(loc)
+        else:
+            stale.append(loc)
+    if not fresh or not stale:
+        return {}
+    fr = [loc[0] for loc in fresh]
+    fc = [loc[1] for loc in fresh]
+    nf = len(fresh)
+    er = [loc[0] for loc in enemy_locs]
+    ec = [loc[1] for loc in enemy_locs]
+    ne = len(enemy_locs)
+    a2 = attackradius2
+    rr = rows
+    cc = cols
+    swaps: dict[Loc, Loc] = {}
+    for bloc in stale:
+        br = bloc[0]
+        bc = bloc[1]
+        hit = False
+        for k in range(ne):
+            dr = br - er[k]
+            if dr < 0:
+                dr = -dr
+            if dr > rr - dr:
+                dr = rr - dr
+            if dr * dr > a2:
                 continue
-            dr = abs(a[0] - tsq[0])
-            dr = min(dr, rows - dr)
-            dc = abs(a[1] - tsq[1])
-            dc = min(dc, cols - dc)
-            if friend is None or (dr + dc, a) < (friend_d, friend):
-                friend = a
-                friend_d = dr + dc
-        if friend is None:
+            dc = bc - ec[k]
+            if dc < 0:
+                dc = -dc
+            if dc > cc - dc:
+                dc = cc - dc
+            if dr * dr + dc * dc <= a2:
+                hit = True
+                break
+        if hit:
             continue
-        if tsq in mine and tsq != friend:
-            continue
-        mirrors[friend] = tsq
-        used.add(friend)
-    return mirrors
+        bi = 0
+        bd = -1
+        for i in range(nf):
+            dr = br - fr[i]
+            if dr < 0:
+                dr = -dr
+            if dr > rr - dr:
+                dr = rr - dr
+            dc = bc - fc[i]
+            if dc < 0:
+                dc = -dc
+            if dc > cc - dc:
+                dc = cc - dc
+            dd = dr + dc
+            if bd < 0 or dd < bd:
+                bd = dd
+                bi = i
+                if bd <= 1:
+                    break
+        if bd >= 0 and fresh[bi] != bloc:
+            swaps[bloc] = fresh[bi]
+    return swaps
+
+
+def age_sits(
+    sit: dict[Loc, int],
+    ants_list: list[Loc],
+    ordered_from: set[Loc],
+) -> None:
+    # Sits age one turn for ants that held, reset for ants that moved,
+    # and vanish for squares no ant occupies.
+    mine = set(ants_list)
+    for key in list(sit):
+        if key not in mine:
+            del sit[key]
+    for loc in ants_list:
+        if loc in ordered_from:
+            sit.pop(loc, None)
+        else:
+            sit[loc] = sit.get(loc, 0) + 1
 
 
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Phalanx:
+class Turnstile:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
         self.remembered_hills: set[tuple[int, int]] = set()
         self.prev_enemies: list[tuple[int, int]] = []
+        self.sit: dict[tuple[int, int], int] = {}
 
     # do_setup is run once at the start of the game
     # after the bot has received the game settings
@@ -319,16 +364,15 @@ class Phalanx:
         self.visits = {}
         self.remembered_hills = set()
         self.prev_enemies = []
+        self.sit = {}
 
     # do turn is run once per turn
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Phalanx: Denial's economy (a food cluster contested by
-        # 3+ visible enemies draws two ants onto its two closest foods),
-        # except an already-adjacent friend of a shared enemy mirrors
-        # the engagement from the opposite square instead of
-        # continuing economy. Battling as Flood. Homeward structure, wide fallback,
+        # Turnstile: Denial's economy, except a food cluster contested by
+        # 3+ visible enemies draws two ants onto its two closest foods
+        # (local 2v2+ posture) instead of one ant per food. Battling as Flood. Homeward structure, wide fallback,
         # aggression, walk-off, food, and exploration match iteration
         # 76. Hunt always; ahead on hills, hunters skip the safety
         # filter. Closeouts need teeth, not patience.
@@ -441,6 +485,8 @@ class Phalanx:
                 node = parent[node][0]
             return parent[node][1]
 
+        ordered_from: set[tuple[int, int]] = set()
+
         def try_step(
             ant_loc: tuple[int, int], direction: str, safe: bool = True
         ) -> bool:
@@ -453,55 +499,36 @@ class Phalanx:
             ):
                 ants.issue_order((ant_loc, direction))
                 destinations.add(new_loc)
+                ordered_from.add(ant_loc)
                 return True
             return False
 
         destinations: set[tuple[int, int]] = set()
         held: list[tuple[int, int]] = []
         anchored: set[tuple[int, int]] = set()
-        mirrored: set[tuple[int, int]] = set()
-        for bloc, tsq in sorted(
-            phalanx_mirrors(ants_list, enemy_locs, rows, cols).items()
-        ):
-            # Phalanx: an already-adjacent friend steps toward the
-            # square opposite the engager across their shared enemy
-            # (holding still when already opposite) instead of
-            # continuing economy. A blocked opposite square falls
-            # through to champion behavior below.
+        swaps = turnstile_swaps(self.sit, ants_list, enemy_locs, attack_r2, rows, cols)
+        rotated: set[tuple[int, int]] = set()
+        for bloc, tsq in sorted(swaps.items()):
+            # Turnstile: a 50-turn sitter steps toward the nearest
+            # non-sitting ant (least-visited safe square when that
+            # step is blocked) instead of continuing economy.
             if ants.time_remaining() < 10:
                 break
-            if bloc == tsq:
-                mirrored.add(bloc)
+            rstep = first_step(bloc, tsq)
+            if rstep is not None and try_step(bloc, rstep):
+                rotated.add(bloc)
                 continue
-            if (
-                tsq in destinations
-                or not ants.passable(tsq)
-                or not ants.unoccupied(tsq)
-            ):
-                continue
-            cur_d = ants.distance(bloc, tsq)
-            step: str | None = None
-            step_d = 0
-            for d in ("n", "e", "s", "w"):
-                nb = ants.destination(bloc, d)
-                if (
-                    nb in destinations
-                    or not ants.passable(nb)
-                    or not ants.unoccupied(nb)
-                ):
-                    continue
-                dd = ants.distance(nb, tsq)
-                if dd < cur_d and (step is None or dd < step_d):
-                    step = d
-                    step_d = dd
-            if step is None:
-                continue
-            ants.issue_order((bloc, step))
-            destinations.add(ants.destination(bloc, step))
-            mirrored.add(bloc)
+            rdirs = sorted(
+                ("n", "e", "s", "w"),
+                key=lambda d: self.visits.get(ants.destination(bloc, d), 0),
+            )
+            for rdirection in rdirs:
+                if try_step(bloc, rdirection):
+                    rotated.add(bloc)
+                    break
         for ai, ant_loc in enumerate(ants_list):
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
-            if ant_loc in mirrored:
+            if ant_loc in rotated:
                 if ants.time_remaining() < 10:
                     break
                 continue
@@ -567,6 +594,7 @@ class Phalanx:
                     ):
                         ants.issue_order((ant_loc, direction))
                         destinations.add(new_loc)
+                        ordered_from.add(ant_loc)
                         moved = True
                         break
             if not moved:
@@ -581,6 +609,7 @@ class Phalanx:
                 for direction in ("s", "e", "w", "n"):
                     if try_step(ant_loc, direction):
                         break
+        age_sits(self.sit, ants_list, ordered_from)
 
 
 if __name__ == "__main__":
@@ -596,6 +625,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Phalanx())
+        Ants.run(Turnstile())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
