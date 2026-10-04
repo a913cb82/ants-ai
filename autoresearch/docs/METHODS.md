@@ -9,7 +9,7 @@ One iteration has 9 games (30 slots) for each candidate commit:
 
 | Part | Count | Maps | Time |
 |---|---|---|---|
-| Duels | 7 | 7 different 2p maps | about 5 s each |
+| Duels | 7 | 7 different 2p maps | about 100 s each |
 | Census | 1 × 10p | one 10p map | 60 to 90 s |
 | Refine | 1 × 6p | one 6p map | 20 to 40 s |
 | Total | 9 | all different in one iteration | about 2 to 5 min |
