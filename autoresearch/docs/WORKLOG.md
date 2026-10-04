@@ -2114,3 +2114,15 @@ Use this format.
 - what changed: Battling as Phalanx in Phalanx.bot + Phalanx.py; Denial's united hunt, denial, and combat untouched, but contact with an adjacent friend mirrors to the opposite side of the same enemy for a 2-on-1.
 - what you learned: Phalanxes went 4-3 in duels but ranked last (6th) in the refine, so mu reached 34.9 against 66.6 — the mirror ant walks around the enemy into its reinforcements; solo contact prices better.
 - next: sitter rotation (Turnstile exp committed, queued for exam).
+
+## 175 — CANDIDATE: sitter rotation leads by a nose (2026-10-04)
+- commit: 6b48f5c (bid Turnstile.bot-6b48f5c)
+- start: 8dee7ed (champion Denial files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 66.8, sigma 3.16
+- champion mu: 66.6 (Denial; tied Understudy bid same)
+- verdict: CANDIDATE — leads by +0.2, thin margin, confirmation exam running before any crown
+- games: 6-1, FFA ranks 10p:1 6p:3
+- what changed: Battling as Turnstile in Turnstile.bot + Turnstile.py; Denial's united hunt, denial, and combat untouched, but ants sitting 50+ consecutive turns rotate off toward the nearest non-sitter (threatened sitters stay).
+- what you learned: Turnstiles went 6-1 in duels, WON the census, and took 3rd in the refine, reaching mu 66.8 against 66.6 — first outright lead of the loop; stale sitters were costing map presence.
+- next: confirmation exam (same bid, fresh opponents), then crown-or-keep; bait-and-ambush (Anvil exp committed, queued for exam).
