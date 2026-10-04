@@ -91,6 +91,7 @@ row. Leave the old row as it was.
 | candidate | Turnstile: 50-turn sitter rotation (mu 66.8 vs 66.6; +0.2 HOLD, legs arbitrate). |
 | dropped | Turnstile2: 30-turn fuse (mu 50.4 vs 66.6; too hasty). |
 | dropped | Turnstile3: 70-turn fuse (mu 24.8 vs 66.6; family closed at ~50). |
+| dropped | Seek: advance on enemies within 8 (mu 40.1 vs 66.6; 6-1 duels, 10p:6; combat leg 1). |
 | dropped | Anvil: bait-and-ambush (mu 17.0 vs 66.6; 10p:9). |
 | dropped | Patrol3: 30-step ranged patrol (mu 40.8 vs 66.6; range was never the bleed). |
 | dropped | Volunteers: duty drafts from spares only. |

@@ -2172,3 +2172,15 @@ Use this format.
 - what changed: Battling as Turnstile3 in Turnstile3.bot + Turnstile3.py; Denial's united hunt, denial, and combat untouched, but sitters rotate off after 70 turns instead of 50.
 - what you learned: Turnstile3s went 3-4 in duels and ranked 8th in the census, so mu reached 24.8 against 66.6 — the rotation family is closed (30: 50.4, 50: 66.8 HOLD, 70: 24.8); the fuse optimum sits at or near 50, and the 50-turn candidate stands unpromoted on its thin +0.2.
 - next: combat program leg 1 (Seek exp with shared combat.py + test_combat.py committed, queued for exam); user-directed 10-iteration combat arc.
+
+## 180 — seek wins duels but bleeds the census (2026-10-04)
+- commit: fc09244 (bid Seek.bot-fc09244)
+- start: 8dee7ed (champion Denial files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 40.1, sigma 2.95
+- champion mu: 66.6 (Denial; Turnstile-50 candidate 66.8 HOLD)
+- verdict: keep Denial
+- games: 6-1, FFA ranks 10p:6 6p:1
+- what changed: Combat-program leg 1. Battling as Seek in Seek.bot + Seek.py + shared combat.py; Denial's united hunt, denial, and safety filter untouched, but idle ants with an enemy within 8 steps advance on it (xathis "Approach forms fighting lines").
+- what you learned: Seeks went 6-1 in duels and won the refine, but ranked only 6th in the census, so mu reached 40.1 against 66.6 — advancing works 1v1 and dies in crowds; lone advancers donate. Coordination (wolfpack join) is the prescribed next leg.
+- next: committed-join pack attacks (Wolfpack exp with extended combat.py + test_combat.py committed, queued for exam).
