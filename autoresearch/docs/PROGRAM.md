@@ -63,11 +63,10 @@ coordinator measures it.
    write the bot code. Run the tests inside the budget. Commit:
    `git add autoresearch/bot && git commit -m "exp: <idea>"`
    Then report and stop. No games, no notes, no push.
-4. Coordinator: check the exp commit with `git diff --stat`.
-   Cherry-pick it onto `autoresearch/main` (linear history, exams
-   run in commit order). Cherry-picks only ever carry unrated
-   content: rated content is permanently unplayable as a fresh
-   entry by design. Then play the budget:
+4. Coordinator: merge the coder branch with `git merge --no-ff`.
+   The merge keeps the leaf sha: exams and history reference one
+   node. List it with `git log --graph`. Then delete the branch.
+   Then play the budget:
    `.venv/bin/python autoresearch/iteration.py --bot <live bot file>`
 5. Read the score. The harness prints the score. It adds one JSON
    line to `autoresearch/docs/PROGRESS.jsonl`. The champion is
@@ -110,15 +109,15 @@ worktree.
   tests plus hooks plus commit before the deadline. Uncommitted
   work at budget end is dropped. A smaller green commit beats
   a bigger uncommitted one.
-- It works detached in a worktree path from the pool (/tmp/cbt-0
-  to /tmp/cbt-5). The coordinator recreates the path fresh for
-  each iteration (`git worktree add --detach`: no branch, so
-  unmeasured code stays invisible to the pool). Fresh means no
-  stale scratch files leak across iterations. The coder never
-  enters the coordinator tree. Never create a branch for unmeasured
-  code. A visible branch leaks into the pool (`git log --all`).
-  It drafts unrated code as rulers. It trips the duplicate guard
-  on identical content later.
+- It works on a branch named `tree/<line>-<n>` in a worktree path
+  from the pool (/tmp/cbt-0
+  to /tmp/cbt-5). The coordinator creates both fresh for each
+  iteration. The coder never enters the coordinator tree. The
+  coordinator merges the branch after the exp commit
+  (`git merge --no-ff`), then deletes the branch. No `tree/*`
+  branch lives past its merge, so unmeasured code never sits in
+  the pool (`git log --all`) drafting unrated rulers or tripping
+  the duplicate guard later. Never push `tree/*` branches.
 - Each entry gets fresh filenames. Copy the staged champion files
   to a new name. Add the one idea. Remove the predecessor's files.
   Never edit the previous entry's files in place. Stacking two
@@ -153,8 +152,10 @@ worktree.
 
 ## Tree
 
-Coders run in parallel. Exams stay serial: one exam-runner at
-a time. Unevaluated entries form the frontier. The exam takes
+Coders run in parallel, one branch per coder. Exams stay serial:
+one exam-runner at a time. Git stores the tree: each merge keeps
+the leaf as second parent, so `git log --graph` shows every line.
+The frontier is merged leaves with no exam row yet. The exam takes
 the oldest leaf of the next line, round-robin over lines (one
 line per approach). New lines join at once. Close a line when
 its budget is spent, or on 3 straight exams that trail line-best
