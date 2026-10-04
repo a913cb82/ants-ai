@@ -127,9 +127,11 @@ by worktree, never by discipline alone:
   while game, rating, or score files are uncommitted: a checkout
   would orphan the harness's open log and lose games. The
   coordinator's own `main`-side edits go through a scratch worktree.
-- Each coder gets its own worktree (e.g. /tmp/loop-coder-<n>) on its
-  own branch (`coder/<n>`), cut from `autoresearch/main` at spawn.
-  The coder never enters the coordinator tree.
+- Coders are sequential, so they share one worktree path
+  (/tmp/loop-coder), recreated fresh from `autoresearch/main` for
+  each iteration on its own branch (`coder/<n>`). Fresh means no
+  stale scratch files leak across iterations. The coder never
+  enters the coordinator tree.
 - The coder never runs `iteration.py`. One exam call takes about
   25 minutes (7 duels plus two FFAs); the coordinator runs it after
   the exp commit lands. Running it from a dirty tree trips the
@@ -138,7 +140,8 @@ by worktree, never by discipline alone:
 - A coder branch may hold bot changes only. The coordinator verifies
   with `git diff --stat` and cherry-picks the exp commit onto
   `autoresearch/main` (linear history, exams run in commit order),
-  then deletes the branch and its worktree.
+  then deletes the branch and removes the shared worktree. The next
+  spawn recreates it.
 
 ## Budget
 
