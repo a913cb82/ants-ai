@@ -33,6 +33,11 @@ PACK_NEED+ friends within PACK_RADIUS steps, and a packless ant
 packs up toward its nearest friend instead of advancing, so
 fearless solo hunters stop donating into crowds.
 
+Leg 7 adds the Crowd gate: crowd_fearless reports whether fewer
+than CROWD_LIMIT enemies are visible, so packed hunters skip the
+safety filter on advancing moves in small fights and keep full
+champion safety in crowds.
+
 Research: "Approach forms fighting lines" (xathis approaching
 enemies) -- ants near enemies advance on them instead of walking
 only to food, hills, or empty ground.
@@ -60,6 +65,24 @@ EQUAL_TRADE_NEAR = 10
 # solo hunters donate into crowds.
 PACK_NEED = 3
 PACK_RADIUS = 10
+
+# Leg 7 (Crowd): fearless under ten enemies -- hunters press
+# small fights and survive big ones. Fewer than CROWD_LIMIT
+# visible enemies skips the safety filter on advancing moves;
+# CROWD_LIMIT+ visible enemies keeps full champion safety.
+# Donations happen in crowds, not duels.
+CROWD_LIMIT = 10
+
+
+def crowd_fearless(enemy_count: int, limit: int = CROWD_LIMIT) -> bool:
+    """Whether hunters advance fearlessly at this visible count.
+
+    True when fewer than limit enemies are visible, so the seek
+    branch skips the safety filter on the advancing move; False
+    in crowds, where full champion safety applies. Pure: integer
+    compare, no side effects.
+    """
+    return enemy_count < limit
 
 
 def has_pack(

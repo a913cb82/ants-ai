@@ -44,6 +44,13 @@ within 10 steps (combat.has_pack); a packless ant packs up one
 step toward its nearest friend instead of advancing. Packed ants
 seek exactly as leg 1; join, grinder, screen, and the 10-gate
 stay as the legs defined them.
+
+Leg 7 implements the RESEARCH.md row "Crowd: fearless under ten
+enemies": hunters press small fights and survive big ones. When
+fewer than combat.CROWD_LIMIT (10) enemies are visible, a packed
+advancing move skips the safety filter (fearless ahead); with 10+
+enemies visible the full champion safety applies. Food, guard,
+muster, reinforce, and explore keep their existing filters.
 """
 
 import os
@@ -54,10 +61,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import combat as CX  # noqa: E402
 
-# Leg 5: Gang.py carries the same seek + join + grinder + screen
-# wiring; GP now aliases Gang. champion14_orders below patches the
-# gate back to 14 to reproduce true champion Denial exactly.
-import Gang as GP  # noqa: E402
+# Leg 7: Crowd.py carries the same seek + join + grinder + screen
+# + odds + gang wiring; CP aliases the live Crowd entry.
+import Crowd as CP  # noqa: E402
 
 Loc = tuple[int, int]
 ROWS = 20
@@ -138,9 +144,9 @@ def run_turn(
     water: set[Loc] | None = None,
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
-) -> tuple[list[tuple[Loc, str]], GP.Gang]:
+) -> tuple[list[tuple[Loc, str]], CP.Crowd]:
     fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
-    bot = GP.Gang()
+    bot = CP.Crowd()
     bot.do_turn(fake)
     return fake.orders, bot
 
@@ -152,9 +158,9 @@ def run_grinder_turn(
     water: set[Loc] | None = None,
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
-) -> tuple[list[tuple[Loc, str]], GP.Gang]:
+) -> tuple[list[tuple[Loc, str]], CP.Crowd]:
     fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
-    bot = GP.Gang()
+    bot = CP.Crowd()
     bot.do_turn(fake)
     return fake.orders, bot
 
@@ -571,6 +577,23 @@ _ODDS_FILLERS = [
     (6, 2),
     (6, 3),
 ]
+# Leg 7: the odds boards carry 2 near foes, a small fight Crowd
+# hunts fearlessly -- so they are padded to 10 visible enemies
+# (crowd gate closed) to keep discriminating the 10-gate from the
+# 14-gate. Every pad foe sits beyond SEEK_RANGE of each hunter,
+# beyond CLUSTER_R of the food (claims unchanged), and outside
+# attack range of every candidate step.
+_ODDS_FAR = [
+    (15, 15),
+    (15, 16),
+    (15, 14),
+    (14, 15),
+    (16, 15),
+    (16, 16),
+    (12, 12),
+    (13, 13),
+]
+_ODDS_TEN = _ODDS_FOES + _ODDS_FAR
 _ODDS_MINE_12 = [(5, 5), _ODDS_BACK] + _ODDS_FILLERS
 _ODDS_MINE_9 = [(5, 5), _ODDS_BACK] + _ODDS_FILLERS[:8]
 
@@ -584,9 +607,9 @@ def test_equal_trade_gate_constant_is_ten() -> None:
 def test_twelve_near_accepts_equal_trade_champion_refuses() -> None:
     # (a) 12 near friends: Odds engages east onto (5, 6) while the
     # 14-gate champion refuses and explores north instead.
-    orders, _ = run_turn(_ODDS_MINE_12, _ODDS_FOES, _ODDS_FOOD)
+    orders, _ = run_turn(_ODDS_MINE_12, _ODDS_TEN, _ODDS_FOOD)
     assert orders[0] == ((5, 5), "e")
-    champ = champion14_orders(_ODDS_MINE_12, _ODDS_FOES, _ODDS_FOOD)
+    champ = champion14_orders(_ODDS_MINE_12, _ODDS_TEN, _ODDS_FOOD)
     assert champ[0] == ((5, 5), "n")
     assert orders[0] != champ[0]
 
@@ -594,8 +617,8 @@ def test_twelve_near_accepts_equal_trade_champion_refuses() -> None:
 def test_nine_near_refuses_exactly_as_champion() -> None:
     # (b) 9 near friends: below both gates, so every order matches
     # the 14-gate champion and nobody steps east into the trade.
-    orders, _ = run_turn(_ODDS_MINE_9, _ODDS_FOES, _ODDS_FOOD)
-    champ = champion14_orders(_ODDS_MINE_9, _ODDS_FOES, _ODDS_FOOD)
+    orders, _ = run_turn(_ODDS_MINE_9, _ODDS_TEN, _ODDS_FOOD)
+    champ = champion14_orders(_ODDS_MINE_9, _ODDS_TEN, _ODDS_FOOD)
     assert orders == champ
     assert orders[0] != ((5, 5), "e")
 
@@ -647,10 +670,10 @@ def run_gang_turn(
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
 ) -> tuple[list[tuple[Loc, str]], object]:
-    import Gang as GG  # noqa: E402
-
+    # The Gang entry files are gone; Crowd carries its wiring, so
+    # the gang boards run on Crowd exactly.
     fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
-    bot = GG.Gang()
+    bot = CP.Crowd()
     bot.do_turn(fake)
     return fake.orders, bot
 
@@ -723,3 +746,142 @@ def test_pack_check_costs_under_1ms_on_crowded_board() -> None:
             CX.has_pack(ant, mine, probe.distance)
     elapsed = (time.perf_counter() - start) / reps
     assert elapsed < 0.001
+
+
+def run_crowd_turn(
+    mine: list[Loc],
+    enemies: list[Loc],
+    foods: list[Loc] | None = None,
+    water: set[Loc] | None = None,
+    enemy_hills: list[Loc] | None = None,
+    my_hills: list[Loc] | None = None,
+) -> tuple[list[tuple[Loc, str]], CP.Crowd]:
+    fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
+    bot = CP.Crowd()
+    bot.do_turn(fake)
+    return fake.orders, bot
+
+
+def safe_orders(
+    mine: list[Loc],
+    enemies: list[Loc],
+    foods: list[Loc] | None = None,
+    water: set[Loc] | None = None,
+    enemy_hills: list[Loc] | None = None,
+    my_hills: list[Loc] | None = None,
+) -> list[tuple[Loc, str]]:
+    # Gang-equivalent baseline on the Crowd code: force the crowd
+    # gate closed so the full champion safety filter applies to
+    # every advancing move, exactly as legs 1-6 behave.
+    orig = CX.CROWD_LIMIT
+    CX.CROWD_LIMIT = 0
+    try:
+        orders, _ = run_crowd_turn(mine, enemies, foods, water, enemy_hills, my_hills)
+    finally:
+        CX.CROWD_LIMIT = orig
+    return orders
+
+
+# Leg 7 boards: packed ant (5, 5) with three friends at (5, 1),
+# (5, 2), (5, 3) eyes the step east onto (5, 6) against two near
+# foes (5, 7) and (5, 8): two enemies in attack range, no friend
+# backing the step, only 3 near friends -- unsafe under every
+# earlier leg (a lone commitment draws no join partner, two foes
+# refuse the grinder 1v1 gate, 3 near friends refuse the 10-gate),
+# so the safe baseline holds and explores north instead of
+# engaging. Far foes pad the visible
+# count without touching safety: all sit beyond SEEK_RANGE of the
+# hunter and outside attack range of every candidate step.
+_CROWD_MINE = [(5, 5), (5, 2), (5, 3), (5, 1)]
+_CROWD_NEAR = [(5, 7), (5, 8)]
+_CROWD_FAR_POOL = [
+    (15, 15),
+    (15, 16),
+    (15, 14),
+    (14, 15),
+    (16, 15),
+    (16, 16),
+    (0, 0),
+    (0, 1),
+    (19, 19),
+    (19, 18),
+]
+
+
+def test_crowd_limit_constant_is_ten() -> None:
+    # (gate) The fearless horizon lives in combat as a named
+    # constant: 10 visible enemies, from the RESEARCH.md row.
+    assert CX.CROWD_LIMIT == 10
+
+
+def test_crowd_fearless_boundary() -> None:
+    # (pure) Fewer than 10 visible enemies is fearless; 10+ is
+    # safe. The boundary sits between 9 and 10 exactly.
+    assert CX.crowd_fearless(0) is True
+    assert CX.crowd_fearless(3) is True
+    assert CX.crowd_fearless(9) is True
+    assert CX.crowd_fearless(10) is False
+    assert CX.crowd_fearless(11) is False
+    assert CX.crowd_fearless(12) is False
+
+
+def test_three_enemies_advance_fearlessly_where_safe_holds() -> None:
+    # (a) 3 enemies visible: the packed hunter steps east into the
+    # 1v2 contact fearlessly, where the safe baseline refuses and
+    # explores north instead.
+    enemies = _CROWD_NEAR + _CROWD_FAR_POOL[:1]
+    assert len(enemies) == 3
+    orders, _ = run_crowd_turn(_CROWD_MINE, enemies)
+    assert orders[0] == ((5, 5), "e")
+    safe = safe_orders(_CROWD_MINE, enemies)
+    assert safe[0] == ((5, 5), "n")
+    assert orders != safe
+
+
+def test_twelve_enemies_hold_exactly_as_safe() -> None:
+    # (b) 12 enemies visible: the same hunter holds exactly as the
+    # safe baseline -- full champion safety, never east.
+    enemies = _CROWD_NEAR + _CROWD_FAR_POOL[:10]
+    assert len(enemies) == 12
+    orders, _ = run_crowd_turn(_CROWD_MINE, enemies)
+    assert orders == safe_orders(_CROWD_MINE, enemies)
+    assert orders[0] != ((5, 5), "e")
+
+
+def test_crowd_boundary_nine_fearless_ten_safe() -> None:
+    # (c) 9 visible enemies advance east; 10 hold exactly as safe.
+    nine = _CROWD_NEAR + _CROWD_FAR_POOL[:7]
+    assert len(nine) == 9
+    orders9, _ = run_crowd_turn(_CROWD_MINE, nine)
+    assert orders9[0] == ((5, 5), "e")
+    assert orders9 != safe_orders(_CROWD_MINE, nine)
+    ten = _CROWD_NEAR + _CROWD_FAR_POOL[:8]
+    assert len(ten) == 10
+    orders10, _ = run_crowd_turn(_CROWD_MINE, ten)
+    assert orders10 == safe_orders(_CROWD_MINE, ten)
+    assert orders10[0] != ((5, 5), "e")
+
+
+def test_crowd_count_costs_under_half_ms_on_crowded_board() -> None:
+    # (d) The visible-count check -- the only new arithmetic on the
+    # seek path -- costs far under 0.5ms per crowded-board pass.
+    foes = [((i * 13 + 5) % ROWS, (i * 11 + 3) % COLS) for i in range(12)]
+    reps = 2000
+    start = time.perf_counter()
+    for _ in range(reps):
+        for _ in range(48):
+            _ = CX.crowd_fearless(len(foes), CX.CROWD_LIMIT)
+    elapsed = (time.perf_counter() - start) / reps
+    assert elapsed < 0.0005
+
+
+def test_crowd_food_guard_orders_unchanged_when_few_enemies() -> None:
+    # (e) The gate touches the seek path only: with 4 enemies
+    # visible (fearless elsewhere), food claims and hill guards
+    # resolve exactly as the safe baseline on every order.
+    mine = [(5, 5), (2, 2), (10, 10)]
+    foods = [(5, 6), (2, 3)]
+    enemies = [(5, 12), (2, 6), (5, 9), (10, 15)]
+    orders, _ = run_crowd_turn(mine, enemies, foods, my_hills=[(10, 12)])
+    assert orders == safe_orders(mine, enemies, foods, my_hills=[(10, 12)])
+    assert orders == [((5, 5), "e"), ((2, 2), "e"), ((10, 10), "e")]

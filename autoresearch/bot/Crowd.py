@@ -250,7 +250,7 @@ def assign_food_targets(
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Gang:
+class Crowd:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -270,14 +270,14 @@ class Gang:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Gang: Odds's wiring (Denial's economy, seek approach,
-        # committed-join packs, ahead-only 1v1 duels, off-hill
-        # screening, 10-gate equal trades), except the seek branch
-        # is pack-gated: an ant with 3+ friends within 10 steps
-        # (combat.has_pack) seeks exactly as leg 1, while a packless
-        # ant packs up one step toward its nearest friend instead of
-        # advancing. Join, grinder, screen, muster, reinforce,
-        # explore, and walk-off are champion.
+        # Crowd: Gang's wiring (Denial's economy, pack-gated seek
+        # approach, committed-join packs, ahead-only 1v1 duels,
+        # off-hill screening, 10-gate equal trades), except a packed
+        # hunter advances fearlessly -- skipping the safety filter --
+        # while fewer than combat.CROWD_LIMIT enemies are visible.
+        # With CROWD_LIMIT+ enemies visible the full champion safety
+        # applies. Food, guard, muster, reinforce, explore, and
+        # walk-off are champion.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -494,9 +494,10 @@ class Gang:
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved and enemy_locs:
-                # Gang: no food or guard move; hunt only with a pack.
-                # A packless ant never advances -- it packs up one
-                # step toward its nearest friend instead (below).
+                # Crowd: no food or guard move; hunt only with a pack,
+                # fearless in small fights. A packless ant never
+                # advances -- it packs up one step toward its nearest
+                # friend instead (below), under the normal filter.
                 foe = combat.nearest_seek_enemy(ant_loc, enemy_locs, ants.distance)
                 if foe is not None and not combat.has_pack(
                     ant_loc, ants_list, ants.distance
@@ -512,14 +513,20 @@ class Gang:
                             moved = True
                     foe = None
                 if foe is not None:
-                    # Packed: seek exactly as legs 1-3 -- a joined ant
-                    # (its foe drew 2+ commitments) engages with equal
-                    # trades allowed; an unjoined ant on a friendless
-                    # 1v1 contact engages only while the visible army
-                    # leads, otherwise the leg-1 safe seek holds.
+                    # Packed: fearless ahead while fewer than
+                    # CROWD_LIMIT enemies are visible -- the advancing
+                    # step skips the safety filter. In crowds the legs
+                    # 1-3 rules hold: a joined ant (its foe drew 2+
+                    # commitments) engages with equal trades allowed;
+                    # an unjoined ant on a friendless 1v1 contact
+                    # engages only while the visible army leads,
+                    # otherwise the leg-1 safe seek holds.
                     step = first_step(ant_loc, foe)
                     if step is not None:
-                        if ai in joined:
+                        if combat.crowd_fearless(len(enemy_locs), combat.CROWD_LIMIT):
+                            if try_step(ant_loc, step, safe=False):
+                                moved = True
+                        elif ai in joined:
                             if try_join(ant_loc, step):
                                 moved = True
                         else:
@@ -607,6 +614,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Gang())
+        Ants.run(Crowd())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
