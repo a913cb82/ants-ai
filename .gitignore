@@ -11,3 +11,4 @@ autoresearch/runs/
 *.replay
 bots/greentea/build/
 league/ratings.json.lock
+league/ratings.json.wt.lock
