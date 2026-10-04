@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import time
 from collections import deque
 from collections.abc import Callable
 
@@ -11,9 +10,22 @@ DistFn = Callable[[Loc, Loc], int]
 CLUSTER_R = 8
 DENIAL_ENEMIES = 3
 DENIAL_CLAIMS = 2
-_GATE_CELLS = 400
-_CLOCK_BUDGET_S = 0.05
 _CELL = CLUSTER_R + 1
+OPEN_R = 3
+
+
+def open_space(ants: Ants, loc: Loc) -> int:
+    # Passable squares within Manhattan radius OPEN_R of loc
+    # (torus-aware). Ranks already-safe escape moves only; the
+    # safety verdict itself is decided elsewhere.
+    rows, cols = ants.rows, ants.cols
+    count = 0
+    for dr in range(-OPEN_R, OPEN_R + 1):
+        width = OPEN_R - abs(dr)
+        for dc in range(-width, width + 1):
+            if ants.passable(((loc[0] + dr) % rows, (loc[1] + dc) % cols)):
+                count += 1
+    return count
 
 
 def _scan_board(
@@ -202,103 +214,6 @@ def denied_food_groups(
     return list(groups.values())
 
 
-def _hungarian(cost: list[list[int]], deadline: float) -> list[int] | None:
-    # Min-cost square assignment (Kuhn-Munkres potentials, O(n^3)).
-    # Returns row -> column, or None if the deadline passes.
-    n = len(cost)
-    if n == 0:
-        return []
-    if time.monotonic() >= deadline:
-        return None
-    u: list[float] = [0] * (n + 1)
-    v: list[float] = [0] * (n + 1)
-    p = [0] * (n + 1)
-    way = [0] * (n + 1)
-    for i in range(1, n + 1):
-        p[0] = i
-        j0 = 0
-        minv: list[float] = [float("inf")] * (n + 1)
-        used = [False] * (n + 1)
-        while True:
-            if time.monotonic() >= deadline:
-                return None
-            used[j0] = True
-            i0 = p[j0]
-            delta: float = float("inf")
-            j1 = 0
-            row = cost[i0 - 1]
-            for j in range(1, n + 1):
-                if used[j]:
-                    continue
-                cur = row[j - 1] - u[i0] - v[j]
-                if cur < minv[j]:
-                    minv[j] = cur
-                    way[j] = j0
-                if minv[j] < delta:
-                    delta = minv[j]
-                    j1 = j
-            for j in range(n + 1):
-                if used[j]:
-                    u[p[j]] += delta
-                    v[j] -= delta
-                else:
-                    minv[j] -= delta
-            j0 = j1
-            if p[j0] == 0:
-                break
-        while j0:
-            j1 = way[j0]
-            p[j0] = p[j1]
-            j0 = j1
-    ans = [0] * n
-    for j in range(1, n + 1):
-        if p[j]:
-            ans[p[j] - 1] = j - 1
-    return ans
-
-
-def _optimal_targets(
-    free_ai: list[int],
-    free_fi: list[int],
-    ants_list: list[Loc],
-    foods: list[Loc],
-    distance: DistFn,
-    deadline: float,
-) -> dict[int, Loc] | None:
-    # Min-total-distance matching of free ants to free foods (each ant
-    # at most one food and vice versa, exactly min(n, m) claims). The
-    # smaller side is padded with zero-cost dummies, so minimizing the
-    # square total minimizes the real total. None on timeout.
-    n = len(free_ai)
-    m = len(free_fi)
-    if n == 0 or m == 0:
-        return {}
-    if n == 1:
-        best = min(free_fi, key=lambda fi: distance(ants_list[free_ai[0]], foods[fi]))
-        return {free_ai[0]: foods[best]}
-    if m == 1:
-        best_ai = min(
-            free_ai, key=lambda ai: distance(ants_list[ai], foods[free_fi[0]])
-        )
-        return {best_ai: foods[free_fi[0]]}
-    size = max(n, m)
-    cost = [[0] * size for _ in range(size)]
-    for i in range(n):
-        ant_loc = ants_list[free_ai[i]]
-        crow = cost[i]
-        for j in range(m):
-            crow[j] = distance(ant_loc, foods[free_fi[j]])
-    assign = _hungarian(cost, deadline)
-    if assign is None:
-        return None
-    out: dict[int, Loc] = {}
-    for i in range(n):
-        j = assign[i]
-        if j < m:
-            out[free_ai[i]] = foods[free_fi[j]]
-    return out
-
-
 def assign_food_targets(
     ants_list: list[Loc],
     foods: list[Loc],
@@ -312,9 +227,6 @@ def assign_food_targets(
     # and distinct foods, nearest pairs first); the cluster's other
     # foods stay unclaimed this turn instead of spreading one per food.
     # A one-food cluster can only draw one claimant.
-    # Clock: the open-field greedy below is replaced by the optimal
-    # min-total-distance matching while ants x foods <= _GATE_CELLS;
-    # bigger boards and solver timeouts use the exact legacy greedy.
     target: dict[int, Loc] = {}
     if not foods or not ants_list:
         return target
@@ -335,20 +247,6 @@ def assign_food_targets(
                 target[ai] = foods[fi]
                 claimed.add(fi)
                 picks += 1
-    free_ai = [ai for ai in range(len(ants_list)) if ai not in target]
-    free_fi = [fi for fi in range(len(foods)) if fi not in claimed and fi not in denied]
-    if len(ants_list) * len(foods) <= _GATE_CELLS and free_ai and free_fi:
-        opt = _optimal_targets(
-            free_ai,
-            free_fi,
-            ants_list,
-            foods,
-            distance,
-            time.monotonic() + _CLOCK_BUDGET_S,
-        )
-        if opt is not None:
-            target.update(opt)
-            return target
     pairs: list[tuple[int, int, int]] = []
     for ai, ant_loc in enumerate(ants_list):
         for fi, food_loc in enumerate(foods):
@@ -366,7 +264,7 @@ def assign_food_targets(
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Clock:
+class Escape2:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -386,10 +284,9 @@ class Clock:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Clock: Denial's denial, except open-field food claims use the
-        # optimal min-total-distance matching (Hungarian, gated at 400
-        # cost-matrix cells with greedy fallback) instead of closest
-        # pair first. Battling as Denial. Homeward structure, wide fallback,
+        # Denial: Flood's economy, except a food cluster contested by
+        # 3+ visible enemies draws two ants onto its two closest foods
+        # (local 2v2+ posture) instead of one ant per food. Battling as Flood. Homeward structure, wide fallback,
         # aggression, walk-off, food, and exploration match iteration
         # 76. Hunt always; ahead on hills, hunters skip the safety
         # filter. Closeouts need teeth, not patience.
@@ -569,12 +466,13 @@ class Clock:
                 if hstep is not None and try_step(ant_loc, hstep):
                     moved = True
             if not moved:
-                # Still stuck: explore least-visited squares first.
-                dirs = sorted(
-                    ("n", "e", "s", "w"),
-                    key=lambda d: self.visits.get(ants.destination(ant_loc, d), 0),
-                )
-                for direction in dirs:
+                # Still stuck: escape to the safe square with the most
+                # open space. The candidate set is exactly the moves
+                # the old first-safe order could take (passable,
+                # unoccupied, safety-filtered); only the preference
+                # among them changes, visits break openness ties.
+                options: list[tuple[str, tuple[int, int]]] = []
+                for direction in ("n", "e", "s", "w"):
                     new_loc = ants.destination(ant_loc, direction)
                     if (
                         new_loc not in destinations
@@ -582,10 +480,18 @@ class Clock:
                         and ants.unoccupied(new_loc)
                         and is_safe(new_loc, ant_loc)
                     ):
-                        ants.issue_order((ant_loc, direction))
-                        destinations.add(new_loc)
-                        moved = True
-                        break
+                        options.append((direction, new_loc))
+                if options:
+                    options.sort(
+                        key=lambda dn: (
+                            -open_space(ants, dn[1]),
+                            self.visits.get(dn[1], 0),
+                        )
+                    )
+                    direction, new_loc = options[0]
+                    ants.issue_order((ant_loc, direction))
+                    destinations.add(new_loc)
+                    moved = True
             if not moved:
                 held.append(ant_loc)
             # check if we still have time left to calculate more orders
@@ -613,6 +519,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Clock())
+        Ants.run(Escape2())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
