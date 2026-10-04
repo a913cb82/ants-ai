@@ -62,7 +62,7 @@ coordinator measures it.
    write the bot code. Run the tests inside the budget. Commit:
    `git add autoresearch/bot && git commit -m "exp: <idea>"`
    Then report and stop. No games, no notes, no push.
-4. Coordinator: verify the exp commit with `git diff --stat`.
+4. Coordinator: check the exp commit with `git diff --stat`.
    Cherry-pick it onto `autoresearch/main` (linear history, exams
    run in commit order). Cherry-picks only ever carry unrated
    content: rated content is permanently unplayable as a fresh
@@ -105,7 +105,7 @@ worktree.
 - The coder gets one idea and a fixed time budget. The budget is
   30 minutes unless the brief says otherwise. The coder manages
   its own clock. Run `date +%s` first. Compute the deadline.
-  Re-check before each major step. Stop coding early enough to run
+  Check again before each major step. Stop coding early enough to run
   tests plus hooks plus commit before the deadline. Uncommitted
   work at budget end is dropped. A smaller green commit beats
   a bigger uncommitted one.
