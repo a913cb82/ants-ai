@@ -11,21 +11,19 @@ CLUSTER_R = 8
 DENIAL_ENEMIES = 3
 DENIAL_CLAIMS = 2
 _CELL = CLUSTER_R + 1
-OPEN_R = 3
+HILL_FIRST_STEPS = 5
 
 
-def open_space(ants: Ants, loc: Loc) -> int:
-    # Passable squares within Manhattan radius OPEN_R of loc
-    # (torus-aware). Ranks already-safe escape moves only; the
-    # safety verdict itself is decided elsewhere.
-    rows, cols = ants.rows, ants.cols
-    count = 0
-    for dr in range(-OPEN_R, OPEN_R + 1):
-        width = OPEN_R - abs(dr)
-        for dc in range(-width, width + 1):
-            if ants.passable(((loc[0] + dr) % rows, (loc[1] + dc) % cols)):
-                count += 1
-    return count
+def hill_first(
+    ant_loc: Loc, claimed: Loc | None, hills: list[Loc], distance: DistFn
+) -> bool:
+    # Hills before food, except ants within HILL_FIRST_STEPS of their
+    # claimed food finish the pickup first.
+    return (
+        claimed is not None
+        and bool(hills)
+        and distance(ant_loc, claimed) > HILL_FIRST_STEPS
+    )
 
 
 def _scan_board(
@@ -264,7 +262,7 @@ def assign_food_targets(
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Escape2:
+class Hillfirst2:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -289,7 +287,9 @@ class Escape2:
         # (local 2v2+ posture) instead of one ant per food. Battling as Flood. Homeward structure, wide fallback,
         # aggression, walk-off, food, and exploration match iteration
         # 76. Hunt always; ahead on hills, hunters skip the safety
-        # filter. Closeouts need teeth, not patience.
+        # filter. Closeouts need teeth, not patience. Hillfirst2: an
+        # ant holding a food claim still marches first when more than
+        # HILL_FIRST_STEPS from its food; close ants finish pickup.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -417,11 +417,41 @@ class Escape2:
         destinations: set[tuple[int, int]] = set()
         held: list[tuple[int, int]] = []
         anchored: set[tuple[int, int]] = set()
+
+        def march(ant_loc: tuple[int, int]) -> bool:
+            # Flood: the group marches on one target, the hill nearest
+            # the army as a whole. Hunt always; fearless when ahead on
+            # hills.
+            muster = min(
+                hills,
+                key=lambda h: sum(ants.distance(a, h) for a in ants_list),
+            )
+            step = first_step(ant_loc, muster)
+            return step is not None and try_step(
+                ant_loc, step, safe=len(my_hills) <= len(hills)
+            )
+
+        def reinforce(ant_loc: tuple[int, int]) -> bool:
+            # No hill move: reinforce the second-nearest hill.
+            ordered = sorted(hills, key=lambda h: ants.distance(ant_loc, h))
+            near = ordered[1] if len(ordered) > 1 else ordered[0]
+            hstep = first_step(ant_loc, near)
+            return hstep is not None and try_step(ant_loc, hstep)
+
         for ai, ant_loc in enumerate(ants_list):
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
             best = target.get(ai)
             moved = False
-            if best is not None:
+            far = hill_first(ant_loc, best, hills, ants.distance)
+            if far:
+                # Hills before food: far from the claimed food, march
+                # first; food, guard, and exploration below run only
+                # if the hill move fails.
+                if not moved:
+                    moved = march(ant_loc)
+                if not moved:
+                    moved = reinforce(ant_loc)
+            if not moved and best is not None:
                 step = first_step(ant_loc, best)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
@@ -445,34 +475,17 @@ class Escape2:
                     step = first_step(ant_loc, nearest)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
-            if not moved and hills:
-                # Flood: the group marches on one target, the hill
-                # nearest the army as a whole. Hunt always; fearless
-                # when ahead on hills.
-                muster = min(
-                    hills,
-                    key=lambda h: sum(ants.distance(a, h) for a in ants_list),
-                )
-                step = first_step(ant_loc, muster)
-                if step is not None and try_step(
-                    ant_loc, step, safe=len(my_hills) <= len(hills)
-                ):
-                    moved = True
-            if not moved and hills:
-                # No hill move: reinforce the second-nearest hill.
-                ordered = sorted(hills, key=lambda h: ants.distance(ant_loc, h))
-                near = ordered[1] if len(ordered) > 1 else ordered[0]
-                hstep = first_step(ant_loc, near)
-                if hstep is not None and try_step(ant_loc, hstep):
-                    moved = True
+            if not far and not moved and hills:
+                moved = march(ant_loc)
+            if not far and not moved and hills:
+                moved = reinforce(ant_loc)
             if not moved:
-                # Still stuck: escape to the safe square with the most
-                # open space. The candidate set is exactly the moves
-                # the old first-safe order could take (passable,
-                # unoccupied, safety-filtered); only the preference
-                # among them changes, visits break openness ties.
-                options: list[tuple[str, tuple[int, int]]] = []
-                for direction in ("n", "e", "s", "w"):
+                # Still stuck: explore least-visited squares first.
+                dirs = sorted(
+                    ("n", "e", "s", "w"),
+                    key=lambda d: self.visits.get(ants.destination(ant_loc, d), 0),
+                )
+                for direction in dirs:
                     new_loc = ants.destination(ant_loc, direction)
                     if (
                         new_loc not in destinations
@@ -480,18 +493,10 @@ class Escape2:
                         and ants.unoccupied(new_loc)
                         and is_safe(new_loc, ant_loc)
                     ):
-                        options.append((direction, new_loc))
-                if options:
-                    options.sort(
-                        key=lambda dn: (
-                            -open_space(ants, dn[1]),
-                            self.visits.get(dn[1], 0),
-                        )
-                    )
-                    direction, new_loc = options[0]
-                    ants.issue_order((ant_loc, direction))
-                    destinations.add(new_loc)
-                    moved = True
+                        ants.issue_order((ant_loc, direction))
+                        destinations.add(new_loc)
+                        moved = True
+                        break
             if not moved:
                 held.append(ant_loc)
             # check if we still have time left to calculate more orders
@@ -519,6 +524,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Escape2())
+        Ants.run(Hillfirst2())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
