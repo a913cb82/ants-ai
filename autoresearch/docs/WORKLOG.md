@@ -2347,3 +2347,15 @@ Use this format.
 - what changed: xathis-tune1 — aggressive 1-ply only with 14+ near friends AND <10 enemies visible.
 - what you learned: 25.2 to 27.0, beats base Xathis head-to-head 2-0 — direction right, magnitude small; census collapse persists.
 - next: xathis-tune2 (aggressive threshold 14 to 10) codes while Dirichlet2 examines.
+
+## 195 — suicide veto buys ten points (2026-10-04)
+- commit: 59b4d17 (bid Dirichlet2.bot-59b4d17; approach exam 2/4)
+- start: a9d4173 (champion Crowd files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 36.4, sigma 3.25
+- champion mu: 67.9 (Crowd)
+- verdict: keep Crowd
+- games: 2-5, FFA ranks 10p:5 6p:3
+- what changed: dirichlet-tune1 — veto sampled moves that die for nothing, fall back to next-best or hold.
+- what you learned: 26.3 to 36.4 (+10) — the veto is the fix for sampling's documented weakness; best approach score so far, still well short.
+- next: dirichlet-tune2 (fight budget 5 to 15ms) codes while Xathis3 examines.
