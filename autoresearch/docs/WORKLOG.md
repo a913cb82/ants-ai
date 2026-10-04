@@ -1946,3 +1946,15 @@ Use this format.
 - what changed: Battling as Sentry in Sentry.bot + Sentry.py; Denial's united hunt, denial, and combat untouched, but every held hill drafts 2 standing sentries before food assignment, released only while directly threatened.
 - what you learned: Sentries went 4-3 in duels and won the refine, but finished DEAD LAST (10/10) in the census, so mu reached 14.5 against 66.6 — permanent guards idle the workers who win crowds; on-threat defense stays the rule.
 - next: threat-proportional militia draft (Militia exp committed, queued for exam).
+
+## 160 — proportional drafting overdrafts in crowds (2026-10-04)
+- commit: 2a0dfcd (bid Militia.bot-2a0dfcd)
+- start: 8dee7ed (champion Denial files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 20.3, sigma 3.03
+- champion mu: 66.6 (Denial)
+- verdict: keep Denial
+- games: 5-2, FFA ranks 10p:9 6p:1
+- what changed: Battling as Militia in Militia.bot + Militia.py; Denial's united hunt, denial, and combat untouched, but each threatened hill drafts raiders-plus-one nearest ants before food assignment, with unthreatened hills drafting nothing.
+- what you learned: Militias went 5-2 in duels and won the refine, but ranked 9th in the census, so mu reached 20.3 against 66.6 — matching raiders ant-for-ant empties the fields; the fixed guard rule prices defense better.
+- next: enemy-hill patrol past turn 400 (Patrol2 exp committed, queued for exam).

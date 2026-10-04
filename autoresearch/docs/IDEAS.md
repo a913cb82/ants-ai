@@ -75,7 +75,7 @@ row. Leave the old row as it was.
 | dropped | Floodgates: swarm remembered hills at 15 ants. |
 | dropped | Lower gate: swarm at 8 ants. |
 | dropped | Posse: hunt hills with 3+ spares nearby. |
-| dropped | Militia: defense drafts before food. |
+| dropped | Militia: defense drafts before food (mu 20.3 vs 66.6; 10p:9). |
 | dropped | Volunteers: duty drafts from spares only. |
 | dropped | Sentry: 2 volunteers per hill (mu 14.5 vs 66.6; 10/10 census). |
 | dropped | Locavores: food claims within 15. |
