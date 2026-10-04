@@ -164,7 +164,8 @@ a line with fewer than 4 exams is immune. Dead lines get no exams
 and no children. The champion line never dies.
 Two selections drive the loop. Score: oldest unscored leaf of
 the next live line, round-robin over lines. Spawn coders in
-this order. 1. Extend: a live line has a scored leaf with no
+this order, enough to reach 6 entries ahead of the scorer
+(coding plus unscored). 1. Extend: a live line has a scored leaf with no
 child in flight. Take the newest such leaf, round-robin over
 lines. 2. Split-branch: a second diagnosis exists for a failure
 that already has a child. Branch the same parent. 3. Idle-branch:
