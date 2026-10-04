@@ -2148,3 +2148,15 @@ Use this format.
 - what changed: Battling as Anvil in Anvil.bot + Anvil.py; Denial's united hunt, denial, and combat untouched, but a lone ant adjacent to 2+ enemies holds as bait while the nearest 2 friends within 15 converge.
 - what you learned: Anvils went 3-4 in duels and ranked 9th in the census, so mu reached 17.0 against 66.6 — the bait dies before help arrives and the rescuers abandon harvests; no ambush forms in time.
 - next: short-fuse sitter rotation (Turnstile2 exp committed, queued for exam).
+
+## 178 — short fuse burns the sitters (2026-10-04)
+- commit: f62f5b2 (bid Turnstile2.bot-f62f5b2)
+- start: 8dee7ed (champion Denial files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 50.4, sigma 3.28
+- champion mu: 66.6 (Denial; Turnstile-50 candidate 66.8 HOLD)
+- verdict: keep Denial
+- games: 2-5, FFA ranks 10p:3 6p:2
+- what changed: Battling as Turnstile2 in Turnstile2.bot + Turnstile2.py; Denial's united hunt, denial, and combat untouched, but sitters rotate off after 30 turns instead of 50.
+- what you learned: Turnstile2s went 2-5 in duels with mid-pack FFAs, so mu reached 50.4 against 66.6 — far below the 50-turn 66.8, so 30 is too hasty; the fuse has a real optimum at or beyond 50.
+- next: 70-turn bracket (Turnstile3 exp committed) closes the family; then user-directed pivot to a multi-iteration combat program.
