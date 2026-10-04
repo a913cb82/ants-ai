@@ -172,6 +172,7 @@ row. Leave the old row as it was.
 | dropped | Alarum: walk-off defense. |
 | dropped | Mob: fearless in crowds. |
 | dropped | Homeward: explore to hills. |
+| dropped | General: battle-local 1-ply max-min combat resolution. |
 | trying | Relief: fearless reinforce. |
 | trying | Farmstead: feet plus fallback. |
 | done | Sow: gather-only opening, hunt after turn 30. |

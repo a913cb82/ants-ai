@@ -1754,3 +1754,15 @@ Use this format.
 - what changed: Battling as Sow in Sow.bot + Sow.py; no hill-hunting before turn 30, so the whole army gathers first, then Flood's united hunt takes over. Combat and hill tactics untouched.
 - what you learned: Sows went 4-3 in duels (3-0 vs Alarum plus Guerrilla, 0-3 vs Relief) but ranked only 7th in the 10p census; the gather opening banks early ants yet arrives late to crowded hill races, and Relief still out-grows it, so mu reached 31.00 against 52.52.
 - next: Food denial — hold a contested food field.
+
+## 144 — general 1-ply max-min combat (2026-10-04)
+- commit: 304f17f
+- start: c96f1c9 (champion)
+- budget: 7 duels, 10p + 6p
+- score: mu 50.98, sigma 3.76
+- champion mu: 52.52 (Flood)
+- verdict: keep Flood
+- games: 5-2, FFA ranks 10p:2 6p:1
+- what changed: Battling as General in General.bot + General.py; Flood's united-hill base untouched, but the static local-majority is_safe check became a battle-local 1-ply max-min over a once-per-turn influence precompute, scored enemyDead*300 - myDead*180 - dist against per-enemy best replies under the focus rule, with a hard no-1v1 default, cooperative buddy support, and a 200 ms time box falling back to the legacy check.
+- what you learned: Generals went 5-2 in duels (losing twice to Backstop in mazes, beating Hotspot, Backstop twice, Flank, and Relief), won the 6p refine, and took 2nd in the 10p census behind Gang; best-reply refusals cede maze tempo where retreat-drags dominate, so mu reached 50.98 against 52.52 — combat resolution is not the bottleneck.
+- next: Food denial — hold a contested food field.
