@@ -1922,3 +1922,15 @@ Use this format.
 - what changed: Battling as Quartermaster in Quartermaster.bot + Quartermaster.py; Denial's united hunt, denial, and combat untouched, but food-rich boards ignore foods beyond 15 steps and ant-rich boards send extras to contest enemy-held food, with parity boards running champion greedy.
 - what you learned: Quartermasters went 5-2 in duels and won the refine, but ranked only 3rd in the census, so mu reached 56.2 against 66.6 — triage sharpens small games and blunts big ones; claiming everything stays the census rule.
 - next: tollkeeper danger routing (Tollkeeper exp committed, queued for exam).
+
+## 158 — detours cost more than ambushes (2026-10-04)
+- commit: e05db06 (bid Tollkeeper.bot-e05db06)
+- start: 8dee7ed (champion Denial files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 58.8, sigma 3.23
+- champion mu: 66.6 (Denial)
+- verdict: keep Denial
+- games: 4-3, FFA ranks 10p:2 6p:2
+- what changed: Battling as Tollkeeper in Tollkeeper.bot + Tollkeeper.py; Denial's united hunt, denial, and combat untouched, but squares adjacent to superior enemy groups cost +3 steps in all BFS distance computations, routing marches around kill zones when a short safe path exists.
+- what you learned: Tollkeepers went 4-3 in duels and ranked 2nd in both FFAs, so mu reached 58.8 against 66.6 — detour mileage exceeds ambush losses; shortest paths stay shortest.
+- next: sentry standing guard (Sentry exp committed, queued for exam).

@@ -69,7 +69,7 @@ row. Leave the old row as it was.
 | dropped | Seek fights: close on enemies inside 8. |
 | dropped | Supported charges: 2+ friends nearby. |
 | dropped | Favorites only: charge winning fights. |
-| dropped | Danger routing: BFS skips kill zones. |
+| dropped | Danger routing: BFS skips kill zones (mu 58.8 vs 66.6; detours cost more). |
 | dropped | Brave detours: cowardice on hill marches only. |
 | dropped | Danger tolls: +3 a kill-zone tile. |
 | dropped | Floodgates: swarm remembered hills at 15 ants. |
