@@ -250,7 +250,7 @@ def assign_food_targets(
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Wolfpack:
+class Grinder:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -270,15 +270,17 @@ class Wolfpack:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Wolfpack: Denial's economy (a food cluster contested by 3+
+        # Grinder: Denial's economy (a food cluster contested by 3+
         # visible enemies draws two ants onto its two closest foods),
         # except an ant with no food move and no guard move advances
         # on its nearest enemy within combat.SEEK_RANGE, so approach
         # forms fighting lines. A seek step landing in attack range
         # of a foe queues as a commitment; when 2+ ants commit to the
         # SAME foe this turn both engage with equal trades allowed
-        # (no 14-near gate). Lone contact steps keep the safe seek,
-        # so uncommitted ants hold as champion. Everything else --
+        # (no 14-near gate). An unjoined friendless 1v1 contact
+        # engages only while the visible army strictly outnumbers
+        # theirs (combat.grinder_release); behind or even lone ants
+        # keep the safe seek and hold as champion. Everything else --
         # muster, reinforce, explore, walk-off -- is champion.
         foods = ants.food()
         ants_list = ants.my_ants()
@@ -433,7 +435,7 @@ class Wolfpack:
             destinations.add(new_loc)
             return True
 
-        # Wolfpack pre-pass: which ants would step into contact this
+        # Join pre-pass: which ants would step into contact this
         # turn, and on whom. Ants holding food claims never reach the
         # seek branch, so only claim-free ants commit. The join set is
         # the ants whose foe draws 2+ commitments.
@@ -486,11 +488,13 @@ class Wolfpack:
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved and enemy_locs:
-                # Wolfpack: no food or guard move; advance one step
+                # Grinder: no food or guard move; advance one step
                 # toward the nearest enemy in range. A joined ant (its
                 # foe drew 2+ commitments) engages with equal trades
-                # allowed; everyone else keeps the leg-1 safe seek, so
-                # lone ants still hold as champion.
+                # allowed; an unjoined ant on a friendless 1v1 contact
+                # engages only while the visible army leads, otherwise
+                # everyone else keeps the leg-1 safe seek, so behind
+                # or even lone ants still hold as champion.
                 foe = combat.nearest_seek_enemy(ant_loc, enemy_locs, ants.distance)
                 if foe is not None:
                     step = first_step(ant_loc, foe)
@@ -498,8 +502,26 @@ class Wolfpack:
                         if ai in joined:
                             if try_join(ant_loc, step):
                                 moved = True
-                        elif try_step(ant_loc, step):
-                            moved = True
+                        else:
+                            nloc = ants.destination(ant_loc, step)
+                            foes = 0
+                            for e in enemy_locs:
+                                if sq_dist(nloc, e) <= attack_r2:
+                                    foes += 1
+                                    if foes > 1:
+                                        break
+                            pals = 0
+                            for f in ants_list:
+                                if f != ant_loc and sq_dist(nloc, f) <= attack_r2:
+                                    pals += 1
+                                    break
+                            if combat.grinder_release(
+                                pals, foes, len(ants_list), len(enemy_locs)
+                            ):
+                                if try_join(ant_loc, step):
+                                    moved = True
+                            elif try_step(ant_loc, step):
+                                moved = True
             if not moved and hills:
                 # Flood: the group marches on one target, the hill
                 # nearest the army as a whole. Hunt always; fearless
@@ -565,6 +587,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Wolfpack())
+        Ants.run(Grinder())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")

@@ -16,6 +16,13 @@ Leg 2 implements the RESEARCH.md row "Committed-join pack attacks"
 foe queues as a commitment, and when 2+ ants commit to the SAME foe
 this turn both orders issue with equal trades allowed (no 14-near
 gate). Lone unjoined contact steps fall back to champion safety.
+
+Leg 3 implements the RESEARCH.md row "Focus battle: 1v1 is mutual
+death, trade down": a friendless 1v1 contact step (no friend in
+attack range of the step, exactly one foe) engages only when the
+visible army strictly outnumbers theirs, via combat.grinder_release.
+Behind or even lone ants hold exactly as champion; joined pairs
+still engage regardless of the army count.
 """
 
 import os
@@ -25,7 +32,7 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import combat as CX  # noqa: E402
-import Wolfpack as WP  # noqa: E402
+import Grinder as GP  # noqa: E402
 
 Loc = tuple[int, int]
 ROWS = 20
@@ -106,9 +113,23 @@ def run_turn(
     water: set[Loc] | None = None,
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
-) -> tuple[list[tuple[Loc, str]], WP.Wolfpack]:
+) -> tuple[list[tuple[Loc, str]], GP.Grinder]:
     fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
-    bot = WP.Wolfpack()
+    bot = GP.Grinder()
+    bot.do_turn(fake)
+    return fake.orders, bot
+
+
+def run_grinder_turn(
+    mine: list[Loc],
+    enemies: list[Loc],
+    foods: list[Loc] | None = None,
+    water: set[Loc] | None = None,
+    enemy_hills: list[Loc] | None = None,
+    my_hills: list[Loc] | None = None,
+) -> tuple[list[tuple[Loc, str]], GP.Grinder]:
+    fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
+    bot = GP.Grinder()
     bot.do_turn(fake)
     return fake.orders, bot
 
@@ -263,9 +284,11 @@ def test_lone_ant_without_joiner_holds_as_champion() -> None:
 
 def test_three_ants_split_across_two_foes() -> None:
     # The flanking pair joins on their shared foe while the lone ant
-    # on the second foe holds exactly as champion.
+    # on the second foe holds exactly as champion. Even 3v3 army so
+    # the Grinder gate stays shut for the loner; the join itself
+    # ignores the army count.
     mine = [(5, 5), (5, 9), (15, 15)]
-    enemies = [(5, 7), (15, 17)]
+    enemies = [(5, 7), (15, 17), (0, 0)]
     orders, _ = run_turn(mine, enemies)
     champ = champion_orders(mine, enemies)
     assert orders[0] == ((5, 5), "e")
@@ -293,3 +316,87 @@ def test_pairing_costs_under_1ms_on_crowded_board() -> None:
         CX.joined_attackers(commitments)
     elapsed = (time.perf_counter() - start) / reps
     assert elapsed < 0.001
+
+
+def test_grinder_release_only_ahead_lone_duels() -> None:
+    # Ahead friendless 1v1 engages; even, behind, backed, crowded,
+    # or contact-free steps refuse exactly as champion does today.
+    assert CX.grinder_release(0, 1, 5, 3) is True
+    assert CX.grinder_release(0, 1, 3, 3) is False
+    assert CX.grinder_release(0, 1, 2, 4) is False
+    assert CX.grinder_release(1, 1, 5, 3) is False
+    assert CX.grinder_release(0, 2, 9, 3) is False
+    assert CX.grinder_release(0, 0, 9, 3) is False
+
+
+def test_ahead_lone_ant_engages_1v1() -> None:
+    # 3v1 visible army: the contact ant at (5, 5) has no friend in
+    # range of its step onto (5, 6), but the army leads, so Grinder
+    # engages east where champion retreats west.
+    mine = [(5, 5), (15, 15), (15, 16)]
+    enemies = [(5, 7)]
+    orders, _ = run_grinder_turn(mine, enemies)
+    assert orders[0] == ((5, 5), "e")
+    champ = champion_orders(mine, enemies)
+    assert champ[0] == ((5, 5), "w")
+    assert orders != champ
+
+
+def test_behind_lone_ant_holds_as_champion() -> None:
+    # 1v3 visible army: the friendless contact refuses exactly as
+    # champion, retreating west instead of engaging east.
+    mine = [(5, 5)]
+    enemies = [(5, 7), (10, 10), (10, 11)]
+    orders, _ = run_grinder_turn(mine, enemies)
+    assert orders == champion_orders(mine, enemies) == [((5, 5), "w")]
+    assert ((5, 5), "e") not in orders
+
+
+def test_even_lone_ant_holds_as_champion() -> None:
+    # 1v1 visible army is not ahead: strictly-greater gate refuses,
+    # so the lone ant holds exactly as champion.
+    mine = [(5, 5)]
+    enemies = [(5, 7)]
+    orders, _ = run_grinder_turn(mine, enemies)
+    assert orders == champion_orders(mine, enemies) == [((5, 5), "w")]
+    assert ((5, 5), "e") not in orders
+
+
+def test_joined_pair_engages_even_when_behind() -> None:
+    # The join ignores the army gate: the flanking pair shares one
+    # foe, so both engage though the visible army trails 3v4.
+    mine = [(5, 5), (5, 9), (0, 0)]
+    enemies = [(5, 7), (0, 10), (0, 11), (0, 12)]
+    orders, _ = run_grinder_turn(mine, enemies)
+    assert orders[0] == ((5, 5), "e")
+    assert orders[1] == ((5, 9), "w")
+    champ = champion_orders(mine, enemies)
+    assert champ[0] != orders[0] and champ[1] != orders[1]
+
+
+def test_food_guard_orders_unchanged_when_army_ahead() -> None:
+    # Ahead 5v4 army on the contested cluster: claims and guards
+    # resolve before the seek branch, so Grinder matches champion
+    # on every order even with the gate open elsewhere. The extras
+    # stand by the threatened hill, so their screen steps stay in
+    # first_step range and never fall through to seek.
+    mine = [(5, 5), (2, 2), (10, 10), (12, 12), (12, 14)]
+    foods = [(5, 6), (2, 3)]
+    enemies = [(5, 12), (2, 6), (5, 9), (10, 15)]
+    orders, _ = run_grinder_turn(mine, enemies, foods, my_hills=[(10, 12)])
+    champ = champion_orders(mine, enemies, foods, my_hills=[(10, 12)])
+    assert orders == champ
+    assert orders[0] == ((5, 5), "e")
+    assert orders[1] == ((2, 2), "e")
+
+
+def test_grinder_gate_under_half_ms_on_crowded_board() -> None:
+    mine = [(i % ROWS, (i * 7) % COLS) for i in range(48)]
+    foes = [((i * 13 + 5) % ROWS, (i * 11 + 3) % COLS) for i in range(10)]
+    reps = 50
+    start = time.perf_counter()
+    for _ in range(reps):
+        for _ant in mine:
+            CX.grinder_release(0, 1, len(mine), len(foes))
+    elapsed = (time.perf_counter() - start) / reps
+    assert elapsed < 0.0005

@@ -12,6 +12,11 @@ Leg 2 adds the Wolfpack join: contact_foe maps a planned step to
 the foe it would fight, and joined_attackers releases every ant
 whose foe draws 2+ commitments this turn.
 
+Leg 3 adds the Grinder gate: grinder_release permits a friendless
+1v1 contact step only when the visible army strictly outnumbers
+theirs, so ahead lone ants engage while behind or even ones hold
+as champion.
+
 Research: "Approach forms fighting lines" (xathis approaching
 enemies) -- ants near enemies advance on them instead of walking
 only to food, hills, or empty ground.
@@ -77,3 +82,16 @@ def joined_attackers(commitments: dict[int, Loc]) -> set[int]:
     for foe in commitments.values():
         counts[foe] = counts.get(foe, 0) + 1
     return {ai for ai, foe in commitments.items() if counts[foe] >= 2}
+
+
+def grinder_release(friends: int, enemies: int, my_army: int, enemy_army: int) -> bool:
+    """Grinder 1v1 gate: engage a friendless duel only when ahead.
+
+    A planned step with no friend in attack range facing exactly one
+    foe is mutual death under focus battle, so champion refuses it.
+    Grinder permits it when the visible army strictly outnumbers
+    theirs (my_army > enemy_army); every other shape -- backed,
+    crowded, contact-free, behind, or even -- refuses exactly as
+    champion does today. Pure: integer compare, no side effects.
+    """
+    return friends == 0 and enemies == 1 and my_army > enemy_army
