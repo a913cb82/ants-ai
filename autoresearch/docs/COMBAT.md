@@ -8,13 +8,9 @@ Champion: Crowd (mu 67.9, `champion/main = a9d4173`).
 
 ## Milestone 1: beat the ported 2011 bots
 
-Our champion tier must beat the ports head-to-head.
-Current ledger, 6 champ-tier vs ports FFAs (`f05dda9`):
-ports 4, loop 2. Port wins: runevision x2, greentea, xathis.
-Loop wins: Crowd+Denial, Denial+Turnstile.
-No rematches: all further evidence comes from iteration.py
-exams, where ports serve as rulers. Milestone met when a
-loop candidate crowns over port-ruled fields.
+Conceptual target, no measurement. The ports play on as rulers
+through iteration.py. We know it is met when the leaderboard
+shows the ports with many games and mu below our champions.
 
 ## Scoreboard
 
