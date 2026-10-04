@@ -16,7 +16,7 @@ Champion: Crowd (mu 67.9, `champion/main = a9d4173`).
 | greedy fields | 2 | 2 | 16.1 / 26.6 | Greedy2 26.6 | tune2 coded, queued |
 | softmax 1-ply | 2 | 2 | 41.5 / 12.4 | Softmax 41.5 | gate backfired, immune (<4) |
 | sequential fixing | 2 | 2 | 49.7 / 10.3 | Fixing 49.7 | threat-order backfired, immune (<4) |
-| precomputed tables | 1 | 3 | 55.5 | Tables 55.5 | tune1 coding |
+| precomputed tables | 2 | 2 | 55.5 / 17.4 | Tables 55.5 | phantom filter backfired, immune |
 | two-stage | 1 | 3 | 13.7 | TwoStage 13.7 | weak, tune or close |
 
 Used counts the 4-per-approach budget; xathis/dirichlet were granted +3
