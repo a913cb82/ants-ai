@@ -79,6 +79,7 @@ row. Leave the old row as it was.
 | dropped | Patrol2: enemy-hill patrol past turn 400 (mu 62.6 vs 66.6; census yes, duels no). |
 | dropped | Scout2: turn-10 chicken probe (mu 55.1 vs 66.6; intel never repays). |
 | dropped | Second: paired challenge support (mu 50.7 vs 66.6; supporter idles harvest). |
+| dropped | Hedge: refuse even trades when outnumbered (mu 25.5 vs 66.6; 10p:8). |
 | dropped | Volunteers: duty drafts from spares only. |
 | dropped | Sentry: 2 volunteers per hill (mu 14.5 vs 66.6; 10/10 census). |
 | dropped | Locavores: food claims within 15. |

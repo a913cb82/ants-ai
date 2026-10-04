@@ -1994,3 +1994,15 @@ Use this format.
 - what changed: Battling as Timekeeper in Timekeeper.bot + Timekeeper.py; Denial's united hunt, denial, and combat untouched, but a turn-time governor skips explore-diffusion orders past 80% of the turn budget.
 - what you learned: Timekeepers went 5-2 in duels but ranked only 7th in the census, so mu reached 32.2 against 66.6 — the gate fires when it should not (or explore matters more than assumed); either way a governor that drops explore loses crowds.
 - next: count-conditioned trade filter (Hedge exp committed, queued for exam).
+
+## 165 — refusing trades cedes contact zones (2026-10-04)
+- commit: 31430f3 (bid Hedge.bot-31430f3)
+- start: 8dee7ed (champion Denial files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 25.5, sigma 3.00
+- champion mu: 66.6 (Denial)
+- verdict: keep Denial
+- games: 5-2, FFA ranks 10p:8 6p:2
+- what changed: Battling as Hedge in Hedge.bot + Hedge.py; Denial's united hunt, denial, and combat untouched, but even contact trades are refused when outnumbered on visible ant count, disengaging instead.
+- what you learned: Hedges went 5-2 in duels but ranked only 8th in the census, so mu reached 25.5 against 66.6 — walking away from contact surrenders the squares that grow armies; even trades stay even.
+- next: rotate failed challengers (Understudy exp committed, queued for exam).
