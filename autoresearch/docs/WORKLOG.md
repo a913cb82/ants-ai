@@ -1958,3 +1958,15 @@ Use this format.
 - what changed: Battling as Militia in Militia.bot + Militia.py; Denial's united hunt, denial, and combat untouched, but each threatened hill drafts raiders-plus-one nearest ants before food assignment, with unthreatened hills drafting nothing.
 - what you learned: Militias went 5-2 in duels and won the refine, but ranked 9th in the census, so mu reached 20.3 against 66.6 — matching raiders ant-for-ant empties the fields; the fixed guard rule prices defense better.
 - next: enemy-hill patrol past turn 400 (Patrol2 exp committed, queued for exam).
+
+## 162 — the scout's intel doesn't pay its ant (2026-10-04)
+- commit: 0cc89b6 (bid Scout2.bot-0cc89b6)
+- start: 8dee7ed (champion Denial files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 55.1, sigma 3.22
+- champion mu: 66.6 (Denial)
+- verdict: keep Denial
+- games: 5-2, FFA ranks 10p:3 6p:2
+- what changed: Battling as Scout2 in Scout2.bot + Scout2.py; Denial's united hunt, denial, and combat untouched, but at turn 10 the nearest ant to the nearest known enemy hill detaches as a scout, retreating on contact and rejoining by turn 60.
+- what you learned: Scout2s went 5-2 in duels with mid-pack FFAs, so mu reached 55.1 against 66.6 — one ant's intel never repays its missing harvest; the economy outranks reconnaissance.
+- next: paired challenge support (Second exp committed, queued for exam).
