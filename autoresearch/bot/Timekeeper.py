@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import time
 from collections import deque
 from collections.abc import Callable
 
@@ -11,6 +12,21 @@ CLUSTER_R = 8
 DENIAL_ENEMIES = 3
 DENIAL_CLAIMS = 2
 _CELL = CLUSTER_R + 1
+
+TIMEKEEPER_FRAC = 0.8
+
+
+def explore_allowed(start: float, budget_ms: int, now: float) -> bool:
+    # True while elapsed wall-clock sits under 80% of the turn
+    # budget. A missing budget never skips: explore always goes.
+    if budget_ms <= 0:
+        return True
+    return (now - start) < TIMEKEEPER_FRAC * budget_ms / 1000.0
+
+
+def time_for_explore(start: float, budget_ms: int) -> bool:
+    # Per-ant governor check: one clock read plus one compare.
+    return explore_allowed(start, budget_ms, time.perf_counter())
 
 
 def _scan_board(
@@ -246,77 +262,10 @@ def assign_food_targets(
     return target
 
 
-SUPPORT_R = 3
-SUPPORT_REACH = 10
-
-
-def pick_challenge_pair(
-    ants_list: list[Loc],
-    target: dict[int, Loc],
-    hills: list[Loc],
-    threatened: list[Loc],
-    distance: DistFn,
-) -> tuple[int, int] | None:
-    # One pair per turn: the lowest-index free ant is the challenger
-    # and the nearest other free ant within SUPPORT_REACH shadows
-    # it. Free means food-unclaimed; unthreatened means defense is
-    # quiet (threatened empty), so guards are never pulled off a
-    # home hill. None means the challenge goes solo, as today.
-    if not hills or threatened:
-        return None
-    free = [ai for ai in range(len(ants_list)) if ai not in target]
-    if len(free) < 2:
-        return None
-    challenger = free[0]
-    cloc = ants_list[challenger]
-    best_ai: int | None = None
-    best_d = SUPPORT_REACH + 1
-    for ai in free[1:]:
-        d = distance(ants_list[ai], cloc)
-        if d <= SUPPORT_REACH and (best_ai is None or d < best_d):
-            best_ai = ai
-            best_d = d
-    if best_ai is None:
-        return None
-    return (challenger, best_ai)
-
-
-def support_square(
-    challenger: Loc,
-    supporter: Loc,
-    distance: DistFn,
-    destination: Callable[[Loc, str], Loc],
-    passable: Callable[[Loc], bool],
-    occupied: set[Loc],
-) -> Loc | None:
-    # Nearest passable unoccupied square within SUPPORT_R of the
-    # challenger, measured from the supporter; ties prefer the
-    # smallest square. Ring walk, no BFS: a handful of distance
-    # checks, far under a millisecond on a crowded board.
-    seen = {challenger}
-    ring = [challenger]
-    cands: list[Loc] = []
-    for _ in range(SUPPORT_R):
-        nxt: list[Loc] = []
-        for loc in ring:
-            for d in ("n", "e", "s", "w"):
-                m = destination(loc, d)
-                if m not in seen:
-                    seen.add(m)
-                    if passable(m):
-                        cands.append(m)
-                        nxt.append(m)
-        ring = nxt
-    free = [m for m in cands if m not in occupied and m != supporter]
-    if not free:
-        return None
-    return min(free, key=lambda m: (distance(supporter, m), m))
-
-
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Second:
+class Timekeeper:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -336,12 +285,17 @@ class Second:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Second: Denial's economy, except a hill challenge goes in
-        # pairs -- the nearest free (food-unclaimed, unthreatened)
-        # ant shadows the challenger onto a support square within 3
-        # instead of its normal fallback. No free ant within 10, or
-        # defense active, means the challenge goes solo, as today.
-        # Muster order, food, defense, and exploration match Denial.
+        # Timekeeper: Denial's economy, except the turn watches its
+        # own wall clock -- once 80% of the turn budget has elapsed,
+        # the remaining explore-diffusion orders are skipped so food,
+        # defense, and hill orders never time out. With time to spare
+        # every order matches Denial exactly.
+        # Denial: Flood's economy, except a food cluster contested by
+        # 3+ visible enemies draws two ants onto its two closest foods
+        # (local 2v2+ posture) instead of one ant per food. Battling as Flood. Homeward structure, wide fallback,
+        # aggression, walk-off, food, and exploration match iteration
+        # 76. Hunt always; ahead on hills, hunters skip the safety
+        # filter. Closeouts need teeth, not patience.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -469,21 +423,8 @@ class Second:
         destinations: set[tuple[int, int]] = set()
         held: list[tuple[int, int]] = []
         anchored: set[tuple[int, int]] = set()
-        pair = pick_challenge_pair(ants_list, target, hills, threatened, ants.distance)
-        support_ai: int | None = None
-        support_goal: tuple[int, int] | None = None
-        if pair is not None:
-            square = support_square(
-                ants_list[pair[0]],
-                ants_list[pair[1]],
-                ants.distance,
-                ants.destination,
-                ants.passable,
-                set(ants_list) | set(enemy_locs),
-            )
-            if square is not None:
-                support_ai = pair[1]
-                support_goal = square
+        turn_start = time.perf_counter()
+        budget_ms = getattr(ants, "turntime", 0) or 0
         for ai, ant_loc in enumerate(ants_list):
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
             best = target.get(ai)
@@ -512,16 +453,6 @@ class Second:
                     step = first_step(ant_loc, nearest)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
-            if not moved and support_ai is not None and ai == support_ai:
-                # Paired support: shadow the challenger instead of the
-                # normal fallback. A blocked supporter falls through to
-                # the champion logic below for this turn.
-                assert support_goal is not None
-                sstep = first_step(ant_loc, support_goal)
-                if sstep is not None and try_step(
-                    ant_loc, sstep, safe=len(my_hills) <= len(hills)
-                ):
-                    moved = True
             if not moved and hills:
                 # Flood: the group marches on one target, the hill
                 # nearest the army as a whole. Hunt always; fearless
@@ -542,8 +473,10 @@ class Second:
                 hstep = first_step(ant_loc, near)
                 if hstep is not None and try_step(ant_loc, hstep):
                     moved = True
-            if not moved:
+            if not moved and time_for_explore(turn_start, budget_ms):
                 # Still stuck: explore least-visited squares first.
+                # Skipped once 80% of the budget has elapsed; the ant
+                # simply holds instead of risking a timeout.
                 dirs = sorted(
                     ("n", "e", "s", "w"),
                     key=lambda d: self.visits.get(ants.destination(ant_loc, d), 0),
@@ -587,6 +520,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Second())
+        Ants.run(Timekeeper())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
