@@ -246,47 +246,65 @@ def assign_food_targets(
     return target
 
 
-BAILIFF_ENEMIES = 3
-
-
-def doomed_ant_indices(
+def phalanx_mirrors(
     ants_list: list[Loc],
     enemy_locs: list[Loc],
     rows: int,
     cols: int,
-) -> list[int]:
-    # Pre-contact evacuation screen: indices of ants standing on
-    # squares adjacent (toroid-manhattan distance 1) to
-    # BAILIFF_ENEMIES+ enemies with no friendly ant adjacent.
-    # Bucketed neighbor count: O(enemies + ants), no distance calls.
-    counts: dict[Loc, int] = {}
-    for er, ec in enemy_locs:
-        for nb in (
-            ((er - 1) % rows, ec),
-            ((er + 1) % rows, ec),
-            (er, (ec - 1) % cols),
-            (er, (ec + 1) % cols),
-        ):
-            counts[nb] = counts.get(nb, 0) + 1
+) -> dict[Loc, Loc]:
+    # Adjacent double-team: for each enemy with 2+ friendly ants on
+    # toroid-manhattan-adjacent squares, the min-coords adjacent ant
+    # engages while the adjacent friend nearest the point-opposite
+    # square (across the enemy from the engager) mirrors it. Returns
+    # {mirror_ant: opposite_square}; a mirror already standing on
+    # its square holds it. Bucketed neighbor lookup: O(enemies),
+    # no distance calls.
     mine = set(ants_list)
-    doomed: list[int] = []
-    for ai, (ar, ac) in enumerate(ants_list):
-        if counts.get((ar, ac), 0) < BAILIFF_ENEMIES:
+    foes = set(enemy_locs)
+    mirrors: dict[Loc, Loc] = {}
+    used: set[Loc] = set()
+    for er, ec in sorted(foes):
+        adj = [
+            nb
+            for nb in (
+                ((er - 1) % rows, ec),
+                ((er + 1) % rows, ec),
+                (er, (ec - 1) % cols),
+                (er, (ec + 1) % cols),
+            )
+            if nb in mine
+        ]
+        if len(adj) < 2:
             continue
-        if (
-            ((ar - 1) % rows, ac) not in mine
-            and ((ar + 1) % rows, ac) not in mine
-            and (ar, (ac - 1) % cols) not in mine
-            and (ar, (ac + 1) % cols) not in mine
-        ):
-            doomed.append(ai)
-    return doomed
+        engager = min(adj)
+        tsq = ((2 * er - engager[0]) % rows, (2 * ec - engager[1]) % cols)
+        if tsq in foes:
+            continue
+        friend: Loc | None = None
+        friend_d = 0
+        for a in adj:
+            if a == engager or a in used:
+                continue
+            dr = abs(a[0] - tsq[0])
+            dr = min(dr, rows - dr)
+            dc = abs(a[1] - tsq[1])
+            dc = min(dc, cols - dc)
+            if friend is None or (dr + dc, a) < (friend_d, friend):
+                friend = a
+                friend_d = dr + dc
+        if friend is None:
+            continue
+        if tsq in mine and tsq != friend:
+            continue
+        mirrors[friend] = tsq
+        used.add(friend)
+    return mirrors
 
 
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Bailiff:
+class Phalanx:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -306,12 +324,11 @@ class Bailiff:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Bailiff: Denial's economy (a food cluster contested by 3+
-        # visible enemies draws two ants onto its two closest foods),
-        # except ants standing adjacent to 3+ enemies with no
-        # friendly ant adjacent evacuate first (before food
-        # assignment) toward their nearest friend.
-        # Battling as Flood. Homeward structure, wide fallback,
+        # Phalanx: Denial's economy (a food cluster contested by
+        # 3+ visible enemies draws two ants onto its two closest foods),
+        # except an already-adjacent friend of a shared enemy mirrors
+        # the engagement from the opposite square instead of
+        # continuing economy. Battling as Flood. Homeward structure, wide fallback,
         # aggression, walk-off, food, and exploration match iteration
         # 76. Hunt always; ahead on hills, hunters skip the safety
         # filter. Closeouts need teeth, not patience.
@@ -319,40 +336,6 @@ class Bailiff:
         ants_list = ants.my_ants()
         my_set = set(ants_list)
         enemy_locs = [loc for loc, _ in ants.enemy_ants()]
-        destinations: set[tuple[int, int]] = set()
-        evacuated: set[tuple[int, int]] = set()
-        for ai in doomed_ant_indices(ants_list, enemy_locs, ants.rows, ants.cols):
-            # Bailiff: a doomed ant steps toward its nearest friend
-            # before any food claim, without the safety filter (it is
-            # lost if it stays). No friends, or no free square, and it
-            # falls through to champion behavior below.
-            ant_loc = ants_list[ai]
-            friend: tuple[int, int] | None = None
-            friend_d = 0
-            for other in ants_list:
-                if other == ant_loc:
-                    continue
-                d = ants.distance(ant_loc, other)
-                if friend is None or d < friend_d:
-                    friend = other
-                    friend_d = d
-            if friend is None:
-                continue
-            goal: tuple[int, int] = friend
-            for direction in sorted(
-                ("n", "e", "s", "w"),
-                key=lambda d: ants.distance(ants.destination(ant_loc, d), goal),
-            ):
-                new_loc = ants.destination(ant_loc, direction)
-                if (
-                    new_loc not in destinations
-                    and ants.passable(new_loc)
-                    and ants.unoccupied(new_loc)
-                ):
-                    ants.issue_order((ant_loc, direction))
-                    destinations.add(new_loc)
-                    evacuated.add(ant_loc)
-                    break
         target = assign_food_targets(
             ants_list, foods, enemy_locs, ants.distance, ants.rows, ants.cols
         )
@@ -473,12 +456,54 @@ class Bailiff:
                 return True
             return False
 
+        destinations: set[tuple[int, int]] = set()
         held: list[tuple[int, int]] = []
         anchored: set[tuple[int, int]] = set()
+        mirrored: set[tuple[int, int]] = set()
+        for bloc, tsq in sorted(
+            phalanx_mirrors(ants_list, enemy_locs, rows, cols).items()
+        ):
+            # Phalanx: an already-adjacent friend steps toward the
+            # square opposite the engager across their shared enemy
+            # (holding still when already opposite) instead of
+            # continuing economy. A blocked opposite square falls
+            # through to champion behavior below.
+            if ants.time_remaining() < 10:
+                break
+            if bloc == tsq:
+                mirrored.add(bloc)
+                continue
+            if (
+                tsq in destinations
+                or not ants.passable(tsq)
+                or not ants.unoccupied(tsq)
+            ):
+                continue
+            cur_d = ants.distance(bloc, tsq)
+            step: str | None = None
+            step_d = 0
+            for d in ("n", "e", "s", "w"):
+                nb = ants.destination(bloc, d)
+                if (
+                    nb in destinations
+                    or not ants.passable(nb)
+                    or not ants.unoccupied(nb)
+                ):
+                    continue
+                dd = ants.distance(nb, tsq)
+                if dd < cur_d and (step is None or dd < step_d):
+                    step = d
+                    step_d = dd
+            if step is None:
+                continue
+            ants.issue_order((bloc, step))
+            destinations.add(ants.destination(bloc, step))
+            mirrored.add(bloc)
         for ai, ant_loc in enumerate(ants_list):
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
-            if ant_loc in evacuated:
-                # Already evacuated pre-contact; order issued above.
+            if ant_loc in mirrored:
+                if ants.time_remaining() < 10:
+                    break
                 continue
             best = target.get(ai)
             moved = False
@@ -571,6 +596,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Bailiff())
+        Ants.run(Phalanx())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")

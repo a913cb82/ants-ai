@@ -1,12 +1,15 @@
 #!/usr/bin/env python
-"""Bailiff (pre-contact evacuation) tests.
+"""Phalanx (adjacent double-team) tests.
 
 No engine games.
 
-One change over champion Denial: ants standing on squares adjacent
-to 3+ enemies with no friendly ant adjacent evacuate FIRST (before
-food assignment) toward the nearest friendly ant; all other ants
-behave exactly as champion.
+One change over champion Denial: when 2+ friendly ants stand
+adjacent (toroid-manhattan distance 1) to the same enemy, the
+engaging ant fights on as champion while an already-adjacent
+friend mirrors it -- stepping toward the square opposite the
+engager across that enemy when the square is free (holding still
+when already opposite) -- instead of continuing economy. Solo
+contact and no-contact turns behave exactly as champion.
 """
 
 import os
@@ -16,7 +19,7 @@ from typing import Any
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import Bailiff as BF  # noqa: E402
+import Phalanx as PH  # noqa: E402
 
 Loc = tuple[int, int]
 ROWS = 20
@@ -94,8 +97,8 @@ class FakeAnts:
         return 100000
 
 
-def _no_doom(*args: Any) -> list[int]:
-    return []
+def _no_phalanx(*args: Any, **kwargs: Any) -> dict[Loc, Loc]:
+    return {}
 
 
 def run_turn(
@@ -103,65 +106,81 @@ def run_turn(
     enemies: list[Loc],
     foods: list[Loc] | None = None,
     water: set[Loc] | None = None,
-    bailiff_on: bool = True,
+    phalanx_on: bool = True,
 ) -> list[tuple[Loc, str]]:
     fake = FakeAnts(mine, enemies, foods, water)
-    bot: Any = BF.Bailiff()
-    if bailiff_on:
+    bot: Any = PH.Phalanx()
+    if phalanx_on:
         bot.do_turn(fake)
         return fake.orders
-    orig = BF.doomed_ant_indices
-    BF.doomed_ant_indices = _no_doom
+    orig = PH.phalanx_mirrors
+    PH.phalanx_mirrors = _no_phalanx
     try:
         bot.do_turn(fake)
     finally:
-        BF.doomed_ant_indices = orig
+        PH.phalanx_mirrors = orig
     return fake.orders
 
 
-def test_doomed_ant_evacuates_toward_nearest_friend() -> None:
-    mine = [(10, 10), (10, 15)]
-    enemies = [(9, 10), (11, 10), (10, 9)]
-    assert BF.doomed_ant_indices(mine, enemies, ROWS, COLS) == [0]
-    got = run_turn(mine, enemies)
-    assert dict(got).get((10, 10)) == "e"
-    assert torus((10, 11), (10, 15)) < torus((10, 10), (10, 15))
+def test_adjacent_friend_double_teams_opposite_enemy() -> None:
+    # A=(10,9) west of E, B=(9,10) north of E. Engager is min-coords
+    # B, so opposite is south (11,10); A must step toward it.
+    mine = [(10, 9), (9, 10)]
+    enemies = [(10, 10)]
+    assert PH.phalanx_mirrors(mine, enemies, ROWS, COLS) == {(10, 9): (11, 10)}
+    on = run_turn(mine, enemies, [(0, 0)])
+    off = run_turn(mine, enemies, [(0, 0)], phalanx_on=False)
+    assert dict(on).get((10, 9)) == "s"
+    assert torus((11, 9), (11, 10)) < torus((10, 9), (11, 10))
+    assert on != off  # champion would not mirror
+    assert dict(on).get((9, 10)) == dict(off).get((9, 10))  # engager untouched
 
 
-def test_friendly_adjacency_holds_as_champion() -> None:
-    mine = [(10, 10), (10, 11)]
-    enemies = [(9, 10), (11, 10), (10, 9)]
-    assert BF.doomed_ant_indices(mine, enemies, ROWS, COLS) == []
-    assert run_turn(mine, enemies) == run_turn(mine, enemies, bailiff_on=False)
+def test_friend_already_opposite_holds() -> None:
+    # A=(10,9) west of E engages; B=(10,11) already sits opposite.
+    mine = [(10, 9), (10, 11)]
+    enemies = [(10, 10)]
+    assert PH.phalanx_mirrors(mine, enemies, ROWS, COLS) == {(10, 11): (10, 11)}
+    on = run_turn(mine, enemies, [(0, 0)])
+    off = run_turn(mine, enemies, [(0, 0)], phalanx_on=False)
+    assert (10, 11) not in dict(on)  # holds the 2-on-1
+    assert (10, 11) in dict(off)  # champion walks it off to economy
 
 
-def test_two_adjacent_enemies_are_not_doomed() -> None:
-    mine = [(10, 10), (10, 15)]
-    enemies = [(9, 10), (11, 10)]
-    assert BF.doomed_ant_indices(mine, enemies, ROWS, COLS) == []
-    assert run_turn(mine, enemies) == run_turn(mine, enemies, bailiff_on=False)
+def test_solo_contact_matches_champion() -> None:
+    # One ant adjacent to the enemy, no adjacent friend: champion.
+    mine = [(10, 9)]
+    enemies = [(10, 10)]
+    assert PH.phalanx_mirrors(mine, enemies, ROWS, COLS) == {}
+    assert run_turn(mine, enemies, [(0, 0)]) == run_turn(
+        mine, enemies, [(0, 0)], phalanx_on=False
+    )
 
 
-def test_lone_doomed_ant_falls_through_as_champion() -> None:
-    mine = [(10, 10)]
-    enemies = [(9, 10), (11, 10), (10, 9)]
-    assert BF.doomed_ant_indices(mine, enemies, ROWS, COLS) == [0]
-    assert run_turn(mine, enemies) == run_turn(mine, enemies, bailiff_on=False)
+def test_blocked_opposite_falls_through_as_champion() -> None:
+    # Opposite square (11,10) is water: no mirror, champion economy.
+    mine = [(10, 9), (9, 10)]
+    enemies = [(10, 10)]
+    water = {(11, 10)}
+    assert PH.phalanx_mirrors(mine, enemies, ROWS, COLS) == {(10, 9): (11, 10)}
+    assert run_turn(mine, enemies, [(0, 0)], water) == run_turn(
+        mine, enemies, [(0, 0)], water, phalanx_on=False
+    )
 
 
 def test_detection_uses_torus_wrap() -> None:
-    mine = [(0, 0)]
-    enemies = [(ROWS - 1, 0), (0, COLS - 1), (1, 0)]
-    assert BF.doomed_ant_indices(mine, enemies, ROWS, COLS) == [0]
+    mine = [(ROWS - 1, 0), (0, COLS - 1)]
+    enemies = [(0, 0)]
+    assert PH.phalanx_mirrors(mine, enemies, ROWS, COLS) == {(19, 0): (0, 1)}
 
 
-def test_no_threat_turns_match_champion_exactly() -> None:
+def test_quiet_turns_match_champion_exactly() -> None:
     import random
 
-    rng = random.Random(37)
+    rng = random.Random(38)
     locs = [(r, c) for r in range(ROWS) for c in range(COLS)]
     compared = 0
-    for _ in range(200):
+    for _ in range(300):
         n_ants = rng.randint(1, 6)
         n_food = rng.randint(0, 8)
         n_enemy = rng.randint(0, 5)
@@ -169,16 +188,16 @@ def test_no_threat_turns_match_champion_exactly() -> None:
         mine = pick[:n_ants]
         foods = pick[n_ants : n_ants + n_food]
         enemies = pick[n_ants + n_food :]
-        if BF.doomed_ant_indices(mine, enemies, ROWS, COLS):
+        if PH.phalanx_mirrors(mine, enemies, ROWS, COLS):
             continue
         assert run_turn(mine, enemies, foods) == run_turn(
-            mine, enemies, foods, bailiff_on=False
+            mine, enemies, foods, phalanx_on=False
         )
         compared += 1
     assert compared > 100
 
 
-def test_evacuation_scan_costs_under_1ms() -> None:
+def test_adjacency_scan_costs_under_1ms() -> None:
     import random
 
     rng = random.Random(7)
@@ -189,9 +208,9 @@ def test_evacuation_scan_costs_under_1ms() -> None:
     enemies = pick[500:]
     start = time.perf_counter()
     reps = 50
-    doomed: list[int] = []
+    mirrors: dict[Loc, Loc] = {}
     for _ in range(reps):
-        doomed = BF.doomed_ant_indices(mine, enemies, rows, cols)
+        mirrors = PH.phalanx_mirrors(mine, enemies, rows, cols)
     elapsed = (time.perf_counter() - start) / reps
-    assert isinstance(doomed, list)
+    assert isinstance(mirrors, dict)
     assert elapsed < 0.001
