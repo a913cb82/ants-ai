@@ -7,18 +7,15 @@ This file describes the current champion only. History lives in
 
 ## Current bot
 
-Iteration 10 (8dee7ed), the current champion, battles as Denial in
-Denial.bot + Denial.py. It assigns food by global distance, except
-a cluster with 3+ visible enemies draws exactly two ants onto its
-two nearest foods; it guards threatened home hills, and marches the
-whole group onto the single remembered hill nearest the army, hunting
-always and fearless when ahead on hills. Ants that miss the muster
-reinforce the second-nearest hill. Food and hill moves follow the
-first step of a BFS shortest path around water. Moves need a local
-majority, except equal trades are accepted when 14+ friends stand
-within 10 steps. Spare ants explore least-visited squares, and no
-ant ends a turn sitting on its own hill so spawning stays open.
-Recorded score: mu 66.6, sigma 3.18 (10p census, 6p refine, 7 duels).
+Iteration 43 (a9d4173), the current champion, battles as Crowd in
+Crowd.bot + Crowd.py + shared combat.py. It is Denial's economy
+(contested clusters draw two ants) with a combat chain: idle ants
+advance on enemies within 8 steps when 3+ friends stand within 10,
+second ants join committed pair attacks, lone 1v1s engage only when
+the visible army leads, extra guards screen razers at the halfway
+square, equal trades go at 10 near friends — and advances run
+fearless with fewer than 10 enemies visible, full safety in crowds.
+Recorded score: mu 67.9, sigma 3.89 (10p census, 6p refine, 7 duels).
 
 ## Good play
 
@@ -26,6 +23,8 @@ Recorded score: mu 66.6, sigma 3.18 (10p census, 6p refine, 7 duels).
   One lost food turn is one lost ant.
 - Fight with a majority. Attack only when your ants outnumber the
   defenders. Do not move an ant into certain death.
+- Press small fights. Advance fearlessly when few enemies show;
+  keep full safety in crowds.
 - Hold and take hills. A hill makes ants. Take a weak enemy hill.
   Keep spare ants near your own hills.
 - Use the map. Food near home is gone first. Send spare ants out.
