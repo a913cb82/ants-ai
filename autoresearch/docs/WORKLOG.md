@@ -2066,3 +2066,15 @@ Use this format.
 - what changed: Battling as Census in Census.bot + Census.py; Denial's united hunt, denial, and combat untouched, but with zero enemies seen by turn 20, two ants shift from food to explore for turns 21-60.
 - what you learned: Censuses went 2-5 in duels with mid-pack FFAs, so mu reached 45.6 against 66.6 — empty maps still reward harvesting over intel; the opening stays fixed.
 - next: army-wide challenger exclusion (Outcast exp committed, queued for exam).
+
+## 171 — army-wide benching wastes challengers (2026-10-04)
+- commit: d7863e3 (bid Outcast.bot-d7863e3)
+- start: 8dee7ed (champion Denial files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 22.1, sigma 3.17
+- champion mu: 66.6 (Denial)
+- verdict: keep Denial
+- games: 5-2, FFA ranks 10p:9 6p:1
+- what changed: Battling as Outcast in Outcast.bot + Outcast.py; Denial's united hunt, denial, and combat untouched, but a failed challenge benches the last challenger from ALL hills for one turn instead of just the failed hill.
+- what you learned: Outcasts went 5-2 in duels, won the refine, but ranked 9th in the census, so mu reached 22.1 against 66.6 — benching everywhere wastes challengers; the rotation family is closed with per-hill 1-turn standing as the tied best.
+- next: quadrant income ledger for food ties (Ledger exp committed, queued for exam).

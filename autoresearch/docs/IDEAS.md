@@ -81,6 +81,7 @@ row. Leave the old row as it was.
 | dropped | Second: paired challenge support (mu 50.7 vs 66.6; supporter idles harvest). |
 | dropped | Hedge: refuse even trades when outnumbered (mu 25.5 vs 66.6; 10p:8). |
 | tied | Understudy: rotate failed challengers (mu 66.6 vs 66.6; census win, keep incumbent). |
+| dropped | Outcast: army-wide exclusion (mu 22.1 vs 66.6; rotation family closed). |
 | dropped | Understudy2: 2-turn exclusion (mu 55.5 vs 66.6; benches winners). |
 | dropped | Coroner: avoid death squares 20 turns (mu 53.7 vs 66.6; 2-5 duels). |
 | dropped | Census: explore on quiet maps (mu 45.6 vs 66.6; 2-5 duels). |
