@@ -10,7 +10,7 @@ Champion: Crowd (mu 67.9, `champion/main = a9d4173`).
 
 | Approach | Used | Left | Scores (mu) | Best | Status |
 |---|---|---|---|---|---|
-| xathis 1-ply | 5+0 | 2 | 25.2 / 27.0 / 30.7 / 16.5 / 28.8 | Xathis3 30.7 | bold1 done, trend alive |
+| xathis 1-ply | 6+0 | 0 | 25.2 / 27.0 / 30.7 / 16.5 / 28.8 / 28.6 | Xathis3 30.7 | DEAD (no new best in last 3) |
 | dirichlet sampling | 5+0 | 0 | 26.3 / 36.4 / 37.2 / 27.2 / 28.3 | Dirichlet3 37.2 | DEAD (no new best in last 3) |
 | influence (Memetix) | 3 | 1 | 28.8 / 29.5 / 34.4 | Influence3 34.4 | tune3 coded, queued |
 | greedy fields | 2 | 2 | 16.1 / 26.6 | Greedy2 26.6 | tune2 coded, queued |
