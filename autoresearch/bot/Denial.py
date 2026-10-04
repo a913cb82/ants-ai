@@ -1,28 +1,260 @@
 #!/usr/bin/env python
 from collections import deque
+from collections.abc import Callable
 
 from ants import Ants
 
-EXPANSION_WAVES = 3
-EXPANSION_BFS_BUDGET = 1500
+Loc = tuple[int, int]
+DistFn = Callable[[Loc, Loc], int]
+
+CLUSTER_R = 8
+DENIAL_ENEMIES = 3
+DENIAL_CLAIMS = 2
+_CELL = CLUSTER_R + 1
+
+
+def _scan_board(
+    foods: list[Loc], enemy_locs: list[Loc], rows: int, cols: int
+) -> tuple[list[int], dict[int, int]]:
+    # One bucketed pass: cluster roots for foods within CLUSTER_R and,
+    # per cluster, how many distinct enemies sit within CLUSTER_R of a
+    # member food. Buckets are linear (no wrap): adjacent buckets catch
+    # every linear-close pair, and explicit seam bands catch the pairs
+    # the torus folds together (rows 0..R with rows-R..rows-1, same for
+    # cols). Toroid manhattan inline, same formula as Ants.distance.
+    n = len(foods)
+    cell = _CELL
+    fr = [f[0] for f in foods]
+    fc = [f[1] for f in foods]
+    buckets: dict[tuple[int, int], list[int]] = {}
+    for i in range(n):
+        buckets.setdefault((fr[i] // cell, fc[i] // cell), []).append(i)
+    parent = list(range(n))
+
+    def union(a: int, b: int) -> None:
+        ra, rb = a, b
+        while parent[ra] != ra:
+            parent[ra] = parent[parent[ra]]
+            ra = parent[ra]
+        while parent[rb] != rb:
+            parent[rb] = parent[parent[rb]]
+            rb = parent[rb]
+        if ra != rb:
+            parent[max(ra, rb)] = min(ra, rb)
+
+    R = CLUSTER_R
+    for key, members in buckets.items():
+        br, bc = key
+        for dbr, dbc in ((0, 0), (0, 1), (1, -1), (1, 0), (1, 1)):
+            others = buckets.get((br + dbr, bc + dbc))
+            if not others:
+                continue
+            inner = dbr == 0 and dbc == 0
+            for ii, i in enumerate(members):
+                ri = fr[i]
+                ci = fc[i]
+                group_b = members[ii + 1 :] if inner else others
+                for j in group_b:
+                    # Linear-gap reject: seam pairs never share
+                    # linear buckets, so this never misfires.
+                    dr = ri - fr[j]
+                    if dr < 0:
+                        dr = -dr
+                    if dr > R:
+                        continue
+                    dc = ci - fc[j]
+                    if dc < 0:
+                        dc = -dc
+                    if dc > R:
+                        continue
+                    if dr + dc <= R:
+                        union(i, j)
+    row_top = [i for i in range(n) if fr[i] <= CLUSTER_R]
+    row_bot = [i for i in range(n) if fr[i] >= rows - CLUSTER_R]
+    for i in row_top:
+        for j in row_bot:
+            if i == j:
+                continue
+            dr = fr[i] - fr[j]
+            if dr < 0:
+                dr = -dr
+            if dr > rows - dr:
+                dr = rows - dr
+            if dr > R:
+                continue
+            dc = fc[i] - fc[j]
+            if dc < 0:
+                dc = -dc
+            if dc > cols - dc:
+                dc = cols - dc
+            if dr + dc <= R:
+                union(i, j)
+    col_left = [i for i in range(n) if fc[i] <= CLUSTER_R]
+    col_right = [i for i in range(n) if fc[i] >= cols - CLUSTER_R]
+    for i in col_left:
+        for j in col_right:
+            if i == j:
+                continue
+            dr = fr[i] - fr[j]
+            if dr < 0:
+                dr = -dr
+            if dr > rows - dr:
+                dr = rows - dr
+            if dr > R:
+                continue
+            dc = fc[i] - fc[j]
+            if dc < 0:
+                dc = -dc
+            if dc > cols - dc:
+                dc = cols - dc
+            if dr + dc <= R:
+                union(i, j)
+    roots = [0] * n
+    for i in range(n):
+        a = i
+        while parent[a] != a:
+            parent[a] = parent[parent[a]]
+            a = parent[a]
+        roots[i] = a
+    counts: dict[int, int] = {}
+    for e in enemy_locs:
+        er = e[0]
+        ec = e[1]
+        br, bc = er // cell, ec // cell
+        hit: set[int] = set()
+        for dbr in (-1, 0, 1):
+            for dbc in (-1, 0, 1):
+                members = buckets.get((br + dbr, bc + dbc))
+                if not members:
+                    continue
+                for j in members:
+                    dr = er - fr[j]
+                    if dr < 0:
+                        dr = -dr
+                    if dr > rows - dr:
+                        dr = rows - dr
+                    if dr > R:
+                        continue
+                    dc = ec - fc[j]
+                    if dc < 0:
+                        dc = -dc
+                    if dc > cols - dc:
+                        dc = cols - dc
+                    if dr + dc <= R:
+                        hit.add(roots[j])
+        if er <= R or er >= rows - R:
+            for j in row_top + row_bot:
+                dr = er - fr[j]
+                if dr < 0:
+                    dr = -dr
+                if dr > rows - dr:
+                    dr = rows - dr
+                if dr > R:
+                    continue
+                dc = ec - fc[j]
+                if dc < 0:
+                    dc = -dc
+                if dc > cols - dc:
+                    dc = cols - dc
+                if dr + dc <= R:
+                    hit.add(roots[j])
+        if ec <= R or ec >= cols - R:
+            for j in col_left + col_right:
+                dr = er - fr[j]
+                if dr < 0:
+                    dr = -dr
+                if dr > rows - dr:
+                    dr = rows - dr
+                if dr > R:
+                    continue
+                dc = ec - fc[j]
+                if dc < 0:
+                    dc = -dc
+                if dc > cols - dc:
+                    dc = cols - dc
+                if dr + dc <= R:
+                    hit.add(roots[j])
+        for root in hit:
+            counts[root] = counts.get(root, 0) + 1
+    return roots, counts
+
+
+def denied_food_groups(
+    foods: list[Loc],
+    enemy_locs: list[Loc],
+    distance: DistFn,
+    rows: int,
+    cols: int,
+) -> list[list[int]]:
+    # Clusters contested by DENIAL_ENEMIES+ visible enemies within
+    # CLUSTER_R of a cluster food. Each group holds food indices.
+    if not foods or len(enemy_locs) < DENIAL_ENEMIES:
+        return []
+    roots, counts = _scan_board(foods, enemy_locs, rows, cols)
+    contested = {r for r, c in counts.items() if c >= DENIAL_ENEMIES}
+    groups: dict[int, list[int]] = {}
+    for i, root in enumerate(roots):
+        if root in contested:
+            groups.setdefault(root, []).append(i)
+    return list(groups.values())
+
+
+def assign_food_targets(
+    ants_list: list[Loc],
+    foods: list[Loc],
+    enemy_locs: list[Loc],
+    distance: DistFn,
+    rows: int,
+    cols: int,
+) -> dict[int, Loc]:
+    # Champion greedy everywhere, except contested clusters take
+    # exactly DENIAL_CLAIMS ants on their nearest foods (distinct ants
+    # and distinct foods, nearest pairs first); the cluster's other
+    # foods stay unclaimed this turn instead of spreading one per food.
+    # A one-food cluster can only draw one claimant.
+    target: dict[int, Loc] = {}
+    if not foods or not ants_list:
+        return target
+    claimed: set[int] = set()
+    denied: set[int] = set()
+    for group in denied_food_groups(foods, enemy_locs, distance, rows, cols):
+        denied.update(group)
+        picks = 0
+        ordered = sorted(
+            (distance(ant, foods[fi]), ai, fi)
+            for ai, ant in enumerate(ants_list)
+            for fi in group
+        )
+        for _, ai, fi in ordered:
+            if picks >= DENIAL_CLAIMS:
+                break
+            if ai not in target and fi not in claimed:
+                target[ai] = foods[fi]
+                claimed.add(fi)
+                picks += 1
+    pairs: list[tuple[int, int, int]] = []
+    for ai, ant_loc in enumerate(ants_list):
+        for fi, food_loc in enumerate(foods):
+            pairs.append((distance(ant_loc, food_loc), ai, fi))
+    pairs.sort()
+    for _, ai, fi in pairs:
+        if fi in denied:
+            continue
+        if ai not in target and fi not in claimed:
+            target[ai] = foods[fi]
+            claimed.add(fi)
+    return target
 
 
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Gambler:
+class Denial:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
         self.remembered_hills: set[tuple[int, int]] = set()
         self.prev_enemies: list[tuple[int, int]] = []
-        # Forward-spawn expansion: one wave per turn (the engine spawns
-        # one ant per hill each turn), so the wave clock is turn-based.
-        # It never reads live ant or hill counts, so hill losses cannot
-        # reset or stall it.
-        self.wave = 0
-        self.seen: set[tuple[int, int]] = set()
-        self.seen_third: list[int] = [0, 0, 0]
 
     # do_setup is run once at the start of the game
     # after the bot has received the game settings
@@ -32,107 +264,31 @@ class Gambler:
         self.visits = {}
         self.remembered_hills = set()
         self.prev_enemies = []
-        self.wave = 0
-        self.seen = set()
-        self.seen_third = [0, 0, 0]
-
-    def third_of(self, loc: tuple[int, int], cols: int) -> int:
-        # Map column thirds: 0 = west, 1 = middle, 2 = east.
-        if cols <= 0:
-            return 0
-        return min(2, loc[1] * 3 // cols)
-
-    def expansion_step(
-        self, ants: Ants, ant_loc: tuple[int, int]
-    ) -> str | None:
-        # First step toward the nearest unseen square in the most-unseen
-        # map third (ties: nearest third, then lowest). BFS routes around
-        # water like the food pathing; the node budget bounds the cost.
-        rows, cols = ants.rows, ants.cols
-        if rows <= 0 or cols <= 0:
-            return None
-        widths = [0, 0, 0]
-        for c in range(cols):
-            widths[self.third_of((0, c), cols)] += 1
-        unseen = [widths[t] * rows - self.seen_third[t] for t in range(3)]
-        candidates = [t for t in range(3) if unseen[t] > 0]
-        if not candidates:
-            return None
-        bounds = {}
-        for t in range(3):
-            tcols = [c for c in range(cols) if self.third_of((0, c), cols) == t]
-            bounds[t] = (tcols[0] + tcols[-1]) / 2
-
-        def coldist(a: float, b: float) -> float:
-            return min(abs(a - b), cols - abs(a - b))
-
-        goal = min(
-            candidates,
-            key=lambda t: (-unseen[t], coldist(ant_loc[1], bounds[t]), t),
-        )
-        parent: dict[tuple[int, int], tuple[tuple[int, int], str]] = {}
-        parent[ant_loc] = (ant_loc, "")
-        queue: deque[tuple[int, int]] = deque([ant_loc])
-        expanded = 0
-        found: tuple[int, int] | None = None
-        while queue and expanded < EXPANSION_BFS_BUDGET:
-            cur = queue.popleft()
-            expanded += 1
-            for d in ("n", "e", "s", "w"):
-                nxt = ants.destination(cur, d)
-                if nxt in parent or not ants.passable(nxt):
-                    continue
-                parent[nxt] = (cur, d)
-                if nxt not in self.seen and self.third_of(nxt, cols) == goal:
-                    found = nxt
-                    queue.clear()
-                    break
-                queue.append(nxt)
-        if found is None:
-            return None
-        node = found
-        while parent[node][0] != ant_loc:
-            node = parent[node][0]
-        return parent[node][1]
 
     # do turn is run once per turn
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Gambler: forward-spawn expansion gambles the first waves on
-        # map control. Battling as Flood otherwise. Homeward structure, wide fallback,
+        # Denial: Flood's economy, except a food cluster contested by
+        # 3+ visible enemies draws two ants onto its two closest foods
+        # (local 2v2+ posture) instead of one ant per food. Battling as Flood. Homeward structure, wide fallback,
         # aggression, walk-off, food, and exploration match iteration
         # 76. Hunt always; ahead on hills, hunters skip the safety
         # filter. Closeouts need teeth, not patience.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
-        self.wave += 1
-        expanding = self.wave <= EXPANSION_WAVES
-        for aloc in ants_list:
-            if aloc not in self.seen:
-                self.seen.add(aloc)
-                self.seen_third[self.third_of(aloc, ants.cols)] += 1
+        enemy_locs = [loc for loc, _ in ants.enemy_ants()]
+        target = assign_food_targets(
+            ants_list, foods, enemy_locs, ants.distance, ants.rows, ants.cols
+        )
         for hloc, _ in ants.enemy_hills():
             self.remembered_hills.add(hloc)
         for hloc in list(self.remembered_hills):
             if hloc in my_set:
                 self.remembered_hills.discard(hloc)
-        pairs: list[tuple[int, int, int]] = []
-        target: dict[int, tuple[int, int]] = {}
-        claimed_food: set[int] = set()
-        if not expanding:
-            for ai, ant_loc in enumerate(ants_list):
-                for fi, food_loc in enumerate(foods):
-                    pairs.append((ants.distance(ant_loc, food_loc), ai, fi))
-            pairs.sort()
-            for _, ai, fi in pairs:
-                if ai not in target and fi not in claimed_food:
-                    target[ai] = foods[fi]
-                    claimed_food.add(fi)
         hills = sorted(self.remembered_hills)
         my_hills = ants.my_hills()
-        enemy_locs = [loc for loc, _ in ants.enemy_ants()]
         # Match each visible enemy to a last-turn position to read
         # its heading. Ants move one square per turn, so matches at
         # distance 0 or 1 are the same ant; the rest are new spawns.
@@ -258,12 +414,6 @@ class Gambler:
                     # Assigned food is blocked; keep the claim so no other
                     # ant chases the same region this turn.
                     pass
-            if not moved and expanding:
-                # Forward-spawn expansion: this wave marches on the
-                # unseen third instead of working nearby food.
-                estep = self.expansion_step(ants, ant_loc)
-                if estep is not None and try_step(ant_loc, estep):
-                    moved = True
             if not moved and threatened:
                 # No food or blocked: first guard holds the hill,
                 # extras screen the razer off it.
@@ -345,6 +495,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Gambler())
+        Ants.run(Denial())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
