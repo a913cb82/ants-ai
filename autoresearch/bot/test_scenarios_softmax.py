@@ -24,6 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import Softmax2 as SM  # noqa: E402
 import Softmax3 as S3  # noqa: E402
 import Softmax4 as S4  # noqa: E402
+import Softmax6 as S6  # noqa: E402
 
 Loc = tuple[int, int]
 ROWS = 20
@@ -53,7 +54,7 @@ class World(TypedDict):
 
 def _bot_for(mod: object):
     """Newest entry class the module provides (S4 > S3 > S2)."""
-    for name in ("Softmax4", "Softmax3", "Softmax2"):
+    for name in ("Softmax6", "Softmax4", "Softmax3", "Softmax2"):
         if hasattr(mod, name):
             return getattr(mod, name)()
     raise AssertionError(f"no entry class in {mod}")
@@ -421,3 +422,86 @@ def test_crowd_clash_matches_base() -> None:
     res4 = run_clash(S4, [1, 2])
     print(f"\ncrowd-clash S3={res3} S4={res4}")
     assert res4 == res3 == (3, 1, ((0, 18), (2, 19)))
+
+
+# Standing battery: the press/refuse line moves with overall rank.
+# No hills and no food anywhere, so refused fights diffuse in place
+# (explore) while pressed fights engage: the gate alone steers.
+# Distant ants sit >COMBAT_LINK from the local fight, so they count
+# globally without joining it. Holders stand their ground.
+def run_standing(
+    mod: object, own: list[Loc], foes: list[Loc]
+) -> tuple[int, tuple[Loc, ...], float]:
+    """Immediate-contact standing setup; returns (score, own, seconds)."""
+    world: World = {
+        "own": list(own),
+        "enemies": list(foes),
+        "own_hills": [],
+        "foe_hills": [],
+        "foods": [],
+    }
+    bot = _bot_for(mod)
+    kills = deaths = 0
+    start = time.perf_counter()
+    for _ in range(TURNS):
+        ants = SimAnts(world)
+        bot.do_turn(ants)
+        _apply_orders(world, ants.orders)
+        own_locs, foe_locs, d, k = _resolve(list(world["own"]), list(world["enemies"]))
+        deaths += d
+        kills += k
+        world["own"] = own_locs
+        world["enemies"] = foe_locs
+    elapsed = time.perf_counter() - start
+    return kills - deaths + len(world["own"]), tuple(sorted(world["own"])), elapsed
+
+
+# Ahead: local 2v3 underdog plus 8 distant reserves (global 10v3).
+# Base refuses the equal trade; the standing gate presses it.
+AHEAD_OWN = [(5, 5), (5, 6)]
+AHEAD_FOES = [(5, 8), (5, 9), (5, 10)]
+AHEAD_RESERVES = [
+    (14, 14),
+    (14, 16),
+    (16, 14),
+    (16, 16),
+    (15, 13),
+    (13, 15),
+    (15, 17),
+    (17, 15),
+]
+# Behind: local 3v2 favorite under a distant enemy host (global
+# 3v11). Base presses the equal trade; the standing gate refuses it.
+BEHIND_OWN = [(5, 5), (5, 6), (6, 5)]
+BEHIND_FOES = [(5, 8), (5, 9)]
+BEHIND_HOST = [
+    (14, 14),
+    (14, 16),
+    (16, 14),
+    (16, 16),
+    (15, 13),
+    (13, 15),
+    (15, 17),
+    (17, 15),
+    (15, 15),
+]
+
+
+def test_standing_ahead_diverges_from_base() -> None:
+    """10v3 globally, 2v3 locally: the line drops, the underdog
+    presses, and the trajectory must differ from the base refusal."""
+    res2 = run_standing(SM, AHEAD_OWN + AHEAD_RESERVES, AHEAD_FOES)
+    res6 = run_standing(S6, AHEAD_OWN + AHEAD_RESERVES, AHEAD_FOES)
+    print(f"\nstanding-ahead S2={res2} S6={res6}")
+    assert res6[2] < 10.0 and res2[2] < 10.0
+    assert (res6[0], res6[1]) != (res2[0], res2[1])
+
+
+def test_standing_behind_diverges_from_base() -> None:
+    """3v11 globally, 3v2 locally: the line rises, the favorite
+    refuses, and the trajectory must differ from the base press."""
+    res2 = run_standing(SM, BEHIND_OWN, BEHIND_FOES + BEHIND_HOST)
+    res6 = run_standing(S6, BEHIND_OWN, BEHIND_FOES + BEHIND_HOST)
+    print(f"\nstanding-behind S2={res2} S6={res6}")
+    assert res6[2] < 10.0 and res2[2] < 10.0
+    assert (res6[0], res6[1]) != (res2[0], res2[1])
