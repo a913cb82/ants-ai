@@ -2311,3 +2311,15 @@ Use this format.
   - tables 5783773: precomputed battle table, 1v1 only within 14 of own hill. 18 tests.
   - twostage f699ef0: static classify + stay/advance model, fewest-ants ties, capped DFS + early exit. 14 tests.
 - base: champion Crowd chain; entries self-contained; economy/muster/guard/explore preserved.
+
+## 192 — full xathis wins refine, collapses in census (2026-10-04)
+- commit: 1cb2e2d (bid Xathis.bot-1cb2e2d; approach exam 1/4)
+- start: a9d4173 (champion Crowd files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 25.2, sigma 3.12
+- champion mu: 67.9 (Crowd)
+- verdict: keep Crowd
+- games: 3-4, FFA ranks 10p:8 6p:1
+- what changed: Faithful xathis replication (two-mode 1-ply, approach lines, open-space escape) on the Crowd economy.
+- what you learned: full 1-ply search wins the refine but ranks 8th in the census — search depth does not survive crowds; aggressive mode likely fires into unwinnable masses.
+- next: xathis-tune1 (aggressive only in small fights) codes while Dirichlet examines.
