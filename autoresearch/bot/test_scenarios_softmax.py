@@ -24,6 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import Softmax2 as SM  # noqa: E402
 import Softmax3 as S3  # noqa: E402
 import Softmax4 as S4  # noqa: E402
+import Softmax5 as S5  # noqa: E402
 import Softmax6 as S6  # noqa: E402
 
 Loc = tuple[int, int]
@@ -54,7 +55,8 @@ class World(TypedDict):
 
 def _bot_for(mod: object):
     """Newest entry class the module provides (S4 > S3 > S2)."""
-    for name in ("Softmax6", "Softmax4", "Softmax3", "Softmax2"):
+    """Newest entry class the module provides (S6 > S5 > S4 > S3 > S2)."""
+    for name in ("Softmax6", "Softmax5", "Softmax4", "Softmax3", "Softmax2"):
         if hasattr(mod, name):
             return getattr(mod, name)()
     raise AssertionError(f"no entry class in {mod}")
@@ -505,3 +507,53 @@ def test_standing_behind_diverges_from_base() -> None:
     print(f"\nstanding-behind S2={res2} S6={res6}")
     assert res6[2] < 10.0 and res2[2] < 10.0
     assert (res6[0], res6[1]) != (res2[0], res2[1])
+
+
+# Small-fight press battery (Softmax5): the 2v2 head-on melee must
+# take a different path from the Softmax3 coin (deterministic
+# press converts parity tempo), while the 3v2 crowd clash plays
+# exactly the base game (5-ant fights keep the coin) and the 2v3
+# defense battery aggregate must not trail the coin it tunes.
+# Measured: parity S3=(1, ((1, 13),)) vs S5=(1, ((4, 14),));
+# clash S5 == S3 == (3, 1, ((0, 18), (2, 19))); battery S3 total 3.
+SMALL_MELEE_FLOOR = 1
+
+
+def test_small_melee_diverges_from_coin() -> None:
+    """2v2 head-on melee: S5 presses deterministically (coin-free)
+    while S3 flips, so the end positions must differ; the score
+    floor still holds (parity explores safely either way)."""
+    score3, own3, _ = run_parity(S3)
+    score5, own5, elapsed = run_parity(S5)
+    print(f"\nsmall-melee S3={score3} {own3} S5={score5} {own5}")
+    assert elapsed < 10.0
+    assert score5 >= SMALL_MELEE_FLOOR
+    assert own5 != own3
+
+
+def test_small_melee_press_is_deterministic() -> None:
+    """Two runs of the same 2v2 melee agree exactly: no coin draw
+    on the small-fight path, so parity play is reproducible."""
+    first = run_parity(S5)
+    second = run_parity(S5)
+    assert first[:2] == second[:2]
+
+
+def test_crowd_clash_untouched_by_small_press() -> None:
+    """Two-owner 3v2 clash: Softmax5 must play exactly the base game
+    (5-ant fights keep the coin; no small-fight path fires)."""
+    res3 = run_clash(S3, [1, 2])
+    res5 = run_clash(S5, [1, 2])
+    print(f"\ncrowd-clash S3={res3} S5={res5}")
+    assert res5 == res3 == (3, 1, ((0, 18), (2, 19)))
+
+
+def test_duel_battery_small_press_holds() -> None:
+    """Single-owner 2v3 battery: scattered openings split into small
+    fights where the press fires, so per-setup signs vary; the
+    aggregate must not trail the base coin."""
+    scores3, _ = run_defense_battery(S3, [1, 1, 1])
+    scores5, elapsed = run_defense_battery(S5, [1, 1, 1])
+    print(f"\nduel-battery S3={scores3} S5={scores5}")
+    assert elapsed < 10.0
+    assert sum(scores5) >= sum(scores3)
