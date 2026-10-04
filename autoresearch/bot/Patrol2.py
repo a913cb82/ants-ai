@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import heapq
 from collections import deque
 from collections.abc import Callable
 
@@ -247,55 +246,60 @@ def assign_food_targets(
     return target
 
 
-def hill_raiders(
+PATROL_TURN = 400
+
+
+def patrol_after(turn: int) -> bool:
+    # Enemy-hill patrol switches on past turn 400 only.
+    return turn > PATROL_TURN
+
+
+def patrol_step_toward(
+    ant_loc: Loc,
     hill: Loc,
-    enemy_locs: list[Loc],
+    visits: dict[Loc, int],
     distance: DistFn,
-    closing: Callable[[Loc, Loc], bool] | None = None,
-) -> list[Loc]:
-    # Raiders menacing one home hill: visible enemies within 10, or
-    # within 16 and closing on the hill. Same bands as the guard rule.
-    return [
-        e
-        for e in enemy_locs
-        if distance(hill, e) <= 10
-        or (closing is not None and distance(hill, e) <= 16 and closing(e, hill))
-    ]
-
-
-def draft_militia(
-    ants_list: list[Loc],
-    hills_threat: dict[Loc, list[Loc]],
-    distance: DistFn,
-) -> tuple[set[int], dict[int, Loc]]:
-    # Threat-proportional draft, taken BEFORE food assignment: each
-    # threatened hill drafts its raider count plus one (1-for-1 plus
-    # 1) of the nearest undrafted ants. Unthreatened hills draft
-    # nothing. Returns drafted ant ids and their hill postings.
-    militia: set[int] = set()
-    posting: dict[int, Loc] = {}
-    for hill in sorted(hills_threat):
-        need = len(hills_threat[hill]) + 1
-        picks = heapq.nsmallest(
-            need,
-            (i for i in range(len(ants_list)) if i not in militia),
-            key=lambda i: (distance(ants_list[i], hill), i),
-        )
-        for i in picks:
-            militia.add(i)
-            posting[i] = hill
-    return militia, posting
+    destination: Callable[[Loc, str], Loc],
+    passable: Callable[[Loc], bool],
+    unoccupied: Callable[[Loc], bool],
+    taken: set[Loc],
+) -> str | None:
+    # Greedy single step shortening the distance to the hill
+    # (least-visited wins ties). Fearless on purpose: the patrol
+    # touches the hill even when a safe explorer would sit. None
+    # when already on the hill or no step shortens the way, so the
+    # ant resumes normal exploring (touch and continue). O(4).
+    if ant_loc == hill:
+        return None
+    here = distance(ant_loc, hill)
+    best: str | None = None
+    best_key: tuple[int, int] | None = None
+    for direction in ("n", "e", "s", "w"):
+        new_loc = destination(ant_loc, direction)
+        if new_loc in taken or not passable(new_loc):
+            continue
+        if not unoccupied(new_loc):
+            continue
+        dnew = distance(new_loc, hill)
+        if dnew >= here:
+            continue
+        key = (dnew, visits.get(new_loc, 0))
+        if best_key is None or key < best_key:
+            best_key = key
+            best = direction
+    return best
 
 
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Militia:
+class Patrol2:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
         self.remembered_hills: set[tuple[int, int]] = set()
         self.prev_enemies: list[tuple[int, int]] = []
+        self.turn: int = 0
 
     # do_setup is run once at the start of the game
     # after the bot has received the game settings
@@ -305,23 +309,24 @@ class Militia:
         self.visits = {}
         self.remembered_hills = set()
         self.prev_enemies = []
+        self.turn = 0
 
     # do turn is run once per turn
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Denial: Flood's economy, except a food cluster contested by
-        # 3+ visible enemies draws two ants onto its two closest foods
-        # (local 2v2+ posture) instead of one ant per food. Battling as Flood. Homeward structure, wide fallback,
-        # aggression, walk-off, food, and exploration match iteration
-        # 76. Hunt always; ahead on hills, hunters skip the safety
-        # filter. Closeouts need teeth, not patience. Militia: each
-        # threatened home hill drafts raiders+1 nearest ants before
-        # food; unthreatened hills draft nothing.
+        # Patrol2: Denial's economy, combat, muster, and exploration,
+        # except past turn 400 idle explorers walk PAST the nearest
+        # uncontrolled enemy hill (touch and continue) before resuming
+        # explore. Pre-400 behavior matches Denial exactly.
+        self.turn += 1
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
         enemy_locs = [loc for loc, _ in ants.enemy_ants()]
+        target = assign_food_targets(
+            ants_list, foods, enemy_locs, ants.distance, ants.rows, ants.cols
+        )
         for hloc, _ in ants.enemy_hills():
             self.remembered_hills.add(hloc)
         for hloc in list(self.remembered_hills):
@@ -353,27 +358,15 @@ class Militia:
                 cur, hill
             )
 
-        raiders_by_hill: dict[tuple[int, int], list[tuple[int, int]]] = {}
-        for h in my_hills:
-            raiders = hill_raiders(h, enemy_locs, ants.distance, closing)
-            if raiders:
-                raiders_by_hill[h] = raiders
-        militia, posting = draft_militia(ants_list, raiders_by_hill, ants.distance)
-        if militia:
-            forager_ids = [i for i in range(len(ants_list)) if i not in militia]
-            sub = assign_food_targets(
-                [ants_list[i] for i in forager_ids],
-                foods,
-                enemy_locs,
-                ants.distance,
-                ants.rows,
-                ants.cols,
+        threatened = [
+            h
+            for h in my_hills
+            if any(
+                ants.distance(h, e) <= 10
+                or (ants.distance(h, e) <= 16 and closing(e, h))
+                for e in enemy_locs
             )
-            target = {forager_ids[ai]: loc for ai, loc in sub.items()}
-        else:
-            target = assign_food_targets(
-                ants_list, foods, enemy_locs, ants.distance, ants.rows, ants.cols
-            )
+        ]
         attack_r2 = ants.attackradius2 or 5
         rows, cols = ants.rows, ants.cols
 
@@ -466,20 +459,20 @@ class Militia:
                     # Assigned food is blocked; keep the claim so no other
                     # ant chases the same region this turn.
                     pass
-            if not moved and ai in militia:
-                # Drafted defender: first to its hill holds it, extras
-                # screen the razers off it. Undrafted ants never guard.
-                mhill = posting[ai]
-                if mhill in anchored:
+            if not moved and threatened:
+                # No food or blocked: first guard holds the hill,
+                # extras screen the razer off it.
+                nearest = min(threatened, key=lambda h: ants.distance(ant_loc, h))
+                if nearest in anchored:
                     screen = min(
-                        raiders_by_hill[mhill],
-                        key=lambda e: ants.distance(mhill, e),
-                        default=mhill,
+                        enemy_locs,
+                        key=lambda e: ants.distance(nearest, e),
+                        default=nearest,
                     )
                     step = first_step(ant_loc, screen)
                 else:
-                    anchored.add(mhill)
-                    step = first_step(ant_loc, mhill)
+                    anchored.add(nearest)
+                    step = first_step(ant_loc, nearest)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved and hills:
@@ -501,6 +494,24 @@ class Militia:
                 near = ordered[1] if len(ordered) > 1 else ordered[0]
                 hstep = first_step(ant_loc, near)
                 if hstep is not None and try_step(ant_loc, hstep):
+                    moved = True
+            if not moved and patrol_after(self.turn) and hills:
+                # Past turn 400, idle explorers walk PAST the nearest
+                # uncontrolled enemy hill (touch and continue) before
+                # resuming explore. Food, guard, and muster ants never
+                # reach this branch, so they are unaffected.
+                target_hill = min(hills, key=lambda h: ants.distance(ant_loc, h))
+                pstep = patrol_step_toward(
+                    ant_loc,
+                    target_hill,
+                    self.visits,
+                    ants.distance,
+                    ants.destination,
+                    ants.passable,
+                    ants.unoccupied,
+                    destinations,
+                )
+                if pstep is not None and try_step(ant_loc, pstep, safe=False):
                     moved = True
             if not moved:
                 # Still stuck: explore least-visited squares first.
@@ -547,6 +558,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Militia())
+        Ants.run(Patrol2())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
