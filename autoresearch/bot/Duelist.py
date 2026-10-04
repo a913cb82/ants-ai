@@ -159,6 +159,48 @@ def assign_guards(
     return assignment
 
 
+# Endgamer closing rule: past turn 600 (of 1000) idle explorers sit
+# on held hills and contest the nearest uncontrolled hill only with
+# strict local superiority, instead of diffusing. Economy, muster,
+# combat gates, and defense are untouched.
+ENDGAME_TURN = 600
+ENDGAME_THEATER_R2 = 400
+
+
+def endgame_active(turn: int) -> bool:
+    """The closing rule flips on at turn 600 and stays on."""
+    return turn >= ENDGAME_TURN
+
+
+def endgame_challenge_allowed(friends: int, enemies: int) -> bool:
+    """Strict local superiority: the committing force must outnumber."""
+    return friends + 1 > enemies
+
+
+def count_near(
+    loc: tuple[int, int],
+    others: list[tuple[int, int]],
+    r2: int,
+    rows: int,
+    cols: int,
+) -> int:
+    """Ants of `others` inside squared-toroidal range r2 of loc."""
+    return sum(1 for o in others if toroidal_sq_dist(loc, o, rows, cols) <= r2)
+
+
+def theater_allows(
+    goal: tuple[int, int],
+    my_ants: list[tuple[int, int]],
+    enemy_locs: list[tuple[int, int]],
+    rows: int,
+    cols: int,
+) -> bool:
+    """Our theater force at an uncontrolled hill strictly outnumbers."""
+    friends = count_near(goal, my_ants, ENDGAME_THEATER_R2, rows, cols)
+    enemies = count_near(goal, enemy_locs, ENDGAME_THEATER_R2, rows, cols)
+    return endgame_challenge_allowed(friends, enemies)
+
+
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
@@ -169,6 +211,7 @@ class Duelist:
         self.seen: set[tuple[int, int]] = set()
         self.remembered_hills: set[tuple[int, int]] = set()
         self.prev_enemies: list[tuple[int, int]] = []
+        self.turn = 0
 
     # do_setup is run once at the start of the game
     # after the bot has received the game settings
@@ -179,6 +222,7 @@ class Duelist:
         self.seen = set()
         self.remembered_hills = set()
         self.prev_enemies = []
+        self.turn = 0
 
     # do turn is run once per turn
     # the ants class has the game state and is updated by the Ants.run method
@@ -193,6 +237,8 @@ class Duelist:
         # aggression, walk-off, food, and exploration match iteration
         # 76. Hunt always; ahead on hills, hunters skip the safety
         # filter. Closeouts need teeth, not patience.
+        self.turn += 1
+        endgame = endgame_active(self.turn)
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -392,6 +438,7 @@ class Duelist:
             return False
 
         destinations: set[tuple[int, int]] = set()
+        challenge_cache: dict[tuple[int, int], bool] = {}
         held: list[tuple[int, int]] = []
         anchored: set[tuple[int, int]] = set()
         for ai, ant_loc in enumerate(ants_list):
@@ -445,13 +492,79 @@ class Duelist:
                 hstep = first_step(ant_loc, near)
                 if hstep is not None and try_step(ant_loc, hstep):
                     moved = True
-            if not moved:
+            if not moved and endgame:
+                # Endgamer: sit on the nearest held hill. An ant
+                # already sitting (or with no held hill) contests the
+                # nearest uncontrolled hill, but only with strict
+                # superiority at the theater and at the step.
+                sit: tuple[int, int] | None = None
+                sit_best = 0
+                for h in my_hills:
+                    d = ants.distance(ant_loc, h)
+                    if sit is None or d < sit_best:
+                        sit = h
+                        sit_best = d
+                if sit is not None and ant_loc != sit:
+                    sit_step = first_step(ant_loc, sit)
+                    if sit_step is not None and try_step(ant_loc, sit_step):
+                        moved = True
+                else:
+                    goal: tuple[int, int] | None = None
+                    goal_best = 0
+                    for h in hills:
+                        d = ants.distance(ant_loc, h)
+                        if goal is None or d < goal_best:
+                            goal = h
+                            goal_best = d
+                    if goal is not None:
+                        if goal not in challenge_cache:
+                            challenge_cache[goal] = theater_allows(
+                                goal, ants_list, enemy_locs, rows, cols
+                            )
+                        if challenge_cache[goal]:
+                            here = ants.distance(ant_loc, goal)
+                            steps: list[str] = []
+                            bstep = first_step(ant_loc, goal)
+                            if bstep is not None:
+                                steps.append(bstep)
+                            for direction in ("n", "e", "s", "w"):
+                                if (
+                                    direction not in steps
+                                    and ants.distance(
+                                        ants.destination(ant_loc, direction), goal
+                                    )
+                                    < here
+                                ):
+                                    steps.append(direction)
+                            for step in steps:
+                                dest = ants.destination(ant_loc, step)
+                                if (
+                                    dest in destinations
+                                    or not ants.passable(dest)
+                                    or not ants.unoccupied(dest)
+                                ):
+                                    continue
+                                cf, ce = count_engagement(
+                                    dest,
+                                    ant_loc,
+                                    ants_list,
+                                    enemy_locs,
+                                    attack_r2,
+                                    rows,
+                                    cols,
+                                )
+                                if endgame_challenge_allowed(cf, ce):
+                                    ants.issue_order((ant_loc, step))
+                                    destinations.add(dest)
+                                    moved = True
+                                    break
+            if not moved and not endgame:
                 # Scout: push the unseen edge first, so maze corridors
                 # get walked early and distant food shows sooner.
                 estep = edge_step(ant_loc)
                 if estep is not None and try_step(ant_loc, estep):
                     moved = True
-            if not moved:
+            if not moved and not endgame:
                 # Still stuck: explore least-visited squares first.
                 dirs = sorted(
                     ("n", "e", "s", "w"),
