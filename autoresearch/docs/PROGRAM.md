@@ -159,7 +159,10 @@ The frontier is merged leaves with no exam row yet. The exam takes
 the oldest leaf of the next line, round-robin over lines (one
 line per approach). New lines join at once. Close a line when
 its budget is spent, or on 3 straight exams that trail line-best
-and champion with no upward trend. The champion line never closes.
+and champion with no upward trend. Upward trend means the
+window beats the earlier line best: max(last 3 exams) is above
+max(all earlier exams of the line). A line with fewer than
+4 exams cannot terminate. The champion line never closes.
 Split one failure with two diagnoses into one child leaf each.
 A leaf that wins big on a new mechanism starts its own line.
 Prune the weaker fork at its next exam.
