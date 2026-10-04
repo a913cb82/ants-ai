@@ -14,7 +14,7 @@ C bot by "flagcapper". Final score 85.73, rank #8.
 
 ## Build
 
-`run.sh` mirrors the upstream `Makefile`:
+`flagcapper.sh` mirrors the upstream `Makefile`:
 
 - compile: `gcc -O3 -funroll-loops -c` each of `MyBot.c`, `YourCode.c`, `ants.c`
 - link: `gcc -O2 … -o MyBot -lm`
@@ -43,5 +43,5 @@ in with `#include "Exploration.c"` / `#include "BattleResolution.c"`
 ```sh
 cd bots/flagcapper
 rm -f MyBot MyBot.o YourCode.o ants.o
-bash run.sh   # recompiles, then waits on stdin for engine orders
+bash flagcapper.sh   # recompiles, then waits on stdin for engine orders
 ```

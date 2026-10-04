@@ -15,14 +15,14 @@ reasoning behind the score constants in `Score.h`.
 `Score.h`, `Square.h`, `State.cc/h` and `Makefile` are verbatim copies of
 the upstream sources (reference:
 `/home/acbraith/projects/ants-ai/vendor/ants-topbots/a1k0n/`, read-only).
-Added here: `run.sh`, `a1k0n.bot`, `.gitignore`, this README.
+Added here: `a1k0n.sh`, `a1k0n.bot`, `.gitignore`, this README.
 
 ## Deviations
 
 None. The code builds cleanly with the vendored `Makefile` flags
 (`-O3 -g -funroll-loops -Wall`, link `-O2 -lm`) under the repo toolchain
 (g++ 11.4.0) — no source changes were needed, so there is nothing to
-reconcile on future re-ports. `run.sh` invokes `make`, which honors those
+reconcile on future re-ports. `a1k0n.sh` invokes `make`, which honors those
 flags. (GNU make prints one benign warning about the old-style
 `.cc.o: *.h` suffix rule with prerequisites; it still builds correctly.)
 
@@ -31,7 +31,7 @@ flags. (GNU make prints one benign warning about the old-style
 The engine runs each bot from its own dir. From the repo root:
 
 ```sh
-bash bots/a1k0n/run.sh        # rebuilds via make if stale, then execs ./MyBot
+bash bots/a1k0n/a1k0n.sh        # rebuilds via make if stale, then execs ./MyBot
 ```
 
 or manually:
@@ -40,5 +40,5 @@ or manually:
 cd bots/a1k0n && make && ./MyBot
 ```
 
-`a1k0n.bot` holds exactly the run command (`bash run.sh`). The compiled
+`a1k0n.bot` holds exactly the run command (`bash a1k0n.sh`). The compiled
 `MyBot` binary and `*.o` files are gitignored.

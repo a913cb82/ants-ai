@@ -13,23 +13,23 @@ None. The sources compile cleanly under `javac 17` with no changes.
 
 ## Rebuild / run
 
-The bot runs stand-alone from its own directory. `run.sh` recompiles with
+The bot runs stand-alone from its own directory. `fourmidable.sh` recompiles with
 `javac 17` into `build/` whenever a `.java` file is newer than `build/`,
 then runs the bot:
 
 ```sh
 cd bots/fourmidable
-bash run.sh            # compiles to build/ if stale, then: java -cp build MyBot
+bash fourmidable.sh            # compiles to build/ if stale, then: java -cp build MyBot
 ```
 
 From the repo root (as the engine invokes it):
 
 ```sh
-bash bots/fourmidable/run.sh
+bash bots/fourmidable/fourmidable.sh
 ```
 
 `build/` is gitignored build output, not committed.
-`fourmidable.bot` holds the run command (`bash run.sh`).
+`fourmidable.bot` holds the run command (`bash fourmidable.sh`).
 
 Smoke test (50 turns vs the Python starter bot):
 
@@ -37,7 +37,7 @@ Smoke test (50 turns vs the Python starter bot):
 .venv/bin/python tools/playgame.py \
   --map_file tools/maps/example/tutorial1.map \
   --turns 50 --nolaunch \
-  "bash bots/fourmidable/run.sh" \
+  "bash bots/fourmidable/fourmidable.sh" \
   "python bots/py3_starter/MyBot.py"
 ```
 

@@ -18,12 +18,12 @@ per the "fix only what the compiler rejects" rule.
 ## Rebuild / run
 
 The engine runs the bot with this directory as the working directory.
-`run.sh` recompiles into `build/` whenever a `*.java` file is newer
+`lazarant.sh` recompiles into `build/` whenever a `*.java` file is newer
 than `build/MyBot.class` (or the class is missing), then execs the bot:
 
 ```sh
 cd bots/lazarant
-./run.sh            # or: bash run.sh
+./lazarant.sh            # or: bash lazarant.sh
 ```
 
 Manual rebuild:
@@ -36,5 +36,5 @@ java -cp build MyBot
 ```
 
 The manifest `lazarant.bot` holds the one-line run command (`bash
-run.sh`), following the `bots/*/` manifest pattern (one-line command,
+lazarant.sh`), following the `bots/*/` manifest pattern (one-line command,
 run with the bot directory as cwd). `build/` is gitignored.
