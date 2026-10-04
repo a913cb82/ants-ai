@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 from collections import deque
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 
 from ants import Ants
 
@@ -11,37 +11,6 @@ CLUSTER_R = 8
 DENIAL_ENEMIES = 3
 DENIAL_CLAIMS = 2
 _CELL = CLUSTER_R + 1
-LEDGER_WINDOW = 100
-
-
-def quadrant_of(loc: Loc, rows: int, cols: int) -> int:
-    # Map quadrant 0..3: top/bottom half by rows, left/right by cols.
-    return ((1 if loc[0] >= rows // 2 else 0) << 1) | (1 if loc[1] >= cols // 2 else 0)
-
-
-def record_harvests(
-    events: deque[tuple[int, int]],
-    turn: int,
-    prev_foods: set[Loc],
-    cur_foods: set[Loc],
-    rows: int,
-    cols: int,
-) -> None:
-    # Food visible last turn but gone now counts as harvested income
-    # in its quadrant (whoever ate it, the quadrant yielded food).
-    # Keeps only the trailing LEDGER_WINDOW turns.
-    for gone in prev_foods - cur_foods:
-        events.append((turn, quadrant_of(gone, rows, cols)))
-    while events and events[0][0] <= turn - LEDGER_WINDOW:
-        events.popleft()
-
-
-def quadrant_richness(events: deque[tuple[int, int]]) -> list[int]:
-    # Harvest events per quadrant over the trailing window.
-    rich = [0, 0, 0, 0]
-    for _, quad in events:
-        rich[quad] += 1
-    return rich
 
 
 def _scan_board(
@@ -237,7 +206,6 @@ def assign_food_targets(
     distance: DistFn,
     rows: int,
     cols: int,
-    richness: Sequence[int] | None = None,
 ) -> dict[int, Loc]:
     # Champion greedy everywhere, except contested clusters take
     # exactly DENIAL_CLAIMS ants on their nearest foods (distinct ants
@@ -247,37 +215,29 @@ def assign_food_targets(
     target: dict[int, Loc] = {}
     if not foods or not ants_list:
         return target
-
-    def tiebreak(fi: int) -> int:
-        # Richer quadrant sorts first; empty history ties at 0,
-        # which keeps the champion order exactly.
-        if not richness:
-            return 0
-        return -richness[quadrant_of(foods[fi], rows, cols)]
-
     claimed: set[int] = set()
     denied: set[int] = set()
     for group in denied_food_groups(foods, enemy_locs, distance, rows, cols):
         denied.update(group)
         picks = 0
         ordered = sorted(
-            (distance(ant, foods[fi]), tiebreak(fi), ai, fi)
+            (distance(ant, foods[fi]), ai, fi)
             for ai, ant in enumerate(ants_list)
             for fi in group
         )
-        for _, _, ai, fi in ordered:
+        for _, ai, fi in ordered:
             if picks >= DENIAL_CLAIMS:
                 break
             if ai not in target and fi not in claimed:
                 target[ai] = foods[fi]
                 claimed.add(fi)
                 picks += 1
-    pairs: list[tuple[int, int, int, int]] = []
+    pairs: list[tuple[int, int, int]] = []
     for ai, ant_loc in enumerate(ants_list):
         for fi, food_loc in enumerate(foods):
-            pairs.append((distance(ant_loc, food_loc), tiebreak(fi), ai, fi))
+            pairs.append((distance(ant_loc, food_loc), ai, fi))
     pairs.sort()
-    for _, _, ai, fi in pairs:
+    for _, ai, fi in pairs:
         if fi in denied:
             continue
         if ai not in target and fi not in claimed:
@@ -286,18 +246,52 @@ def assign_food_targets(
     return target
 
 
+BAILIFF_ENEMIES = 3
+
+
+def doomed_ant_indices(
+    ants_list: list[Loc],
+    enemy_locs: list[Loc],
+    rows: int,
+    cols: int,
+) -> list[int]:
+    # Pre-contact evacuation screen: indices of ants standing on
+    # squares adjacent (toroid-manhattan distance 1) to
+    # BAILIFF_ENEMIES+ enemies with no friendly ant adjacent.
+    # Bucketed neighbor count: O(enemies + ants), no distance calls.
+    counts: dict[Loc, int] = {}
+    for er, ec in enemy_locs:
+        for nb in (
+            ((er - 1) % rows, ec),
+            ((er + 1) % rows, ec),
+            (er, (ec - 1) % cols),
+            (er, (ec + 1) % cols),
+        ):
+            counts[nb] = counts.get(nb, 0) + 1
+    mine = set(ants_list)
+    doomed: list[int] = []
+    for ai, (ar, ac) in enumerate(ants_list):
+        if counts.get((ar, ac), 0) < BAILIFF_ENEMIES:
+            continue
+        if (
+            ((ar - 1) % rows, ac) not in mine
+            and ((ar + 1) % rows, ac) not in mine
+            and (ar, (ac - 1) % cols) not in mine
+            and (ar, (ac + 1) % cols) not in mine
+        ):
+            doomed.append(ai)
+    return doomed
+
+
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Ledger:
+class Bailiff:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
         self.remembered_hills: set[tuple[int, int]] = set()
         self.prev_enemies: list[tuple[int, int]] = []
-        self.ledger_events: deque[tuple[int, int]] = deque()
-        self.ledger_prev: set[tuple[int, int]] = set()
-        self.ledger_turn = 0
 
     # do_setup is run once at the start of the game
     # after the bot has received the game settings
@@ -307,46 +301,60 @@ class Ledger:
         self.visits = {}
         self.remembered_hills = set()
         self.prev_enemies = []
-        self.ledger_events = deque()
-        self.ledger_prev = set()
-        self.ledger_turn = 0
 
     # do turn is run once per turn
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Denial: Flood's economy, except a food cluster contested by
-        # 3+ visible enemies draws two ants onto its two closest foods
-        # (local 2v2+ posture) instead of one ant per food. Battling as Flood. Homeward structure, wide fallback,
+        # Bailiff: Denial's economy (a food cluster contested by 3+
+        # visible enemies draws two ants onto its two closest foods),
+        # except ants standing adjacent to 3+ enemies with no
+        # friendly ant adjacent evacuate first (before food
+        # assignment) toward their nearest friend.
+        # Battling as Flood. Homeward structure, wide fallback,
         # aggression, walk-off, food, and exploration match iteration
         # 76. Hunt always; ahead on hills, hunters skip the safety
         # filter. Closeouts need teeth, not patience.
-        # Ledger: food cleared per quadrant over the trailing 100
-        # turns biases equal-distance food claims to the quadrant
-        # that has yielded most; distances still dominate.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
         enemy_locs = [loc for loc, _ in ants.enemy_ants()]
-        self.ledger_turn += 1
-        record_harvests(
-            self.ledger_events,
-            self.ledger_turn,
-            self.ledger_prev,
-            set(foods),
-            ants.rows,
-            ants.cols,
-        )
-        self.ledger_prev = set(foods)
-        richness = quadrant_richness(self.ledger_events)
+        destinations: set[tuple[int, int]] = set()
+        evacuated: set[tuple[int, int]] = set()
+        for ai in doomed_ant_indices(ants_list, enemy_locs, ants.rows, ants.cols):
+            # Bailiff: a doomed ant steps toward its nearest friend
+            # before any food claim, without the safety filter (it is
+            # lost if it stays). No friends, or no free square, and it
+            # falls through to champion behavior below.
+            ant_loc = ants_list[ai]
+            friend: tuple[int, int] | None = None
+            friend_d = 0
+            for other in ants_list:
+                if other == ant_loc:
+                    continue
+                d = ants.distance(ant_loc, other)
+                if friend is None or d < friend_d:
+                    friend = other
+                    friend_d = d
+            if friend is None:
+                continue
+            goal: tuple[int, int] = friend
+            for direction in sorted(
+                ("n", "e", "s", "w"),
+                key=lambda d: ants.distance(ants.destination(ant_loc, d), goal),
+            ):
+                new_loc = ants.destination(ant_loc, direction)
+                if (
+                    new_loc not in destinations
+                    and ants.passable(new_loc)
+                    and ants.unoccupied(new_loc)
+                ):
+                    ants.issue_order((ant_loc, direction))
+                    destinations.add(new_loc)
+                    evacuated.add(ant_loc)
+                    break
         target = assign_food_targets(
-            ants_list,
-            foods,
-            enemy_locs,
-            ants.distance,
-            ants.rows,
-            ants.cols,
-            richness,
+            ants_list, foods, enemy_locs, ants.distance, ants.rows, ants.cols
         )
         for hloc, _ in ants.enemy_hills():
             self.remembered_hills.add(hloc)
@@ -465,11 +473,13 @@ class Ledger:
                 return True
             return False
 
-        destinations: set[tuple[int, int]] = set()
         held: list[tuple[int, int]] = []
         anchored: set[tuple[int, int]] = set()
         for ai, ant_loc in enumerate(ants_list):
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
+            if ant_loc in evacuated:
+                # Already evacuated pre-contact; order issued above.
+                continue
             best = target.get(ai)
             moved = False
             if best is not None:
@@ -561,6 +571,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Ledger())
+        Ants.run(Bailiff())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
