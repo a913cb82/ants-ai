@@ -1874,3 +1874,15 @@ Use this format.
 - what changed: Battling as Clock in Clock.bot + Clock.py; Denial's united hunt, denial, and combat untouched, but open-field food assignment is the optimal min-total-distance matching (Hungarian, ≤400-cell boards) instead of closest-pair-first greedy, with greedy fallback past the gate or on timeout.
 - what you learned: Clocks went 5-2 in duels, won the refine, and took 2nd in the census, so mu reached 61.9 against 66.6 — optimal assignment wins rubrics but not games; greedy's mistakes are rarely the binding constraint.
 - next: clean endgame closing (Endgamer-2 exp committed, queued for exam).
+
+## 154 — open escape walks into traps (2026-10-04)
+- commit: 454f6d2 (bid Escape2.bot-454f6d2)
+- start: 8dee7ed (champion Denial files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 32.1, sigma 3.06
+- champion mu: 66.6 (Denial)
+- verdict: keep Denial
+- games: 0-7, FFA ranks 10p:5 6p:4
+- what changed: Battling as Escape2 in Escape2.bot + Escape2.py; Denial's united hunt, denial, and combat untouched, but the stuck-explore fallback picks the most-open safe move (passable squares in radius 3) instead of least-visited-first. (Test portability nit: the suite referenced worktree-root staging files and errors at collection outside its birth tree; behavior valid, 5/5 green there.)
+- what you learned: Escape2s lost all 7 duels and ranked mid-pack in both FFAs, so mu reached 32.1 against 66.6 — open space is where the enemy already is; least-visited diffusion explores more safely.
+- next: clean endgame closing (Endgamer-2 exp committed, queued for exam).
