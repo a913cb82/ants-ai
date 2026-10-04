@@ -1862,3 +1862,15 @@ Use this format.
 - what changed: Battling as Farmstead in Farmstead.bot + Farmstead.py; Denial's united hunt, denial, and combat untouched, but idle ants step toward the nearest tasked friend (transitive chains) instead of diffusing to least-visited squares, falling back to explore only in isolation.
 - what you learned: Farmsteads lost all 7 duels and ranked 4th in both FFAs, so mu reached 38.3 against 66.6 — following feet pulls idles into traffic instead of onto squares; diffusion explores better than chains.
 - next: clean endgame closing (Endgamer-2 exp committed, queued for exam).
+
+## 153 — optimal food assignment ties greedy (2026-10-04)
+- commit: 8533644 (bid Clock.bot-8533644)
+- start: 8dee7ed (champion Denial files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 61.9, sigma 3.22
+- champion mu: 66.6 (Denial)
+- verdict: keep Denial
+- games: 5-2, FFA ranks 10p:2 6p:1
+- what changed: Battling as Clock in Clock.bot + Clock.py; Denial's united hunt, denial, and combat untouched, but open-field food assignment is the optimal min-total-distance matching (Hungarian, ≤400-cell boards) instead of closest-pair-first greedy, with greedy fallback past the gate or on timeout.
+- what you learned: Clocks went 5-2 in duels, won the refine, and took 2nd in the census, so mu reached 61.9 against 66.6 — optimal assignment wins rubrics but not games; greedy's mistakes are rarely the binding constraint.
+- next: clean endgame closing (Endgamer-2 exp committed, queued for exam).
