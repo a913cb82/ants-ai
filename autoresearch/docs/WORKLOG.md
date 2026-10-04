@@ -2268,3 +2268,15 @@ Use this format.
 - what changed: Combat-program leg 8. Battling as Legion in Legion.bot + Legion.py + shared combat.py; all prior legs kept, plus fearless advances gated on 10+ own visible ants.
 - what you learned: Legions went 4-3 in duels but ranked 8th in the census, so mu reached 24.6 against 67.9 — small armies that never press never grow into big ones; the moment passes while babies wait.
 - next: danger moves first (Marshal exp with extended combat.py + test_combat.py committed, queued for exam).
+
+## 188 — urgency reordering scrambles the economy (2026-10-04)
+- commit: c710cbc (bid Marshal.bot-c710cbc)
+- start: a9d4173 (champion Crowd files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 31.6, sigma 3.15
+- champion mu: 67.9 (Crowd)
+- verdict: keep Crowd
+- games: 3-4, FFA ranks 10p:6 6p:4
+- what changed: Combat-program leg 9. Battling as Marshal in Marshal.bot + Marshal.py + shared combat.py; all prior legs kept, plus urgency ordering (ants nearest enemies move first in the ant loop).
+- what you learned: Marshals went 3-4 in duels with mid-pack FFAs, so mu reached 31.6 against 67.9 — move order is load-bearing for the food-claim economy; danger-first scrambles who gets what.
+- next: Memetix influence gate (Memetix exp with extended combat.py + test_combat.py committed, queued for exam; final leg of 10).
