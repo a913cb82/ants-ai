@@ -12,9 +12,9 @@ Champion: Crowd (mu 67.9, `champion/main = a9d4173`).
 |---|---|---|---|---|---|
 | xathis 1-ply | 4+0 | 3 | 25.2 / 27.0 / 30.7 / 16.5 | Xathis3 30.7 | bold1 coded, queued |
 | dirichlet sampling | 4+0 | 3 | 26.3 / 36.4 / 37.2 / 27.2 | Dirichlet3 37.2 | bold1 coded, queued |
-| influence (Memetix) | 3 | 1 | 28.8 / 29.5 / 34.4 | Influence3 34.4 | tune3 coding |
+| influence (Memetix) | 3 | 1 | 28.8 / 29.5 / 34.4 | Influence3 34.4 | tune3 coded, queued |
 | greedy fields | 2 | 2 | 16.1 / 26.6 | Greedy2 26.6 | tune2 coded, queued |
-| softmax 1-ply | 1 | 3 | pending | — | EXAM RUNNING |
+| softmax 1-ply | 1 | 3 | pending | — | exam running |
 | sequential fixing | 0 | 4 | — | — | committed, queued |
 | precomputed tables | 0 | 4 | — | — | committed, queued |
 | two-stage | 0 | 4 | — | — | committed, queued |

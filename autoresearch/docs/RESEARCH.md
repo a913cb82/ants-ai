@@ -415,3 +415,51 @@ Use this format.
 - claim: 2-stage static/threatened analysis with stay/advance enemy model and fewest-ants preference approximates 1-ply cheaply.
 - evidence: recursive per-ant search over desired squares, +1 moved / -1 new enemy drawn in; early exit; crashes only past 20 ants a side.
 - idea: coarser enemy model is viable if best-response min proves too slow; fewest-ants preference is another no-1v1 gate.
+
+## xathis source corrections (2026-10-04)
+- source: T-Py-T/AntsAIBot Strategy.java (1773 lines, authoritative; xathis_bot.py is a stub, do not quote it)
+- claim: two gates exist (14 for groups, 6 for detached 1-for-1s), "never 2-for-1" is emergent from the eval, and strict phase order is load-bearing.
+- evidence: beAgressive = max Chebyshev-5 friend count >= 14 over the whole fight; detached attacks use >= 6 with eval +/-5000; 1-ply minimax with alpha-cut and best-reply enemy produces refusals from constants, no veto; do_turn order initMissions/enemyHills/food/initExplore/createAreas/fight/defence/approachEnemies/attackDetachedEnemies/escapeEnemies/distribute/explore/missions; hill/food claimants are hasMoved and skip combat grouping; single-ant prec groups skipped (1v1s fall to escape/approach).
+- idea: port the 6-gate for detached attacks; try fight-as-phase (claimants excluded from combat) instead of our interleaved per-ant loop.
+
+## GreenTea exhaustive safest-then-nastiest (2026-10-04)
+- source: git.code.sf.net/p/ants2011/code (MyBot.java 2502 lines, BattleCalculator.java 1003 lines); brunneng postmortem (2nd-3rd/7897)
+- claim: exhaustive joint-move minimax over local battles capped at 7 ants total, keep only moves no reply wipes out, then most aggressive tiebreak.
+- evidence: connectivity grouping within attackRange, smallest-first with committed destinations constraining later battles; eval modes Aggressive mine/theirs ratio, Exchange 0.75*mine-theirs near own hills, Defensive 2*mine-theirs; learned per-complexity time model (run only if timeLeft > 2x avg); food-aware re-fight (survivors on food spawn, re-fight); isMoveDanger counterfactual + rescue ants; 76 tracked improvements 3-15% each.
+- idea: implement capped-7 exhaustive with safest-then-nastiest tiebreak as a 9th approach; reuse its Exchange-near-hills switching.
+
+## lazarant intention propagation (2026-10-04)
+- source: lazarant.zip via Wayback forums (19 Java files, ranked 2nd at write time, #6 final)
+- claim: per-ant ATTACK/SUPPORT/ESCAPE/IGNORE/SKIP intentions propagate over friend links with ESCAPE frozen; no search.
+- evidence: ATTACK iff (my1st+my2nd > en1st+en2nd) AND (my1st > en1st); angryMode (+1 first line) at 67% visible + 2x ants; 1v1 per-color history exploits escapers (10+ samples, escapes > 9x attacks -> IGNORE and walk away); coordinated direction flood-fill; priority chain waitFood > hill-hold > hillAttack3 > combat > food25 > explore25 > control45.
+- idea: implement intention propagation as a 10th approach; the escaper-exploit is unique (model the opponent, not just the board).
+
+## runevision need-based resolution (2026-10-04)
+- source: blog.runevision.com Part I + MyBot.cs 1175 lines (rank 4-11)
+- claim: per-ant 5-move combat scores plus goal bonuses, contested squares resolved to whoever needs them most.
+- evidence: exact goal costs (defense 12% of ants, enemy hills 1/3 army, food cost 4, explore 25, enemy ants 20 at cost 42 maxdist 13); flood-fill pathing with ants as high cost; DEBUG build auto-tuned parameters overnight over hundreds of games (a 2011 harness like ours).
+- idea: replace binary safe/unsafe veto with additive combat+goal scoring + need-based arbitration; copy the goal table as starter numbers.
+
+## Memetix homepage numbers (2026-10-04)
+- source: blackmoor.org.uk/AI.htm (climbed to 2nd)
+- claim: stagnation-gated breakthrough + push-without-swap queueing were the biggest jumps.
+- evidence: gravity weights (food 8, unexplored 3, enemy hill 16, own hill 3, enemy ant 1); breakthrough gate = growth positive over 10 turns AND 32+ unmoved ants (16 late-game); move order lowest-total-first with push (never into death tiles); stuck-5-turns +5 cost.
+- idea: key aggression to growth-plus-idleness (deadlock detection), not static friend counts.
+
+## MBCook priority chain (2026-10-04)
+- source: foobarsoft.com postmortem (2nd-best Clojure, 1335th)
+- claim: unhesitating hill suicide + 8-square flee beats trade-gate tuning; exclusive food reservations gather less than shared claims.
+- evidence: chain defend > emergency > capture-hill (suicide charges) > run-away (flee within 8) > food > random; reservations measured worse than greedy sharing.
+- idea: test whether our exclusive food claims are the reservation mistake; try capture-outranks-survival ordering.
+
+## Parasprites worst-case bounties (2026-10-04)
+- source: forums t=2169 via Wayback (27th)
+- claim: 5-scenario worst-case (enemies move together) with living-enemy bounty of half an ant, constraint-solved per island.
+- evidence: score = casualties + bounties, take the WORST scenario; constraints no-collide/no-swap/no-possible-enemy-squares; arc-consistency + island split + time-shared greedy.
+- idea: worst-case (not best-reply) enemy model with fractional bounties prices caution without full minimax.
+
+## fourmidable probabilistic trades (2026-10-04)
+- source: forums t=2161 attachment via Wayback (13th at post, #9 final)
+- claim: 3-tier combat with probabilistic trade tags p=(n/(0.6e))^3 and exhaustive subgroup minimax at tier 1.
+- evidence: tier 1 subgroup combat, tier 2 pathfinding, tier 3 probabilistic tags with density-estimated enemy counts.
+- idea: probabilistic (not binary) trade acceptance scaled by local odds.
