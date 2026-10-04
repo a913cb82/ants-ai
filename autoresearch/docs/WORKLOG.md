@@ -2232,3 +2232,15 @@ Use this format.
 - what changed: Combat-program leg 5. Battling as Odds in Odds.bot + Odds.py + shared combat.py; seek + join + grinder + screen kept, plus the equal-trade gate lowered 14 to 10 near friends (14 is not gospel).
 - what you learned: Odds went 1-6 in duels (Flowfield/Counter lines) despite 2nd in the census, so mu reached 51.0 against 66.6 — the 14-gate was pricing duel survival correctly; cheaper equals donate.
 - next: pack-gated advance (Gang exp with extended combat.py + test_combat.py committed, queued for exam).
+
+## 185 — packs never form, ants mill (2026-10-04)
+- commit: 99ebfde (bid Gang.bot-99ebfde)
+- start: 8dee7ed (champion Denial files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 43.0, sigma 3.58
+- champion mu: 66.6 (Denial; Turnstile-50 candidate 66.8 HOLD)
+- verdict: keep Denial
+- games: 3-4, FFA ranks 10p:3 6p:6
+- what changed: Combat-program leg 6. Battling as Gang in Gang.bot + Gang.py + shared combat.py; all prior legs kept, plus pack-gated advance (packless ants pack up toward friends instead of seeking).
+- what you learned: Gangs went 3-4 in duels and ranked last in the refine, so mu reached 43.0 against 66.6 — the pack-up step herds ants into clumps that never reach fights; gating advance on pack presence starves pressure.
+- next: fearless in small fights (Crowd exp with extended combat.py + test_combat.py committed, queued for exam).

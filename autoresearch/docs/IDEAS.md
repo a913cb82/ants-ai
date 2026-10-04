@@ -96,6 +96,7 @@ row. Leave the old row as it was.
 | dropped | Grinder: 1v1 when ahead (mu 55.1 vs 66.6; 1-6 duels, 10p:1; combat leg 3). |
 | dropped | Screen: off-hill interception (mu 47.1 vs 66.6; 2-5 duels; combat leg 4). |
 | dropped | Odds: equal trades at 10 near (mu 51.0 vs 66.6; 1-6 duels; combat leg 5). |
+| dropped | Gang: pack-gated advance (mu 43.0 vs 66.6; 6p:6; combat leg 6). |
 | dropped | Anvil: bait-and-ambush (mu 17.0 vs 66.6; 10p:9). |
 | dropped | Patrol3: 30-step ranged patrol (mu 40.8 vs 66.6; range was never the bleed). |
 | dropped | Volunteers: duty drafts from spares only. |
