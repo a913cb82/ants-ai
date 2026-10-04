@@ -160,12 +160,13 @@ Upward trend means max(last 3) is above max(all earlier exams);
 a line with fewer than 4 exams is immune. Dead lines get no exams
 and no children. The champion line never dies.
 Two selections drive the loop. Score: oldest unscored leaf of
-the next live line, round-robin over lines. Extend: newest
-scored leaf of a live line gets a child through a coder; prefer
-this, evidence beats speculation. Branch: an unscored leaf gets
-a child only with a different diagnosis for the same failure, or
-when coder capacity is idle and every scored leaf has a child
-in flight; then take the oldest unscored leaf of the line with
+the next live line, round-robin over lines. Spawn coders in
+this order. 1. Extend: a live line has a scored leaf with no
+child in flight. Take the newest such leaf, round-robin over
+lines. 2. Split-branch: a second diagnosis exists for a failure
+that already has a child. Branch the same parent. 3. Idle-branch:
+coder capacity is idle and every scored leaf has a child in
+flight. Take the oldest unscored leaf of the line with
 the fewest children in flight. Never give one leaf two children
 in flight.
 Split one failure with two diagnoses into one child leaf each.
