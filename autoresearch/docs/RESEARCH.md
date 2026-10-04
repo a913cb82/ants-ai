@@ -475,3 +475,9 @@ Use this format.
   - xathis (#1): `vendor/ants-topbots/xathis` (T-Py-T/AntsAIBot clone). Recover: https://github.com/T-Py-T/AntsAIBot. Authoritative: docs/reference/xathis/Strategy.java + postmortem.txt. WARNING: src/bots/xathis_bot.py is a stub port, not xathis behavior.
 - missing (dead links even via Wayback): protocolocon (#3, C++ Rufes Band), teapotahedron (#5), ChrisH (#7, Go Area42), FlagCapper (#8, C).
 - implementable specs filed: GreenTea BattleCalculator, lazarant intentions, runevision resolution (see researcher reports in WORKLOG/respective rows). fourmidable spec still wanted.
+
+## fourmidable combat spec (2026-10-04)
+- source: `vendor/ants-topbots/fourmidable/` (26 files; Battle.java, BattleMode.java, BattleResult.java, MyBot.java, PathFinder.java)
+- claim: subgroup minimax (own <=4, enemy <=2, in-range-pruned) gated by per-ant probabilistic trade tags; turn order is load-bearing.
+- evidence: kill rule symmetric-<= mutual-kill (equal focus kills both); modes CAREFUL k-16d / BOLD k+16(k-d) / FEARLESS max(0,16k-d); commit iff best>0 AND worst>=0; tag lottery verified: ratio=own/estimated-total, <0.6 cubic mixes BOLD/CAREFUL, above mixes FEARLESS/BOLD, hill-danger forces FEARLESS, no-hills forces CAREFUL; turn order estimateTotalAnts > selectHillToDefend > featureExtraction > assignBattleMode > Battle > FoodAndHills > Defense > Visitor > Hunt > AttackWeakest > idle > collisionAvoidance > mapInference; safeLand (attack-count 0) / tradeLand (<=1) grids gate every non-Battle move; corridor-clogging unblockedLand mask.
+- idea: implement as 9th approach (subgroup-4 minimax + cubic tags + safe/trade land filters); corridor-clogging as a tune.
