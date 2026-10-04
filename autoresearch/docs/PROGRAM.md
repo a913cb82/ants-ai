@@ -1,6 +1,34 @@
 # Autoresearch program
 
-Two roles run the loop. A coder writes one bot change per iteration, inside a fixed time budget. A coordinator runs the exam and keeps the notes. Coders never play games. Coders never see scores. The coordinator never writes bot code. The loop still learns: commit, measure, keep the winner, repeat.
+## Goal
+
+Maximize the iteration score. The score is `mu`. It is the skill
+estimate after the fixed budget of games. The harness writes it to
+`autoresearch/docs/PROGRESS.jsonl` when the budget ends. Every fresh
+bot gets 9 games. They are 7 duels plus 10p and 6p. Opponents are
+fairly chosen, so the comparison is fair. A live rating keeps moving
+after the iteration. The recorded score does not move. The champion
+is the best recorded score for the current budget.
+
+## Roles
+
+Three roles run the loop. Each role has its own files. No role
+touches another role's files.
+
+- Coder: writes one bot change per iteration, inside a fixed time
+  budget. It edits `autoresearch/bot/` only. It never plays games.
+  It never learns scores.
+- Coordinator: runs the exam and keeps the notes. It edits
+  `autoresearch/docs/` only. It never writes bot code.
+- Exam-runner: plays one exam through `autoresearch/iteration.py`.
+  It runs in the coordinator tree. It reports the score line. It
+  changes nothing else. It never codes.
+
+Nobody edits `tools/`, `league/`, `autoresearch/iteration.py`,
+`tests/`, `pyproject.toml`, or another bot in its own directory.
+You can copy the code of another bot into `autoresearch/bot/`.
+
+The loop still learns: commit, measure, keep the winner, repeat.
 
 ## Setup
 
@@ -16,100 +44,7 @@ Do this once for each run.
    the bot. `main.bot` is a one-line command. The engine runs it
    with the bot directory as the working directory.
 
-## Scope
-
-The coder edits `autoresearch/bot/` only. This includes scratch
-tests beside the bot. The coordinator edits `autoresearch/docs/`
-only.
-
-Nobody edits:
-
-- `tools/` (the engine)
-- `league/` (the league)
-- `autoresearch/iteration.py` (the harness)
-- `tests/`, `pyproject.toml`, or other bots
-
-You can copy the code of another bot into `autoresearch/bot/`.
-Do not edit another bot in its own directory.
-
-Rules:
-
-- Use `.venv/bin/python` for every command. Each command runs
-  in a new shell. An activated venv does not stay active.
-- Coder: make a fresh bot entry each iteration. Change the bot
-  code and commit it. The harness counts games by bot id. An old
-  entry cannot play again.
-- Use only the Python standard library and the packages in
-  the venv. Do not run pip.
-- One turn must finish in 1000 ms. A slow bot loses on time.
-  The load time is 3000 ms.
-- The coordinator plays every game through
-  `autoresearch/iteration.py`. It delegates each exam to one
-  exam-runner subagent. The subagent runs in the coordinator
-  tree. It reports the score line. It changes nothing else.
-  A game outside the harness is forbidden. Coders run no engine
-  games. Coders never learn scores. Exam-runners never code.
-- `league/games.jsonl` is the game log. The harness appends
-  to it. Do not edit it. Commit it with your notes.
-- Read the code of the other bots. Do not edit their code.
-- Know the 2011 top-bots. Sources are in `vendor/ants-topbots/`.
-  Seven run in `bots/`. Steal mechanisms, not constants.
-- The coder gets one idea and a fixed time budget. The budget
-  is 30 minutes unless the brief says otherwise. The coder
-  manages its own clock. Run `date +%s` first. Compute
-  the deadline. Re-check before each major step. Stop coding
-  early enough to run tests plus hooks plus commit before
-  the deadline. Uncommitted work at budget end is dropped.
-  A smaller green commit beats a bigger uncommitted one. It
-  works detached in the shared worktree (/tmp/loop-coder). It
-  never works in the coordinator tree. Never create a branch
-  for unmeasured code. A visible branch leaks into the pool
-  (`git log --all`). It drafts unrated code as rulers. It trips
-  the duplicate guard on identical content later. Each entry
-  gets fresh filenames. Copy the staged champion files to
-  a new name. Add the one idea. Remove the predecessor's files.
-  Never edit the previous entry's files in place. Stacking two
-  unmeasured ideas in one filename destroys attribution. Tests
-  are vital to making bots good. The coder writes failing test
-  cases first for the whole idea, not just the risky part. Then
-  it writes the bot code. It spends the budget on the idea and
-  its scenarios. It commits `exp: <idea>`. It reports. It stops.
-  It never runs `iteration.py`. It never plays games. It never
-  reads scores. It never edits notes. It never pushes. It never
-  merges.
-- Tests live beside the bot in `autoresearch/bot/`. They are
-  first-class loop code. Entry test files (`test_<Entry>.py`) go
-  away with their entry. Shared helper modules (for example
-  `combat.py`) and their tests (for example `test_combat.py`)
-  persist between iterations and grow. Each coder extends them.
-  Each coder keeps the whole suite green. Tests never go under
-  `tests/`. Tests never reference worktree-root staging files.
-- Tests are not only correctness checks. Every coder brief names
-  2-3 benchmark scenarios. They are small hand-built situations.
-  They cover any part of play. Each one discriminates base from
-  tuned. Each one runs in seconds. Scenario files persist as
-  a regression suite. Use them to understand the idea. Try
-  variants. Watch what changes. Report what you learn. Scenarios
-  guide experiment, not maximisation. A scenario score is
-  evidence, not the goal.
-- The coordinator merges, briefs, plays, compares, tags, logs,
-  and pushes. It never edits bot code. At spawn it stages
-  the measured-champion files as the coder base. Every entry is
-  champion plus exactly one idea.
-
-## Goal
-
-The goal is to maximize the iteration score. The score is `mu`.
-It is the skill estimate after the fixed budget of games. The
-harness writes it to `autoresearch/docs/PROGRESS.jsonl` when
-the budget ends. Every fresh bot gets 9 games. They are 7 duels
-plus 10p and 6p. Opponents are fairly chosen, so the comparison
-is fair.
-A live rating keeps moving after the iteration. The recorded
-score does not move. The champion is the best recorded score for
-the current budget.
-
-## One iteration
+## Loop
 
 Each iteration makes a fresh bot entry. The coder writes it. The
 coordinator measures it.
@@ -118,14 +53,20 @@ coordinator measures it.
    `git checkout autoresearch/main && git merge main`
    Resolve any conflict before briefing the coder.
 2. Coordinator: pick one idea from `autoresearch/docs/IDEAS.md`
-   or from research. Choose the start. The champion is safe.
-   An older bot or a new design also works. Brief a coder with
-   the idea and its time budget.
+   or from research. Choose the start. The champion is safe. An
+   older bot or a new design also works. Brief a coder with
+   the idea and its time budget. At spawn, stage
+   the measured-champion files as the coder base. Every entry is
+   champion plus exactly one idea.
 3. Coder: write failing test cases first for the risky part. Then
    write the bot code. Run the tests inside the budget. Commit:
    `git add autoresearch/bot && git commit -m "exp: <idea>"`
    Then report and stop. No games, no notes, no push.
-4. Coordinator: play the budget:
+4. Coordinator: verify the exp commit with `git diff --stat`.
+   Cherry-pick it onto `autoresearch/main` (linear history, exams
+   run in commit order). Cherry-picks only ever carry unrated
+   content: rated content is permanently unplayable as a fresh
+   entry by design. Then play the budget:
    `.venv/bin/python autoresearch/iteration.py --bot <live bot file>`
 5. Read the score. The harness prints the score. It adds one JSON
    line to `autoresearch/docs/PROGRESS.jsonl`. The champion is
@@ -151,61 +92,85 @@ coordinator measures it.
    and push again at the next log commit.
 9. Go to step 1. Do not stop.
 
-## Pipeline
-
 The coordinator may overlap exam(N) with coding(N+1). Worktrees
-separate them, never discipline alone:
+separate them, never discipline alone. The coordinator tree stays
+on `autoresearch/main` for the whole run. Never switch it while
+an exam runs. Never switch it while game, rating, or score files
+are uncommitted. A checkout orphans the open log and loses games.
+The coordinator's own `main`-side edits go through a scratch
+worktree.
 
-- The coordinator tree stays on `autoresearch/main` for the whole
-  run. Never switch it to another branch while an exam runs. Never
-  switch it while game, rating, or score files are uncommitted.
-  A checkout orphans the open log of the harness and loses games.
-  The coordinator's own `main`-side edits go through a scratch
-  worktree.
-- Coders run in parallel, so each gets one worktree path from
-  the pool (/tmp/cbt-0 to /tmp/cbt-5). Recreate its path fresh
-  from `autoresearch/main` for each iteration, always detached
-  (`git worktree add --detach`: no branch, so unmeasured code
-  stays invisible to the pool). Fresh means no stale scratch files
-  leak across iterations. The coder never enters the coordinator
-  tree. Exams stay serial: one exam-runner at a time. Unevaluated
-  entries form the frontier. The exam takes the oldest leaf of
-  the next line, round-robin over lines (one line per approach).
-  New lines join at once. Close a line when its budget is spent,
-  or on 3 straight exams that trail line-best and champion with
-  no upward trend. The champion line never closes. Split one
-  failure with two diagnoses into one child leaf each. A leaf
-  that wins big on a new mechanism starts its own line. Prune
-  the weaker fork at its next exam.
-- The coder never runs `iteration.py`. One exam call takes about
-  25 minutes (7 duels plus two FFAs). The coordinator runs it after
-  the exp commit lands. A run from a dirty tree trips the harness
-  guard and aborts the exam. Early scores break the blind. Coders
-  test with unit tests and replay reads.
-- A detached exp commit holds bot changes only. The coordinator
-  verifies with `git diff --stat`. It cherry-picks the commit onto
-  `autoresearch/main` (linear history, exams run in commit order).
-  Then it removes the shared worktree. The next spawn recreates it.
-  Cherry-picks only ever carry unrated content: rated content is
-  permanently unplayable as a fresh entry by design.
+## Coder
 
-## Budget
+- The coder gets one idea and a fixed time budget. The budget is
+  30 minutes unless the brief says otherwise. The coder manages
+  its own clock. Run `date +%s` first. Compute the deadline.
+  Re-check before each major step. Stop coding early enough to run
+  tests plus hooks plus commit before the deadline. Uncommitted
+  work at budget end is dropped. A smaller green commit beats
+  a bigger uncommitted one.
+- It works detached in a worktree path from the pool (/tmp/cbt-0
+  to /tmp/cbt-5). The coordinator recreates the path fresh for
+  each iteration (`git worktree add --detach`: no branch, so
+  unmeasured code stays invisible to the pool). Fresh means no
+  stale scratch files leak across iterations. The coder never
+  enters the coordinator tree. Never create a branch for unmeasured
+  code. A visible branch leaks into the pool (`git log --all`).
+  It drafts unrated code as rulers. It trips the duplicate guard
+  on identical content later.
+- Each entry gets fresh filenames. Copy the staged champion files
+  to a new name. Add the one idea. Remove the predecessor's files.
+  Never edit the previous entry's files in place. Stacking two
+  unmeasured ideas in one filename destroys attribution.
+- Tests are vital to making bots good. The coder writes failing
+  test cases first for the whole idea, not just the risky part.
+  Then it writes the bot code. It spends the budget on the idea
+  and its scenarios.
+- Tests live beside the bot in `autoresearch/bot/`. They are
+  first-class loop code. Entry test files (`test_<Entry>.py`) go
+  away with their entry. Shared helper modules (for example
+  `combat.py`) and their tests (for example `test_combat.py`)
+  persist between iterations and grow. Each coder extends them.
+  Each coder keeps the whole suite green. Tests never go under
+  `tests/`. Tests never reference worktree-root staging files.
+- Tests are not only correctness checks. Every coder brief names
+  2-3 benchmark scenarios. They are small hand-built situations.
+  They cover any part of play. Each one discriminates base from
+  tuned. Each one runs in seconds. Scenario files persist as
+  a regression suite. Use them to understand the idea. Try
+  variants. Watch what changes. Report what you learn. Scenarios
+  guide experiment, not maximisation. A scenario score is
+  evidence, not the goal.
+- Read the code of the other bots. Do not edit their code. Know
+  the 2011 top-bots. Sources are in `vendor/ants-topbots/`. Seven
+  run in `bots/`. Steal mechanisms, not constants.
+- Use `.venv/bin/python` for every command. Each command runs in
+  a new shell. An activated venv does not stay active. Use only
+  the Python standard library and the packages in the venv. Do not
+  run pip. One turn must finish in 1000 ms. A slow bot loses on
+  time. The load time is 3000 ms.
 
-The harness sets the budget and the selection. No flag changes them.
+## Tree
+
+Coders run in parallel. Exams stay serial: one exam-runner at
+a time. Unevaluated entries form the frontier. The exam takes
+the oldest leaf of the next line, round-robin over lines (one
+line per approach). New lines join at once. Close a line when
+its budget is spent, or on 3 straight exams that trail line-best
+and champion with no upward trend. The champion line never closes.
+Split one failure with two diagnoses into one child leaf each.
+A leaf that wins big on a new mechanism starts its own line.
+Prune the weaker fork at its next exam.
+
+## Harness
+
+The harness sets the budget and the selection. No flag changes
+them. The harness selects the maps, the slots, the seeds, and
+the opponents. You do not select them.
 
 - One 10p census, then one 6p refine, then 7 duels. The order is
   fixed: the census reads priors, the refine reads the census,
   the duels read everything. Each duel uses a different 2p map.
-
-Every game goes to `league/games.jsonl`. A commit cannot play
-more. A completed commit plays no game on a second run. A run
-stopped part-way plays the games that remain.
-
-## Selection
-
-The harness selects the maps, the slots, the seeds, and
-the opponents. You do not select them.
-
 - A duel: the opponent has the best draw odds + 0.02 sigma over
   the 40 nearest rulers. Deterministic: no epsilon, no breadth.
 - The 10p game is a census: the candidate plus quantile-decile
@@ -213,9 +178,12 @@ the opponents. You do not select them.
 - The 6p game is a refine: the candidate plus bot-centered
   below/peer/above rulers by mass quota from the low-sigma tertile
   of the last 400 pool members by last log appearance.
+- The map, the slot, and the seeds are random. This keeps the test
+  honest. Do not try to control the selection.
 
-The map, the slot, and the seeds are random. This keeps the test
-honest. Do not try to control the selection.
+Every game goes to `league/games.jsonl`. A commit cannot play
+more. A completed commit plays no game on a second run. A run
+stopped part-way plays the games that remain.
 
 ## Bold work
 
