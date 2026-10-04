@@ -15,7 +15,7 @@ Champion: Crowd (mu 67.9, `champion/main = a9d4173`).
 | influence (Memetix) | 3 | 1 | 28.8 / 29.5 / 34.4 | Influence3 34.4 | tune3 coded, queued |
 | greedy fields | 2 | 2 | 16.1 / 26.6 | Greedy2 26.6 | tune2 coded, queued |
 | softmax 1-ply | 1 | 3 | 41.5 | Softmax 41.5 | tune1 coding |
-| sequential fixing | 0 | 4 | — | — | committed, queued |
+| sequential fixing | 1 | 3 | 49.7 | Fixing 49.7 | tune1 coding |
 | precomputed tables | 0 | 4 | — | — | committed, queued |
 | two-stage | 0 | 4 | — | — | committed, queued |
 

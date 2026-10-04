@@ -106,6 +106,7 @@ row. Leave the old row as it was.
 | approach | influence full (28.8/29.5/34.4; 1 iter left). |
 | approach | greedy fields full (16.1/26.6; 2 iters left). |
 | approach | softmax 1-ply (41.5 impl; 3 iters left). |
+| approach | fixing sequential (49.7 impl; 3 iters left). |
 | dropped | Anvil: bait-and-ambush (mu 17.0 vs 66.6; 10p:9). |
 | dropped | Patrol3: 30-step ranged patrol (mu 40.8 vs 66.6; range was never the bleed). |
 | dropped | Volunteers: duty drafts from spares only. |

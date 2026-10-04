@@ -2472,3 +2472,15 @@ Use this format.
 - what changed: Faithful nhaehnle replication (1-ply over K=8 sampled enemy moves, own weight 1.5, logistic coin-flip aggression) on the Crowd economy.
 - what you learned: best implementation score so far (41.5) with mid-pack FFAs, but 1-6 duels — the coin flip donates; probabilistic aggression needs a deterministic gate.
 - next: softmax-tune1 (deterministic gate, no coin flip) codes; fixing implementation examines (round-robin: 4 remaining).
+
+## 206 — fixing best impl, mergers unblocked (2026-10-04)
+- commit: 6f3c431 (bid Fixing.bot-6f3c431; approach exam 1/4)
+- start: a9d4173 (champion Crowd files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 49.7, sigma 3.47
+- champion mu: 67.9 (Crowd)
+- verdict: keep Crowd
+- games: 3-4, FFA ranks 10p:3 6p:2
+- what changed: Faithful anthonyvh sequential-fixing replication (one ant fixes at a time, committed destinations visible to later ants) on the Crowd economy.
+- what you learned: best implementation yet (49.7 beats softmax 41.5); sequential fixing outranks simultaneous 1-ply. Duels 2-4 vs Xathis rulers — fixing holds shape but loses duels.
+- next: tables implementation examines (round-robin: 4 remaining); 7 port merges to main now unblocked.
