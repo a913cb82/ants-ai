@@ -3,11 +3,114 @@ from collections import deque
 
 from ants import Ants
 
+# Duelist trade policy: refuse 1-for-1s by default (the
+# strict-superiority gate), but allow the equal trade when it buys
+# something concrete: (a) the hill rush is blocked, with most attack
+# ants stuck (anthonyvh's 70% rule), so a trade that unblocks the march
+# is worth it; or (b) the trade happens inside a hill-attack zone with
+# backup arriving within BACKUP_STEPS.
+HILL_ATTACK_RADIUS = 20
+BACKUP_STEPS = 6
+BLOCKED_RUSH_FRACTION = 0.7
+
+
+def toroidal_sq_dist(
+    a: tuple[int, int], b: tuple[int, int], rows: int, cols: int
+) -> int:
+    dr = abs(a[0] - b[0])
+    dr = min(dr, rows - dr) if rows else dr
+    dc = abs(a[1] - b[1])
+    dc = min(dc, cols - dc) if cols else dc
+    return dr * dr + dc * dc
+
+
+def count_engagement(
+    nloc: tuple[int, int],
+    self_loc: tuple[int, int],
+    my_ants: list[tuple[int, int]],
+    enemy_locs: list[tuple[int, int]],
+    attack_r2: int,
+    rows: int,
+    cols: int,
+) -> tuple[int, int]:
+    """Local (friends, enemies) able to hit a move to nloc."""
+    enemies = 0
+    for e in enemy_locs:
+        if toroidal_sq_dist(nloc, e, rows, cols) <= attack_r2:
+            enemies += 1
+            if enemies >= len(my_ants):
+                break
+    friends = 0
+    for f in my_ants:
+        if f == self_loc:
+            continue
+        if toroidal_sq_dist(nloc, f, rows, cols) <= attack_r2:
+            friends += 1
+    return friends, enemies
+
+
+def nearest_toroidal(
+    nloc: tuple[int, int],
+    locs: list[tuple[int, int]],
+    rows: int,
+    cols: int,
+    skip: tuple[int, int] | None = None,
+) -> int | None:
+    """Closest toroidal distance from nloc, or None when empty."""
+    best: int | None = None
+    for loc in locs:
+        if loc == skip:
+            continue
+        d_col = min(abs(nloc[1] - loc[1]), cols - abs(nloc[1] - loc[1]))
+        d_row = min(abs(nloc[0] - loc[0]), rows - abs(nloc[0] - loc[0]))
+        dist = d_row + d_col
+        if best is None or dist < best:
+            best = dist
+    return best
+
+
+def blocked_rush(
+    stuck: int, total: int, fraction: float = BLOCKED_RUSH_FRACTION
+) -> bool:
+    """anthonyvh's 70% rule: most of the hill rush is stuck."""
+    return total > 0 and stuck / total >= fraction
+
+
+def equal_trade_allowed(
+    hill_dist: int | None, backup_dist: int | None, rush_blocked: bool
+) -> bool:
+    """A 1-for-1 is allowed only when it buys something concrete."""
+    if rush_blocked:
+        return True
+    return (
+        hill_dist is not None
+        and hill_dist <= HILL_ATTACK_RADIUS
+        and backup_dist is not None
+        and backup_dist <= BACKUP_STEPS
+    )
+
+
+def trade_safe(
+    friends: int,
+    enemies: int,
+    hill_dist: int | None,
+    backup_dist: int | None,
+    rush_blocked: bool,
+) -> bool:
+    """Full gate: strict superiority always, equal trades situational."""
+    if enemies == 0:
+        return True
+    if friends + 1 > enemies:
+        return True
+    if friends + 1 < enemies:
+        return False
+    return equal_trade_allowed(hill_dist, backup_dist, rush_blocked)
+
 
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Scout:
+class Duelist:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -29,9 +132,12 @@ class Scout:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Scout: Flood's united hunt, but idle ants push the unseen
+        # Duelist: Flood's united hunt, but idle ants push the unseen
         # edge by BFS instead of diffusing over least-visited
-        # neighbours. Battling as Scout.
+        # neighbours. Battling as Duelist: 1-for-1 trades are refused
+        # by default (strict-superiority gate) and allowed only when
+        # they buy something concrete -- a blocked hill rush or a
+        # hill-zone trade with backup arriving.
         # aggression, walk-off, food, and exploration match iteration
         # 76. Hunt always; ahead on hills, hunters skip the safety
         # filter. Closeouts need teeth, not patience.
@@ -97,36 +203,51 @@ class Scout:
         ]
         attack_r2 = ants.attackradius2 or 5
         rows, cols = ants.rows, ants.cols
-
-        def sq_dist(a: tuple[int, int], b: tuple[int, int]) -> int:
-            dr = abs(a[0] - b[0])
-            dr = min(dr, rows - dr) if rows else dr
-            dc = abs(a[1] - b[1])
-            dc = min(dc, cols - dc) if cols else dc
-            return dr * dr + dc * dc
+        # Flood: the group marches on one target, the hill nearest the
+        # army as a whole. Hoisted so the rush check shares it.
+        muster_target: tuple[int, int] | None = None
+        if hills and ants_list:
+            muster_target = min(
+                hills,
+                key=lambda h: sum(ants.distance(a, h) for a in ants_list),
+            )
+        # Duelist: is the hill rush blocked? Attack ants (no food
+        # claim) count as stuck when no passable neighbour steps
+        # closer to the muster hill. Static and O(ants): no BFS on the
+        # decision path.
+        rush_blocked = False
+        if muster_target is not None:
+            attack_pool = [a for ai, a in enumerate(ants_list) if ai not in target]
+            if attack_pool:
+                stuck = 0
+                for a in attack_pool:
+                    here = ants.distance(a, muster_target)
+                    closer = False
+                    for d in ("n", "e", "s", "w"):
+                        nxt = ants.destination(a, d)
+                        if (
+                            ants.passable(nxt)
+                            and ants.distance(nxt, muster_target) < here
+                        ):
+                            closer = True
+                            break
+                    if not closer:
+                        stuck += 1
+                rush_blocked = blocked_rush(stuck, len(attack_pool))
 
         def is_safe(nloc: tuple[int, int], self_loc: tuple[int, int]) -> bool:
-            enemies = 0
-            for e in enemy_locs:
-                if sq_dist(nloc, e) <= attack_r2:
-                    enemies += 1
-                    if enemies >= len(ants_list):
-                        break
-            if enemies == 0:
-                return True
-            friends = 0
-            near = 0
-            for f in ants_list:
-                if f == self_loc:
-                    continue
-                if sq_dist(nloc, f) <= attack_r2:
-                    friends += 1
-                if ants.distance(nloc, f) <= 10:
-                    near += 1
-            if friends + 1 > enemies:
-                return True
-            # Aggressive: 14+ friends near the fight accept equal trades.
-            return near >= 14 and friends + 1 >= enemies
+            friends, enemies = count_engagement(
+                nloc, self_loc, ants_list, enemy_locs, attack_r2, rows, cols
+            )
+            hill_dist: int | None = None
+            backup_dist: int | None = None
+            if friends + 1 == enemies:
+                # Only price an equal trade when one is on the table.
+                hill_dist = nearest_toroidal(nloc, hills, rows, cols)
+                backup_dist = nearest_toroidal(
+                    nloc, ants_list, rows, cols, skip=self_loc
+                )
+            return trade_safe(friends, enemies, hill_dist, backup_dist, rush_blocked)
 
         def first_step(
             start: tuple[int, int], goal: tuple[int, int], budget: int = 250
@@ -226,15 +347,11 @@ class Scout:
                     step = first_step(ant_loc, nearest)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
-            if not moved and hills:
+            if not moved and hills and muster_target is not None:
                 # Flood: the group marches on one target, the hill
                 # nearest the army as a whole. Hunt always; fearless
                 # when ahead on hills.
-                muster = min(
-                    hills,
-                    key=lambda h: sum(ants.distance(a, h) for a in ants_list),
-                )
-                step = first_step(ant_loc, muster)
+                step = first_step(ant_loc, muster_target)
                 if step is not None and try_step(
                     ant_loc, step, safe=len(my_hills) <= len(hills)
                 ):
@@ -297,6 +414,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Scout())
+        Ants.run(Duelist())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
