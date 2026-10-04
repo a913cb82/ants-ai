@@ -246,37 +246,60 @@ def assign_food_targets(
     return target
 
 
-CENSUS_TURN = 20
-CENSUS_SHIFT_START = 21
-CENSUS_SHIFT_END = 60
-CENSUS_SHIFT = 2
+def pick_challenger(
+    hill: Loc,
+    ants_list: list[Loc],
+    distance: DistFn,
+    exclude: Loc | None = None,
+) -> Loc | None:
+    # Nearest ant to the hill, skipping the excluded last
+    # challenger. Ties break by list order (stable).
+    best: Loc | None = None
+    best_d = 0
+    for ant in ants_list:
+        if exclude is not None and ant == exclude:
+            continue
+        d = distance(ant, hill)
+        if best is None or d < best_d:
+            best = ant
+            best_d = d
+    return best
 
 
-def census_shift(
-    target: dict[int, Loc], turn: int, enemies_seen: bool
-) -> dict[int, Loc]:
-    # Census-Taker: on quiet maps (no enemy visible in turns 1-20)
-    # two food claims become exploration in turns 21-60, buying
-    # earlier intel. Seen enemies, or any other turn: champion
-    # claims stand untouched.
-    if enemies_seen or turn < CENSUS_SHIFT_START or turn > CENSUS_SHIFT_END:
-        return target
-    for ai in sorted(target, reverse=True)[:CENSUS_SHIFT]:
-        del target[ai]
-    return target
+def challenge_exclusion(
+    last_target: Loc | None,
+    held: set[Loc],
+    last_challenger: dict[Loc, Loc],
+    ants_list: list[Loc],
+    distance: DistFn,
+) -> Loc | None:
+    # Failed challenge: last turn's muster hill is still enemy-held.
+    # Army-wide rotation: the last challenger sits out EVERY hill
+    # for one turn, not just the failed one. A freed hill, a gone
+    # challenger, or no last target picks open.
+    if last_target is None or last_target not in held:
+        return None
+    recorded = last_challenger.get(last_target)
+    if recorded is None:
+        return None
+    # Same ant moved at most one square since last turn.
+    same = min(ants_list, key=lambda a: distance(a, recorded), default=None)
+    if same is None or distance(same, recorded) > 1:
+        return None
+    return same
 
 
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Census:
+class Outcast:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
         self.remembered_hills: set[tuple[int, int]] = set()
         self.prev_enemies: list[tuple[int, int]] = []
-        self.turn: int = 0
-        self.enemies_seen: bool = False
+        self.last_challenger: dict[tuple[int, int], tuple[int, int]] = {}
+        self.last_target: tuple[int, int] | None = None
 
     # do_setup is run once at the start of the game
     # after the bot has received the game settings
@@ -286,8 +309,8 @@ class Census:
         self.visits = {}
         self.remembered_hills = set()
         self.prev_enemies = []
-        self.turn = 0
-        self.enemies_seen = False
+        self.last_challenger = {}
+        self.last_target = None
 
     # do turn is run once per turn
     # the ants class has the game state and is updated by the Ants.run method
@@ -303,13 +326,9 @@ class Census:
         ants_list = ants.my_ants()
         my_set = set(ants_list)
         enemy_locs = [loc for loc, _ in ants.enemy_ants()]
-        self.turn += 1
-        if self.turn <= CENSUS_TURN and enemy_locs:
-            self.enemies_seen = True
         target = assign_food_targets(
             ants_list, foods, enemy_locs, ants.distance, ants.rows, ants.cols
         )
-        census_shift(target, self.turn, self.enemies_seen)
         for hloc, _ in ants.enemy_hills():
             self.remembered_hills.add(hloc)
         for hloc in list(self.remembered_hills):
@@ -317,6 +336,36 @@ class Census:
                 self.remembered_hills.discard(hloc)
         hills = sorted(self.remembered_hills)
         my_hills = ants.my_hills()
+        # Outcast: the muster target formula is unchanged, but a
+        # failed challenge rotates army-wide -- last turn's
+        # challenger sits out every hill for one turn and a
+        # different ant goes instead.
+        muster_hill: tuple[int, int] | None = (
+            min(
+                hills,
+                key=lambda h: sum(ants.distance(a, h) for a in ants_list),
+            )
+            if hills
+            else None
+        )
+        outcast_out: tuple[int, int] | None = challenge_exclusion(
+            self.last_target,
+            self.remembered_hills,
+            self.last_challenger,
+            ants_list,
+            ants.distance,
+        )
+        challenger: tuple[int, int] | None = None
+        if muster_hill is not None:
+            challenger = pick_challenger(
+                muster_hill, ants_list, ants.distance, outcast_out
+            )
+            if challenger is None:
+                # No understudy exists: the lone ant retries the hill.
+                outcast_out = None
+                challenger = pick_challenger(
+                    muster_hill, ants_list, ants.distance, None
+                )
         # Match each visible enemy to a last-turn position to read
         # its heading. Ants move one square per turn, so matches at
         # distance 0 or 1 are the same ant; the rest are new spawns.
@@ -458,21 +507,23 @@ class Census:
                     step = first_step(ant_loc, nearest)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
-            if not moved and hills:
+            if (
+                not moved
+                and hills
+                and muster_hill is not None
+                and ant_loc != outcast_out
+            ):
                 # Flood: the group marches on one target, the hill
                 # nearest the army as a whole. Hunt always; fearless
                 # when ahead on hills.
-                muster = min(
-                    hills,
-                    key=lambda h: sum(ants.distance(a, h) for a in ants_list),
-                )
-                step = first_step(ant_loc, muster)
+                step = first_step(ant_loc, muster_hill)
                 if step is not None and try_step(
                     ant_loc, step, safe=len(my_hills) <= len(hills)
                 ):
                     moved = True
-            if not moved and hills:
+            if not moved and hills and ant_loc != outcast_out:
                 # No hill move: reinforce the second-nearest hill.
+                # Army-wide: the benched ant reinforces nowhere.
                 ordered = sorted(hills, key=lambda h: ants.distance(ant_loc, h))
                 near = ordered[1] if len(ordered) > 1 else ordered[0]
                 hstep = first_step(ant_loc, near)
@@ -501,6 +552,12 @@ class Census:
             # check if we still have time left to calculate more orders
             if ants.time_remaining() < 10:
                 break
+        if muster_hill is not None and challenger is not None:
+            self.last_challenger[muster_hill] = challenger
+        for old in list(self.last_challenger):
+            if old != muster_hill and old not in self.remembered_hills:
+                del self.last_challenger[old]
+        self.last_target = muster_hill
         # Walk off hill: a held ant on a home hill must step off.
         hill_set = set(my_hills)
         for ant_loc in held:
@@ -523,6 +580,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Census())
+        Ants.run(Outcast())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
