@@ -107,6 +107,58 @@ def trade_safe(
     return equal_trade_allowed(hill_dist, backup_dist, rush_blocked)
 
 
+# Defender proportional guard: 1 guard per 2 raiders, and the muster
+# home front calls for help early (radius 20, no closing read).
+EARLY_CALL_RADIUS = 20
+GUARDS_PER_RAIDERS = 2
+
+
+def guards_needed(n_raiders: int, per: int = GUARDS_PER_RAIDERS) -> int:
+    """Guards for a raid: 1 per 2 raiders, rounded up."""
+    return (n_raiders + per - 1) // per
+
+
+def max_gatherer_draft(n_gatherers: int) -> int:
+    """The economy never lends more than a third of its gatherers."""
+    return n_gatherers // 3
+
+
+def hill_threatened_old(dist: int, is_closing: bool) -> bool:
+    """Flood's rule: close, or closing from mid range."""
+    return dist <= 10 or (dist <= 16 and is_closing)
+
+
+def hill_threatened(dist: int, is_closing: bool, early: bool) -> bool:
+    """Old rule, plus the early call on the muster home front."""
+    if hill_threatened_old(dist, is_closing):
+        return True
+    return early and dist <= EARLY_CALL_RADIUS
+
+
+def assign_guards(
+    free_ids: list[int],
+    gatherer_ids: list[int],
+    quotas: list[int],
+    draft_cap: int,
+) -> dict[int, int]:
+    """Map ant index to threatened-hill slot; free ants march first,
+    then gatherers up to the draft cap."""
+    assignment: dict[int, int] = {}
+    free = list(free_ids)
+    gatherers = list(gatherer_ids)
+    drafted = 0
+    for hi, quota in enumerate(quotas):
+        need = quota
+        while need > 0 and free:
+            assignment[free.pop(0)] = hi
+            need -= 1
+        while need > 0 and gatherers and drafted < draft_cap:
+            assignment[gatherers.pop(0)] = hi
+            need -= 1
+            drafted += 1
+    return assignment
+
+
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
@@ -192,17 +244,6 @@ class Duelist:
                 cur, hill
             )
 
-        threatened = [
-            h
-            for h in my_hills
-            if any(
-                ants.distance(h, e) <= 10
-                or (ants.distance(h, e) <= 16 and closing(e, h))
-                for e in enemy_locs
-            )
-        ]
-        attack_r2 = ants.attackradius2 or 5
-        rows, cols = ants.rows, ants.cols
         # Flood: the group marches on one target, the hill nearest the
         # army as a whole. Hoisted so the rush check shares it.
         muster_target: tuple[int, int] | None = None
@@ -211,6 +252,40 @@ class Duelist:
                 hills,
                 key=lambda h: sum(ants.distance(a, h) for a in ants_list),
             )
+        # Defender: the muster home front calls for help early. The
+        # home hill nearest the muster target treats any enemy inside
+        # 20 steps as a raid instead of waiting for the closing read.
+        early_hill: tuple[int, int] | None = None
+        if muster_target is not None and my_hills:
+            early_hill = min(my_hills, key=lambda h: ants.distance(h, muster_target))
+        threatened = [
+            h
+            for h in my_hills
+            if any(
+                hill_threatened(ants.distance(h, e), closing(e, h), h == early_hill)
+                for e in enemy_locs
+            )
+        ]
+        # Defender: proportional guard. Each threatened hill draws 1
+        # guard per 2 raiders inside its threat radius (20 on the early
+        # hill, 16 elsewhere). Free ants march first; gatherers are
+        # drafted only up to a third of their number.
+        guard_for: dict[int, tuple[int, int]] = {}
+        if threatened:
+            ordered_hills = sorted(threatened)
+            quotas: list[int] = []
+            for h in ordered_hills:
+                radius = EARLY_CALL_RADIUS if h == early_hill else 16
+                raiders = sum(1 for e in enemy_locs if ants.distance(h, e) <= radius)
+                quotas.append(max(1, guards_needed(raiders)))
+            free_ids = [ai for ai in range(len(ants_list)) if ai not in target]
+            gatherer_ids = [ai for ai in range(len(ants_list)) if ai in target]
+            slot = assign_guards(
+                free_ids, gatherer_ids, quotas, max_gatherer_draft(len(target))
+            )
+            guard_for = {ai: ordered_hills[hi] for ai, hi in slot.items()}
+        attack_r2 = ants.attackradius2 or 5
+        rows, cols = ants.rows, ants.cols
         # Duelist: is the hill rush blocked? Attack ants (no food
         # claim) count as stuck when no passable neighbour steps
         # closer to the muster hill. Static and O(ants): no BFS on the
@@ -323,6 +398,29 @@ class Duelist:
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
             best = target.get(ai)
             moved = False
+            if ai in guard_for:
+                # Proportional guard: only the drafted quota marches;
+                # the first guard holds the hill, extras screen the
+                # razer off it. A guard with no path holds its ground
+                # instead of falling back to the muster.
+                hill = guard_for[ai]
+                if hill in anchored:
+                    screen = min(
+                        enemy_locs,
+                        key=lambda e: ants.distance(hill, e),
+                        default=hill,
+                    )
+                    step = first_step(ant_loc, screen)
+                else:
+                    anchored.add(hill)
+                    step = first_step(ant_loc, hill)
+                if step is not None and try_step(ant_loc, step):
+                    moved = True
+                if not moved:
+                    held.append(ant_loc)
+                if ants.time_remaining() < 10:
+                    break
+                continue
             if best is not None:
                 step = first_step(ant_loc, best)
                 if step is not None and try_step(ant_loc, step):
@@ -331,22 +429,6 @@ class Duelist:
                     # Assigned food is blocked; keep the claim so no other
                     # ant chases the same region this turn.
                     pass
-            if not moved and threatened:
-                # No food or blocked: first guard holds the hill,
-                # extras screen the razer off it.
-                nearest = min(threatened, key=lambda h: ants.distance(ant_loc, h))
-                if nearest in anchored:
-                    screen = min(
-                        enemy_locs,
-                        key=lambda e: ants.distance(nearest, e),
-                        default=nearest,
-                    )
-                    step = first_step(ant_loc, screen)
-                else:
-                    anchored.add(nearest)
-                    step = first_step(ant_loc, nearest)
-                if step is not None and try_step(ant_loc, step):
-                    moved = True
             if not moved and hills and muster_target is not None:
                 # Flood: the group marches on one target, the hill
                 # nearest the army as a whole. Hunt always; fearless
