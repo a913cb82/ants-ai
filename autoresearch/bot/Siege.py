@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-import random
-import time
 from collections import deque
 from collections.abc import Callable
 
@@ -9,12 +7,12 @@ from ants import Ants
 Loc = tuple[int, int]
 DistFn = Callable[[Loc, Loc], int]
 
-SAMPLER_MS = 150
-SAMPLER_ROUNDS = 200
-K_ENEMY_DEAD = 300
-K_MY_DEAD = 180
+CLUSTER_R = 8
+DENIAL_ENEMIES = 3
+DENIAL_CLAIMS = 2
+_CELL = CLUSTER_R + 1
 
-CombatMove = str | None  # 'n', 'e', 's', 'w', or None for hold
+SIEGE_AGE = 3
 
 
 def torus_sq(a: Loc, b: Loc, rows: int, cols: int) -> int:
@@ -26,12 +24,51 @@ def torus_sq(a: Loc, b: Loc, rows: int, cols: int) -> int:
     return dr * dr + dc * dc
 
 
-def torus_man(a: Loc, b: Loc, rows: int, cols: int) -> int:
-    dr = abs(a[0] - b[0])
-    dr = min(dr, rows - dr) if rows else dr
-    dc = abs(a[1] - b[1])
-    dc = min(dc, cols - dc) if cols else dc
-    return dr + dc
+def update_siege_age(
+    prev_age: dict[Loc, int],
+    prev_positions: set[Loc],
+    curr_ants: list[Loc],
+    enemy_locs: list[Loc],
+    r2: int,
+    rows: int,
+    cols: int,
+) -> dict[Loc, int]:
+    # Per-square contact age: consecutive turns the same square held
+    # one of our ants while a visible enemy sat within attack range.
+    # A square that moved, lost contact, or is new starts back at 1
+    # (or drops off when quiet). Tight loop with an early break: a
+    # staring front finds contact on the first enemy. Enemy rows/cols
+    # are hoisted out of the loop so the crowded board stays cheap.
+    new_age: dict[Loc, int] = {}
+    if not enemy_locs:
+        return new_age
+    er = [e[0] for e in enemy_locs]
+    ec = [e[1] for e in enemy_locs]
+    n_en = len(er)
+    for aloc in curr_ants:
+        ar = aloc[0]
+        ac = aloc[1]
+        contact = False
+        for k in range(n_en):
+            dr = ar - er[k]
+            if dr < 0:
+                dr = -dr
+            if rows and dr > rows - dr:
+                dr = rows - dr
+            dc = ac - ec[k]
+            if dc < 0:
+                dc = -dc
+            if cols and dc > cols - dc:
+                dc = cols - dc
+            if dr * dr + dc * dc <= r2:
+                contact = True
+                break
+        if contact:
+            if aloc in prev_positions and aloc in prev_age:
+                new_age[aloc] = prev_age[aloc] + 1
+            else:
+                new_age[aloc] = 1
+    return new_age
 
 
 def focus_deaths(
@@ -62,41 +99,45 @@ def focus_deaths(
     return my_dead, en_dead
 
 
-def battle_score(
-    my_pos: list[Loc],
-    en_pos: list[Loc],
-    my_dead: set[int],
-    en_dead: set[int],
+def siege_would_kill(
+    my_ants: list[Loc],
+    enemy_locs: list[Loc],
+    self_loc: Loc,
+    nloc: Loc,
+    r2: int,
     rows: int,
     cols: int,
-) -> int:
-    # xathis: killing weighs 300, losing 180, survivors closing on
-    # the enemy break ties. A supported hold that kills for free
-    # (+300) outscores a naked equal trade (+120).
-    live_en = [p for j, p in enumerate(en_pos) if j not in en_dead]
-    dist = 0
-    for i, a in enumerate(my_pos):
-        if i in my_dead or not live_en:
-            continue
-        dist += min(torus_man(a, b, rows, cols) for b in live_en)
-    return K_ENEMY_DEAD * len(en_dead) - K_MY_DEAD * len(my_dead) - dist
+) -> bool:
+    # Provisional proof for the siege release: with the mover on
+    # nloc, the mover dies and at least one enemy in range of nloc
+    # dies with it. Only the local brawl (foes of nloc, their
+    # attackers, and those attackers' foes) enters focus: every
+    # weakness deciding either fact is exact, and a crowded board
+    # stays cheap.
+    foes = [e for e in enemy_locs if torus_sq(nloc, e, rows, cols) <= r2]
+    if not foes:
+        return False
+    moved = [nloc if a == self_loc else a for a in my_ants]
+    own = [a for a in moved if any(torus_sq(a, e, rows, cols) <= r2 for e in foes)]
+    guard = [
+        e for e in enemy_locs if any(torus_sq(e, a, rows, cols) <= r2 for a in own)
+    ]
+    try:
+        local_mover = own.index(nloc)
+    except ValueError:
+        return False
+    my_dead, en_dead = focus_deaths(own, guard, r2, rows, cols)
+    if local_mover not in my_dead:
+        return False
+    dead = {guard[j] for j in en_dead}
+    return any(e in dead for e in foes)
 
 
-def legal_combat_moves(ants: Ants, loc: Loc) -> list[CombatMove]:
-    # Passable, unoccupied steps plus hold. Hold first so exact ties
-    # keep the ant still (anti-trade).
-    moves: list[CombatMove] = [None]
-    for d in ("n", "e", "s", "w"):
-        nxt = ants.destination(loc, d)
-        if ants.passable(nxt) and ants.unoccupied(nxt):
-            moves.append(d)
-    return moves
-
-
-CLUSTER_R = 8
-DENIAL_ENEMIES = 3
-DENIAL_CLAIMS = 2
-_CELL = CLUSTER_R + 1
+def siege_release(friends: int, enemies: int, age: int, kills: bool) -> bool:
+    # The gate: exactly an equal trade, aged SIEGE_AGE+ turns in
+    # contact, with a proven kill. Losing trades and safe squares
+    # never pass here; winning fights pass the legacy check instead.
+    return friends + 1 == enemies and age >= SIEGE_AGE and kills
 
 
 def _scan_board(
@@ -210,10 +251,10 @@ def _scan_board(
         hit: set[int] = set()
         for dbr in (-1, 0, 1):
             for dbc in (-1, 0, 1):
-                members = buckets.get((br + dbr, bc + dbc))
-                if not members:
+                nearby = buckets.get((br + dbr, bc + dbc))
+                if not nearby:
                     continue
-                for j in members:
+                for j in nearby:
                     dr = er - fr[j]
                     if dr < 0:
                         dr = -dr
@@ -335,15 +376,14 @@ def assign_food_targets(
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Sampler:
+class Siege:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
         self.remembered_hills: set[tuple[int, int]] = set()
         self.prev_enemies: list[tuple[int, int]] = []
-        self.sampler_rounds = SAMPLER_ROUNDS
-        self.sampler_ms = SAMPLER_MS
-        self._rng = random.Random()
+        self.siege_age: dict[tuple[int, int], int] = {}
+        self._prev_siege_positions: set[tuple[int, int]] = set()
 
     # do_setup is run once at the start of the game
     # after the bot has received the game settings
@@ -353,104 +393,22 @@ class Sampler:
         self.visits = {}
         self.remembered_hills = set()
         self.prev_enemies = []
-        self.sampler_rounds = SAMPLER_ROUNDS
-        self.sampler_ms = SAMPLER_MS
-
-    def sample_battle_orders(
-        self,
-        ants: Ants,
-        ants_list: list[Loc],
-        enemy_locs: list[Loc],
-        max_rounds: int | None = None,
-        budget_s: float | None = None,
-        rng: random.Random | None = None,
-    ) -> tuple[dict[int, CombatMove], int]:
-        # Dirichlet sampler over contact combat. Per engaged ant keep
-        # counts over legal moves (init 1 each); each round picks a
-        # random engaged ant (own maximize, enemy minimize the same
-        # battle score), scores every legal move with one step of
-        # provisional focus resolution, and increments the best move's
-        # count. Stops at the time budget or the round cap. Highest
-        # count wins; ties fall back to the legacy check (no entry).
-        # Returns ({ant index: move}, rounds run).
-        if max_rounds is None:
-            max_rounds = self.sampler_rounds
-        if budget_s is None:
-            budget_s = self.sampler_ms / 1000.0
-        if rng is None:
-            rng = self._rng
-        rows, cols = ants.rows, ants.cols
-        r2 = ants.attackradius2 or 5
-        engaged_own = [
-            ai
-            for ai, a in enumerate(ants_list)
-            if any(torus_sq(a, e, rows, cols) <= r2 for e in enemy_locs)
-        ]
-        engaged_en = [
-            ei
-            for ei, e in enumerate(enemy_locs)
-            if any(torus_sq(e, a, rows, cols) <= r2 for a in ants_list)
-        ]
-        if not engaged_own or max_rounds <= 0:
-            return {}, 0
-        own_moves = {ai: legal_combat_moves(ants, ants_list[ai]) for ai in engaged_own}
-        en_moves = {ei: legal_combat_moves(ants, enemy_locs[ei]) for ei in engaged_en}
-        own_counts = {ai: dict.fromkeys(ms, 1) for ai, ms in own_moves.items()}
-        en_counts = {ei: dict.fromkeys(ms, 1) for ei, ms in en_moves.items()}
-        pool = [("own", ai) for ai in engaged_own] + [("en", ei) for ei in engaged_en]
-        start = time.perf_counter()
-        rounds = 0
-        while rounds < max_rounds:
-            if time.perf_counter() - start >= budget_s:
-                break
-            side, idx = rng.choice(pool)
-            if side == "own":
-                best: CombatMove = own_moves[idx][0]
-                best_score: int | None = None
-                for m in own_moves[idx]:
-                    cand = list(ants_list)
-                    if m is not None:
-                        cand[idx] = ants.destination(ants_list[idx], m)
-                    my_dead, en_dead = focus_deaths(cand, enemy_locs, r2, rows, cols)
-                    s = battle_score(cand, enemy_locs, my_dead, en_dead, rows, cols)
-                    if best_score is None or s > best_score:
-                        best_score = s
-                        best = m
-                own_counts[idx][best] += 1
-            else:
-                worst: CombatMove = en_moves[idx][0]
-                worst_score: int | None = None
-                for m in en_moves[idx]:
-                    cand_en = list(enemy_locs)
-                    if m is not None:
-                        cand_en[idx] = ants.destination(enemy_locs[idx], m)
-                    my_dead, en_dead = focus_deaths(ants_list, cand_en, r2, rows, cols)
-                    s = battle_score(ants_list, cand_en, my_dead, en_dead, rows, cols)
-                    if worst_score is None or s < worst_score:
-                        worst_score = s
-                        worst = m
-                en_counts[idx][worst] += 1
-            rounds += 1
-        orders: dict[int, CombatMove] = {}
-        for ai in engaged_own:
-            counts = own_counts[ai]
-            top = max(counts.values())
-            winners = [m for m, v in counts.items() if v == top]
-            if len(winners) == 1:
-                orders[ai] = winners[0]
-        return orders, rounds
+        self.siege_age = {}
+        self._prev_siege_positions = set()
 
     # do turn is run once per turn
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Sampler: Denial's denial, except ants in contact (a visible
-        # enemy within attack range) follow a time-boxed Dirichlet
-        # sampler over provisional combat instead of the static
-        # local-majority check. Battling sampled. Homeward structure, wide fallback,
+        # Siege: Denial's denial, except a staring ant breaks deadlocks:
+        # a food cluster contested by 3+ visible enemies still draws two
+        # ants onto its two closest foods (local 2v2+ posture) instead of
+        # one ant per food. Battling as Denial plus the siege release.
+        # Homeward structure, wide fallback,
         # aggression, walk-off, food, and exploration match iteration
         # 76. Hunt always; ahead on hills, hunters skip the safety
-        # filter. Closeouts need teeth, not patience.
+        # filter. Closeouts need teeth, not patience. Siege release:
+        # a 3-turn staring ant may take an equal trade that kills.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -529,7 +487,37 @@ class Sampler:
             if friends + 1 > enemies:
                 return True
             # Aggressive: 14+ friends near the fight accept equal trades.
-            return near >= 14 and friends + 1 >= enemies
+            if near >= 14 and friends + 1 >= enemies:
+                return True
+            # Siege: break staring deadlocks. An equal trade the static
+            # rule refuses opens only for an ant that has held this
+            # square in unbroken enemy contact for SIEGE_AGE+ turns,
+            # and only when provisional focus proves the mover dies
+            # killing at least one enemy. Suicides stay refused. The
+            # kill proof stays lazy so quiet fronts pay nothing.
+            age = self.siege_age.get(self_loc, 0)
+            kills = (
+                friends + 1 == enemies
+                and age >= SIEGE_AGE
+                and siege_would_kill(
+                    ants_list, enemy_locs, self_loc, nloc, attack_r2, rows, cols
+                )
+            )
+            return siege_release(friends, enemies, age, kills)
+
+        # Siege contact age: which squares stare down an enemy this
+        # turn, and for how many unbroken turns. Refreshed before any
+        # safety check reads it.
+        self.siege_age = update_siege_age(
+            self.siege_age,
+            self._prev_siege_positions,
+            ants_list,
+            enemy_locs,
+            attack_r2,
+            rows,
+            cols,
+        )
+        self._prev_siege_positions = set(ants_list)
 
         def first_step(
             start: tuple[int, int], goal: tuple[int, int], budget: int = 250
@@ -575,35 +563,11 @@ class Sampler:
                 return True
             return False
 
-        # Dirichlet contact combat: engaged ants follow sampled orders
-        # (highest count wins; ties and quiet ants keep legacy below).
-        # Zero rounds disables the sampler exactly.
-        sampler_orders, _ = self.sample_battle_orders(ants, ants_list, enemy_locs)
         destinations: set[tuple[int, int]] = set()
         held: list[tuple[int, int]] = []
         anchored: set[tuple[int, int]] = set()
         for ai, ant_loc in enumerate(ants_list):
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
-            if ai in sampler_orders:
-                # Sampled contact combat replaces the static check.
-                smove = sampler_orders[ai]
-                if smove is None:
-                    held.append(ant_loc)
-                    if ants.time_remaining() < 10:
-                        break
-                    continue
-                sdest = ants.destination(ant_loc, smove)
-                if (
-                    sdest not in destinations
-                    and ants.passable(sdest)
-                    and ants.unoccupied(sdest)
-                ):
-                    ants.issue_order((ant_loc, smove))
-                    destinations.add(sdest)
-                    if ants.time_remaining() < 10:
-                        break
-                    continue
-                # Spoiled: fall through to the legacy path.
             best = target.get(ai)
             moved = False
             if best is not None:
@@ -695,6 +659,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Sampler())
+        Ants.run(Siege())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
