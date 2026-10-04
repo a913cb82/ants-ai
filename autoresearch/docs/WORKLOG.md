@@ -2359,3 +2359,15 @@ Use this format.
 - what changed: dirichlet-tune1 — veto sampled moves that die for nothing, fall back to next-best or hold.
 - what you learned: 26.3 to 36.4 (+10) — the veto is the fix for sampling's documented weakness; best approach score so far, still well short.
 - next: dirichlet-tune2 (fight budget 5 to 15ms) codes while Xathis3 examines.
+
+## 196 — cheaper aggression climbs again (2026-10-04)
+- commit: 5b85c29 (bid Xathis3.bot-5b85c29; approach exam 3/4)
+- start: a9d4173 (champion Crowd files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 30.7, sigma 3.27
+- champion mu: 67.9 (Crowd)
+- verdict: keep Crowd
+- games: 3-4, FFA ranks 10p:6 6p:4
+- what changed: xathis-tune2 — aggressive gate 14 to 10 near friends.
+- what you learned: 27.0 to 30.7 — steady climb (25.2/27.0/30.7); xathis's 14 was tuned for its scale, ours wants cheaper aggression. One exam left.
+- next: xathis-tune3 (own-death weight 180 to 120) codes while Dirichlet3 examines.
