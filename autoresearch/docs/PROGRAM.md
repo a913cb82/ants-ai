@@ -57,7 +57,9 @@ coordinator measures it.
    older bot or a new design also works. Brief a coder with
    the failure, the evidence, and the constraints — never the fix.
    The coder finds the idea. Brief the time budget. At spawn, stage
-   the measured-champion files as the coder base. Every entry is
+   the measured-champion files as the coder base. Copy any replay
+   files the brief cites: runs/ is ignored, so fresh worktrees
+   lack them. Every entry is
    champion plus exactly one idea.
 3. Coder: write failing test cases first for the risky part. Then
    write the bot code. Run the tests inside the budget. Commit:
