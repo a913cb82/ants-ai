@@ -1814,3 +1814,15 @@ Use this format.
 - what changed: Battling as Gambler in Gambler.bot + Gambler.py; Denial's united hunt, denial, combat, and economy untouched, but the first 3 spawn waves march unseen-ward (most-unseen column third, BFS through unseen) instead of taking nearby food, resuming normal economy from wave 4.
 - what you learned: Gamblers won the 10p census again (rank 1) and took 2nd in the refine, but went 4-3 in duels (3-1 vs Oracle, 1-2 vs Berserker), so mu reached 64.5 against 66.6 — early map control does not convert better than contested-food doubling; expansion tempo is not the binding constraint.
 - next: Dirichlet-sampler contact combat (Sampler exp committed, queued for exam).
+
+## 149 — sampler outduels but cannot crack the censuses (2026-10-04)
+- commit: 1eb0278 (bid Sampler.bot-1eb0278)
+- start: 8dee7ed (champion Denial files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 61.2, sigma 3.42
+- champion mu: 66.6 (Denial)
+- verdict: keep Denial
+- games: 6-1, FFA ranks 10p:2 6p:2
+- what changed: Battling as Sampler in Sampler.bot + Sampler.py; Denial's united hunt, denial, and economy untouched, but ants in contact skip the static local-majority check for a time-boxed Dirichlet sampler (150 ms / 200 rounds, own maximize and enemy minimize enemyDead*300 - myDead*180 - dist, ties fall back to legacy). Known nit: one mypy annotation error, zero runtime effect.
+- what you learned: Samplers went 6-1 in duels and took double rank-2 in the FFAs, so mu reached 61.2 against 66.6 — sampling beats 1-ply max-min's 50.98 by ten points and confirms the a1k0n verdict live, but contact-level cleverness still cannot beat denial's structural food edge. Combat is now the best-explored non-bottleneck.
+- next: siege-release KILL moves (Siege exp committed, queued for exam).
