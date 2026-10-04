@@ -26,6 +26,7 @@ import Softmax3 as S3  # noqa: E402
 import Softmax4 as S4  # noqa: E402
 import Softmax5 as S5  # noqa: E402
 import Softmax6 as S6  # noqa: E402
+import Softmax7 as S7  # noqa: E402
 
 Loc = tuple[int, int]
 ROWS = 20
@@ -54,9 +55,15 @@ class World(TypedDict):
 
 
 def _bot_for(mod: object):
-    """Newest entry class the module provides (S4 > S3 > S2)."""
-    """Newest entry class the module provides (S6 > S5 > S4 > S3 > S2)."""
-    for name in ("Softmax6", "Softmax5", "Softmax4", "Softmax3", "Softmax2"):
+    """Newest entry class the module provides (S7 > S6 > S5 > S4 > S3 > S2)."""
+    for name in (
+        "Softmax7",
+        "Softmax6",
+        "Softmax5",
+        "Softmax4",
+        "Softmax3",
+        "Softmax2",
+    ):
         if hasattr(mod, name):
             return getattr(mod, name)()
     raise AssertionError(f"no entry class in {mod}")
@@ -557,3 +564,74 @@ def test_duel_battery_small_press_holds() -> None:
     print(f"\nduel-battery S3={scores3} S5={scores5}")
     assert elapsed < 10.0
     assert sum(scores5) >= sum(scores3)
+
+
+# Approach battery (Softmax7): the 2v2 head-on approach at gap 5 must
+# take a different path from the Softmax3 coin (far parity holds
+# until contact), while the contact 2v2 melee and the 3v2 crowd
+# clash play exactly the base game (in-range fights keep the coin).
+# Measured: approach S3=(2, ((8, 2), (18, 15))) vs
+# S7=(2, ((8, 2), (8, 9))); parity S7 == S3; clash S7 == S3.
+APPROACH_FLOOR = 1
+
+
+def run_approach(mod: object) -> tuple[int, tuple[Loc, ...], float]:
+    """2v2 head-on approach at gap 5 vs holding foes.
+
+    Gap 5 sits inside one carved fight (COMBAT_LINK 6) but outside
+    press range (CONTACT_R 3), so only the timing sensor steers.
+    Returns (score, own, seconds).
+    """
+    world: World = {
+        "own": [(5, 5), (5, 6)],
+        "enemies": [(5, 11), (5, 12)],
+        "own_hills": [(16, 16)],
+        "foe_hills": [],
+        "foods": [],
+    }
+    bot = _bot_for(mod)
+    kills = 0
+    deaths = 0
+    start = time.perf_counter()
+    for _ in range(TURNS):
+        ants = SimAnts(world)
+        bot.do_turn(ants)
+        _apply_orders(world, ants.orders)
+        own, foe, d, k = _resolve(list(world["own"]), list(world["enemies"]))
+        deaths += d
+        kills += k
+        world["own"] = own
+        world["enemies"] = foe
+    elapsed = time.perf_counter() - start
+    return kills - deaths + len(world["own"]), tuple(sorted(world["own"])), elapsed
+
+
+def test_approach_diverges_from_coin() -> None:
+    """Far 2v2: S7 holds until contact while S3 flips a press, so
+    the end positions must differ; the score floor still holds
+    (holding an approach loses nothing by itself)."""
+    score3, own3, _ = run_approach(S3)
+    score7, own7, elapsed = run_approach(S7)
+    print(f"\napproach S3={score3} {own3} S7={score7} {own7}")
+    assert elapsed < 10.0
+    assert score7 >= APPROACH_FLOOR
+    assert (score7, own7) != (score3, own3)
+
+
+def test_contact_melee_untouched_by_timing() -> None:
+    """Contact 2v2 melee: Softmax7 must play exactly the base game
+    (in-range fights keep the coin; the hold path never fires)."""
+    res3 = run_parity(S3)
+    res7 = run_parity(S7)
+    print(f"\ncontact-melee S3={res3} S7={res7}")
+    assert res7[2] < 10.0
+    assert res7[:2] == res3[:2]
+
+
+def test_crowd_clash_untouched_by_timing() -> None:
+    """Two-owner 3v2 clash: Softmax7 must play exactly the base game
+    (contact from turn 1, so timing never refuses)."""
+    res3 = run_clash(S3, [1, 2])
+    res7 = run_clash(S7, [1, 2])
+    print(f"\ncrowd-clash S3={res3} S7={res7}")
+    assert res7 == res3
