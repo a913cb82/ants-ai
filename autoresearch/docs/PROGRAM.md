@@ -77,6 +77,11 @@ Rules:
   tests (e.g. `test_combat.py`) persist between iterations and grow:
   each coder extends them and keeps the whole suite green. Tests never
   go under `tests/` and never reference worktree-root staging files.
+- Tests are not only correctness checks. Every coder brief names 2-3
+  benchmark scenarios (small hand-built combat situations with a score
+  to maximize, runnable in seconds). The coder experiments against them
+  inside the budget and reports the scores — cheap hill-climbing before
+  the expensive exam.
 - The coordinator merges, briefs, plays, compares, tags, logs, and
   pushes. It never edits bot code. At spawn it stages the
   measured-champion files as the coder's base, so every entry is
