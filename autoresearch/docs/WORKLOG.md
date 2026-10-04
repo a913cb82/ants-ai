@@ -2407,3 +2407,15 @@ Use this format.
 - what changed: dirichlet-tune3 — sampler only with <10 enemies visible.
 - what you learned: 37.2 to 27.2 — gating that helped xathis hurts sampling; samples need volume. Approach closes at 26.3/36.4/37.2/27.2, best Dirichlet3 37.2 (suicide veto the whole fix).
 - next: Influence implementation exam.
+
+## 200 — full influence wins nowhere (2026-10-04)
+- commit: ad07612 (bid Influence.bot-ad07612; approach exam 1/4)
+- start: a9d4173 (champion Crowd files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 28.8, sigma 3.47
+- champion mu: 67.9 (Crowd)
+- verdict: keep Crowd
+- games: 3-4, FFA ranks 10p:6 6p:5
+- what changed: Faithful Memetix replication (two-field influence + overcount refinement + deadlock-only KILL) on the Crowd economy.
+- what you learned: even the full version with refinement mid-packs everywhere — influence-counted caution refuses winnable fights the majority filter takes.
+- next: influence-tune1 (KILL on hill-push turns) codes while Greedy examines.
