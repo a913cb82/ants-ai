@@ -55,6 +55,20 @@ def test_propose_seeds_highest_sigma():
     assert field == ["y"]
 
 
+def test_propose_seeds_highest_sigma_newcomer():
+    from matchmake import new_model, propose
+
+    m = new_model()
+    ratings = {
+        "vet": {"mu": 25.0, "sigma": 7.0, "games": 30},
+        "mid": {"mu": 25.0, "sigma": 4.0, "games": 2},
+        "new": {"mu": 25.0, "sigma": 8.33, "games": 0},
+    }
+    for seed in range(5):
+        field = propose(m, ["vet", "mid", "new"], ratings, 2, random.Random(seed))
+        assert field[0] == "new"
+
+
 def test_info_score_prefers_close_ratings():
     from matchmake import info_score, new_model
 
