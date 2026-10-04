@@ -134,8 +134,11 @@ def census_opponents(
     k: int,
     arrival: dict[str, int],
 ) -> list[str]:
-    """Rulers spanning full-pool mass: quantile-decile sites snapped
-    to the nearest ruler. Exact port of the champion census opener.
+    """Rulers spanning full-pool mass: one newcomer slot, then
+    quantile-decile sites snapped to the nearest ruler. The newcomer
+    slot is the highest-sigma candidate with fewer than 3 rated games;
+    with no newcomer it falls back to the quantile site, so the other
+    sites match the champion census exactly. Exact port otherwise.
     Ties break by arrival rank, then id."""
     others = [c for c in cands if c != bid]
     mus = sorted(R.for_id(ratings, c)["mu"] for c in others)
@@ -147,6 +150,19 @@ def census_opponents(
     )
     picked: list[str] = []
     used = {bid}
+    fresh = [c for c in others if R.for_id(ratings, c)["games"] < 3]
+    if fresh and sites:
+        first = min(
+            fresh,
+            key=lambda c: (
+                -R.for_id(ratings, c)["sigma"],
+                arrival.get(c, len(arrival)),
+                c,
+            ),
+        )
+        used.add(first)
+        picked.append(first)
+        sites = sites[1:]
     for t in sites:
         live = [c for c in others if c not in used]
         if not live:
