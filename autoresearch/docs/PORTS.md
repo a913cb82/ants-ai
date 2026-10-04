@@ -16,7 +16,7 @@ joining the opponent pool on `main`.
 
 | Bot | Lang | Toolchain | Route |
 |---|---|---|---|
-| GreenTea (#2) | Java | javac + java OK | `bots/greentea/`: source + `run.sh` (compile-if-stale, `exec java -cp build MyBot`) + `greentea.bot` (`bash run.sh`) |
+| GreenTea (#2) | Java | javac + java OK | `bots/greentea/`: source + `<name>.sh` launcher (compile-if-stale, `exec java -cp build MyBot`) + `greentea.bot` (`bash <name>.sh`) |
 | lazarant (#6) | Java | javac + java OK | same wrapper pattern |
 | fourmidable (#9) | Java | javac + java OK | same wrapper pattern |
 | runevision (#4) | C# | NO mono/dotnet/go only | Python port by coder agents, behavior-checked on scenario benchmarks; original stays in `vendor/` as spec |
@@ -43,3 +43,8 @@ teapotahedron, #7 ChrisH, #8 FlagCapper).
 Strata/duel rulers drawn from real 2011 top-bots replace our inbred
 rulers: stronger selection pressure, and direct historical benchmarking
 (can our champion beat GreenTea?).
+
+## Launcher rule
+Name the launcher `<bot>.sh`, never `run.sh`: the viewer names each
+player from the command basename, so `run.sh` shows as "run.sh" for
+every bot. The manifest holds `bash <bot>.sh`.
