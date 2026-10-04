@@ -1,0 +1,310 @@
+we're going to assume viewradius2=5 and it isn't going to change.
+
+.......    ...9...
+..xxx..    .85458.
+.xxxxx.    .52125.
+.xxAxx.    9410149
+.xxxxx.    .52125.
+..xxx..    .85458.
+.......    ...9...
+
+So, if our ants encounter enemy ants, how likely are we to survive?  -1*B^n for
+losing an ant on turn n, +1*B^n for killing an enemy ant on turn n.  This
+problem is obviously symmetric, so we will choose to reflect such that the most
+enemy ants are in the upper left (but there could be extra ants elsewhere; the
+key space is complexly sparse by this definition -- can we come up with a
+simpler keyspace symmetry rule?)
+
+let's consider the following spaces:
+
+   yyy
+  yyyyy
+ yyxxxyy
+yyxxxxxyy
+yyxxAxxyy
+yyxxxxxyy
+ yyxxxyy
+  yyyyy
+   yyy
+
+okay that's going to be way too many.  hmm.  plus we need to account for water.
+
+------------------------------------------------------
+territory is extremely important.
+
+one of the most salient features (now i'm talking like i'm going to build a
+machine-learned regression) is probably going to be "mobility": a value derived
+from diffusing the map such that each square has the discounted number of edges
+available. e.g.
+xxxx
+x122
+x233
+x233
+(where "available" here assumes you're not standing still and not going back the way you came)
+
+except to compute this we'd just put a 1 everywhere and run N diffusion steps,
+sending k*value (k<0.25) in all directions so that value = sum_t(value_t);
+value_0 = 1, value_t = sum incoming_t; outgoing_t = k*value_t-1.  e.g. two
+adjacent squares:
+
+  1       1
+  1+k     1+k
+  1+k+k^2 1+k+k^2
+
+etc, until convergence (1/(1-E*k) for E edges in this simple example, but more
+complex maps would diffuse stuff usefully.  i would propose k=kDiscount/4
+initally)
+
+------------------------------------------------------
+in the general case, we want an approximation to the full dynamic programming
+solution of the value function, which is equal to the future-discounted minimax
+value of the current state.  e.g. if we are guaranteed a win in 5 moves, the
+value is kDiscount^5.  if we lose in 5 moves, it's -kDiscount^5.  if it's
+perfectly balanced, it's 0.
+
+if we can solve some simple situations exactly by this metric, maybe we can try
+to approximate and generalize?
+
+to generate an exact state matrix, we need to come up with a minimal situation,
+enumerate all terminal states with -1 or 1 or 0, and then use dynamic
+programming to work backwards to all other states.
+
+first utterly trivial, minimal scenario:
+ 123
+%%%%%
+%aa1%1
+%112%2
+%445%3
+%   %4
+% 54%5
+% 21%6
+% 1b%7
+%%%%%
+
+2v1 has 21*20*19 possible states on this map, so is trivially enumerable
+
+we can generate the set of terminal nodes just by placing 'b', and then placing
+one or both 'a's within the attack radius.  if both are in the attack radius,
+the score is +1; if one is in the attack radius, the score is 0 (one ant dies).
+
+so let's run that experiment.
+
+----
+
+okay, the results of the experiment are pretty interesting.  if one player
+knows the other player's moves, he can usually force an even exchange of ants
+even when outnumbered and cornered.  so a payoff matrix is necessary here to
+account for the fact that we don't know our opponent's moves.  which means an
+approach like monte-carlo sampling will probably not be suboptimal.
+
+here's a simple scenario:
+
+.a.     ...    ...    ..a
+a..     .a.    ax.    .a.
+...  -> x.. or ... or ...
+...     ...    ..b    ...
+..b     .b.    ...    .b.
+
+if b knows a's moves, he can either avoid a indefinitely or take out one of a's
+ants with him.  so, we need to pick the move with the maximum expected reward,
+assuming the opponent is doing the same...
+
+if b stays still, he can be killed.  so we have to assume he won't do it, ever.
+i'm thinking the monte carlo approach is best.  except we need to
+find/eliminate strictly dominated moves from each side, and find relative
+probabilities for the remainder.  somehow, via sampling (or exhaustive
+enumeration if there are a small enough number of ants involved).
+
+----
+
+new idea: collapsed gibbs sampling of ants.
+
+there is an inherent N-dimensional payoff "space" for N ants.  we cannot
+possibly hope to explore this exhaustively for N > 5? 6?.  especially if we
+want to look a few moves ahead.  supposing N <= 5, however, we can eliminate
+"dominated" moves -- moves where no matter what the opponents (or our other
+ants) do, our payoff would be better with another move.  for moves that aren't
+eliminated, we choose randomly by the proportion that they are the expected
+best thing to do.  (or by the expected reward, but this isn't as likely to be
+useful from what i can tell).  this of course depends on the probability
+distribution that the enemy picks a particular move, which in turn depends on
+what the enemy thinks our probability of moving is.  blah blah, Nash
+equilibria, &c, &c.
+
+since this is all so complicated, it seems to me that even for a small number
+of ants, the best strategy is to sample.  use a Dirichlet(1) distribution for
+each ant's moves, and move each ant randomly.  then, for each ant, increment
+the Dirichlet parameter for each move which wins for that configuration.
+re-sample according to the new distribution, repeat until unspecified stopping
+criteria.
+
+then, to decide on a strategy for each ant, we continue the procedure except:
+ - we start fixing ants into particular locations, one at a time.
+ - we eliminate the initial 1 from each Dirichlet parameter when choosing a
+   move to fix, so we only choose strategies that have dominated (or tied)
+
+this way our ants sample based on the chosen actions of the ants "fixed" so
+far, instead of the full distribution.
+
+the thing about this is, it's not a multi-step solution; this would be the
+solution to just one step in a minimax chain.  it remains to be seen whether
+this can be applied across multiple timesteps in a useful way.  we will still
+need heuristics to guide loose ants toward combat as reinforcements.
+
+let's run a second experiment on this before we commit to it.
+
+sample 999 ant 0 -=0 E=0 S=0 dirichlet=[-:977 N:0 E:977 S:502 W:708] sampled_dir=E value=0
+sample 999 ant 1 -=0 N=0 E=0 S=-1 dirichlet=[-:931 N:727 E:510 S:321 W:0] sampled_dir=- value=0
+sample 999 ant 2 -=0 N=0 W=0 dirichlet=[-:636 N:960 E:0 S:0 W:708] sampled_dir=- value=0
+
+for the scenario above, it looks like the recommendation is:
+
+.a.     .a.    ..a
+a..     a..    a..
+...  -> ... or ... with equal probability
+...     ..b    ..b
+..b     ...    ...
+
+and then, assuming the first one:
+sample 999 ant 0 -=0 E=0 S=-1 dirichlet=[-:692 N:0 E:692 S:529 W:329] sampled_dir=E value=0
+sample 999 ant 1 -=-1 N=0 E=-1 S=-1 dirichlet=[-:698 N:478 E:302 S:525 W:0] sampled_dir=- value=-1
+sample 999 ant 2 -=0 N=1 S=0 W=-1 dirichlet=[-:516 N:365 E:0 S:109 W:661] sampled_dir=N value=1
+
+.a.    a.a  ...
+a..    ...  a.a
+... -> ...? ...
+..b    .b.  ...
+...    ...  ...
+
+---
+
+okay, the fatal flaw in the above is we're assuming conditional independence of
+each ant's move, which is a hideously bad assumption here.  our ants have to
+coordinate moves, so each ant needs to know, at a minimum, what at least one
+nearby ant is doing.  tracking more than one ant's per ant would be a huge
+state space, but i think if we form a "chain" of conditional dependence (markov
+chain i suppose?) along the front lines of an ant battle, the ants should be
+able to coordinate very well.  the chain of dependence could also be a tree
+without loss of generality:
+
+a  a  a
+|  |  |
+v  v  v
+a->a->a
+
+b<-b<-b
+^  ^  ^
+|  |  |
+b  b  b
+
+let's update the experiment.
+
+---
+
+yes, that appears to work.  e.g.:
+
+ AA.      ..A      ...
+ ...      A..      ..A
+ ...  ->  ...  ->  A..
+ ...      ..B      .b.
+ ..B      ...      ...
+
+let's try it with a larger set of ants.
+
+yep.  works pretty well.  implemented, in the bot; replaced stupid ad-hoc
+forward-backward sweep with gibbs sampling.
+
+----
+
+okay, this stuff is starting to work pretty well but is bumping up against a
+fundamental misunderstanding of what we're modelling here.  we need to figure
+out what probability distribution we're actually sampling: the probability that
+move M will lead to a better outcome than any other move M' for that ant, given
+the moves of its two dependent ants.
+
+The current Dirichlet implementation solves that, sort of, except "better" is
+stated as an absolute -- if it's 1e-6 better in our samples, it still
+dominates.  We may need something smoother.
+
+Also, one of the ants in the dependency chain might need to choose a slightly
+lower-reward move for other ants to produce a much higher-reward move down the
+chain.  So we really need to compare scores before the entire Gibbs sweep with
+scores afterward.  Perhaps *this* is the criterion we need to be sampling from:
+
+  for all ants i:
+    if(state.evalScore > evalScore[i])
+      ant[i]->dirichlet[ant[i]->move]++
+    else
+      ??
+    evalScore[i] = state.evalScore
+    ant[i]->move = ant[i]->SampleMoveFromDirichlet()
+    ant[i]->CheapMove(ant->move)
+    ant[i]->UpdateScore()
+
+that probably won't work though... cuz a good move has to be repeatedly undone
+and redone for it to gain probability.  maybe that's good?  unknown.
+
+Instead, can we maintain/update a probability distribution of scores for each
+move, and sample based on that somehow?  maybe a normal distribution, and use
+some kinda erf() thing to compute multinomial probabilities for sampling?
+
+Say we have the following situation:
+
+move  score mu, score stddev
+   -    5.123   0.1
+   N    5.9     3.0
+   S    4.9     1.0
+   E    5.0     0.3
+   W    5.1     0.4
+
+which move is most likely to result in the largest expected reward?  well, N,
+clearly, but it appears risky.  if we're sampling moves, what is our
+distribution?  one way would be to draw a sample score from each move, and then
+choose the highest one.
+
+if we had quantized scores (and we do) we can keep entire score histories for
+each move and randomly sample them, and then choose the highest.  can we
+generate a multinomial directly from this, though, and get an easier sample
+with one random number?
+
+let's take the binomial base case:  two moves: A, B, score samples A[N],
+B[N].  well, duh, obviously the binomial probability is sum(A[i] > B[i] ? 1 : 0)/N.
+and this is exactly what we're doing with our Dirichlet stuff.  [actually it'd
+be sum_i,j(A[i] > B[j] ? 1 : 0)/N^2 if we assumed independence between scores
+but that would be silly]
+
+so the Dirichlet thing seems to be the correct approach in theory; the problem
+is that we're not able to propagate causality backwards.  we can't compare the
+effects of moves we didn't make.
+
+---
+
+in the end i've decided to keep things pretty much the same but randomize the
+order in which we sample ants.  this yields a stronger player; the order was
+biased before.  the kHillDefensePriority also seems to universally make things
+worse but it is unclear why.
+
+---
+
+FlagCapper's bot is still trouncing this approach tactically.  (and
+strategically but that's a separate issue).  There must be some more
+deterministic way to approach this, possibly combined with the conditional ant
+lattice thing.
+
+One possible fix is to make the dependencies circular in the grid, and run two
+passes maximizing moves.  Let's get that out of the way now and playtest.
+
+---
+
+the circular grid implementation was kind of messed up and doesn't work.  maybe revisit it later.
+
+---
+
+i think one thing that might help a lot is to "prime" the sampler with certain
+states likely to be beneficial but unlikely to be sampled organically: all ants
+move toward nearest enemy, all ants move away from nearest enemy.  (maybe all
+ants move north, west, east, south too?  probably not actually beneficial)  so,
+for the 9 states in the powerset (my ants: -, toward, away) x (enemy: -,
+toward, away), do the move "goodness" check and update the dirichlet
+accordingly (maybe with some larger increment, or having alpha < 1?), and then
+do the normal gibbs sample step.
