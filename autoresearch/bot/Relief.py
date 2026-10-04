@@ -12,132 +12,45 @@ DENIAL_ENEMIES = 3
 DENIAL_CLAIMS = 2
 _CELL = CLUSTER_R + 1
 
-SIEGE_AGE = 3
+FEARLESS_RAIDERS = 2
+FEARLESS_RADIUS = 15
 
 
-def torus_sq(a: Loc, b: Loc, rows: int, cols: int) -> int:
-    # Squared toroidal distance; matches the engine's attackradius2 test.
-    dr = abs(a[0] - b[0])
-    dr = min(dr, rows - dr) if rows else dr
-    dc = abs(a[1] - b[1])
-    dc = min(dc, cols - dc) if cols else dc
-    return dr * dr + dc * dc
-
-
-def update_siege_age(
-    prev_age: dict[Loc, int],
-    prev_positions: set[Loc],
-    curr_ants: list[Loc],
+def count_raiders(
+    hill: Loc,
     enemy_locs: list[Loc],
-    r2: int,
-    rows: int,
-    cols: int,
-) -> dict[Loc, int]:
-    # Per-square contact age: consecutive turns the same square held
-    # one of our ants while a visible enemy sat within attack range.
-    # A square that moved, lost contact, or is new starts back at 1
-    # (or drops off when quiet). Tight loop with an early break: a
-    # staring front finds contact on the first enemy. Enemy rows/cols
-    # are hoisted out of the loop so the crowded board stays cheap.
-    new_age: dict[Loc, int] = {}
-    if not enemy_locs:
-        return new_age
-    er = [e[0] for e in enemy_locs]
-    ec = [e[1] for e in enemy_locs]
-    n_en = len(er)
-    for aloc in curr_ants:
-        ar = aloc[0]
-        ac = aloc[1]
-        contact = False
-        for k in range(n_en):
-            dr = ar - er[k]
-            if dr < 0:
-                dr = -dr
-            if rows and dr > rows - dr:
-                dr = rows - dr
-            dc = ac - ec[k]
-            if dc < 0:
-                dc = -dc
-            if cols and dc > cols - dc:
-                dc = cols - dc
-            if dr * dr + dc * dc <= r2:
-                contact = True
-                break
-        if contact:
-            if aloc in prev_positions and aloc in prev_age:
-                new_age[aloc] = prev_age[aloc] + 1
-            else:
-                new_age[aloc] = 1
-    return new_age
+    distance: DistFn,
+    closing: Callable[[Loc, Loc], bool],
+) -> int:
+    # Raiders on one home hill: visible enemies within 10 steps, or
+    # within 16 and closing on the hill. The same predicate the
+    # defense branch uses to call a hill threatened.
+    return sum(
+        1
+        for e in enemy_locs
+        if distance(hill, e) <= 10 or (distance(hill, e) <= 16 and closing(e, hill))
+    )
 
 
-def focus_deaths(
-    my_pos: list[Loc], en_pos: list[Loc], r2: int, rows: int, cols: int
-) -> tuple[set[int], set[int]]:
-    # One step of the engine's focus combat: weakness is the nearby
-    # enemy count; an ant dies when its weakest opponent's weakness
-    # is at most its own. Immune with no nearby enemies.
-    my_foes: list[list[int]] = [[] for _ in my_pos]
-    en_foes: list[list[int]] = [[] for _ in en_pos]
-    for i, a in enumerate(my_pos):
-        for j, b in enumerate(en_pos):
-            if torus_sq(a, b, rows, cols) <= r2:
-                my_foes[i].append(j)
-                en_foes[j].append(i)
-    my_weak = [len(f) for f in my_foes]
-    en_weak = [len(f) for f in en_foes]
-    my_dead = {
-        i
-        for i, foes in enumerate(my_foes)
-        if foes and min(en_weak[j] for j in foes) <= my_weak[i]
-    }
-    en_dead = {
-        j
-        for j, foes in enumerate(en_foes)
-        if foes and min(my_weak[i] for i in foes) <= en_weak[j]
-    }
-    return my_dead, en_dead
-
-
-def siege_would_kill(
-    my_ants: list[Loc],
+def fearless_hills(
+    my_hills: list[Loc],
     enemy_locs: list[Loc],
-    self_loc: Loc,
-    nloc: Loc,
-    r2: int,
-    rows: int,
-    cols: int,
-) -> bool:
-    # Provisional proof for the siege release: with the mover on
-    # nloc, the mover dies and at least one enemy in range of nloc
-    # dies with it. Only the local brawl (foes of nloc, their
-    # attackers, and those attackers' foes) enters focus: every
-    # weakness deciding either fact is exact, and a crowded board
-    # stays cheap.
-    foes = [e for e in enemy_locs if torus_sq(nloc, e, rows, cols) <= r2]
-    if not foes:
-        return False
-    moved = [nloc if a == self_loc else a for a in my_ants]
-    own = [a for a in moved if any(torus_sq(a, e, rows, cols) <= r2 for e in foes)]
-    guard = [
-        e for e in enemy_locs if any(torus_sq(e, a, rows, cols) <= r2 for a in own)
+    distance: DistFn,
+    closing: Callable[[Loc, Loc], bool],
+) -> list[Loc]:
+    # Hills hit by a real raid: FEARLESS_RAIDERS+ raiders each. A
+    # lone probe never qualifies.
+    return [
+        h
+        for h in my_hills
+        if count_raiders(h, enemy_locs, distance, closing) >= FEARLESS_RAIDERS
     ]
-    try:
-        local_mover = own.index(nloc)
-    except ValueError:
-        return False
-    my_dead, en_dead = focus_deaths(own, guard, r2, rows, cols)
-    if local_mover not in my_dead:
-        return False
-    dead = {guard[j] for j in en_dead}
-    return any(e in dead for e in foes)
 
 
-def siege_release(friends: int, enemies: int, age: int, kills: bool) -> bool:
-    # The gate: exactly an equal trade, aged SIEGE_AGE+ turns in
-    # contact, with a proven kill. Losing trades and safe squares
-    # never pass here; winning fights pass the legacy check instead.
-    return friends + 1 == enemies and age >= SIEGE_AGE and kills
+def needs_reinforcement(ant_loc: Loc, hills: list[Loc], distance: DistFn) -> bool:
+    # Every ant inside FEARLESS_RADIUS of a raided hill reinforces:
+    # no gatherer exception, no rank exception.
+    return any(distance(ant_loc, h) <= FEARLESS_RADIUS for h in hills)
 
 
 def _scan_board(
@@ -376,14 +289,12 @@ def assign_food_targets(
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Siege:
+class Relief:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
         self.remembered_hills: set[tuple[int, int]] = set()
         self.prev_enemies: list[tuple[int, int]] = []
-        self.siege_age: dict[tuple[int, int], int] = {}
-        self._prev_siege_positions: set[tuple[int, int]] = set()
 
     # do_setup is run once at the start of the game
     # after the bot has received the game settings
@@ -393,22 +304,19 @@ class Siege:
         self.visits = {}
         self.remembered_hills = set()
         self.prev_enemies = []
-        self.siege_age = {}
-        self._prev_siege_positions = set()
 
     # do turn is run once per turn
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Siege: Denial's denial, except a staring ant breaks deadlocks:
-        # a food cluster contested by 3+ visible enemies still draws two
-        # ants onto its two closest foods (local 2v2+ posture) instead of
-        # one ant per food. Battling as Denial plus the siege release.
-        # Homeward structure, wide fallback,
+        # Relief: Denial's denial, except a home hill raided by 2+
+        # enemies pulls every ant within 15 off food to reinforce
+        # (no gatherer exception) until the raid clears. A food cluster contested by
+        # 3+ visible enemies draws two ants onto its two closest foods
+        # (local 2v2+ posture) instead of one ant per food. Battling as Flood. Homeward structure, wide fallback,
         # aggression, walk-off, food, and exploration match iteration
         # 76. Hunt always; ahead on hills, hunters skip the safety
-        # filter. Closeouts need teeth, not patience. Siege release:
-        # a 3-turn staring ant may take an equal trade that kills.
+        # filter. Closeouts need teeth, not patience.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -456,6 +364,7 @@ class Siege:
                 for e in enemy_locs
             )
         ]
+        raided = fearless_hills(my_hills, enemy_locs, ants.distance, closing)
         attack_r2 = ants.attackradius2 or 5
         rows, cols = ants.rows, ants.cols
 
@@ -487,37 +396,7 @@ class Siege:
             if friends + 1 > enemies:
                 return True
             # Aggressive: 14+ friends near the fight accept equal trades.
-            if near >= 14 and friends + 1 >= enemies:
-                return True
-            # Siege: break staring deadlocks. An equal trade the static
-            # rule refuses opens only for an ant that has held this
-            # square in unbroken enemy contact for SIEGE_AGE+ turns,
-            # and only when provisional focus proves the mover dies
-            # killing at least one enemy. Suicides stay refused. The
-            # kill proof stays lazy so quiet fronts pay nothing.
-            age = self.siege_age.get(self_loc, 0)
-            kills = (
-                friends + 1 == enemies
-                and age >= SIEGE_AGE
-                and siege_would_kill(
-                    ants_list, enemy_locs, self_loc, nloc, attack_r2, rows, cols
-                )
-            )
-            return siege_release(friends, enemies, age, kills)
-
-        # Siege contact age: which squares stare down an enemy this
-        # turn, and for how many unbroken turns. Refreshed before any
-        # safety check reads it.
-        self.siege_age = update_siege_age(
-            self.siege_age,
-            self._prev_siege_positions,
-            ants_list,
-            enemy_locs,
-            attack_r2,
-            rows,
-            cols,
-        )
-        self._prev_siege_positions = set(ants_list)
+            return near >= 14 and friends + 1 >= enemies
 
         def first_step(
             start: tuple[int, int], goal: tuple[int, int], budget: int = 250
@@ -569,6 +448,13 @@ class Siege:
         for ai, ant_loc in enumerate(ants_list):
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
             best = target.get(ai)
+            if best is not None and needs_reinforcement(ant_loc, raided, ants.distance):
+                # Fearless: a raided home hill pulls every ant
+                # inside 15 off food this turn. The claim simply
+                # goes unworked; the economy resumes by itself when
+                # the raid clears. Defense, muster, and exploration
+                # below are untouched.
+                best = None
             moved = False
             if best is not None:
                 step = first_step(ant_loc, best)
@@ -659,6 +545,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Siege())
+        Ants.run(Relief())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
