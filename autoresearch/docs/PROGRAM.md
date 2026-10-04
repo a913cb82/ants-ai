@@ -54,11 +54,13 @@ Rules:
   Do not edit it. Commit it with your notes.
 - Read the code of the other bots. Do not edit their code.
 - The coder gets one idea and a fixed time budget (30 minutes unless
-  the brief says otherwise). It writes test cases first for the risky
-  part, then the bot code, runs whatever tests it wants inside the
-  budget, commits `exp: <idea>`, reports, and stops. It never plays
-  games, never reads scores, never edits notes, never pushes, never
-  merges. Uncommitted work at budget end is dropped.
+  the brief says otherwise). It works in its own worktree on its own
+  branch (`coder/<n>`), never in the coordinator tree. It writes test
+  cases first for the risky part, then the bot code, runs whatever
+  tests it wants inside the budget, commits `exp: <idea>`, reports,
+  and stops. It never runs `iteration.py`, never plays games, never
+  reads scores, never edits notes, never pushes, never merges.
+  Uncommitted work at budget end is dropped.
 - Scratch tests live in /tmp or beside the bot, committed with the
   exp commit. They never go under `tests/`.
 - The coordinator merges, briefs, plays, compares, tags, logs, and
@@ -114,6 +116,29 @@ coordinator measures it.
     push is not a lost iteration. Keep the commits and push again at
     the next log commit.
 11. Go to step 1. Do not stop.
+
+## Pipeline
+
+The coordinator may overlap exam(N) with coding(N+1). Separation is
+by worktree, never by discipline alone:
+
+- The coordinator tree stays on `autoresearch/main` for the whole
+  run. It is never switched to another branch while an exam runs or
+  while game, rating, or score files are uncommitted: a checkout
+  would orphan the harness's open log and lose games. The
+  coordinator's own `main`-side edits go through a scratch worktree.
+- Each coder gets its own worktree (e.g. /tmp/loop-coder-<n>) on its
+  own branch (`coder/<n>`), cut from `autoresearch/main` at spawn.
+  The coder never enters the coordinator tree.
+- The coder never runs `iteration.py`. One exam call takes about
+  25 minutes (7 duels plus two FFAs); the coordinator runs it after
+  the exp commit lands. Running it from a dirty tree trips the
+  harness guard and aborts the exam, and seeing scores early breaks
+  the blind. Coders test with unit tests and replay reads.
+- A coder branch may hold bot changes only. The coordinator verifies
+  with `git diff --stat` and cherry-picks the exp commit onto
+  `autoresearch/main` (linear history, exams run in commit order),
+  then deletes the branch and its worktree.
 
 ## Budget
 
