@@ -2090,3 +2090,15 @@ Use this format.
 - what changed: Battling as Ledger in Ledger.bot + Ledger.py; Denial's united hunt, denial, and combat untouched, but equal-distance food claims break ties toward the richest-harvest quadrant over a trailing 100 turns.
 - what you learned: Ledgers went 2-5 in duels with mid-pack FFAs, so mu reached 37.8 against 66.6 — harvest history predicts nothing about the next food; ties stay ties.
 - next: pre-contact evacuation (Bailiff exp committed, queued for exam).
+
+## 173 — evacuation surrenders squares (2026-10-04)
+- commit: 0d3d8e9 (bid Bailiff.bot-0d3d8e9)
+- start: 8dee7ed (champion Denial files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 55.6, sigma 3.12
+- champion mu: 66.6 (Denial)
+- verdict: keep Denial
+- games: 4-3, FFA ranks 10p:3 6p:1
+- what changed: Battling as Bailiff in Bailiff.bot + Bailiff.py; Denial's united hunt, denial, and combat untouched, but ants on squares adjacent to 3+ enemies with no friendly adjacent evacuate toward friends before food assignment.
+- what you learned: Bailiffs went 4-3 in duels, won the refine, but ranked only 3rd in the census, so mu reached 55.6 against 66.6 — saved ants regroup on squares the enemy now owns; standing ground prices better.
+- next: adjacent double-team (Phalanx exp committed, queued for exam).
