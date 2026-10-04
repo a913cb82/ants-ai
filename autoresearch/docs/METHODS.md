@@ -53,7 +53,7 @@ iteration. The object has these keys:
 | `score` | the recorded score (`mu` under the current budget) |
 | `games` | the number of games in the budget |
 | `champion` | the best bot id before this line, or `null` |
-| `budget` | the schedule tag (`duels=7,ffa=10+6,turns=1000,score=mu,sel=place43`) |
+| `budget` | the schedule tag (`duels=7,ffa=10+6,turns=1000,score=mu,sel=place43,ord=10-6-2`) |
 
 Rows with an older `budget` stay in the file. The harness ignores
 them for the champion.

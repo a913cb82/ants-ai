@@ -51,9 +51,17 @@ def test_info_duel_picks_best_draw_over_40_nearest():
         cands.append(f"peer{i}")
     ratings["close-noisy"] = {"mu": 25.0, "sigma": 8.0, "games": 1}
     ratings["far-solid"] = {"mu": 60, "sigma": 2.0, "games": 20}
-    opp = info_duel_opponent(new_model(), "cand", cands, ratings)
+    opp = info_duel_opponent(
+        new_model(), "cand", cands, ratings, {c: i for i, c in enumerate(cands)}
+    )
     assert opp == "peer0"
-    opp = info_duel_opponent(new_model(), "cand", ["close-noisy", "far-solid"], ratings)
+    opp = info_duel_opponent(
+        new_model(),
+        "cand",
+        ["close-noisy", "far-solid"],
+        ratings,
+        {"close-noisy": 0, "far-solid": 1},
+    )
     assert opp == "close-noisy"
 
 
@@ -323,7 +331,9 @@ def test_census_field_spans_full_pool_mass():
     for i, mu in enumerate([0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]):
         ratings[f"r{i}"] = _rated(mu, 2.0)
     cands = [k for k in ratings if k != "cand"]
-    opps = census_opponents("cand", cands, ratings, 9)
+    opps = census_opponents(
+        "cand", cands, ratings, 9, {c: i for i, c in enumerate(cands)}
+    )
     assert len(opps) == 9 and "cand" not in opps
     mus = sorted(ratings[c]["mu"] for c in opps)
     assert mus[0] <= 10 and mus[-1] >= 90
@@ -341,7 +351,9 @@ def test_census_nearest_snap_ignores_sigma():
         name = f"r{i}"
         ratings[name] = _rated(mu, 6.0 if mu == 50.0 else 1.0)
         cands.append(name)
-    opps = census_opponents("cand", cands, ratings, 9)
+    opps = census_opponents(
+        "cand", cands, ratings, 9, {c: i for i, c in enumerate(cands)}
+    )
     assert "r5" in opps
 
 
@@ -393,21 +405,23 @@ def test_stage_field_sizes_map_to_census_and_strata(monkeypatch):
         return val
 
     monkeypatch.setattr(
-        iteration, "census_opponents", lambda bid, c, r, k: rec("census", ["o"] * k)
+        iteration,
+        "census_opponents",
+        lambda bid, c, r, k, rk: rec("census", ["o"] * k),
     )
     monkeypatch.setattr(
         iteration, "strata_opponents", lambda bid, o, r, k: rec("strata", ["o"] * k)
     )
-    field = iteration.stage_field(None, "cand", ["o"], [], {}, 10)
+    field = iteration.stage_field(None, "cand", ["o"], [], {}, 10, {})
     assert calls == ["census"] and len(field) == 10
-    field = iteration.stage_field(None, "cand", ["o"], [], {}, 6)
+    field = iteration.stage_field(None, "cand", ["o"], [], {}, 6, {})
     assert calls == ["census", "strata"] and len(field) == 6
 
 
 def test_budget_is_the_champion_schedule():
     from iteration import BUDGET
 
-    assert BUDGET == "duels=7,ffa=10+6,turns=1000,score=mu,sel=place43"
+    assert BUDGET == "duels=7,ffa=10+6,turns=1000,score=mu,sel=place43,ord=10-6-2"
 
 
 def test_previous_budget_rows_are_ignored(tmp_path):
@@ -450,3 +464,44 @@ def test_recency_order_puts_unknown_shas_last():
     from iteration import recency_order
 
     assert recency_order(["new-zzz", "old-aaa"], ["aaa"]) == ["old-aaa", "new-zzz"]
+
+
+def test_main_plays_census_then_refine_then_duels(tmp_path, monkeypatch):
+    import iteration
+
+    monkeypatch.setattr(iteration, "DUELS", 2)
+    monkeypatch.setattr(iteration, "FFA_SIZES", [10, 6])
+    monkeypatch.setattr(iteration, "GAMES_LOG", tmp_path / "games.jsonl")
+    monkeypatch.setattr(iteration, "RATINGS_PATH", tmp_path / "ratings.json")
+    monkeypatch.setattr(iteration, "PROGRESS", tmp_path / "PROGRESS.jsonl")
+    monkeypatch.setattr(iteration, "RUNS", tmp_path / "runs")
+    monkeypatch.setattr(iteration, "WORKBASE", tmp_path / "work")
+    monkeypatch.setattr(iteration, "is_clean", lambda root: True)
+    monkeypatch.setattr(iteration, "engine_on_main", lambda root: True)
+    monkeypatch.setattr(iteration, "main_merged", lambda root: True)
+    bid = iteration.candidate_id(iteration.ROOT, iteration.DEFAULT_BOT)
+    rivals = [f"rival{i}-abc1234" for i in range(12)]
+    monkeypatch.setattr(
+        iteration, "pool_ids", lambda root, ratings=None: [bid] + rivals
+    )
+    sizes = []
+
+    def fake_play_one(root, field, map_rel, log_dir, rng, workbase):
+        sizes.append(len(field))
+        return {
+            "v": 1,
+            "map": map_rel,
+            "turns": 1000,
+            "turntime": 1000,
+            "loadtime": 3000,
+            "engine": "test",
+            "pseed": 1,
+            "eseed": 2,
+            "field": list(field),
+            "result": list(field),
+            "length": 10,
+        }
+
+    monkeypatch.setattr(iteration, "play_one", fake_play_one)
+    assert iteration.main([]) == 0
+    assert sizes == [10, 6, 2, 2]

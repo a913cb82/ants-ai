@@ -20,11 +20,11 @@ The operating instructions are in `docs/PROGRAM.md`. Start there.
 
 ## Budget
 
-One iteration has 9 games (30 slots):
+One iteration has 9 games (30 slots), always in this order:
 
-- 7 duels. Each duel uses a different 2p map.
 - One 10p census. Opponents span full-pool mass.
 - One 6p refine. Opponents come from bot-centered bins.
+- 7 duels. Each duel uses a different 2p map.
 
 The harness sets the numbers. No flag changes them.
 Every game goes to `league/games.jsonl`. A commit cannot play more.
