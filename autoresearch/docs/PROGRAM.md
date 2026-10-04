@@ -78,10 +78,13 @@ Rules:
   each coder extends them and keeps the whole suite green. Tests never
   go under `tests/` and never reference worktree-root staging files.
 - Tests are not only correctness checks. Every coder brief names 2-3
-  benchmark scenarios (small hand-built combat situations with a score
-  to maximize, runnable in seconds). The coder experiments against them
-  inside the budget and reports the scores — cheap hill-climbing before
-  the expensive exam.
+  benchmark scenarios: small hand-built situations (any part of play,
+  not just combat) with a score to maximize, runnable in seconds.
+  Scenario files persist alongside bot code and grow into a regression
+  suite. The coder is selective: iterate inside the budget, optimize
+  the scenarios, re-run the whole suite each change, never trade a gain
+  here for a regression there. Report scenario scores with the commit.
+  One-shot code without iteration wastes the budget.
 - The coordinator merges, briefs, plays, compares, tags, logs, and
   pushes. It never edits bot code. At spawn it stages the
   measured-champion files as the coder's base, so every entry is
