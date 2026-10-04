@@ -2244,3 +2244,15 @@ Use this format.
 - what changed: Combat-program leg 6. Battling as Gang in Gang.bot + Gang.py + shared combat.py; all prior legs kept, plus pack-gated advance (packless ants pack up toward friends instead of seeking).
 - what you learned: Gangs went 3-4 in duels and ranked last in the refine, so mu reached 43.0 against 66.6 — the pack-up step herds ants into clumps that never reach fights; gating advance on pack presence starves pressure.
 - next: fearless in small fights (Crowd exp with extended combat.py + test_combat.py committed, queued for exam).
+
+## 186 — CROWN: fearless in small fights (2026-10-04)
+- commit: a9d4173 (bid Crowd.bot-a9d4173)
+- start: 8dee7ed (champion Denial files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 67.9, sigma 3.89
+- champion mu: 66.6 (Denial; Turnstile-50 candidate 66.8 superseded)
+- verdict: CROWN Crowd — new champion. +1.3 over Denial with both FFA wins and a head-to-head Denial kill.
+- games: 4-3, FFA ranks 10p:1 6p:1
+- what changed: Combat-program leg 7. Battling as Crowd in Crowd.bot + Crowd.py + shared combat.py; all prior legs kept (pack-gated seek, committed join, grinder 1v1, off-hill screen, 10-gate), plus fearless advances with fewer than 10 enemies visible (full safety in crowds).
+- what you learned: Crowds went 4-3 in duels including a Denial kill, and WON both FFAs, reaching mu 67.9 — pressing small fights while respecting big ones is the first combat idea that wins everywhere; the program continues from this chain.
+- next: press needs ten ants (Legion exp with extended combat.py + test_combat.py committed, queued for exam).

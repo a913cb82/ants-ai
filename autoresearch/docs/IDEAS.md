@@ -88,7 +88,7 @@ row. Leave the old row as it was.
 | dropped | Ledger: quadrant income tie-breaks (mu 37.8 vs 66.6; 2-5 duels). |
 | dropped | Bailiff: pre-contact evacuation (mu 55.6 vs 66.6; surrenders squares). |
 | dropped | Phalanx: adjacent double-team (mu 34.9 vs 66.6; 6p:6). |
-| candidate | Turnstile: 50-turn sitter rotation (mu 66.8 vs 66.6; +0.2 HOLD, legs arbitrate). |
+| dropped | Turnstile: 50-turn rotation (mu 66.8 vs 66.6; superseded by Crowd 67.9). |
 | dropped | Turnstile2: 30-turn fuse (mu 50.4 vs 66.6; too hasty). |
 | dropped | Turnstile3: 70-turn fuse (mu 24.8 vs 66.6; family closed at ~50). |
 | dropped | Seek: advance on enemies within 8 (mu 40.1 vs 66.6; 6-1 duels, 10p:6; combat leg 1). |
@@ -97,6 +97,7 @@ row. Leave the old row as it was.
 | dropped | Screen: off-hill interception (mu 47.1 vs 66.6; 2-5 duels; combat leg 4). |
 | dropped | Odds: equal trades at 10 near (mu 51.0 vs 66.6; 1-6 duels; combat leg 5). |
 | dropped | Gang: pack-gated advance (mu 43.0 vs 66.6; 6p:6; combat leg 6). |
+| crowned | Crowd: fearless under 10 enemies (mu 67.9 vs 66.6; both FFAs won; combat leg 7). |
 | dropped | Anvil: bait-and-ambush (mu 17.0 vs 66.6; 10p:9). |
 | dropped | Patrol3: 30-step ranged patrol (mu 40.8 vs 66.6; range was never the bleed). |
 | dropped | Volunteers: duty drafts from spares only. |
