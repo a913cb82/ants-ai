@@ -10,6 +10,12 @@ no guard move, whose nearest visible enemy is within SEEK_RANGE
 steps, advances one step toward that enemy via the existing
 first_step pathing with the normal safety filter. Everything else
 matches champion Denial byte-for-byte.
+
+Leg 2 implements the RESEARCH.md row "Committed-join pack attacks"
+(pas11 potential_orders): a seek step landing in attack range of a
+foe queues as a commitment, and when 2+ ants commit to the SAME foe
+this turn both orders issue with equal trades allowed (no 14-near
+gate). Lone unjoined contact steps fall back to champion safety.
 """
 
 import os
@@ -19,7 +25,7 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import combat as CX  # noqa: E402
-import Seek as SK  # noqa: E402
+import Wolfpack as WP  # noqa: E402
 
 Loc = tuple[int, int]
 ROWS = 20
@@ -100,9 +106,9 @@ def run_turn(
     water: set[Loc] | None = None,
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
-) -> tuple[list[tuple[Loc, str]], SK.Seek]:
+) -> tuple[list[tuple[Loc, str]], WP.Wolfpack]:
     fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
-    bot = SK.Seek()
+    bot = WP.Wolfpack()
     bot.do_turn(fake)
     return fake.orders, bot
 
@@ -203,3 +209,87 @@ def test_seek_scan_under_1ms_on_crowded_board() -> None:
     elapsed = (time.perf_counter() - start) / reps
     assert elapsed < 0.001
     assert CX.nearest_seek_enemy(mine[0], foes, probe.distance) is not None
+
+
+_SQ_R2 = 5
+
+
+def _sq(a: Loc, b: Loc) -> int:
+    dr = abs(a[0] - b[0])
+    dr = min(dr, ROWS - dr)
+    dc = abs(a[1] - b[1])
+    dc = min(dc, COLS - dc)
+    return dr * dr + dc * dc
+
+
+def test_contact_foe_nearest_in_attack_range() -> None:
+    assert CX.contact_foe((5, 6), [(5, 7), (5, 9)], _sq, _SQ_R2) == (5, 7)
+    assert CX.contact_foe((5, 6), [(5, 12)], _sq, _SQ_R2) is None
+    assert CX.contact_foe((5, 6), [], _sq, _SQ_R2) is None
+
+
+def test_joined_attackers_releases_only_shared_foes() -> None:
+    assert CX.joined_attackers({}) == set()
+    assert CX.joined_attackers({0: (5, 7)}) == set()
+    assert CX.joined_attackers({0: (5, 7), 1: (5, 7)}) == {0, 1}
+    split = {0: (5, 7), 1: (5, 7), 2: (9, 9)}
+    assert CX.joined_attackers(split) == {0, 1}
+    trio = {0: (5, 7), 1: (5, 7), 2: (5, 7)}
+    assert CX.joined_attackers(trio) == {0, 1, 2}
+
+
+def test_committed_pair_engages_through_equal_trade_gate() -> None:
+    # Two ants flank one foe: both seek steps land in attack range,
+    # so the join releases both even though neither has 14 friends
+    # near (champion demands 14 for equal trades, so both retreat).
+    mine = [(5, 5), (5, 9)]
+    enemies = [(5, 7)]
+    orders, _ = run_turn(mine, enemies)
+    assert orders == [((5, 5), "e"), ((5, 9), "w")]
+    champ = champion_orders(mine, enemies)
+    assert champ == [((5, 5), "w"), ((5, 9), "e")]
+    assert orders != champ
+
+
+def test_lone_ant_without_joiner_holds_as_champion() -> None:
+    # One ant, one adjacent foe: no buddy commits, so the unsafe
+    # contact step falls back to champion behavior exactly.
+    mine = [(5, 5)]
+    enemies = [(5, 7)]
+    orders, _ = run_turn(mine, enemies)
+    assert orders == champion_orders(mine, enemies) == [((5, 5), "w")]
+    assert ((5, 5), "e") not in orders
+
+
+def test_three_ants_split_across_two_foes() -> None:
+    # The flanking pair joins on their shared foe while the lone ant
+    # on the second foe holds exactly as champion.
+    mine = [(5, 5), (5, 9), (15, 15)]
+    enemies = [(5, 7), (15, 17)]
+    orders, _ = run_turn(mine, enemies)
+    champ = champion_orders(mine, enemies)
+    assert orders[0] == ((5, 5), "e")
+    assert orders[1] == ((5, 9), "w")
+    assert orders[2] == champ[2]
+    assert orders != champ
+
+
+def test_pairing_costs_under_1ms_on_crowded_board() -> None:
+    mine = [(i % ROWS, (i * 7) % COLS) for i in range(48)]
+    foes = [((i * 13 + 5) % ROWS, (i * 11 + 3) % COLS) for i in range(10)]
+    probe = FakeAnts(mine, foes)
+    reps = 50
+    start = time.perf_counter()
+    for _ in range(reps):
+        commitments: dict[int, Loc] = {}
+        for ai, ant in enumerate(mine):
+            foe = CX.nearest_seek_enemy(ant, foes, probe.distance)
+            if foe is None:
+                continue
+            dest = probe.destination(ant, "e")
+            contact = CX.contact_foe(dest, foes, _sq, _SQ_R2)
+            if contact is not None:
+                commitments[ai] = contact
+        CX.joined_attackers(commitments)
+    elapsed = (time.perf_counter() - start) / reps
+    assert elapsed < 0.001

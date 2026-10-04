@@ -250,7 +250,7 @@ def assign_food_targets(
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Seek:
+class Wolfpack:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -270,12 +270,16 @@ class Seek:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Seek: Denial's economy (a food cluster contested by 3+
+        # Wolfpack: Denial's economy (a food cluster contested by 3+
         # visible enemies draws two ants onto its two closest foods),
         # except an ant with no food move and no guard move advances
-        # on its nearest enemy within combat.SEEK_RANGE via the normal
-        # (safe) pathing, so approach forms fighting lines. Everything
-        # else -- muster, reinforce, explore, walk-off -- is champion.
+        # on its nearest enemy within combat.SEEK_RANGE, so approach
+        # forms fighting lines. A seek step landing in attack range
+        # of a foe queues as a commitment; when 2+ ants commit to the
+        # SAME foe this turn both engage with equal trades allowed
+        # (no 14-near gate). Lone contact steps keep the safe seek,
+        # so uncommitted ants hold as champion. Everything else --
+        # muster, reinforce, explore, walk-off -- is champion.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -400,6 +404,56 @@ class Seek:
                 return True
             return False
 
+        def try_join(ant_loc: tuple[int, int], direction: str) -> bool:
+            # Committed-join: the pack already holds this foe, so an
+            # equal trade goes through without the 14-near gate.
+            # Strictly losing fights still hold. Passable, occupancy,
+            # and destination clashes check as usual.
+            new_loc = ants.destination(ant_loc, direction)
+            if (
+                new_loc in destinations
+                or not ants.passable(new_loc)
+                or not ants.unoccupied(new_loc)
+            ):
+                return False
+            foes = 0
+            for e in enemy_locs:
+                if sq_dist(new_loc, e) <= attack_r2:
+                    foes += 1
+                    if foes >= len(ants_list):
+                        break
+            if foes > 0:
+                backup = 0
+                for f in ants_list:
+                    if f != ant_loc and sq_dist(new_loc, f) <= attack_r2:
+                        backup += 1
+                if backup + 1 < foes:
+                    return False
+            ants.issue_order((ant_loc, direction))
+            destinations.add(new_loc)
+            return True
+
+        # Wolfpack pre-pass: which ants would step into contact this
+        # turn, and on whom. Ants holding food claims never reach the
+        # seek branch, so only claim-free ants commit. The join set is
+        # the ants whose foe draws 2+ commitments.
+        commitments: dict[int, tuple[int, int]] = {}
+        if enemy_locs:
+            for cai, cant in enumerate(ants_list):
+                if target.get(cai) is not None:
+                    continue
+                chase = combat.nearest_seek_enemy(cant, enemy_locs, ants.distance)
+                if chase is None:
+                    continue
+                cstep = first_step(cant, chase)
+                if cstep is None:
+                    continue
+                cloc = ants.destination(cant, cstep)
+                cfoe = combat.contact_foe(cloc, enemy_locs, sq_dist, attack_r2)
+                if cfoe is not None:
+                    commitments[cai] = cfoe
+        joined = combat.joined_attackers(commitments)
+
         destinations: set[tuple[int, int]] = set()
         held: list[tuple[int, int]] = []
         anchored: set[tuple[int, int]] = set()
@@ -432,14 +486,20 @@ class Seek:
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved and enemy_locs:
-                # Seek: no food or guard move; advance one safe step
-                # toward the nearest enemy in range. The safety
-                # filter stays on, so outnumbered ants still hold.
+                # Wolfpack: no food or guard move; advance one step
+                # toward the nearest enemy in range. A joined ant (its
+                # foe drew 2+ commitments) engages with equal trades
+                # allowed; everyone else keeps the leg-1 safe seek, so
+                # lone ants still hold as champion.
                 foe = combat.nearest_seek_enemy(ant_loc, enemy_locs, ants.distance)
                 if foe is not None:
                     step = first_step(ant_loc, foe)
-                    if step is not None and try_step(ant_loc, step):
-                        moved = True
+                    if step is not None:
+                        if ai in joined:
+                            if try_join(ant_loc, step):
+                                moved = True
+                        elif try_step(ant_loc, step):
+                            moved = True
             if not moved and hills:
                 # Flood: the group marches on one target, the hill
                 # nearest the army as a whole. Hunt always; fearless
@@ -505,6 +565,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Seek())
+        Ants.run(Wolfpack())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
