@@ -2335,3 +2335,15 @@ Use this format.
 - what changed: Faithful a1k0n replication (Dirichlet sampling, random ant order, provisional best-reply, 5ms fight budget) on the Crowd economy.
 - what you learned: a1k0n's documented weakness reproduces exactly — accidental suicides against cautious walls; loses in all formats.
 - next: dirichlet-tune1 (suicide veto) codes while Xathis2 examines.
+
+## 194 — small-fight gating helps slightly (2026-10-04)
+- commit: c22b582 (bid Xathis2.bot-c22b582; approach exam 2/4)
+- start: a9d4173 (champion Crowd files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 27.0, sigma 3.29
+- champion mu: 67.9 (Crowd)
+- verdict: keep Crowd
+- games: 4-3, FFA ranks 10p:7 6p:4
+- what changed: xathis-tune1 — aggressive 1-ply only with 14+ near friends AND <10 enemies visible.
+- what you learned: 25.2 to 27.0, beats base Xathis head-to-head 2-0 — direction right, magnitude small; census collapse persists.
+- next: xathis-tune2 (aggressive threshold 14 to 10) codes while Dirichlet2 examines.
