@@ -62,13 +62,19 @@ Rules:
   fresh filenames: copy the staged champion files to a new name, add
   the one idea, and remove the predecessor's files. Never edit the
   previous entry's files in place — stacking two unmeasured ideas in
-  one filename destroys attribution. It writes test cases first for
-  the risky part, then the bot code, runs whatever tests it wants
-  inside the budget, commits `exp: <idea>`, reports, and stops. It never runs `iteration.py`, never plays games, never
+  one filename destroys attribution. Tests are vital to making bots
+  good: the coder writes failing test cases first for the whole idea
+  (not just the risky part), then the bot code, and uses the full
+  time budget on tests plus hooks. It commits `exp: <idea>`, reports,
+  and stops. It never runs `iteration.py`, never plays games, never
   reads scores, never edits notes, never pushes, never merges.
   Uncommitted work at budget end is dropped.
-- Scratch tests live in /tmp or beside the bot, committed with the
-  exp commit. They never go under `tests/`.
+- Tests live beside the bot in `autoresearch/bot/` and are first-class
+  loop code. Entry test files (`test_<Entry>.py`) are removed with
+  their entry. Shared helper modules (e.g. `combat.py`) and their
+  tests (e.g. `test_combat.py`) persist between iterations and grow:
+  each coder extends them and keeps the whole suite green. Tests never
+  go under `tests/` and never reference worktree-root staging files.
 - The coordinator merges, briefs, plays, compares, tags, logs, and
   pushes. It never edits bot code. At spawn it stages the
   measured-champion files as the coder's base, so every entry is
