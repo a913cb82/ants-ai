@@ -1,15 +1,15 @@
 #!/usr/bin/env python
-"""Turnstile2 (short-fuse sitter rotation) tests.
+"""Turnstile3 (long-fuse sitter rotation) tests.
 
 No engine games.
 
 One change over champion Denial: an ant that sits on the same
-square for 30+ consecutive turns rotates off -- it steps toward
+square for 70+ consecutive turns rotates off -- it steps toward
 the nearest non-sitting ant (falling back to the least-visited
 safe square) instead of continuing champion economy -- so
-visit-maps stay fresh and no ant idles for 50 turns. A sitter under
-direct threat (enemy inside the attack radius) stays put, and
-ants that moved recently never rotate.
+visit-maps stay fresh while patient sitters hold longer. A sitter
+under direct threat (enemy inside the attack radius) stays put,
+and ants that moved recently never rotate.
 """
 
 import os
@@ -19,7 +19,7 @@ from typing import Any
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import Turnstile2 as TS  # noqa: E402
+import Turnstile3 as TS  # noqa: E402
 
 Loc = tuple[int, int]
 ROWS = 20
@@ -108,7 +108,7 @@ def run_turn(
     water: set[Loc] | None = None,
 ) -> tuple[list[tuple[Loc, str]], Any]:
     fake = FakeAnts(mine, enemies, foods, water)
-    bot = TS.Turnstile2()
+    bot = TS.Turnstile3()
     bot.sit = dict(sit or {})
     bot.do_turn(fake)
     return fake.orders, bot
@@ -118,30 +118,30 @@ def step_to(fake: FakeAnts, loc: Loc, direction: str) -> Loc:
     return fake.destination(loc, direction)
 
 
-def test_sitter_rotates_off_after_30() -> None:
-    # (5,5) sat 30 turns; partner at (10,10). The sitter must vacate
-    # toward its partner while a fresh ant would explore north.
+def test_sitter_rotates_off_after_70() -> None:
+    # (5,5) sat 70 turns; partner at (10,10). The sitter must vacate
+    # toward its partner while a 69-turn sitter explores north.
     mine = [(5, 5), (10, 10)]
-    orders, _ = run_turn(mine, [], {(5, 5): 30})
+    orders, _ = run_turn(mine, [], {(5, 5): 70})
     assert (5, 5) in dict(orders)
     probe = FakeAnts(mine, [])
     moved = step_to(probe, (5, 5), dict(orders)[(5, 5)])
     assert probe.distance(moved, (10, 10)) < probe.distance((5, 5), (10, 10))
-    fresh, _ = run_turn(mine, [], {(5, 5): 29})
+    fresh, _ = run_turn(mine, [], {(5, 5): 69})
     assert dict(fresh).get((5, 5)) != dict(orders).get((5, 5))
     assert dict(fresh).get((5, 5)) == "n"  # champion explore, untouched
 
 
 def test_sitter_below_limit_matches_champion() -> None:
-    # A 29-turn sitter stays as champion: the turn matches
+    # A 69-turn sitter stays as champion: the turn matches
     # rotation-off orders exactly.
     mine = [(5, 5), (10, 10)]
-    assert TS.turnstile_swaps({(5, 5): 29}, mine, [], 5, ROWS, COLS) == {}
-    assert TS.turnstile_swaps({(5, 5): 30}, mine, [], 5, ROWS, COLS) != {}
+    assert TS.turnstile_swaps({(5, 5): 69}, mine, [], 5, ROWS, COLS) == {}
+    assert TS.turnstile_swaps({(5, 5): 70}, mine, [], 5, ROWS, COLS) != {}
     orig = TS.turnstile_swaps
     TS.turnstile_swaps = _no_swaps
     try:
-        assert run_turn(mine, [], {(5, 5): 29})[0] == run_turn(mine, [])[0]
+        assert run_turn(mine, [], {(5, 5): 69})[0] == run_turn(mine, [])[0]
     finally:
         TS.turnstile_swaps = orig
 
@@ -160,7 +160,7 @@ def test_movers_never_rotate() -> None:
     # Squares below the limit -- including stale keys for squares no
     # ant occupies -- never produce a swap.
     mine = [(5, 5), (10, 10)]
-    assert TS.turnstile_swaps({(5, 5): 29, (0, 0): 500}, mine, [], 5, ROWS, COLS) == {}
+    assert TS.turnstile_swaps({(5, 5): 69, (0, 0): 500}, mine, [], 5, ROWS, COLS) == {}
     assert TS.turnstile_swaps({}, mine, [], 5, ROWS, COLS) == {}
     # Full turns with all sits below the limit match rotation-off.
     import random
@@ -175,7 +175,7 @@ def test_movers_never_rotate() -> None:
             pick = rng.sample(locs, n_ants + rng.randint(0, 5))
             ants_here = pick[:n_ants]
             foes = pick[n_ants:]
-            sit = {a: rng.randint(0, 29) for a in ants_here}
+            sit = {a: rng.randint(0, 69) for a in ants_here}
             assert run_turn(ants_here, foes, sit)[0] == run_turn(ants_here, foes)[0]
     finally:
         TS.turnstile_swaps = orig
@@ -189,9 +189,9 @@ def test_rotation_bookkeeping_under_half_ms() -> None:
     locs = [(r, c) for r in range(rows) for c in range(cols)]
     mine = rng.sample(locs, 300)
     foes = rng.sample(locs, 30)
-    sit = {m: rng.randint(0, 29) for m in mine}
+    sit = {m: rng.randint(0, 69) for m in mine}
     for m in mine[:3]:
-        sit[m] = 30 + rng.randint(0, 5)
+        sit[m] = 70 + rng.randint(0, 5)
     ordered = set(mine[::2])
     reps = 100
     start = time.perf_counter()

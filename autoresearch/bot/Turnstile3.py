@@ -246,7 +246,7 @@ def assign_food_targets(
     return target
 
 
-SIT_LIMIT = 30
+SIT_LIMIT = 70
 
 
 def turnstile_swaps(
@@ -348,7 +348,7 @@ def age_sits(
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Turnstile2:
+class Turnstile3:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -370,7 +370,7 @@ class Turnstile2:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Turnstile2: Denial's economy, except a food cluster contested by
+        # Turnstile3: Denial's economy, except a food cluster contested by
         # 3+ visible enemies draws two ants onto its two closest foods
         # (local 2v2+ posture) instead of one ant per food. Battling as Flood. Homeward structure, wide fallback,
         # aggression, walk-off, food, and exploration match iteration
@@ -509,7 +509,7 @@ class Turnstile2:
         swaps = turnstile_swaps(self.sit, ants_list, enemy_locs, attack_r2, rows, cols)
         rotated: set[tuple[int, int]] = set()
         for bloc, tsq in sorted(swaps.items()):
-            # Turnstile2: a 30-turn sitter steps toward the nearest
+            # Turnstile3: a 70-turn sitter steps toward the nearest
             # non-sitting ant (least-visited safe square when that
             # step is blocked) instead of continuing economy.
             if ants.time_remaining() < 10:
@@ -625,6 +625,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Turnstile2())
+        Ants.run(Turnstile3())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
