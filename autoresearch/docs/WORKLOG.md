@@ -1766,3 +1766,15 @@ Use this format.
 - what changed: Battling as General in General.bot + General.py; Flood's united-hill base untouched, but the static local-majority is_safe check became a battle-local 1-ply max-min over a once-per-turn influence precompute, scored enemyDead*300 - myDead*180 - dist against per-enemy best replies under the focus rule, with a hard no-1v1 default, cooperative buddy support, and a 200 ms time box falling back to the legacy check.
 - what you learned: Generals went 5-2 in duels (losing twice to Backstop in mazes, beating Hotspot, Backstop twice, Flank, and Relief), won the 6p refine, and took 2nd in the 10p census behind Gang; best-reply refusals cede maze tempo where retreat-drags dominate, so mu reached 50.98 against 52.52 — combat resolution is not the bottleneck.
 - next: Food denial — hold a contested food field.
+
+## 145 — scout pushes unseen edge (2026-10-04)
+- commit: d7ee100
+- start: c96f1c9 (champion)
+- budget: 7 duels, 10p + 6p
+- score: mu 44.10, sigma 3.79
+- champion mu: 52.52 (Flood)
+- verdict: keep Flood
+- games: 7-0, FFA ranks 10p:4 6p:2
+- what changed: Battling as Scout in Scout.bot + Scout.py; Flood's united hunt, combat, and economy untouched, but the explore fallback BFS-marches idle ants to the nearest never-seen square (tracked seen-set, 500-node budget) instead of stepping to the least-visited neighbour, keeping least-visited as the backup.
+- what you learned: Replay study of Flood's maze_p02_03 loss to Relief showed the leak is slow reinforcement, not vision: Flood lost a hill at turn 195, held a 5v2 ant edge for 600 turns, yet never converted and fell 8-2 on hills. Scouts went a perfect 7-0 in duels (Backstop, Relief, Sow twice, Farmstead twice, Mugger) and finally beat Relief head-to-head, proving edge-pushing fixes maze tempo; but rank 4/10 in the census behind Underdog, Draft, and Revenant capped mu at 44.10 against 52.52 — united hunting still arrives late to crowded hill races.
+- next: Food denial — hold a contested food field.

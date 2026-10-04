@@ -176,3 +176,4 @@ row. Leave the old row as it was.
 | trying | Relief: fearless reinforce. |
 | trying | Farmstead: feet plus fallback. |
 | done | Sow: gather-only opening, hunt after turn 30. |
+| done | Edgepush: fallback BFS-marches idle ants to the nearest unseen square. |
