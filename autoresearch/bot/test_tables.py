@@ -334,9 +334,18 @@ def test_outnumbered_1v2_refuses_without_hills() -> None:
 
 
 def _load_champion() -> Any:
-    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    root = os.path.dirname(root)
-    champ_path = os.path.join(root, "champion-Crowd.py")
+    import subprocess
+    import tempfile
+
+    src = subprocess.run(
+        ["git", "show", "champion/main:autoresearch/bot/Crowd.py"],
+        capture_output=True,
+        check=True,
+        cwd=os.path.dirname(os.path.abspath(__file__)),
+    ).stdout.decode()
+    with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False) as fh:
+        fh.write(src)
+        champ_path = fh.name
     spec = importlib.util.spec_from_file_location("champion_Crowd", champ_path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
