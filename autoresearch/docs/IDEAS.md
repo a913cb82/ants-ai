@@ -98,6 +98,7 @@ row. Leave the old row as it was.
 | dropped | Odds: equal trades at 10 near (mu 51.0 vs 66.6; 1-6 duels; combat leg 5). |
 | dropped | Gang: pack-gated advance (mu 43.0 vs 66.6; 6p:6; combat leg 6). |
 | crowned | Crowd: fearless under 10 enemies (mu 67.9 vs 66.6; both FFAs won; combat leg 7). |
+| dropped | Legion: press needs 10 ants (mu 24.6 vs 67.9; 10p:8; combat leg 8). |
 | dropped | Anvil: bait-and-ambush (mu 17.0 vs 66.6; 10p:9). |
 | dropped | Patrol3: 30-step ranged patrol (mu 40.8 vs 66.6; range was never the bleed). |
 | dropped | Volunteers: duty drafts from spares only. |

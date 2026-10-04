@@ -2256,3 +2256,15 @@ Use this format.
 - what changed: Combat-program leg 7. Battling as Crowd in Crowd.bot + Crowd.py + shared combat.py; all prior legs kept (pack-gated seek, committed join, grinder 1v1, off-hill screen, 10-gate), plus fearless advances with fewer than 10 enemies visible (full safety in crowds).
 - what you learned: Crowds went 4-3 in duels including a Denial kill, and WON both FFAs, reaching mu 67.9 — pressing small fights while respecting big ones is the first combat idea that wins everywhere; the program continues from this chain.
 - next: press needs ten ants (Legion exp with extended combat.py + test_combat.py committed, queued for exam).
+
+## 187 — the 10-ant gate kills pressure (2026-10-04)
+- commit: 5f318a3 (bid Legion.bot-5f318a3)
+- start: a9d4173 (champion Crowd files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 24.6, sigma 3.52
+- champion mu: 67.9 (Crowd)
+- verdict: keep Crowd
+- games: 4-3, FFA ranks 10p:8 6p:3
+- what changed: Combat-program leg 8. Battling as Legion in Legion.bot + Legion.py + shared combat.py; all prior legs kept, plus fearless advances gated on 10+ own visible ants.
+- what you learned: Legions went 4-3 in duels but ranked 8th in the census, so mu reached 24.6 against 67.9 — small armies that never press never grow into big ones; the moment passes while babies wait.
+- next: danger moves first (Marshal exp with extended combat.py + test_combat.py committed, queued for exam).
