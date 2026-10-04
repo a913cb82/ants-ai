@@ -2102,3 +2102,15 @@ Use this format.
 - what changed: Battling as Bailiff in Bailiff.bot + Bailiff.py; Denial's united hunt, denial, and combat untouched, but ants on squares adjacent to 3+ enemies with no friendly adjacent evacuate toward friends before food assignment.
 - what you learned: Bailiffs went 4-3 in duels, won the refine, but ranked only 3rd in the census, so mu reached 55.6 against 66.6 — saved ants regroup on squares the enemy now owns; standing ground prices better.
 - next: adjacent double-team (Phalanx exp committed, queued for exam).
+
+## 174 — mirrors walk into traps (2026-10-04)
+- commit: 235a4f9 (bid Phalanx.bot-235a4f9)
+- start: 8dee7ed (champion Denial files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 34.9, sigma 3.07
+- champion mu: 66.6 (Denial)
+- verdict: keep Denial
+- games: 4-3, FFA ranks 10p:5 6p:6
+- what changed: Battling as Phalanx in Phalanx.bot + Phalanx.py; Denial's united hunt, denial, and combat untouched, but contact with an adjacent friend mirrors to the opposite side of the same enemy for a 2-on-1.
+- what you learned: Phalanxes went 4-3 in duels but ranked last (6th) in the refine, so mu reached 34.9 against 66.6 — the mirror ant walks around the enemy into its reinforcements; solo contact prices better.
+- next: sitter rotation (Turnstile exp committed, queued for exam).
