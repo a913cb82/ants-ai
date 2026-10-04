@@ -247,47 +247,50 @@ def assign_food_targets(
     return target
 
 
-SENTRY_PER_HILL = 2
-
-
-def draft_sentries(
-    ants_list: list[Loc],
-    my_hills: list[Loc],
-    threatened: list[Loc] | set[Loc],
+def hill_raiders(
+    hill: Loc,
+    enemy_locs: list[Loc],
     distance: DistFn,
-) -> set[int]:
-    # Standing sentries, drafted BEFORE food assignment: every held
-    # home hill keeps exactly SENTRY_PER_HILL spare ants standing.
-    # A threatened hill drafts nothing: its sentries are released
-    # back to the economy while guards take over. When spares run
-    # short, hills take what is there but always leave one forager,
-    # so food is never starved entirely.
-    sentries: set[int] = set()
-    if not ants_list or not my_hills:
-        return sentries
-    cap = len(ants_list) - 1
-    if cap <= 0:
-        return sentries
-    danger = set(threatened)
-    for hill in sorted(set(my_hills) - danger):
-        if len(sentries) >= cap:
-            break
+    closing: Callable[[Loc, Loc], bool] | None = None,
+) -> list[Loc]:
+    # Raiders menacing one home hill: visible enemies within 10, or
+    # within 16 and closing on the hill. Same bands as the guard rule.
+    return [
+        e
+        for e in enemy_locs
+        if distance(hill, e) <= 10
+        or (closing is not None and distance(hill, e) <= 16 and closing(e, hill))
+    ]
+
+
+def draft_militia(
+    ants_list: list[Loc],
+    hills_threat: dict[Loc, list[Loc]],
+    distance: DistFn,
+) -> tuple[set[int], dict[int, Loc]]:
+    # Threat-proportional draft, taken BEFORE food assignment: each
+    # threatened hill drafts its raider count plus one (1-for-1 plus
+    # 1) of the nearest undrafted ants. Unthreatened hills draft
+    # nothing. Returns drafted ant ids and their hill postings.
+    militia: set[int] = set()
+    posting: dict[int, Loc] = {}
+    for hill in sorted(hills_threat):
+        need = len(hills_threat[hill]) + 1
         picks = heapq.nsmallest(
-            SENTRY_PER_HILL,
-            (i for i in range(len(ants_list)) if i not in sentries),
+            need,
+            (i for i in range(len(ants_list)) if i not in militia),
             key=lambda i: (distance(ants_list[i], hill), i),
         )
         for i in picks:
-            if len(sentries) >= cap:
-                break
-            sentries.add(i)
-    return sentries
+            militia.add(i)
+            posting[i] = hill
+    return militia, posting
 
 
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Sentry:
+class Militia:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -312,10 +315,9 @@ class Sentry:
         # (local 2v2+ posture) instead of one ant per food. Battling as Flood. Homeward structure, wide fallback,
         # aggression, walk-off, food, and exploration match iteration
         # 76. Hunt always; ahead on hills, hunters skip the safety
-        # filter. Closeouts need teeth, not patience. Sentry: every
-        # held home hill drafts 2 standing sentries before food
-        # assignment; a threatened hill releases its sentries and
-        # guards take over.
+        # filter. Closeouts need teeth, not patience. Militia: each
+        # threatened home hill drafts raiders+1 nearest ants before
+        # food; unthreatened hills draft nothing.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -351,18 +353,14 @@ class Sentry:
                 cur, hill
             )
 
-        threatened = [
-            h
-            for h in my_hills
-            if any(
-                ants.distance(h, e) <= 10
-                or (ants.distance(h, e) <= 16 and closing(e, h))
-                for e in enemy_locs
-            )
-        ]
-        sentries = draft_sentries(ants_list, my_hills, threatened, ants.distance)
-        if sentries:
-            forager_ids = [i for i in range(len(ants_list)) if i not in sentries]
+        raiders_by_hill: dict[tuple[int, int], list[tuple[int, int]]] = {}
+        for h in my_hills:
+            raiders = hill_raiders(h, enemy_locs, ants.distance, closing)
+            if raiders:
+                raiders_by_hill[h] = raiders
+        militia, posting = draft_militia(ants_list, raiders_by_hill, ants.distance)
+        if militia:
+            forager_ids = [i for i in range(len(ants_list)) if i not in militia]
             sub = assign_food_targets(
                 [ants_list[i] for i in forager_ids],
                 foods,
@@ -458,13 +456,6 @@ class Sentry:
         anchored: set[tuple[int, int]] = set()
         for ai, ant_loc in enumerate(ants_list):
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
-            if ai in sentries:
-                # Standing sentry: hold position. Released only by
-                # threat, which drafts nothing above.
-                held.append(ant_loc)
-                if ants.time_remaining() < 10:
-                    break
-                continue
             best = target.get(ai)
             moved = False
             if best is not None:
@@ -475,20 +466,20 @@ class Sentry:
                     # Assigned food is blocked; keep the claim so no other
                     # ant chases the same region this turn.
                     pass
-            if not moved and threatened:
-                # No food or blocked: first guard holds the hill,
-                # extras screen the razer off it.
-                nearest = min(threatened, key=lambda h: ants.distance(ant_loc, h))
-                if nearest in anchored:
+            if not moved and ai in militia:
+                # Drafted defender: first to its hill holds it, extras
+                # screen the razers off it. Undrafted ants never guard.
+                mhill = posting[ai]
+                if mhill in anchored:
                     screen = min(
-                        enemy_locs,
-                        key=lambda e: ants.distance(nearest, e),
-                        default=nearest,
+                        raiders_by_hill[mhill],
+                        key=lambda e: ants.distance(mhill, e),
+                        default=mhill,
                     )
                     step = first_step(ant_loc, screen)
                 else:
-                    anchored.add(nearest)
-                    step = first_step(ant_loc, nearest)
+                    anchored.add(mhill)
+                    step = first_step(ant_loc, mhill)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved and hills:
@@ -556,6 +547,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Sentry())
+        Ants.run(Militia())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
