@@ -55,16 +55,21 @@ Rules:
 - Read the code of the other bots. Do not edit their code.
 - The coder gets one idea and a fixed time budget (30 minutes unless
   the brief says otherwise). It works in its own worktree on its own
-  branch (`coder/<n>`), never in the coordinator tree. It writes test
-  cases first for the risky part, then the bot code, runs whatever
-  tests it wants inside the budget, commits `exp: <idea>`, reports,
-  and stops. It never runs `iteration.py`, never plays games, never
+  branch (`coder/<n>`), never in the coordinator tree. Each entry gets
+  fresh filenames: copy the staged champion files to a new name, add
+  the one idea, and remove the predecessor's files. Never edit the
+  previous entry's files in place — stacking two unmeasured ideas in
+  one filename destroys attribution. It writes test cases first for
+  the risky part, then the bot code, runs whatever tests it wants
+  inside the budget, commits `exp: <idea>`, reports, and stops. It never runs `iteration.py`, never plays games, never
   reads scores, never edits notes, never pushes, never merges.
   Uncommitted work at budget end is dropped.
 - Scratch tests live in /tmp or beside the bot, committed with the
   exp commit. They never go under `tests/`.
 - The coordinator merges, briefs, plays, compares, tags, logs, and
-  pushes. It never edits bot code.
+  pushes. It never edits bot code. At spawn it stages the
+  measured-champion files as the coder's base, so every entry is
+  champion plus exactly one idea.
 
 ## Goal
 
