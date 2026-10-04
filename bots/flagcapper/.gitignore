@@ -1,0 +1,3 @@
+# Build artifacts (binary + object files) are rebuilt by run.sh.
+/MyBot
+*.o
