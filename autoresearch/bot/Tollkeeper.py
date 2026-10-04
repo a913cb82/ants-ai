@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import heapq
 from collections import deque
 from collections.abc import Callable
 
@@ -10,37 +11,9 @@ DistFn = Callable[[Loc, Loc], int]
 CLUSTER_R = 8
 DENIAL_ENEMIES = 3
 DENIAL_CLAIMS = 2
-RICH_RATIO = 2
-TRIAGE_RANGE = 15
+TOLL_COST = 3
+TOLL_MIN_ADJACENT = 2
 _CELL = CLUSTER_R + 1
-
-
-def triage_mode(n_ants: int, n_foods: int) -> str:
-    # Food triage by ant/food ratio: food-rich boards (food >= 2x
-    # ants) take short trips only; ant-rich boards (ants > foods)
-    # send idle extras to contest; parity is champion behavior.
-    if n_foods >= RICH_RATIO * n_ants:
-        return "rich"
-    if n_ants > n_foods:
-        return "contest"
-    return "parity"
-
-
-def near_food_indices(
-    ants_list: list[Loc],
-    foods: list[Loc],
-    distance: DistFn,
-    limit: int = TRIAGE_RANGE,
-) -> list[int]:
-    # Foods within `limit` steps of any ant. Early exit per food:
-    # one linear scan, no buckets, no sorting.
-    near: list[int] = []
-    for fi, food_loc in enumerate(foods):
-        for ant_loc in ants_list:
-            if distance(ant_loc, food_loc) <= limit:
-                near.append(fi)
-                break
-    return near
 
 
 def _scan_board(
@@ -241,21 +214,10 @@ def assign_food_targets(
     # exactly DENIAL_CLAIMS ants on their nearest foods (distinct ants
     # and distinct foods, nearest pairs first); the cluster's other
     # foods stay unclaimed this turn instead of spreading one per food.
-    # A one-food cluster can only draw one claimant. Quartermaster
-    # triage runs first: on food-rich boards only foods within
-    # TRIAGE_RANGE steps are claimed (long trips for marginal food
-    # are dropped); on ant-rich boards the extras left idle by the
-    # greedy below contest the nearest enemy-held food instead. At
-    # parity this is the champion greedy untouched.
+    # A one-food cluster can only draw one claimant.
     target: dict[int, Loc] = {}
     if not foods or not ants_list:
         return target
-    mode = triage_mode(len(ants_list), len(foods))
-    if mode == "rich":
-        keep = set(near_food_indices(ants_list, foods, distance))
-        if not keep:
-            return target
-        foods = [f for i, f in enumerate(foods) if i in keep]
     claimed: set[int] = set()
     denied: set[int] = set()
     for group in denied_food_groups(foods, enemy_locs, distance, rows, cols):
@@ -284,21 +246,135 @@ def assign_food_targets(
         if ai not in target and fi not in claimed:
             target[ai] = foods[fi]
             claimed.add(fi)
-    if mode == "contest" and enemy_locs:
-        held = [
-            f for f in foods if min(distance(e, f) for e in enemy_locs) <= CLUSTER_R
-        ]
-        if held:
-            for ai, ant_loc in enumerate(ants_list):
-                if ai not in target:
-                    target[ai] = min(held, key=lambda f: distance(ant_loc, f))
     return target
+
+
+def _disc_offsets(attackradius2: int) -> list[Loc]:
+    reach = int(attackradius2**0.5) + 1
+    return [
+        (dr, dc)
+        for dr in range(-reach, reach + 1)
+        for dc in range(-reach, reach + 1)
+        if dr * dr + dc * dc <= attackradius2
+    ]
+
+
+def compute_tolls(
+    enemy_locs: list[Loc],
+    friendly_locs: list[Loc],
+    rows: int,
+    cols: int,
+    attackradius2: int,
+) -> set[Loc]:
+    # Squares orthogonally adjacent to TOLL_MIN_ADJACENT+ distinct
+    # enemies where the local enemy count (attack disc) exceeds the
+    # friendly count. BFS pays TOLL_COST extra per toll square, so
+    # marches route around kill zones when a comparably short safe
+    # path exists, and walk through when none does.
+    adjacent: dict[Loc, int] = {}
+    for er, ec in enemy_locs:
+        for nr, nc in (
+            ((er + 1) % rows, ec),
+            ((er - 1) % rows, ec),
+            (er, (ec + 1) % cols),
+            (er, (ec - 1) % cols),
+        ):
+            key = (nr, nc)
+            adjacent[key] = adjacent.get(key, 0) + 1
+    enemies = set(enemy_locs)
+    friends = set(friendly_locs)
+    offsets = _disc_offsets(attackradius2)
+    tolls: set[Loc] = set()
+    for square, count in adjacent.items():
+        if count < TOLL_MIN_ADJACENT:
+            continue
+        sr, sc = square
+        foes = 0
+        for dr, dc in offsets:
+            if ((sr + dr) % rows, (sc + dc) % cols) in enemies:
+                foes += 1
+        pals = 0
+        for dr, dc in offsets:
+            if ((sr + dr) % rows, (sc + dc) % cols) in friends:
+                pals += 1
+                if pals >= foes:
+                    break
+        if foes > pals:
+            tolls.add(square)
+    return tolls
+
+
+def route_first_step(
+    start: Loc,
+    goal: Loc,
+    destination: Callable[[Loc, str], Loc],
+    passable: Callable[[Loc], bool],
+    tolls: set[Loc],
+    budget: int = 250,
+) -> str | None:
+    # Champion BFS while no toll squares exist (byte-identical paths);
+    # otherwise Dijkstra where entering a toll square costs
+    # 1 + TOLL_COST. Toll on the goal is constant for every path to
+    # it, so it never changes the route chosen.
+    if start == goal:
+        return None
+    if not tolls:
+        parent: dict[Loc, tuple[Loc, str]] = {}
+        parent[start] = (start, "")
+        queue: deque[Loc] = deque([start])
+        expanded = 0
+        while queue and expanded < budget:
+            cur = queue.popleft()
+            expanded += 1
+            for d in ("n", "e", "s", "w"):
+                nxt = destination(cur, d)
+                if nxt in parent or not passable(nxt):
+                    continue
+                parent[nxt] = (cur, d)
+                if nxt == goal:
+                    queue.clear()
+                    break
+                queue.append(nxt)
+        if goal not in parent:
+            return None
+        node = goal
+        while parent[node][0] != start:
+            node = parent[node][0]
+        return parent[node][1]
+    dist: dict[Loc, int] = {start: 0}
+    parent = {start: (start, "")}
+    heap: list[tuple[int, int, Loc]] = [(0, 0, start)]
+    seq = 0
+    expanded = 0
+    while heap and expanded < budget:
+        cost, _, cur = heapq.heappop(heap)
+        if cost != dist[cur]:
+            continue
+        if cur == goal:
+            break
+        expanded += 1
+        for d in ("n", "e", "s", "w"):
+            nxt = destination(cur, d)
+            if not passable(nxt):
+                continue
+            newcost = cost + 1 + (TOLL_COST if nxt in tolls else 0)
+            if nxt not in dist or newcost < dist[nxt]:
+                dist[nxt] = newcost
+                parent[nxt] = (cur, d)
+                seq += 1
+                heapq.heappush(heap, (newcost, seq, nxt))
+    if goal not in parent:
+        return None
+    node = goal
+    while parent[node][0] != start:
+        node = parent[node][0]
+    return parent[node][1]
 
 
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Quartermaster:
+class Tollkeeper:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -318,9 +394,10 @@ class Quartermaster:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Quartermaster: Denial's economy, except food claims are
-        # triaged by ratio (rich boards take short trips only,
-        # ant-rich extras contest enemy-held food). A food cluster contested by
+        # Tollkeeper: Denial's economy and battles, except BFS marches
+        # pay +3 per square adjacent to a superior enemy group (toll),
+        # routing around kill zones when a comparably short safe path
+        # exists. Denial: Flood's economy, except a food cluster contested by
         # 3+ visible enemies draws two ants onto its two closest foods
         # (local 2v2+ posture) instead of one ant per food. Battling as Flood. Homeward structure, wide fallback,
         # aggression, walk-off, food, and exploration match iteration
@@ -375,6 +452,7 @@ class Quartermaster:
         ]
         attack_r2 = ants.attackradius2 or 5
         rows, cols = ants.rows, ants.cols
+        tolls = compute_tolls(enemy_locs, ants_list, rows, cols, attack_r2)
 
         def sq_dist(a: tuple[int, int], b: tuple[int, int]) -> int:
             dr = abs(a[0] - b[0])
@@ -409,31 +487,12 @@ class Quartermaster:
         def first_step(
             start: tuple[int, int], goal: tuple[int, int], budget: int = 250
         ) -> str | None:
-            # Shortest passable path around water; return its first step.
-            if start == goal:
-                return None
-            parent: dict[tuple[int, int], tuple[tuple[int, int], str]] = {}
-            parent[start] = (start, "")
-            queue: deque[tuple[int, int]] = deque([start])
-            expanded = 0
-            while queue and expanded < budget:
-                cur = queue.popleft()
-                expanded += 1
-                for d in ("n", "e", "s", "w"):
-                    nxt = ants.destination(cur, d)
-                    if nxt in parent or not ants.passable(nxt):
-                        continue
-                    parent[nxt] = (cur, d)
-                    if nxt == goal:
-                        queue.clear()
-                        break
-                    queue.append(nxt)
-            if goal not in parent:
-                return None
-            node = goal
-            while parent[node][0] != start:
-                node = parent[node][0]
-            return parent[node][1]
+            # Shortest passable path around water, routing around toll
+            # squares (kill zones) when a comparably short safe path
+            # exists; return its first step.
+            return route_first_step(
+                start, goal, ants.destination, ants.passable, tolls, budget
+            )
 
         def try_step(
             ant_loc: tuple[int, int], direction: str, safe: bool = True
@@ -546,6 +605,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Quartermaster())
+        Ants.run(Tollkeeper())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
