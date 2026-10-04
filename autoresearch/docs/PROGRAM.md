@@ -162,12 +162,14 @@ separate them, never discipline alone:
   A checkout orphans the open log of the harness and loses games.
   The coordinator's own `main`-side edits go through a scratch
   worktree.
-- Coders are sequential, so they share one worktree path
-  (/tmp/loop-coder). Recreate it fresh from `autoresearch/main`
-  for each iteration, always detached (`git worktree add --detach`:
-  no branch, so unmeasured code stays invisible to the pool). Fresh
-  means no stale scratch files leak across iterations. The coder
-  never enters the coordinator tree.
+- Coders run in parallel, so each gets one worktree path from
+  the pool (/tmp/cbt-0 to /tmp/cbt-5). Recreate its path fresh
+  from `autoresearch/main` for each iteration, always detached
+  (`git worktree add --detach`: no branch, so unmeasured code
+  stays invisible to the pool). Fresh means no stale scratch files
+  leak across iterations. The coder never enters the coordinator
+  tree. Exams stay serial: one exam-runner at a time. It takes
+  the next frontier leaf per `autoresearch/docs/TREE.md`.
 - The coder never runs `iteration.py`. One exam call takes about
   25 minutes (7 duels plus two FFAs). The coordinator runs it after
   the exp commit lands. A run from a dirty tree trips the harness
