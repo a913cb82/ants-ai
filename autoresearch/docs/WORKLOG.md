@@ -1838,3 +1838,15 @@ Use this format.
 - what changed: Battling as Siege in Siege.bot + Siege.py; Denial's united hunt, denial, and economy untouched, but equal trades are allowed after 3+ turns of unbroken contact when provisional resolution proves a kill (Memetix deadlock-breaking).
 - what you learned: Sieges went 7-0 in duels and won the 6p refine, but finished DEAD LAST (10/10) in the census, crashing mu to 18.3 against 66.6 — the KILL gate fires constantly in crowded censuses and the army trades itself away. Deadlock-breaking helps duels and kills censuses; Memetix's KILL allowance does not transfer to our exam.
 - next: clean endgame closing (Endgamer-2 exp committed, queued for exam).
+
+## 151 — fearless reinforcement overdrafts the economy (2026-10-04)
+- commit: 73ebf99 (bid Relief.bot-73ebf99)
+- start: 8dee7ed (champion Denial files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 53.5, sigma 3.14
+- champion mu: 66.6 (Denial)
+- verdict: keep Denial
+- games: 3-4, FFA ranks 10p:2 6p:4
+- what changed: Battling as Relief in Relief.bot + Relief.py; Denial's united hunt, denial, and combat untouched, but hills with 2+ raiders pull every ant within 15 off food into defense, resuming economy only when the raid clears.
+- what you learned: Reliefs went 3-4 in duels and only 4th in the refine, so mu reached 53.5 against 66.6 — total drafting wins the hill but loses the growth race behind it; proportional guard (draft at most a third) stays the better rule.
+- next: clean endgame closing (Endgamer-2 exp committed, queued for exam).

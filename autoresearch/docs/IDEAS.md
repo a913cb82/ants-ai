@@ -178,7 +178,7 @@ row. Leave the old row as it was.
 | dropped | Mob: fearless in crowds. |
 | dropped | Homeward: explore to hills. |
 | dropped | General: battle-local 1-ply max-min combat resolution. |
-| trying | Relief: fearless reinforce. |
+| dropped | Relief: fearless reinforce (mu 53.5 vs 66.6; drafting overdrafts). |
 | trying | Farmstead: feet plus fallback. |
 | done | Sow: gather-only opening, hunt after turn 30. |
 | done | Edgepush: fallback BFS-marches idle ants to the nearest unseen square. |
