@@ -2460,3 +2460,15 @@ Use this format.
 - diagnosis (user): approaches fail structurally, not parametrically — likely a combat-priority issue (combat moves only fire when food/guard/muster fail). Knob tunes (+1-3 pts) cannot fix ordering.
 - plan change: (1) bold fixes per approach (reorder priorities, restructure phases — not weight tweaks); (2) round-robin across all 8 approaches, not approach-by-approach; (3) xathis + dirichlet reopened for 3 more iterations each (xathis won the tournament and would demolish our bots — replicate harder); (4) research subagents hunt best-bot source code + more postmortems in parallel with coding.
 - queue: influence3 exam, greedy3 exam, softmax/fixing/tables/twostage impl exams, then bold legs in rotation.
+
+## 205 — soft 1-ply best impl yet, duels collapse (2026-10-04)
+- commit: ba68434 (bid Softmax.bot-ba68434; approach exam 1/4)
+- start: a9d4173 (champion Crowd files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 41.5, sigma 3.42
+- champion mu: 67.9 (Crowd)
+- verdict: keep Crowd
+- games: 1-6, FFA ranks 10p:4 6p:2
+- what changed: Faithful nhaehnle replication (1-ply over K=8 sampled enemy moves, own weight 1.5, logistic coin-flip aggression) on the Crowd economy.
+- what you learned: best implementation score so far (41.5) with mid-pack FFAs, but 1-6 duels — the coin flip donates; probabilistic aggression needs a deterministic gate.
+- next: softmax-tune1 (deterministic gate, no coin flip) codes; fixing implementation examines (round-robin: 4 remaining).
