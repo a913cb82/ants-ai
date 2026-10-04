@@ -2443,3 +2443,15 @@ Use this format.
 - what changed: influence-tune1 — KILL allowed on any hill-push muster/reinforce (not just deadlocks).
 - what you learned: 28.8 to 29.5, 5-2 duels beating base Influence head-to-head — direction right, magnitude small; FFAs still refuse too much.
 - next: influence-tune2 (softer overcount refinement) codes while Greedy2 examines.
+
+## 203 — weaker lure buys ten points (2026-10-04)
+- commit: 2c509e4 (bid Greedy2.bot-2c509e4; approach exam 2/4)
+- start: a9d4173 (champion Crowd files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 26.6, sigma 3.30
+- champion mu: 67.9 (Crowd)
+- verdict: keep Crowd
+- games: 1-6, FFA ranks 10p:7 6p:1
+- what changed: greedy-tune1 — enemy-field weight 2.0 to 0.5.
+- what you learned: 16.1 to 26.6 (+10.5) — deluring works, but duels still collapse 1-6; greedy fields cannot price contact.
+- next: greedy-tune2 (kill-bonus gate sweep) codes while Influence3 examines.
