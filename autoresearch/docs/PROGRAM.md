@@ -56,7 +56,11 @@ Rules:
   Do not edit it. Commit it with your notes.
 - Read the code of the other bots. Do not edit their code.
 - The coder gets one idea and a fixed time budget (30 minutes unless
-  the brief says otherwise). It works detached in the shared worktree
+  the brief says otherwise). The coder manages its own clock: run
+  `date +%s` first, compute the deadline, re-check before each major
+  step, and stop coding early enough to run tests plus hooks plus
+  commit before the deadline. Uncommitted work at budget end is
+  dropped — a smaller green commit beats a bigger uncommitted one. It works detached in the shared worktree
   (/tmp/loop-coder), never in the coordinator tree. No branch is ever
   created for unmeasured code: a visible branch would leak into the
   pool (`git log --all`), drafting unrated code as rulers and tripping
