@@ -38,6 +38,12 @@ than CROWD_LIMIT enemies are visible, so packed hunters skip the
 safety filter on advancing moves in small fights and keep full
 champion safety in crowds.
 
+Leg 8 adds the Legion gate: legion_ready reports whether 10+
+own ants (LEGION_MIN) are visible, so the crowd-fearless advance
+issues only with a real army; smaller armies keep full champion
+safety on every advance regardless of enemy count. Fearless
+babies donate in duels; press only with numbers.
+
 Research: "Approach forms fighting lines" (xathis approaching
 enemies) -- ants near enemies advance on them instead of walking
 only to food, hills, or empty ground.
@@ -72,6 +78,24 @@ PACK_RADIUS = 10
 # CROWD_LIMIT+ visible enemies keeps full champion safety.
 # Donations happen in crowds, not duels.
 CROWD_LIMIT = 10
+
+# Leg 8 (Legion): press needs ten ants -- early growth is
+# spawns, not winning; fearless babies donate in duels. The
+# crowd-fearless advance issues only with LEGION_MIN+ own ants
+# visible; smaller armies keep full champion safety on every
+# advance regardless of enemy count.
+LEGION_MIN = 10
+
+
+def legion_ready(my_army: int, limit: int = LEGION_MIN) -> bool:
+    """Whether the visible army is big enough to press fearlessly.
+
+    True when my_army reaches limit, so a packed advance in a
+    small fight skips the safety filter; smaller armies hold full
+    champion safety on every advance. Pure: integer compare, no
+    side effects.
+    """
+    return my_army >= limit
 
 
 def crowd_fearless(enemy_count: int, limit: int = CROWD_LIMIT) -> bool:

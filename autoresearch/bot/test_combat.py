@@ -51,6 +51,13 @@ fewer than combat.CROWD_LIMIT (10) enemies are visible, a packed
 advancing move skips the safety filter (fearless ahead); with 10+
 enemies visible the full champion safety applies. Food, guard,
 muster, reinforce, and explore keep their existing filters.
+
+Leg 8 implements the RESEARCH.md row "Legion: press needs ten
+ants": early growth is spawns, not winning. The crowd-fearless
+advance issues only with 10+ own ants visible
+(combat.LEGION_MIN); smaller armies keep full champion safety on
+every advance regardless of enemy count. Food, guard, muster,
+reinforce, and explore keep their existing filters.
 """
 
 import os
@@ -61,9 +68,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import combat as CX  # noqa: E402
 
-# Leg 7: Crowd.py carries the same seek + join + grinder + screen
-# + odds + gang wiring; CP aliases the live Crowd entry.
-import Crowd as CP  # noqa: E402
+# Leg 8: Legion.py carries the same seek + join + grinder +
+# screen + odds + gang + crowd wiring, plus the army gate; CP
+# aliases the live Legion entry.
+import Legion as CP  # noqa: E402
 
 Loc = tuple[int, int]
 ROWS = 20
@@ -144,9 +152,9 @@ def run_turn(
     water: set[Loc] | None = None,
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
-) -> tuple[list[tuple[Loc, str]], CP.Crowd]:
+) -> tuple[list[tuple[Loc, str]], CP.Legion]:
     fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
-    bot = CP.Crowd()
+    bot = CP.Legion()
     bot.do_turn(fake)
     return fake.orders, bot
 
@@ -158,9 +166,9 @@ def run_grinder_turn(
     water: set[Loc] | None = None,
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
-) -> tuple[list[tuple[Loc, str]], CP.Crowd]:
+) -> tuple[list[tuple[Loc, str]], CP.Legion]:
     fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
-    bot = CP.Crowd()
+    bot = CP.Legion()
     bot.do_turn(fake)
     return fake.orders, bot
 
@@ -670,10 +678,10 @@ def run_gang_turn(
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
 ) -> tuple[list[tuple[Loc, str]], object]:
-    # The Gang entry files are gone; Crowd carries its wiring, so
-    # the gang boards run on Crowd exactly.
+    # The Gang entry files are gone; Legion carries their wiring,
+    # so the gang boards run on Legion exactly.
     fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
-    bot = CP.Crowd()
+    bot = CP.Legion()
     bot.do_turn(fake)
     return fake.orders, bot
 
@@ -755,9 +763,9 @@ def run_crowd_turn(
     water: set[Loc] | None = None,
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
-) -> tuple[list[tuple[Loc, str]], CP.Crowd]:
+) -> tuple[list[tuple[Loc, str]], CP.Legion]:
     fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
-    bot = CP.Crowd()
+    bot = CP.Legion()
     bot.do_turn(fake)
     return fake.orders, bot
 
@@ -770,9 +778,11 @@ def safe_orders(
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
 ) -> list[tuple[Loc, str]]:
-    # Gang-equivalent baseline on the Crowd code: force the crowd
+    # Gang-equivalent baseline on the Legion code: force the crowd
     # gate closed so the full champion safety filter applies to
-    # every advancing move, exactly as legs 1-6 behave.
+    # every advancing move, exactly as legs 1-6 behave. (The army
+    # gate is untouched: with the crowd gate closed both paths are
+    # safe, so this still reproduces the pre-Crowd behavior.)
     orig = CX.CROWD_LIMIT
     CX.CROWD_LIMIT = 0
     try:
@@ -794,6 +804,13 @@ def safe_orders(
 # hunter and outside attack range of every candidate step.
 _CROWD_MINE = [(5, 5), (5, 2), (5, 3), (5, 1)]
 _CROWD_NEAR = [(5, 7), (5, 8)]
+# Leg 8 (Legion): the fearless crowd boards below run with 10 own
+# ants so the army gate stays open and they still discriminate the
+# crowd gate. Fillers sit beyond SEEK_RANGE of every foe and
+# outside attack range of every candidate step, so safety, join,
+# and grinder read exactly as the 4-ant crowd board.
+_CROWD_PAD = [(9, 0), (9, 2), (10, 0), (10, 2), (11, 1), (10, 1)]
+_CROWD_MINE_10 = _CROWD_MINE + _CROWD_PAD
 _CROWD_FAR_POOL = [
     (15, 15),
     (15, 16),
@@ -831,9 +848,9 @@ def test_three_enemies_advance_fearlessly_where_safe_holds() -> None:
     # explores north instead.
     enemies = _CROWD_NEAR + _CROWD_FAR_POOL[:1]
     assert len(enemies) == 3
-    orders, _ = run_crowd_turn(_CROWD_MINE, enemies)
+    orders, _ = run_crowd_turn(_CROWD_MINE_10, enemies)
     assert orders[0] == ((5, 5), "e")
-    safe = safe_orders(_CROWD_MINE, enemies)
+    safe = safe_orders(_CROWD_MINE_10, enemies)
     assert safe[0] == ((5, 5), "n")
     assert orders != safe
 
@@ -852,13 +869,13 @@ def test_crowd_boundary_nine_fearless_ten_safe() -> None:
     # (c) 9 visible enemies advance east; 10 hold exactly as safe.
     nine = _CROWD_NEAR + _CROWD_FAR_POOL[:7]
     assert len(nine) == 9
-    orders9, _ = run_crowd_turn(_CROWD_MINE, nine)
+    orders9, _ = run_crowd_turn(_CROWD_MINE_10, nine)
     assert orders9[0] == ((5, 5), "e")
-    assert orders9 != safe_orders(_CROWD_MINE, nine)
+    assert orders9 != safe_orders(_CROWD_MINE_10, nine)
     ten = _CROWD_NEAR + _CROWD_FAR_POOL[:8]
     assert len(ten) == 10
-    orders10, _ = run_crowd_turn(_CROWD_MINE, ten)
-    assert orders10 == safe_orders(_CROWD_MINE, ten)
+    orders10, _ = run_crowd_turn(_CROWD_MINE_10, ten)
+    assert orders10 == safe_orders(_CROWD_MINE_10, ten)
     assert orders10[0] != ((5, 5), "e")
 
 
@@ -885,3 +902,135 @@ def test_crowd_food_guard_orders_unchanged_when_few_enemies() -> None:
     orders, _ = run_crowd_turn(mine, enemies, foods, my_hills=[(10, 12)])
     assert orders == safe_orders(mine, enemies, foods, my_hills=[(10, 12)])
     assert orders == [((5, 5), "e"), ((2, 2), "e"), ((10, 10), "e")]
+
+
+def run_legion_turn(
+    mine: list[Loc],
+    enemies: list[Loc],
+    foods: list[Loc] | None = None,
+    water: set[Loc] | None = None,
+    enemy_hills: list[Loc] | None = None,
+    my_hills: list[Loc] | None = None,
+) -> tuple[list[tuple[Loc, str]], CP.Legion]:
+    fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
+    bot = CP.Legion()
+    bot.do_turn(fake)
+    return fake.orders, bot
+
+
+# Leg 8 (Legion) boards: packed hunter (5, 5) with three close
+# friends eyes the step east onto (5, 6) against two near foes
+# (5, 7) and (5, 8) plus one far foe (0, 0): two enemies in attack
+# range, no friend backing the step -- unsafe under every earlier
+# leg, so the safe baseline explores north instead of engaging.
+# Fillers cluster bottom-right, beyond SEEK_RANGE of every foe and
+# outside attack range of every candidate step, so safety, join,
+# and grinder read exactly as the 4-ant crowd board.
+_LEGION_BASE = [(5, 5), (5, 1), (5, 2), (5, 3)]
+_LEGION_FILLERS = [
+    (15, 15),
+    (15, 16),
+    (15, 14),
+    (14, 15),
+    (16, 15),
+    (16, 16),
+    (14, 14),
+    (13, 13),
+]
+_LEGION_FOES = [(5, 7), (5, 8), (0, 0)]
+_LEGION_12 = _LEGION_BASE + _LEGION_FILLERS
+_LEGION_10 = _LEGION_BASE + _LEGION_FILLERS[:6]
+_LEGION_9 = _LEGION_BASE + _LEGION_FILLERS[:5]
+_LEGION_6 = _LEGION_BASE + _LEGION_FILLERS[:2]
+# Food/guard board fillers hug the south-west corner instead: the
+# contested cluster's far foe sits at (10, 15), inside SEEK_RANGE
+# of the bottom-right cluster, so these stay clear of every enemy
+# while remaining too far to steal a food claim.
+_LEGION_GUARD_FILLERS = [
+    (19, 0),
+    (19, 1),
+    (18, 0),
+    (18, 1),
+    (17, 0),
+    (17, 1),
+    (16, 0),
+    (16, 1),
+    (19, 2),
+]
+
+
+def test_legion_min_constant_is_ten() -> None:
+    # (gate) The army gate lives in combat as a named constant: 10
+    # own ants visible, from the RESEARCH.md row.
+    assert CX.LEGION_MIN == 10
+
+
+def test_legion_ready_boundary() -> None:
+    # (pure) 10+ own ants press; 9 or fewer hold. The boundary
+    # sits between 9 and 10 exactly.
+    assert CX.legion_ready(0) is False
+    assert CX.legion_ready(6) is False
+    assert CX.legion_ready(9) is False
+    assert CX.legion_ready(10) is True
+    assert CX.legion_ready(12) is True
+
+
+def test_big_army_advances_fearlessly_where_safe_holds() -> None:
+    # (a) 12 own ants, 3 enemies: the packed hunter steps east
+    # into the 1v2 contact fearlessly, where the safe baseline
+    # refuses and explores north instead.
+    assert len(_LEGION_12) == 12
+    assert len(_LEGION_FOES) == 3
+    orders, _ = run_legion_turn(_LEGION_12, _LEGION_FOES)
+    assert orders[0] == ((5, 5), "e")
+    safe = safe_orders(_LEGION_12, _LEGION_FOES)
+    assert safe[0] == ((5, 5), "n")
+    assert orders != safe
+
+
+def test_small_army_holds_exactly_as_safe() -> None:
+    # (b) 6 own ants, 3 enemies: the same hunter holds exactly as
+    # the safe baseline -- full champion safety, never east.
+    assert len(_LEGION_6) == 6
+    orders, _ = run_legion_turn(_LEGION_6, _LEGION_FOES)
+    assert orders == safe_orders(_LEGION_6, _LEGION_FOES)
+    assert orders[0] != ((5, 5), "e")
+
+
+def test_legion_boundary_ten_fearless_nine_safe() -> None:
+    # (c) 10 own ants advance east; 9 hold exactly as safe.
+    assert len(_LEGION_10) == 10
+    assert len(_LEGION_9) == 9
+    orders10, _ = run_legion_turn(_LEGION_10, _LEGION_FOES)
+    assert orders10[0] == ((5, 5), "e")
+    assert orders10 != safe_orders(_LEGION_10, _LEGION_FOES)
+    orders9, _ = run_legion_turn(_LEGION_9, _LEGION_FOES)
+    assert orders9 == safe_orders(_LEGION_9, _LEGION_FOES)
+    assert orders9[0] != ((5, 5), "e")
+
+
+def test_legion_food_guard_orders_unchanged_when_big_army() -> None:
+    # (e) The gate touches the advance path only: with 12 own
+    # ants and 4 enemies visible (fearless elsewhere), food claims
+    # and hill guards resolve exactly as the safe baseline.
+    mine = [(5, 5), (2, 2), (10, 10)] + _LEGION_GUARD_FILLERS
+    assert len(mine) == 12
+    foods = [(5, 6), (2, 3)]
+    enemies = [(5, 12), (2, 6), (5, 9), (10, 15)]
+    orders, _ = run_legion_turn(mine, enemies, foods, my_hills=[(10, 12)])
+    assert orders == safe_orders(mine, enemies, foods, my_hills=[(10, 12)])
+    assert orders[0] == ((5, 5), "e")
+    assert orders[1] == ((2, 2), "e")
+
+
+def test_legion_count_costs_under_half_ms_on_crowded_board() -> None:
+    # (d) The army-count check -- the only new arithmetic on the
+    # seek path -- costs far under 0.5ms per crowded-board pass.
+    mine = [(i % ROWS, (i * 7) % COLS) for i in range(48)]
+    reps = 2000
+    start = time.perf_counter()
+    for _ in range(reps):
+        for _ant in mine:
+            _ = CX.legion_ready(len(mine), CX.LEGION_MIN)
+    elapsed = (time.perf_counter() - start) / reps
+    assert elapsed < 0.0005
