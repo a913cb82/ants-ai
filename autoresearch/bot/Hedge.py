@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import time
 from collections import deque
 from collections.abc import Callable
 
@@ -13,20 +12,11 @@ DENIAL_ENEMIES = 3
 DENIAL_CLAIMS = 2
 _CELL = CLUSTER_R + 1
 
-TIMEKEEPER_FRAC = 0.8
 
-
-def explore_allowed(start: float, budget_ms: int, now: float) -> bool:
-    # True while elapsed wall-clock sits under 80% of the turn
-    # budget. A missing budget never skips: explore always goes.
-    if budget_ms <= 0:
-        return True
-    return (now - start) < TIMEKEEPER_FRAC * budget_ms / 1000.0
-
-
-def time_for_explore(start: float, budget_ms: int) -> bool:
-    # Per-ant governor check: one clock read plus one compare.
-    return explore_allowed(start, budget_ms, time.perf_counter())
+def even_trade_allowed(my_count: int, enemy_count: int) -> bool:
+    # Hedge gate: take even (1-for-1) contact trades when ahead
+    # or even on visible ant count; disengage when outnumbered.
+    return my_count >= enemy_count
 
 
 def _scan_board(
@@ -265,7 +255,7 @@ def assign_food_targets(
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Timekeeper:
+class Hedge:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -285,11 +275,10 @@ class Timekeeper:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Timekeeper: Denial's economy, except the turn watches its
-        # own wall clock -- once 80% of the turn budget has elapsed,
-        # the remaining explore-diffusion orders are skipped so food,
-        # defense, and hill orders never time out. With time to spare
-        # every order matches Denial exactly.
+        # Hedge: Denial's economy, except even contact trades need
+        # parity or better on visible ant count -- outnumbered armies
+        # disengage instead of trading 1-for-1. Ahead or even, every
+        # order matches Denial exactly.
         # Denial: Flood's economy, except a food cluster contested by
         # 3+ visible enemies draws two ants onto its two closest foods
         # (local 2v2+ posture) instead of one ant per food. Battling as Flood. Homeward structure, wide fallback,
@@ -373,8 +362,14 @@ class Timekeeper:
                     near += 1
             if friends + 1 > enemies:
                 return True
-            # Aggressive: 14+ friends near the fight accept equal trades.
-            return near >= 14 and friends + 1 >= enemies
+            # Aggressive: 14+ friends near the fight accept equal
+            # trades, but only behind the hedge gate -- an
+            # outnumbered army disengages instead of trading even.
+            return (
+                near >= 14
+                and friends + 1 >= enemies
+                and even_trade_allowed(len(ants_list), len(enemy_locs))
+            )
 
         def first_step(
             start: tuple[int, int], goal: tuple[int, int], budget: int = 250
@@ -423,8 +418,6 @@ class Timekeeper:
         destinations: set[tuple[int, int]] = set()
         held: list[tuple[int, int]] = []
         anchored: set[tuple[int, int]] = set()
-        turn_start = time.perf_counter()
-        budget_ms = getattr(ants, "turntime", 0) or 0
         for ai, ant_loc in enumerate(ants_list):
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
             best = target.get(ai)
@@ -473,10 +466,8 @@ class Timekeeper:
                 hstep = first_step(ant_loc, near)
                 if hstep is not None and try_step(ant_loc, hstep):
                     moved = True
-            if not moved and time_for_explore(turn_start, budget_ms):
+            if not moved:
                 # Still stuck: explore least-visited squares first.
-                # Skipped once 80% of the budget has elapsed; the ant
-                # simply holds instead of risking a timeout.
                 dirs = sorted(
                     ("n", "e", "s", "w"),
                     key=lambda d: self.visits.get(ants.destination(ant_loc, d), 0),
@@ -520,6 +511,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Timekeeper())
+        Ants.run(Hedge())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
