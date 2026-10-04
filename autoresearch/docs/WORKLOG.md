@@ -2298,3 +2298,16 @@ Use this format.
 - approaches: xathis two-mode 1-ply (/tmp/cbt-xathis), a1k0n Dirichlet sampling (/tmp/cbt-dirichlet), Memetix full influence + refinement (/tmp/cbt-influ), delineate greedy fields (/tmp/cbt-greedy), nhaehnle soft 1-ply (/tmp/cbt-softmax), anthonyvh sequential fixing (/tmp/cbt-fixing), codetiger precomputed tables (/tmp/cbt-tables), Michigan two-stage (/tmp/cbt-twostage).
 - base: champion Crowd chain staged in each tree; entries self-contained (no combat.py import); 60-minute budget each.
 - champion stands: Crowd (champion/main = a9d4173, mu 67.9).
+
+## 191 — 8 approach implementations land (2026-10-04)
+- plan: 4 exams each (32 total). Implementation exam first, then 3 tuning legs per approach.
+- commits (detached worktrees, all hooks green, tests-first):
+  - xathis f010059: two-mode 1-ply (aggressive 14-near, eval eD*300-mD*180-dist; 1-for-1 + 3-for-2 yes, 2-for-1 never) + approach + open-space escape. 12 tests.
+  - dirichlet c23a8df: Dirichlet(1..1) sampling, random ant order, provisional best-reply, 5ms fight budget. 9 tests.
+  - influence 5988204: two-field influence + overcount refinement + deadlock-only KILL. 15 tests.
+  - greedy 2d38f13: zero-search 1/(1+d^2) fields, kill bonus only strict superiority. 15 tests.
+  - softmax 052c4f2: 1-ply over K=8 sampled enemy moves, own weight 1.5, logistic aggression gate. 10 tests.
+  - fixing eff7fef: sequential pinning most-constrained-first, stationary enemies pinned, suicide iff unblocks hill rush. 12 tests.
+  - tables 5783773: precomputed battle table, 1v1 only within 14 of own hill. 18 tests.
+  - twostage f699ef0: static classify + stay/advance model, fewest-ants ties, capped DFS + early exit. 14 tests.
+- base: champion Crowd chain; entries self-contained; economy/muster/guard/explore preserved.
