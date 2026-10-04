@@ -2054,3 +2054,15 @@ Use this format.
 - what changed: Battling as Coroner in Coroner.bot + Coroner.py; Denial's united hunt, denial, and combat untouched, but squares where our ants died in contact are avoided for 20 turns, with fallback routing so corridors never strand.
 - what you learned: Coroners went 2-5 in duels despite 2nd in the census, so mu reached 53.7 against 66.6 — death squares are usually contested squares worth re-entering; memory mourns while the enemy harvests.
 - next: adaptive opening by turn-20 census (Census exp committed, queued for exam).
+
+## 170 — quiet-map exploring wastes harvest (2026-10-04)
+- commit: e0f3301 (bid Census.bot-e0f3301)
+- start: 8dee7ed (champion Denial files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 45.6, sigma 3.17
+- champion mu: 66.6 (Denial)
+- verdict: keep Denial
+- games: 2-5, FFA ranks 10p:4 6p:2
+- what changed: Battling as Census in Census.bot + Census.py; Denial's united hunt, denial, and combat untouched, but with zero enemies seen by turn 20, two ants shift from food to explore for turns 21-60.
+- what you learned: Censuses went 2-5 in duels with mid-pack FFAs, so mu reached 45.6 against 66.6 — empty maps still reward harvesting over intel; the opening stays fixed.
+- next: army-wide challenger exclusion (Outcast exp committed, queued for exam).
