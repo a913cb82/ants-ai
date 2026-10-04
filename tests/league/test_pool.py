@@ -244,3 +244,31 @@ def test_all_commits_ignores_detached_and_worktree_heads(tmp_path):
     subprocess.run(
         ["git", "-C", str(r), "worktree", "remove", "--force", str(wt)], check=True
     )
+
+
+def test_pool_real_repo_under_10s():
+    import time
+
+    import pool
+
+    cache = getattr(pool, "_POOL_CACHE", None)
+    if cache is not None:
+        cache.clear()
+    started = time.perf_counter()
+    ids = pool.pool()
+    elapsed = time.perf_counter() - started
+    assert ids, "expected a nonempty pool on the real repo"
+    assert elapsed < 10, f"cold pool() took {elapsed:.1f}s, budget is <10s"
+
+
+def test_pool_warm_repeat_identical():
+    from pool import pool
+
+    assert pool() == pool()
+
+
+def test_pool_matches_golden():
+    from pool import pool
+
+    golden = Path(__file__).with_name("pool_golden.txt").read_text().splitlines()
+    assert pool() == golden

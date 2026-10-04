@@ -9,6 +9,7 @@ time-travels, never the rules.
 from __future__ import annotations
 
 import hashlib
+import locale
 import os
 import shutil
 import subprocess
@@ -194,23 +195,152 @@ def choose_canonical(
     return sorted(specs, key=lambda bs: (-games_of.get(bs, 0), order[bs[1]]))[0]
 
 
-def pool(root: str | Path = ROOT, ratings: dict | None = None) -> list[str]:
+_POOL_CACHE: dict[
+    tuple[str, tuple[str, ...], str],
+    tuple[dict[str, int], dict[str, list[tuple[str, str]]]],
+] = {}
+"""Memoized pool geometry: (root, commits, head) -> (order, hash groups).
+
+Commits are immutable, so the expensive half of pool() — pair discovery
+plus content hashes — runs once per process and is reused. Ratings do
+change, but they only feed the cheap canonical-choice step, which runs
+fresh on every call."""
+
+
+def _cat_batch(root: str | Path, ids: list[str]) -> dict[str, bytes]:
+    """Raw contents for many objects with a single git call."""
+    want = list(dict.fromkeys(ids))
+    if not want:
+        return {}
+    proc = subprocess.run(
+        ["git", "-C", str(root), "cat-file", "--batch"],
+        input=("\n".join(want) + "\n").encode(),
+        capture_output=True,
+        check=True,
+        env=git_env(),
+    )
+    out = proc.stdout
+    res: dict[str, bytes] = {}
+    pos = 0
+    for _ in want:
+        nl = out.index(b"\n", pos)
+        sha, _typ, size_s = out[pos:nl].decode("ascii").split()
+        size = int(size_s)
+        res[sha] = out[nl + 1 : nl + 1 + size]
+        pos = nl + 1 + size + 1
+    return res
+
+
+def _parse_tree(buf: bytes) -> list[tuple[str, str, str]]:
+    """Tree object bytes -> [(mode, object-sha, name)]."""
+    entries: list[tuple[str, str, str]] = []
+    pos = 0
+    while pos < len(buf):
+        sp = buf.index(b" ", pos)
+        mode = buf[pos:sp].decode("ascii")
+        z = buf.index(b"\x00", sp)
+        name = buf[sp + 1 : z].decode("utf-8", "surrogateescape")
+        sha = buf[z + 1 : z + 21].hex()
+        entries.append((mode, sha, name))
+        pos = z + 21
+    return entries
+
+
+def _pool_data(
+    root: str | Path,
+) -> tuple[dict[str, int], dict[str, list[tuple[str, str]]]]:
+    """(order, hash-groups) for pool(), in a handful of git calls.
+
+        One `git log` maps every commit to its tree, a few `git cat-file
+        --batch` rounds expand every reachable tree, and one more serves
+    every manifest blob. Same pairs and hashes as the naive per-commit
+        walk, without the per-commit subprocess storm."""
     commits = all_commits(root)
+    head = short(root, "HEAD")
+    key = (str(root), tuple(commits), head)
+    hit = _POOL_CACHE.get(key)
+    if hit is not None:
+        return hit
+    order = {sha: i for i, sha in enumerate(commits + [head])}
+    rev_tree: dict[str, str] = {}
+    for line in _git(
+        root, "log", "--branches", "--tags", "--format=%H %T %h", "--reverse"
+    ).splitlines():
+        _full, tree, abbrev = line.split()
+        if abbrev not in rev_tree:
+            rev_tree[abbrev] = tree
+    _head_full, head_tree = _git(root, "log", "-1", "--format=%H %T", "HEAD").split()
+    revs = list(dict.fromkeys(commits + [head]))
+    trees_of = {r: rev_tree.get(r, head_tree) for r in revs}
+    tree_objs: dict[str, list[tuple[str, str, str]]] = {}
+    need = set(trees_of.values())
+    while True:
+        missing = sorted(s for s in need if s not in tree_objs)
+        if not missing:
+            break
+        for sha, buf in _cat_batch(root, missing).items():
+            entries = _parse_tree(buf)
+            tree_objs[sha] = entries
+            for mode, sub, _name in entries:
+                if mode in ("040000", "40000"):
+                    need.add(sub)
+    files_by_tree: dict[str, dict[str, str]] = {}
+
+    def files_at(tree: str) -> dict[str, str]:
+        found = files_by_tree.get(tree)
+        if found is not None:
+            return found
+        files: dict[str, str] = {}
+        stack = [(tree, "")]
+        while stack:
+            cur, prefix = stack.pop()
+            for mode, sha, name in tree_objs[cur]:
+                path = f"{prefix}{name}"
+                if mode in ("040000", "40000"):
+                    stack.append((sha, path + "/"))
+                else:
+                    files[path] = sha
+        files_by_tree[tree] = files
+        return files
+
+    rev_files = {r: files_at(trees_of[r]) for r in revs}
     pairs: list[tuple[str, str]] = []
     for c in commits:
-        for b in bots_at(root, c):
+        for b in sorted(p for p in rev_files[c] if p.endswith(".bot")):
             pairs.append((b, c))
-    head = short(root, "HEAD")
-    for b in bots_at(root, "HEAD"):
+    for b in sorted(p for p in rev_files[head] if p.endswith(".bot")):
         pairs.append((b, head))
-    order = {sha: i for i, sha in enumerate(commits + [head])}
+    encoding = locale.getpreferredencoding(False)
+    texts = {
+        sha: buf.decode(encoding)
+        for sha, buf in _cat_batch(
+            root, [rev_files[sha][b] for b, sha in pairs]
+        ).items()
+    }
+    by_hash: dict[str, list[tuple[str, str]]] = {}
+    for b, sha in pairs:
+        files = rev_files[sha]
+        d = str(Path(b).parent)
+        if d == ".":
+            members = sorted(files.values())
+        else:
+            prefix = d + "/"
+            members = sorted(
+                blob for path, blob in files.items() if path.startswith(prefix)
+            )
+        body = texts[files[b]]
+        h = hashlib.sha1(("\0".join(members) + "\0" + body).encode()).hexdigest()[:10]
+        by_hash.setdefault(h, []).append((b, sha))
+    result = (order, by_hash)
+    _POOL_CACHE[key] = result
+    return result
+
+
+def pool(root: str | Path = ROOT, ratings: dict | None = None) -> list[str]:
+    order, by_hash = _pool_data(root)
     games_of = {}
     for bid, e in (ratings or {}).items():
         games_of[parse_id(bid)] = e["games"]
-    by_hash: dict[str, list[tuple[str, str]]] = {}
-    for b, sha in pairs:
-        h = content_hash(root, sha, b)
-        by_hash.setdefault(h, []).append((b, sha))
     return sorted(
         bot_id(*choose_canonical(specs, games_of, order)) for specs in by_hash.values()
     )
