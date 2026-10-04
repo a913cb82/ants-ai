@@ -1982,3 +1982,15 @@ Use this format.
 - what changed: Battling as Second in Second.bot + Second.py; Denial's united hunt, denial, and combat untouched, but every hill challenge pulls the nearest free ant to a support square within 3 of the challenger, going solo only with no free ant in reach.
 - what you learned: Seconds went 5-2 in duels, won the refine, but ranked only 4th in the census, so mu reached 50.7 against 66.6 — the supporter is an ant not harvesting; solo challenges stay the rule.
 - next: turn-time governor (Timekeeper exp committed, queued for exam).
+
+## 164 — the governor misfires and drops explore (2026-10-04)
+- commit: e0dd17f (bid Timekeeper.bot-e0dd17f)
+- start: 8dee7ed (champion Denial files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 32.2, sigma 3.17
+- champion mu: 66.6 (Denial)
+- verdict: keep Denial
+- games: 5-2, FFA ranks 10p:7 6p:2
+- what changed: Battling as Timekeeper in Timekeeper.bot + Timekeeper.py; Denial's united hunt, denial, and combat untouched, but a turn-time governor skips explore-diffusion orders past 80% of the turn budget.
+- what you learned: Timekeepers went 5-2 in duels but ranked only 7th in the census, so mu reached 32.2 against 66.6 — the gate fires when it should not (or explore matters more than assumed); either way a governor that drops explore loses crowds.
+- next: count-conditioned trade filter (Hedge exp committed, queued for exam).

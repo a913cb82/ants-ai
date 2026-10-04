@@ -50,7 +50,7 @@ row. Leave the old row as it was.
 | dropped | Endgame: hold most hills until the turn limit (mu 44.1 vs 66.6; sits lose races; 3 attempts). |
 | dropped | Situational 1-for-1: blocked rush or hill-zone backup (measured stacked in combo bb73244, mu 25.7). |
 | dropped | Proportional guard plus early muster-front call (measured stacked in combo bb73244, mu 25.7). |
-| trying | Time: use the turn time for search. |
+| dropped | Time: use the turn time for search (mu 32.2 vs 66.6; governor misfires). |
 | done | Bold pathfinding: BFS first step around water instead of greedy steps. |
 | done | Remembered hills: keep enemy hill targets across turns. |
 | done | Walk off hill: never end a turn on your own hill. |
