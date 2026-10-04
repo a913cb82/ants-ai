@@ -72,8 +72,8 @@ Rules:
   previous entry's files in place — stacking two unmeasured ideas in
   one filename destroys attribution. Tests are vital to making bots
   good: the coder writes failing test cases first for the whole idea
-  (not just the risky part), then the bot code, and uses the full
-  time budget on tests plus hooks. It commits `exp: <idea>`, reports,
+  (not just the risky part), then the bot code, and spends the budget
+  on the idea and its scenarios. It commits `exp: <idea>`, reports,
   and stops. It never runs `iteration.py`, never plays games, never
   reads scores, never edits notes, never pushes, never merges.
   Uncommitted work at budget end is dropped.
@@ -84,15 +84,12 @@ Rules:
   each coder extends them and keeps the whole suite green. Tests never
   go under `tests/` and never reference worktree-root staging files.
 - Tests are not only correctness checks. Every coder brief names 2-3
-  benchmark scenarios: small hand-built situations (any part of play,
-  not just combat) with a score to maximize, runnable in seconds.
-  Scenario files persist alongside bot code and grow into a regression
-  suite. The coder is selective: iterate inside the budget, optimize
-  the scenarios, re-run the whole suite each change, never trade a gain
-  here for a regression there. Report scenario scores with the commit.
-  One-shot code without iteration wastes the budget. Split the budget
-  across scenarios, implementation, and iteration; scenarios must
-  discriminate base from tuned.
+  benchmark scenarios: small hand-built situations (any part of play)
+  that discriminate base from tuned, runnable in seconds. Scenario
+  files persist as a regression suite. Use them to understand the
+  idea: try variants, watch what changes, report what you learn.
+  Scenarios guide experiment, not maximisation — a scenario score is
+  evidence, not the goal.
 - The coordinator merges, briefs, plays, compares, tags, logs, and
   pushes. It never edits bot code. At spawn it stages the
   measured-champion files as the coder's base, so every entry is
