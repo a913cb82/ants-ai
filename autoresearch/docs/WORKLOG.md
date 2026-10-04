@@ -2292,3 +2292,9 @@ Use this format.
 - what changed: Combat-program leg 10 (final). Battling as Memetix in Memetix.bot + Memetix.py + shared combat.py; all prior legs kept, plus a precomputed influence field classifying contact steps SAFE/KILL/DIE (DIE refused everywhere, KILL only while pushing a hill).
 - what you learned: Memetixes went 4-3 in duels but ranked only 7th in the census, so mu reached 31.4 against 67.9 — influence-counted danger refuses squares the old majority filter worked; strictness cedes ground.
 - program retrospective (10 legs): seek 40.1, wolfpack 49.1, grinder 55.1 (won census, 1-6 duels), screen 47.1, gate-10 51.0 (14-gate vindicated), gang 43.0, CROWD 67.9 crowned (fearless under 10 enemies, both FFAs won, Denial killed), legion 24.6, marshal 31.6, memetix 31.4. Pattern: every contact gate except crowd-fearless loses; duels punish trading, crowds reward pressing. Assets kept: shared combat.py + 67-test test_combat.py persist in the tree for the next arc. Champion stands: Crowd (champion/main).
+
+## 190 — fan-out: 8 postmortem approaches, full replication (2026-10-04)
+- plan: user-directed. Implement each of the 8 researched combat approaches faithfully, one detached worktree + one commit each, tests-first with fidelity proofs, then 4 autoresearch exams each (32 total).
+- approaches: xathis two-mode 1-ply (/tmp/cbt-xathis), a1k0n Dirichlet sampling (/tmp/cbt-dirichlet), Memetix full influence + refinement (/tmp/cbt-influ), delineate greedy fields (/tmp/cbt-greedy), nhaehnle soft 1-ply (/tmp/cbt-softmax), anthonyvh sequential fixing (/tmp/cbt-fixing), codetiger precomputed tables (/tmp/cbt-tables), Michigan two-stage (/tmp/cbt-twostage).
+- base: champion Crowd chain staged in each tree; entries self-contained (no combat.py import); 60-minute budget each.
+- champion stands: Crowd (champion/main = a9d4173, mu 67.9).
