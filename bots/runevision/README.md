@@ -20,7 +20,7 @@ Copied read-only from `vendor/ants-topbots/runevision/` on `main`:
 - `PowerCollections/` — Wintellect Power Collections library sources
   (used for `OrderedBag<GoalPointer>` in the pathfinding queue).
 
-Only `run.sh`, `runevision.bot`, `README.md`, and `.gitignore` are new;
+Only `runevision.sh`, `runevision.bot`, `README.md`, and `.gitignore` are new;
 every `.cs` file is an unmodified copy.
 
 ## Deviations from the original
@@ -33,7 +33,7 @@ mcs -out:MyBot.exe *.cs PowerCollections/*.cs
 
 One pre-existing warning remains (`Ants.cs(544,9): warning CS0219`, unused
 `anyDifferent`) and is left as-is. The original shipped no build script, so
-`run.sh` compiles `PowerCollections/*.cs` from source alongside the bot
+`runevision.sh` compiles `PowerCollections/*.cs` from source alongside the bot
 instead of referencing a prebuilt DLL. The default (non-`DEBUG`) build uses
 hardcoded `FixedParametersSetup()` values and `[Conditional("DEBUG")]`
 no-op logging, so the bot needs no `data/` files at runtime — it speaks the
@@ -44,9 +44,9 @@ engine protocol purely over stdin/stdout.
 ```sh
 cd bots/runevision
 rm -f MyBot.exe
-./run.sh        # recompiles (sources newer than the missing .exe), then runs
+./runevision.sh        # recompiles (sources newer than the missing .exe), then runs
 ```
 
-`run.sh` recompiles only when a `.cs` file is newer than `MyBot.exe`, then
+`runevision.sh` recompiles only when a `.cs` file is newer than `MyBot.exe`, then
 `exec mono MyBot.exe`. The compiled `MyBot.exe` is gitignored (see
-`.gitignore`); the manifest `runevision.bot` contains exactly `bash run.sh`.
+`.gitignore`); the manifest `runevision.bot` contains exactly `bash runevision.sh`.

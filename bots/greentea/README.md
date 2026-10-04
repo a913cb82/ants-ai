@@ -11,9 +11,9 @@ Source: read-only reference at
 
 - `*.java` — copied verbatim from the original (do not move them out;
   the engine runs the bot from its own dir).
-- `run.sh` — compiles with `javac -d build *.java` when `build/` is
+- `greentea.sh` — compiles with `javac -d build *.java` when `build/` is
   missing, empty, or older than any source, then `exec java -cp build MyBot`.
-- `greentea.bot` — manifest containing exactly `bash run.sh`.
+- `greentea.bot` — manifest containing exactly `bash greentea.sh`.
 - `build/` — compiled classes (gitignored, rebuilt automatically).
 
 ## Deviations from the original
@@ -24,7 +24,7 @@ with plain `javac -d build *.java` — no source changes were needed.
 ## Protocol
 
 `MyBot` is the main class. The bundled `Ants.java` already speaks the
-Ants stdin/stdout protocol our engine uses, and `run.sh` wires the
+Ants stdin/stdout protocol our engine uses, and `greentea.sh` wires the
 classpath (`-cp build`) so `MyBot` starts directly.
 
 ## Rebuild
@@ -32,7 +32,7 @@ classpath (`-cp build`) so `MyBot` starts directly.
 ```sh
 cd bots/greentea
 rm -rf build
-bash run.sh        # recompiles, then waits on stdin (Ctrl-C to stop)
+bash greentea.sh        # recompiles, then waits on stdin (Ctrl-C to stop)
 javac -d build *.java   # manual recompile without running
 javac -version     # must be 17 (tested with 17.0.20.1)
 ```

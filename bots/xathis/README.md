@@ -47,10 +47,10 @@ The engine runs each bot from its own dir:
 
 ```sh
 cd bots/xathis
-bash run.sh            # javac -d build *.java when stale, then java -cp build MyBot
+bash xathis.sh            # javac -d build *.java when stale, then java -cp build MyBot
 ```
 
-`run.sh` recompiles only when a `.java` file is newer than
+`xathis.sh` recompiles only when a `.java` file is newer than
 `build/`; `build/` is gitignored (see `.gitignore` in this dir).
 The `xathis.bot` manifest contains exactly the run command
-(`bash run.sh`).
+(`bash xathis.sh`).
