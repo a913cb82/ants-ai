@@ -1970,3 +1970,15 @@ Use this format.
 - what changed: Battling as Scout2 in Scout2.bot + Scout2.py; Denial's united hunt, denial, and combat untouched, but at turn 10 the nearest ant to the nearest known enemy hill detaches as a scout, retreating on contact and rejoining by turn 60.
 - what you learned: Scout2s went 5-2 in duels with mid-pack FFAs, so mu reached 55.1 against 66.6 — one ant's intel never repays its missing harvest; the economy outranks reconnaissance.
 - next: paired challenge support (Second exp committed, queued for exam).
+
+## 163 — paired challenges cost an economy ant (2026-10-04)
+- commit: 29f665f (bid Second.bot-29f665f)
+- start: 8dee7ed (champion Denial files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 50.7, sigma 3.09
+- champion mu: 66.6 (Denial)
+- verdict: keep Denial
+- games: 5-2, FFA ranks 10p:4 6p:1
+- what changed: Battling as Second in Second.bot + Second.py; Denial's united hunt, denial, and combat untouched, but every hill challenge pulls the nearest free ant to a support square within 3 of the challenger, going solo only with no free ant in reach.
+- what you learned: Seconds went 5-2 in duels, won the refine, but ranked only 4th in the census, so mu reached 50.7 against 66.6 — the supporter is an ant not harvesting; solo challenges stay the rule.
+- next: turn-time governor (Timekeeper exp committed, queued for exam).
