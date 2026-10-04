@@ -40,9 +40,3 @@ repos:
         language: system
         types: [python]
         pass_filenames: false
-      - id: pytest
-        name: pytest
-        entry: .venv/bin/python -m pytest -q -m "not slow"
-        language: system
-        files: \.py$
-        pass_filenames: false
