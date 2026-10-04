@@ -1910,3 +1910,15 @@ Use this format.
 - what changed: Battling as Endgame in Endgame.bot + Endgame.py; Denial's united hunt, denial, and combat untouched, but past turn 600 exploration ants sit on held hills and challenge uncontrolled hills only with strict local superiority.
 - what you learned: Endgames went 4-3 in duels, won the refine, but ranked only 5th in the census, so mu reached 44.1 against 66.6 — sitting still loses races that movement wins; the idea is dead for the third and final time (two stacked attempts never isolated, one clean).
 - next: quartermaster food triage by ratio (Quartermaster exp committed, queued for exam).
+
+## 157 — triage wins the refine but costs the census (2026-10-04)
+- commit: e67a47f (bid Quartermaster.bot-e67a47f)
+- start: 8dee7ed (champion Denial files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 56.2, sigma 3.11
+- champion mu: 66.6 (Denial)
+- verdict: keep Denial
+- games: 5-2, FFA ranks 10p:3 6p:1
+- what changed: Battling as Quartermaster in Quartermaster.bot + Quartermaster.py; Denial's united hunt, denial, and combat untouched, but food-rich boards ignore foods beyond 15 steps and ant-rich boards send extras to contest enemy-held food, with parity boards running champion greedy.
+- what you learned: Quartermasters went 5-2 in duels and won the refine, but ranked only 3rd in the census, so mu reached 56.2 against 66.6 — triage sharpens small games and blunts big ones; claiming everything stays the census rule.
+- next: tollkeeper danger routing (Tollkeeper exp committed, queued for exam).

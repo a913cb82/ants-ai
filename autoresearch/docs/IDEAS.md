@@ -181,5 +181,6 @@ row. Leave the old row as it was.
 | dropped | Relief: fearless reinforce (mu 53.5 vs 66.6; drafting overdrafts). |
 | dropped | Farmstead: feet plus fallback (mu 38.3 vs 66.6; 0-7 duels). |
 | dropped | Optimal food assignment over greedy (mu 61.9 vs 66.6; ties in practice). |
+| dropped | Quartermaster triage by ratio (mu 56.2 vs 66.6; refine yes, census no). |
 | done | Sow: gather-only opening, hunt after turn 30. |
 | done | Edgepush: fallback BFS-marches idle ants to the nearest unseen square. |
