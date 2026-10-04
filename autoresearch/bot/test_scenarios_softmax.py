@@ -22,6 +22,7 @@ from typing import TypedDict
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import Softmax2 as SM  # noqa: E402
+import Softmax3 as S3  # noqa: E402
 
 Loc = tuple[int, int]
 ROWS = 20
@@ -36,6 +37,8 @@ DIRS = ("n", "e", "s", "w")
 # under both policies — the floor documents that limit.
 PRESS_FLOOR = 1
 SURVIVAL_FLOOR = 0
+# Parity-melee floor: Softmax3 2v2 score on the exact setup below.
+PARITY_FLOOR = 1
 
 
 class World(TypedDict):
@@ -233,3 +236,47 @@ def test_survival_runs_fast_and_scores() -> None:
     print(f"\nsurvival score={score} time={elapsed:.2f}s")
     assert elapsed < 10.0
     assert score >= SURVIVAL_FLOOR
+
+
+def run_parity(mod: object) -> tuple[int, tuple[Loc, ...], float]:
+    """2v2 parity melee vs holding foes; returns (score, own, seconds)."""
+    world: World = {
+        "own": [(5, 5), (5, 6)],
+        "enemies": [(5, 8), (5, 9)],
+        "own_hills": [(16, 16)],
+        "foe_hills": [],
+        "foods": [],
+    }
+    bot = mod.Softmax3() if hasattr(mod, "Softmax3") else mod.Softmax2()  # type: ignore[attr-defined]
+    kills = 0
+    deaths = 0
+    start = time.perf_counter()
+    for _ in range(TURNS):
+        ants = SimAnts(world)
+        bot.do_turn(ants)
+        _apply_orders(world, ants.orders)
+        own, foe, d, k = _resolve(list(world["own"]), list(world["enemies"]))
+        deaths += d
+        kills += k
+        world["own"] = own
+        world["enemies"] = foe
+    elapsed = time.perf_counter() - start
+    return kills - deaths + len(world["own"]), tuple(sorted(world["own"])), elapsed
+
+
+def test_parity_runs_fast_and_scores() -> None:
+    score, _, elapsed = run_parity(S3)
+    print(f"\nparity score={score} time={elapsed:.2f}s")
+    assert elapsed < 10.0
+    assert score >= PARITY_FLOOR
+
+
+def test_parity_diverges_from_deterministic_gate() -> None:
+    """Same 2v2 world, different paths: the deterministic gate always
+    presses at parity while the contest-zone coin sometimes refuses,
+    so the end positions must differ (scores may still tie)."""
+    score2, own2, _ = run_parity(SM)
+    score3, own3, _ = run_parity(S3)
+    print(f"\nparity S2={score2} {own2} S3={score3} {own3}")
+    assert score3 >= PARITY_FLOOR
+    assert own3 != own2
