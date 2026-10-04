@@ -101,6 +101,11 @@ row. Leave the old row as it was.
 | dropped | Legion: press needs 10 ants (mu 24.6 vs 67.9; 10p:8; combat leg 8). |
 | dropped | Marshal: danger moves first (mu 31.6 vs 67.9; 10p:6; combat leg 9). |
 | dropped | Memetix: influence SAFE/KILL/DIE (mu 31.4 vs 67.9; 10p:7; combat leg 10, program closed). |
+| approach | xathis 1-ply full (25.2/27.0/30.7/16.5, best Xathis3 30.7; 3 bold iters left). |
+| approach | dirichlet sampling full (26.3/36.4/37.2/27.2, best Dirichlet3 37.2; 3 bold iters left). |
+| approach | influence full (28.8/29.5/34.4; 1 iter left). |
+| approach | greedy fields full (16.1/26.6; 2 iters left). |
+| approach | softmax 1-ply (41.5 impl; 3 iters left). |
 | dropped | Anvil: bait-and-ambush (mu 17.0 vs 66.6; 10p:9). |
 | dropped | Patrol3: 30-step ranged patrol (mu 40.8 vs 66.6; range was never the bleed). |
 | dropped | Volunteers: duty drafts from spares only. |
