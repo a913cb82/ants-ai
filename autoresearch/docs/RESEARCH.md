@@ -499,3 +499,7 @@ Use this format.
   incentive added to hill-attack moves; via Parasprites postmortem t=2169).
 - follow-up: archive.org CDX was offline; retry profile pages
   (user=5916/573/10) and org rosters later.
+
+## a1k0n C++ open source (2026-10-04)
+- source: github.com/a1k0n/ants bot/ (11th place, C++; Ant/Bot/Grid/MyBot.cc).
+- idea: next port after flagcapper; strong-algorithms C++ baseline near the top 10.
