@@ -505,3 +505,95 @@ def test_main_plays_census_then_refine_then_duels(tmp_path, monkeypatch):
     monkeypatch.setattr(iteration, "play_one", fake_play_one)
     assert iteration.main([]) == 0
     assert sizes == [10, 6, 2, 2]
+
+
+def _legacy_census_opponents(bid, cands, ratings, k, arrival):
+    """Exact pre-newcomer-slot census (commit dc44516): quantile-decile
+    sites snapped to the nearest ruler. Differential reference only."""
+    import ratings as R
+
+    others = [c for c in cands if c != bid]
+    mus = sorted(R.for_id(ratings, c)["mu"] for c in others)
+    k = max(0, min(k, len(others)))
+    sites = (
+        [mus[min(int(len(mus) * (j + 1) / (k + 1)), len(mus) - 1)] for j in range(k)]
+        if mus and k
+        else []
+    )
+    picked = []
+    used = {bid}
+    for t in sites:
+        live = [c for c in others if c not in used]
+        if not live:
+            break
+        i = min(
+            live,
+            key=lambda c: (
+                abs(R.for_id(ratings, c)["mu"] - t),
+                R.for_id(ratings, c)["sigma"],
+                arrival.get(c, len(arrival)),
+                c,
+            ),
+        )
+        used.add(i)
+        picked.append(i)
+    return picked
+
+
+def test_census_newcomer_slot_selects_zero_game_bot():
+    from iteration import census_opponents
+
+    ratings = {"cand": _rated(50, 8.0, 0)}
+    cands = []
+    for i, mu in enumerate([0, 10, 20, 25, 30, 40, 50, 60, 70, 80, 90, 100]):
+        ratings[f"r{i}"] = _rated(mu, 1.0)
+        cands.append(f"r{i}")
+    ratings["newbie"] = {"mu": 25.0, "sigma": 8.33, "games": 0}
+    cands.append("newbie")
+    arrival = {c: i for i, c in enumerate(cands)}
+    opps = census_opponents("cand", cands, ratings, 9, arrival)
+    assert len(opps) == 9
+    assert "newbie" in opps
+
+
+def test_census_without_newcomers_matches_legacy_selection():
+    import ratings as R
+    from iteration import census_opponents, recency_order
+    from matchmake import read_log
+    from pool import all_commits
+    from pool import pool as pool_ids
+
+    live = R.rebuild(read_log(ROOT / "league" / "games.jsonl"))
+    pool = pool_ids(str(ROOT), live)
+    assert len(pool) > 100
+    # No newcomers present: everyone rated, so the slot falls back.
+    ratings = {
+        c: {
+            "mu": R.for_id(live, c)["mu"],
+            "sigma": min(R.for_id(live, c)["sigma"], 1.0),
+            "games": max(R.for_id(live, c)["games"], 5),
+        }
+        for c in pool
+    }
+    ordered = recency_order(pool, all_commits(str(ROOT)))
+    arrival = {c: i for i, c in enumerate(ordered)}
+    for bid in (ordered[0], ordered[len(ordered) // 2], ordered[-1]):
+        assert census_opponents(
+            bid, pool, ratings, 9, arrival
+        ) == _legacy_census_opponents(bid, pool, ratings, 9, arrival)
+
+
+def test_census_veteran_with_three_games_is_not_newcomer_eligible():
+    from iteration import census_opponents
+
+    ratings = {"cand": _rated(50, 8.0, 0)}
+    cands = []
+    for i, mu in enumerate([0, 10, 20, 25, 30, 40, 50, 60, 70, 80, 90, 100]):
+        ratings[f"r{i}"] = _rated(mu, 1.0)
+        cands.append(f"r{i}")
+    ratings["vet"] = {"mu": 25.0, "sigma": 7.0, "games": 3}
+    cands.append("vet")
+    arrival = {c: i for i, c in enumerate(cands)}
+    opps = census_opponents("cand", cands, ratings, 9, arrival)
+    assert "vet" not in opps
+    assert opps == _legacy_census_opponents("cand", cands, ratings, 9, arrival)
