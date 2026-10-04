@@ -143,12 +143,17 @@ def last_touch(root: str | Path, path: str) -> str:
 
 
 def all_commits(root: str | Path = ROOT) -> list[str]:
-    """Every commit in the repo, oldest first. bots_at filters: a
-    commit with no manifest contributes nothing, and content-hash
-    dedup collapses commits that leave bot code unchanged."""
+    """Every commit on branches and tags, oldest first. Detached
+    commits and stray worktree HEADs are excluded on purpose:
+    unmeasured coder code must never enter the pool as rulers.
+    bots_at filters: a commit with no manifest contributes nothing,
+    and content-hash dedup collapses commits that leave bot code
+    unchanged."""
     seen: set[str] = set()
     commits = []
-    for sha in _git(root, "log", "--all", "--format=%h", "--reverse").split():
+    for sha in _git(
+        root, "log", "--branches", "--tags", "--format=%h", "--reverse"
+    ).split():
         if sha not in seen:
             seen.add(sha)
             commits.append(sha)
