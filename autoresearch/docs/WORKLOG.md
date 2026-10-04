@@ -1778,3 +1778,15 @@ Use this format.
 - what changed: Battling as Scout in Scout.bot + Scout.py; Flood's united hunt, combat, and economy untouched, but the explore fallback BFS-marches idle ants to the nearest never-seen square (tracked seen-set, 500-node budget) instead of stepping to the least-visited neighbour, keeping least-visited as the backup.
 - what you learned: Replay study of Flood's maze_p02_03 loss to Relief showed the leak is slow reinforcement, not vision: Flood lost a hill at turn 195, held a 5v2 ant edge for 600 turns, yet never converted and fell 8-2 on hills. Scouts went a perfect 7-0 in duels (Backstop, Relief, Sow twice, Farmstead twice, Mugger) and finally beat Relief head-to-head, proving edge-pushing fixes maze tempo; but rank 4/10 in the census behind Underdog, Draft, and Revenant capped mu at 44.10 against 52.52 — united hunting still arrives late to crowded hill races.
 - next: Food denial — hold a contested food field.
+
+## 146 — duelist trades plus defender guard, stacked (2026-10-04)
+- commit: bb73244 (bid Duelist.bot-bb73244; exp6 1f62df3 plus exp7 stacked in one file)
+- start: c96f1c9 (champion)
+- budget: 7 duels, 10p + 6p
+- score: mu 25.69, sigma 3.63
+- champion mu: 52.52 (Flood)
+- verdict: keep Flood
+- games: 6-1, FFA ranks 10p:8 6p:3
+- what changed: Battling as Duelist in Duelist.bot + Duelist.py. Two unmeasured ideas stacked before either played: situational 1-for-1 trades (blocked-rush 70% or hill-zone backup inside 20 with backup inside 6; blanket 14-friend gate deleted, strict superiority kept, inferior always refused) plus proportional guard (ceil(raiders/2) per threatened hill, gatherer draft capped at a third) with an early muster-front call (enemy inside 20 of the muster home hill counts as raid). Pure Duelist (1f62df3) was never isolated.
+- what you learned: the combo went 6-1 in duels but collapsed in the census (rank 8/10) and took only 3rd in the refine, so mu reached 25.69 against 52.52 — neither trades nor guard moved the needle, and stacking two unmeasured ideas in one filename destroyed attribution. Entries get fresh filenames from here on; coders stage from measured-champion files.
+- next: Endgame closing rule (exp8 committed, in exam queue).
