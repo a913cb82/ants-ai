@@ -36,6 +36,8 @@ DIRS = ("n", "e", "s", "w")
 # Regression floors: measured Fixing2 scores on these exact setups.
 DUEL_FLOOR = 0
 FFA_FLOOR = 2
+# 5v5 head-on line battle (see run_line_battle below).
+LINE_FLOOR = 0
 
 
 class World(TypedDict):
@@ -266,3 +268,46 @@ def test_ffa_runs_fast_and_scores() -> None:
     print(f"\nffa score={score} rank={rank} time={elapsed:.2f}s")
     assert elapsed < 10.0
     assert score >= FFA_FLOOR
+
+
+def run_line_battle(bot_cls: type, turns: int = 40) -> tuple[int, float]:
+    """5v5 head-on line battle; returns (own-alive minus foe-alive, seconds).
+
+    Takes any bot class with a no-arg constructor and do_turn, so
+    later entries compare against the Fixing2 floor without copying
+    this file. Crowd shape: two full lines meet head-on, which
+    stresses whether the commit step keeps the line together
+    (backed SAFE) or collapses into piecemeal 1v1s (press-only).
+    """
+    world: World = {
+        "own": [(r, 6) for r in range(8, 13)],
+        "enemies": [(r, 13) for r in range(8, 13)],
+        "own_hills": [(10, 2)],
+        "foe_hills": [(10, 17)],
+        "foods": [],
+    }
+    bot = bot_cls()
+    start = time.perf_counter()
+    for _ in range(turns):
+        ants = SimAnts(world)
+        bot.do_turn(ants)
+        _apply_orders(world, ants.orders)
+        _move_foes(world)
+        own, foe = _resolve(list(world["own"]), list(world["enemies"]))
+        world["own"] = own
+        world["enemies"] = foe
+        for h in list(world["foe_hills"]):
+            if h in world["own"]:
+                world["foe_hills"].remove(h)
+        for h in list(world["own_hills"]):
+            if h in world["enemies"]:
+                world["own_hills"].remove(h)
+    elapsed = time.perf_counter() - start
+    return len(world["own"]) - len(world["enemies"]), elapsed
+
+
+def test_line_battle_runs_fast_and_scores() -> None:
+    score, elapsed = run_line_battle(FX.Fixing2)
+    print(f"\nline-battle score={score} time={elapsed:.2f}s")
+    assert elapsed < 10.0
+    assert score >= LINE_FLOOR
