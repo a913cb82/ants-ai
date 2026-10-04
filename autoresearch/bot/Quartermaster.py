@@ -10,9 +10,37 @@ DistFn = Callable[[Loc, Loc], int]
 CLUSTER_R = 8
 DENIAL_ENEMIES = 3
 DENIAL_CLAIMS = 2
+RICH_RATIO = 2
+TRIAGE_RANGE = 15
 _CELL = CLUSTER_R + 1
-ENDGAME_TURN = 600
-ENDGAME_R = 10
+
+
+def triage_mode(n_ants: int, n_foods: int) -> str:
+    # Food triage by ant/food ratio: food-rich boards (food >= 2x
+    # ants) take short trips only; ant-rich boards (ants > foods)
+    # send idle extras to contest; parity is champion behavior.
+    if n_foods >= RICH_RATIO * n_ants:
+        return "rich"
+    if n_ants > n_foods:
+        return "contest"
+    return "parity"
+
+
+def near_food_indices(
+    ants_list: list[Loc],
+    foods: list[Loc],
+    distance: DistFn,
+    limit: int = TRIAGE_RANGE,
+) -> list[int]:
+    # Foods within `limit` steps of any ant. Early exit per food:
+    # one linear scan, no buckets, no sorting.
+    near: list[int] = []
+    for fi, food_loc in enumerate(foods):
+        for ant_loc in ants_list:
+            if distance(ant_loc, food_loc) <= limit:
+                near.append(fi)
+                break
+    return near
 
 
 def _scan_board(
@@ -201,54 +229,6 @@ def denied_food_groups(
     return list(groups.values())
 
 
-def endgame_counts(
-    hills: list[Loc],
-    ants_list: list[Loc],
-    enemy_locs: list[Loc],
-    distance: DistFn,
-) -> dict[Loc, tuple[int, int]]:
-    # Per uncontrolled hill, (friends, enemies) within ENDGAME_R: the
-    # strict-superiority readout for endgame challenges. One pass per
-    # turn; per-ant goals below are lookups.
-    counts: dict[Loc, tuple[int, int]] = {}
-    for h in hills:
-        friends = 0
-        for a in ants_list:
-            if distance(a, h) <= ENDGAME_R:
-                friends += 1
-        foes = 0
-        for e in enemy_locs:
-            if distance(e, h) <= ENDGAME_R:
-                foes += 1
-        counts[h] = (friends, foes)
-    return counts
-
-
-def endgame_goal(
-    ant_loc: Loc,
-    my_hills: list[Loc],
-    hills: list[Loc],
-    counts: dict[Loc, tuple[int, int]],
-    distance: DistFn,
-) -> Loc | None:
-    # Post-turn-600 exploration replacement. Sitters (ants standing
-    # on a held hill) challenge the nearest uncontrolled hill only
-    # with strict local superiority; everyone else walks to its
-    # nearest held hill to sit. None means sit in place. An ant
-    # already standing on its goal sits because first_step finds no
-    # path from a square to itself.
-    if not my_hills:
-        return None
-    if ant_loc in my_hills:
-        if hills:
-            target = min(hills, key=lambda h: distance(ant_loc, h))
-            friends, foes = counts.get(target, (0, 0))
-            if friends > foes:
-                return target
-        return None
-    return min(my_hills, key=lambda h: distance(ant_loc, h))
-
-
 def assign_food_targets(
     ants_list: list[Loc],
     foods: list[Loc],
@@ -261,10 +241,21 @@ def assign_food_targets(
     # exactly DENIAL_CLAIMS ants on their nearest foods (distinct ants
     # and distinct foods, nearest pairs first); the cluster's other
     # foods stay unclaimed this turn instead of spreading one per food.
-    # A one-food cluster can only draw one claimant.
+    # A one-food cluster can only draw one claimant. Quartermaster
+    # triage runs first: on food-rich boards only foods within
+    # TRIAGE_RANGE steps are claimed (long trips for marginal food
+    # are dropped); on ant-rich boards the extras left idle by the
+    # greedy below contest the nearest enemy-held food instead. At
+    # parity this is the champion greedy untouched.
     target: dict[int, Loc] = {}
     if not foods or not ants_list:
         return target
+    mode = triage_mode(len(ants_list), len(foods))
+    if mode == "rich":
+        keep = set(near_food_indices(ants_list, foods, distance))
+        if not keep:
+            return target
+        foods = [f for i, f in enumerate(foods) if i in keep]
     claimed: set[int] = set()
     denied: set[int] = set()
     for group in denied_food_groups(foods, enemy_locs, distance, rows, cols):
@@ -293,19 +284,26 @@ def assign_food_targets(
         if ai not in target and fi not in claimed:
             target[ai] = foods[fi]
             claimed.add(fi)
+    if mode == "contest" and enemy_locs:
+        held = [
+            f for f in foods if min(distance(e, f) for e in enemy_locs) <= CLUSTER_R
+        ]
+        if held:
+            for ai, ant_loc in enumerate(ants_list):
+                if ai not in target:
+                    target[ai] = min(held, key=lambda f: distance(ant_loc, f))
     return target
 
 
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Endgame:
+class Quartermaster:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
         self.remembered_hills: set[tuple[int, int]] = set()
         self.prev_enemies: list[tuple[int, int]] = []
-        self.turn: int = 0
 
     # do_setup is run once at the start of the game
     # after the bot has received the game settings
@@ -315,23 +313,19 @@ class Endgame:
         self.visits = {}
         self.remembered_hills = set()
         self.prev_enemies = []
-        self.turn = 0
 
     # do turn is run once per turn
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Denial: Flood's economy, except a food cluster contested by
+        # Quartermaster: Denial's economy, except food claims are
+        # triaged by ratio (rich boards take short trips only,
+        # ant-rich extras contest enemy-held food). A food cluster contested by
         # 3+ visible enemies draws two ants onto its two closest foods
         # (local 2v2+ posture) instead of one ant per food. Battling as Flood. Homeward structure, wide fallback,
         # aggression, walk-off, food, and exploration match iteration
         # 76. Hunt always; ahead on hills, hunters skip the safety
-        # filter. Closeouts need teeth, not patience. Endgame: past
-        # turn ENDGAME_TURN, explorers sit on held hills and sitters
-        # challenge only with strict local superiority; everything
-        # before the exploration fallback is byte-identical.
-        self.turn += 1
-        endgame = self.turn >= ENDGAME_TURN
+        # filter. Closeouts need teeth, not patience.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -346,11 +340,6 @@ class Endgame:
                 self.remembered_hills.discard(hloc)
         hills = sorted(self.remembered_hills)
         my_hills = ants.my_hills()
-        counts: dict[tuple[int, int], tuple[int, int]] = (
-            endgame_counts(hills, ants_list, enemy_locs, ants.distance)
-            if endgame and hills
-            else {}
-        )
         # Match each visible enemy to a last-turn position to read
         # its heading. Ants move one square per turn, so matches at
         # distance 0 or 1 are the same ant; the rest are new spawns.
@@ -513,48 +502,35 @@ class Endgame:
                 if hstep is not None and try_step(ant_loc, hstep):
                     moved = True
             if not moved:
-                if endgame and my_hills:
-                    # Endgame closing: sit on held hills instead of
-                    # exploring; challenge only with superiority. A
-                    # sit choice or a blocked sit path skips the
-                    # exploration below and holds the ant.
-                    goal = endgame_goal(ant_loc, my_hills, hills, counts, ants.distance)
-                    if goal is not None:
-                        step = first_step(ant_loc, goal)
-                        if step is not None and try_step(ant_loc, step):
-                            moved = True
-                if not moved and not (endgame and my_hills):
-                    # Still stuck: explore least-visited squares first.
-                    dirs = sorted(
-                        ("n", "e", "s", "w"),
-                        key=lambda d: self.visits.get(ants.destination(ant_loc, d), 0),
-                    )
-                    for direction in dirs:
-                        new_loc = ants.destination(ant_loc, direction)
-                        if (
-                            new_loc not in destinations
-                            and ants.passable(new_loc)
-                            and ants.unoccupied(new_loc)
-                            and is_safe(new_loc, ant_loc)
-                        ):
-                            ants.issue_order((ant_loc, direction))
-                            destinations.add(new_loc)
-                            moved = True
-                            break
+                # Still stuck: explore least-visited squares first.
+                dirs = sorted(
+                    ("n", "e", "s", "w"),
+                    key=lambda d: self.visits.get(ants.destination(ant_loc, d), 0),
+                )
+                for direction in dirs:
+                    new_loc = ants.destination(ant_loc, direction)
+                    if (
+                        new_loc not in destinations
+                        and ants.passable(new_loc)
+                        and ants.unoccupied(new_loc)
+                        and is_safe(new_loc, ant_loc)
+                    ):
+                        ants.issue_order((ant_loc, direction))
+                        destinations.add(new_loc)
+                        moved = True
+                        break
             if not moved:
                 held.append(ant_loc)
             # check if we still have time left to calculate more orders
             if ants.time_remaining() < 10:
                 break
         # Walk off hill: a held ant on a home hill must step off.
-        # Endgame sitters hold their hills, so walk-off is pre-600.
-        if not endgame:
-            hill_set = set(my_hills)
-            for ant_loc in held:
-                if ant_loc in hill_set and ants.time_remaining() >= 10:
-                    for direction in ("s", "e", "w", "n"):
-                        if try_step(ant_loc, direction):
-                            break
+        hill_set = set(my_hills)
+        for ant_loc in held:
+            if ant_loc in hill_set and ants.time_remaining() >= 10:
+                for direction in ("s", "e", "w", "n"):
+                    if try_step(ant_loc, direction):
+                        break
 
 
 if __name__ == "__main__":
@@ -570,6 +546,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Endgame())
+        Ants.run(Quartermaster())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
