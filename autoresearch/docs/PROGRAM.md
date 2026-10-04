@@ -168,8 +168,15 @@ separate them, never discipline alone:
   (`git worktree add --detach`: no branch, so unmeasured code
   stays invisible to the pool). Fresh means no stale scratch files
   leak across iterations. The coder never enters the coordinator
-  tree. Exams stay serial: one exam-runner at a time. It takes
-  the next frontier leaf per `autoresearch/docs/TREE.md`.
+  tree. Exams stay serial: one exam-runner at a time. Unevaluated
+  entries form the frontier. The exam takes the oldest leaf of
+  the next line, round-robin over lines (one line per approach).
+  New lines join at once. Close a line when its budget is spent,
+  or on 3 straight exams that trail line-best and champion with
+  no upward trend. The champion line never closes. Split one
+  failure with two diagnoses into one child leaf each. A leaf
+  that wins big on a new mechanism starts its own line. Prune
+  the weaker fork at its next exam.
 - The coder never runs `iteration.py`. One exam call takes about
   25 minutes (7 duels plus two FFAs). The coordinator runs it after
   the exp commit lands. A run from a dirty tree trips the harness
