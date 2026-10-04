@@ -77,7 +77,7 @@ row. Leave the old row as it was.
 | dropped | Posse: hunt hills with 3+ spares nearby. |
 | dropped | Militia: defense drafts before food. |
 | dropped | Volunteers: duty drafts from spares only. |
-| dropped | Sentry: 2 volunteers per hill. |
+| dropped | Sentry: 2 volunteers per hill (mu 14.5 vs 66.6; 10/10 census). |
 | dropped | Locavores: food claims within 15. |
 | dropped | Nibblers: radius tightens to 10. |
 | dropped | Flexitarian: radius grows with army. |
