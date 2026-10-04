@@ -16,7 +16,7 @@ Champion: Crowd (mu 67.9, `champion/main = a9d4173`).
 | greedy fields | 2 | 2 | 16.1 / 26.6 | Greedy2 26.6 | tune2 coded, queued |
 | softmax 1-ply | 1 | 3 | 41.5 | Softmax 41.5 | tune1 coding |
 | sequential fixing | 1 | 3 | 49.7 | Fixing 49.7 | tune1 coding |
-| precomputed tables | 0 | 4 | — | — | committed, queued |
+| precomputed tables | 1 | 3 | 55.5 | Tables 55.5 | tune1 coding |
 | two-stage | 0 | 4 | — | — | committed, queued |
 
 Used counts the 4-per-approach budget; xathis/dirichlet were granted +3

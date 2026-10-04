@@ -2484,3 +2484,15 @@ Use this format.
 - what changed: Faithful anthonyvh sequential-fixing replication (one ant fixes at a time, committed destinations visible to later ants) on the Crowd economy.
 - what you learned: best implementation yet (49.7 beats softmax 41.5); sequential fixing outranks simultaneous 1-ply. Duels 2-4 vs Xathis rulers — fixing holds shape but loses duels.
 - next: tables implementation examines (round-robin: 4 remaining); 7 port merges to main now unblocked.
+
+## 207 — tables new impl best, xathis killer (2026-10-04)
+- commit: 7c0b627 (bid Tables.bot-7c0b627; approach exam 1/4)
+- start: a9d4173 (champion Crowd files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 55.5, sigma 3.63
+- champion mu: 67.9 (Crowd)
+- verdict: keep Crowd
+- games: 6-1, FFA ranks 10p:2 6p:3
+- what changed: Faithful codetiger precomputed-tables replication (offline fight table, O(1) lookup per contact) on the Crowd economy.
+- what you learned: new implementation best (55.5 beats fixing 49.7); 5-1 vs Xathis rulers plus a Fixing head-to-head win — tables price fights better than live search at this budget.
+- next: twostage implementation examines (round-robin: 4 remaining).
