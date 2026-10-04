@@ -20,7 +20,7 @@ touches another role's files.
   It never learns scores.
 - Coordinator: runs the exam and keeps the notes. It edits
   `autoresearch/docs/` only. It never writes bot code.
-- Exam-runner: plays one exam through `autoresearch/iteration.py`.
+- Scorer: plays one exam through `autoresearch/iteration.py`.
   It runs in the coordinator tree. It reports the score line. It
   changes nothing else. It never codes.
 
@@ -153,7 +153,8 @@ worktree.
 ## Tree
 
 Coders run in parallel, one branch per coder. Exams stay serial:
-one exam-runner at a time. Git stores the tree: each merge keeps
+one scorer at a time. Keep at most 6 entries ahead of the scorer
+(coding plus unscored). Spawn no coder past that. Git stores the tree: each merge keeps
 the leaf as second parent, so `git log --graph` shows every line.
 A line is dead when its last 3 exams never beat its earlier best.
 Upward trend means max(last 3) is above max(all earlier exams);
