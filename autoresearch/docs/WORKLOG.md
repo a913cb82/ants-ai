@@ -1826,3 +1826,15 @@ Use this format.
 - what changed: Battling as Sampler in Sampler.bot + Sampler.py; Denial's united hunt, denial, and economy untouched, but ants in contact skip the static local-majority check for a time-boxed Dirichlet sampler (150 ms / 200 rounds, own maximize and enemy minimize enemyDead*300 - myDead*180 - dist, ties fall back to legacy). Known nit: one mypy annotation error, zero runtime effect.
 - what you learned: Samplers went 6-1 in duels and took double rank-2 in the FFAs, so mu reached 61.2 against 66.6 — sampling beats 1-ply max-min's 50.98 by ten points and confirms the a1k0n verdict live, but contact-level cleverness still cannot beat denial's structural food edge. Combat is now the best-explored non-bottleneck.
 - next: siege-release KILL moves (Siege exp committed, queued for exam).
+
+## 150 — siege KILL moves bleed out in the census (2026-10-04)
+- commit: d2b9117 (bid Siege.bot-d2b9117)
+- start: 8dee7ed (champion Denial files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 18.3, sigma 3.14
+- champion mu: 66.6 (Denial)
+- verdict: keep Denial
+- games: 7-0, FFA ranks 10p:10 6p:1
+- what changed: Battling as Siege in Siege.bot + Siege.py; Denial's united hunt, denial, and economy untouched, but equal trades are allowed after 3+ turns of unbroken contact when provisional resolution proves a kill (Memetix deadlock-breaking).
+- what you learned: Sieges went 7-0 in duels and won the 6p refine, but finished DEAD LAST (10/10) in the census, crashing mu to 18.3 against 66.6 — the KILL gate fires constantly in crowded censuses and the army trades itself away. Deadlock-breaking helps duels and kills censuses; Memetix's KILL allowance does not transfer to our exam.
+- next: clean endgame closing (Endgamer-2 exp committed, queued for exam).

@@ -45,6 +45,7 @@ row. Leave the old row as it was.
 | done | Food denial: hold a contested food field. |
 | dropped | Forward-spawn expansion: first 3 waves march unseen-ward (mu 64.5 vs 66.6). |
 | dropped | Dirichlet-sampler contact combat (mu 61.2 vs 66.6; beats 1-ply by ten). |
+| dropped | Siege-release KILL after 3-turn contact (mu 18.3 vs 66.6; 10/10 census). |
 | done | Opponent model: threaten a home hill at 16 steps when an enemy closes. |
 | trying | Endgame: hold most hills until the turn limit. |
 | dropped | Situational 1-for-1: blocked rush or hill-zone backup (measured stacked in combo bb73244, mu 25.7). |
