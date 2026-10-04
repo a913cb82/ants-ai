@@ -164,6 +164,18 @@ Split one failure with two diagnoses into one child leaf each.
 A leaf that wins big on a new mechanism starts its own line.
 Prune the weaker fork at its next exam.
 
+Three moves grow the tree. Score picks an unscored leaf and
+runs the exam on it: take the oldest unscored leaf of the next
+line, round-robin. Extend picks a scored leaf and gives it
+a child through a coder: take the newest scored leaf of a line
+with budget left. Prefer extend: evidence beats speculation.
+Branch picks an unscored leaf and gives it a child through
+a coder: do this only with a different diagnosis for the same
+failure, or when coder capacity is idle and every scored leaf
+has a child in flight. Then take the oldest unscored leaf of
+the line with the fewest children in flight. Never give one
+leaf two children in flight.
+
 ## Log
 
 Git is the log. `WORKLOG.md` is frozen (history only).
