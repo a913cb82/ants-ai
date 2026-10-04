@@ -6,6 +6,15 @@ iterations next (ties cycle in approach order).
 
 Champion: Crowd (mu 67.9, `champion/main = a9d4173`).
 
+## Milestone 1: beat the ported 2011 bots
+
+Our champion tier must beat the ports head-to-head.
+Current ledger, 6 champ-tier vs ports FFAs (`f05dda9`):
+ports 4, loop 2. Port wins: runevision x2, greentea, xathis.
+Loop wins: Crowd+Denial, Denial+Turnstile.
+Re-run this calibration when a new crown lands.
+Milestone met when the loop takes the rematch series.
+
 ## Scoreboard
 
 | Approach | Used | Left | Scores (mu) | Best | Status |
