@@ -2383,3 +2383,15 @@ Use this format.
 - what changed: dirichlet-tune2 — fight budget 5 to 15ms (3x samples).
 - what you learned: 36.4 to 37.2 — more samples barely move the needle; the veto was the whole fix. One exam left.
 - next: dirichlet-tune3 (sample only in small fights) codes while Xathis4 examines (final xathis exam).
+
+## 198 — cheaper deaths are census suicide; xathis closes (2026-10-04)
+- commit: c3b40ee (bid Xathis4.bot-c3b40ee; approach exam 4/4 FINAL)
+- start: a9d4173 (champion Crowd files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 16.5, sigma 3.26
+- champion mu: 67.9 (Crowd)
+- verdict: keep Crowd
+- games: 5-2, FFA ranks 10p:10 6p:1
+- what changed: xathis-tune3 — own-death weight 180 to 120.
+- what you learned: 30.7 to 16.5 with DEAD LAST in the census — bloodier trades donate armies; xathis's 180 was load-bearing. Approach closes at 25.2/27.0/30.7/16.5, best Xathis3 30.7.
+- next: Dirichlet4 final exam, then Influence implementation exam.
