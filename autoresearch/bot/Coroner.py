@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 from collections import deque
-from collections.abc import Callable, Collection
+from collections.abc import Callable
 
 from ants import Ants
 
@@ -11,7 +11,6 @@ CLUSTER_R = 8
 DENIAL_ENEMIES = 3
 DENIAL_CLAIMS = 2
 _CELL = CLUSTER_R + 1
-EXCLUSION_TURNS = 2
 
 
 def _scan_board(
@@ -125,10 +124,10 @@ def _scan_board(
         hit: set[int] = set()
         for dbr in (-1, 0, 1):
             for dbc in (-1, 0, 1):
-                nearby = buckets.get((br + dbr, bc + dbc))
-                if not nearby:
+                cell_members = buckets.get((br + dbr, bc + dbc))
+                if not cell_members:
                     continue
-                for j in nearby:
+                for j in cell_members:
                     dr = er - fr[j]
                     if dr < 0:
                         dr = -dr
@@ -200,51 +199,6 @@ def denied_food_groups(
     return list(groups.values())
 
 
-def pick_challenger(
-    hill: Loc,
-    ants_list: list[Loc],
-    distance: DistFn,
-    excluded: Collection[Loc] = (),
-) -> Loc | None:
-    # Nearest ant to the hill, skipping the excluded last
-    # challengers. Ties break by list order (stable).
-    best: Loc | None = None
-    best_d = 0
-    for ant in ants_list:
-        if ant in excluded:
-            continue
-        d = distance(ant, hill)
-        if best is None or d < best_d:
-            best = ant
-            best_d = d
-    return best
-
-
-def challenge_exclusions(
-    hill: Loc,
-    last_target: Loc | None,
-    held: set[Loc],
-    history: dict[Loc, list[Loc]],
-    ants_list: list[Loc],
-    distance: DistFn,
-) -> set[Loc]:
-    # Failed challenge, two-turn memory: this hill was last turn's
-    # target and is still enemy-held. Every challenger recorded for
-    # it within the last EXCLUSION_TURNS turns sits out. A challenger
-    # moves at most one square per turn, so the turn-N record is
-    # matched within N squares of its recorded spot; farther means
-    # that ant is gone. Any other hill, a freed hill, or a gone army
-    # picks open.
-    if last_target is None or hill != last_target or hill not in held:
-        return set()
-    out: set[Loc] = set()
-    for age, recorded in enumerate(reversed(history.get(hill, [])), start=1):
-        same = min(ants_list, key=lambda a: distance(a, recorded), default=None)
-        if same is not None and distance(same, recorded) <= age:
-            out.add(same)
-    return out
-
-
 def assign_food_targets(
     ants_list: list[Loc],
     foods: list[Loc],
@@ -292,17 +246,59 @@ def assign_food_targets(
     return target
 
 
+# Squares where one of our ants died in contact stay haunted for
+# GRAVE_TURNS turns: paths route around them when an alternative
+# exists, and step back on freely once the memory lapses.
+GRAVE_TURNS = 20
+CONTACT_DIST = 2
+
+
+def is_grave(loc: Loc, graves: dict[Loc, int], turn: int) -> bool:
+    born = graves.get(loc)
+    return born is not None and turn - born <= GRAVE_TURNS
+
+
+def record_deaths(
+    prev_mine: list[Loc],
+    cur_set: set[Loc],
+    prev_enemies: list[Loc],
+    cur_enemies: list[Loc],
+    distance: DistFn,
+    turn: int,
+    graves: dict[Loc, int],
+) -> dict[Loc, int]:
+    # Ants present last turn but gone now died. Remember the square
+    # when an enemy was within CONTACT_DIST on either turn, so the
+    # killer cannot have walked away unseen. Prune by age every turn.
+    for lost in prev_mine:
+        if lost in cur_set:
+            continue
+        for e in prev_enemies:
+            if distance(lost, e) <= CONTACT_DIST:
+                graves[lost] = turn
+                break
+        else:
+            for e in cur_enemies:
+                if distance(lost, e) <= CONTACT_DIST:
+                    graves[lost] = turn
+                    break
+    for g in [g for g, t in graves.items() if turn - t > GRAVE_TURNS]:
+        del graves[g]
+    return graves
+
+
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Understudy2:
+class Coroner:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
         self.remembered_hills: set[tuple[int, int]] = set()
         self.prev_enemies: list[tuple[int, int]] = []
-        self.challenger_history: dict[tuple[int, int], list[tuple[int, int]]] = {}
-        self.last_target: tuple[int, int] | None = None
+        self.prev_mine: list[tuple[int, int]] = []
+        self.graves: dict[tuple[int, int], int] = {}
+        self.turn: int = 0
 
     # do_setup is run once at the start of the game
     # after the bot has received the game settings
@@ -312,8 +308,9 @@ class Understudy2:
         self.visits = {}
         self.remembered_hills = set()
         self.prev_enemies = []
-        self.challenger_history = {}
-        self.last_target = None
+        self.prev_mine = []
+        self.graves = {}
+        self.turn = 0
 
     # do turn is run once per turn
     # the ants class has the game state and is updated by the Ants.run method
@@ -329,6 +326,17 @@ class Understudy2:
         ants_list = ants.my_ants()
         my_set = set(ants_list)
         enemy_locs = [loc for loc, _ in ants.enemy_ants()]
+        self.turn += 1
+        record_deaths(
+            self.prev_mine,
+            my_set,
+            self.prev_enemies,
+            enemy_locs,
+            ants.distance,
+            self.turn,
+            self.graves,
+        )
+        self.prev_mine = list(ants_list)
         target = assign_food_targets(
             ants_list, foods, enemy_locs, ants.distance, ants.rows, ants.cols
         )
@@ -339,38 +347,6 @@ class Understudy2:
                 self.remembered_hills.discard(hloc)
         hills = sorted(self.remembered_hills)
         my_hills = ants.my_hills()
-        # Understudy2: the muster target formula is unchanged, but a
-        # failed challenge rotates for two turns -- every challenger
-        # recorded for this hill within the last EXCLUSION_TURNS
-        # turns sits out and a different ant goes instead.
-        muster_hill: tuple[int, int] | None = (
-            min(
-                hills,
-                key=lambda h: sum(ants.distance(a, h) for a in ants_list),
-            )
-            if hills
-            else None
-        )
-        excluded: set[tuple[int, int]] = set()
-        challenger: tuple[int, int] | None = None
-        if muster_hill is not None:
-            excluded = challenge_exclusions(
-                muster_hill,
-                self.last_target,
-                self.remembered_hills,
-                self.challenger_history,
-                ants_list,
-                ants.distance,
-            )
-            challenger = pick_challenger(
-                muster_hill, ants_list, ants.distance, excluded
-            )
-            if challenger is None:
-                # No understudy exists: the lone ant retries the hill.
-                excluded = set()
-                challenger = pick_challenger(
-                    muster_hill, ants_list, ants.distance, excluded
-                )
         # Match each visible enemy to a last-turn position to read
         # its heading. Ants move one square per turn, so matches at
         # distance 0 or 1 are the same ant; the rest are new spawns.
@@ -441,30 +417,41 @@ class Understudy2:
             start: tuple[int, int], goal: tuple[int, int], budget: int = 250
         ) -> str | None:
             # Shortest passable path around water; return its first step.
+            # Haunted squares are routed around when an alternative
+            # exists; the fallback pass allows them so corridors never
+            # strand (a grave goal itself is always reachable).
             if start == goal:
                 return None
-            parent: dict[tuple[int, int], tuple[tuple[int, int], str]] = {}
-            parent[start] = (start, "")
-            queue: deque[tuple[int, int]] = deque([start])
-            expanded = 0
-            while queue and expanded < budget:
-                cur = queue.popleft()
-                expanded += 1
-                for d in ("n", "e", "s", "w"):
-                    nxt = ants.destination(cur, d)
-                    if nxt in parent or not ants.passable(nxt):
-                        continue
-                    parent[nxt] = (cur, d)
-                    if nxt == goal:
-                        queue.clear()
-                        break
-                    queue.append(nxt)
-            if goal not in parent:
-                return None
-            node = goal
-            while parent[node][0] != start:
-                node = parent[node][0]
-            return parent[node][1]
+            for avoid in (True, False):
+                parent: dict[tuple[int, int], tuple[tuple[int, int], str]] = {}
+                parent[start] = (start, "")
+                queue: deque[tuple[int, int]] = deque([start])
+                expanded = 0
+                while queue and expanded < budget:
+                    cur = queue.popleft()
+                    expanded += 1
+                    for d in ("n", "e", "s", "w"):
+                        nxt = ants.destination(cur, d)
+                        if nxt in parent or not ants.passable(nxt):
+                            continue
+                        if (
+                            avoid
+                            and nxt != goal
+                            and is_grave(nxt, self.graves, self.turn)
+                        ):
+                            continue
+                        parent[nxt] = (cur, d)
+                        if nxt == goal:
+                            queue.clear()
+                            break
+                        queue.append(nxt)
+                if goal not in parent:
+                    continue
+                node = goal
+                while parent[node][0] != start:
+                    node = parent[node][0]
+                return parent[node][1]
+            return None
 
         def try_step(
             ant_loc: tuple[int, int], direction: str, safe: bool = True
@@ -512,16 +499,15 @@ class Understudy2:
                     step = first_step(ant_loc, nearest)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
-            if (
-                not moved
-                and hills
-                and muster_hill is not None
-                and ant_loc not in excluded
-            ):
+            if not moved and hills:
                 # Flood: the group marches on one target, the hill
                 # nearest the army as a whole. Hunt always; fearless
                 # when ahead on hills.
-                step = first_step(ant_loc, muster_hill)
+                muster = min(
+                    hills,
+                    key=lambda h: sum(ants.distance(a, h) for a in ants_list),
+                )
+                step = first_step(ant_loc, muster)
                 if step is not None and try_step(
                     ant_loc, step, safe=len(my_hills) <= len(hills)
                 ):
@@ -530,17 +516,14 @@ class Understudy2:
                 # No hill move: reinforce the second-nearest hill.
                 ordered = sorted(hills, key=lambda h: ants.distance(ant_loc, h))
                 near = ordered[1] if len(ordered) > 1 else ordered[0]
-                if not (ant_loc in excluded and near == muster_hill):
-                    hstep = first_step(ant_loc, near)
-                    if hstep is not None and try_step(ant_loc, hstep):
-                        moved = True
+                hstep = first_step(ant_loc, near)
+                if hstep is not None and try_step(ant_loc, hstep):
+                    moved = True
             if not moved:
-                # Still stuck: explore least-visited squares first.
-                dirs = sorted(
-                    ("n", "e", "s", "w"),
-                    key=lambda d: self.visits.get(ants.destination(ant_loc, d), 0),
-                )
-                for direction in dirs:
+                # Still stuck: explore least-visited squares first,
+                # haunted squares last (but still used before holding).
+                options: list[tuple[bool, int, str, tuple[int, int]]] = []
+                for direction in ("n", "e", "s", "w"):
                     new_loc = ants.destination(ant_loc, direction)
                     if (
                         new_loc not in destinations
@@ -548,26 +531,25 @@ class Understudy2:
                         and ants.unoccupied(new_loc)
                         and is_safe(new_loc, ant_loc)
                     ):
-                        ants.issue_order((ant_loc, direction))
-                        destinations.add(new_loc)
-                        moved = True
-                        break
+                        options.append(
+                            (
+                                is_grave(new_loc, self.graves, self.turn),
+                                self.visits.get(new_loc, 0),
+                                direction,
+                                new_loc,
+                            )
+                        )
+                options.sort(key=lambda t: (t[0], t[1]))
+                if options:
+                    _, _, direction, new_loc = options[0]
+                    ants.issue_order((ant_loc, direction))
+                    destinations.add(new_loc)
+                    moved = True
             if not moved:
                 held.append(ant_loc)
             # check if we still have time left to calculate more orders
             if ants.time_remaining() < 10:
                 break
-        if muster_hill is not None and challenger is not None:
-            if muster_hill != self.last_target:
-                self.challenger_history[muster_hill] = [challenger]
-            else:
-                self.challenger_history[muster_hill] = (
-                    self.challenger_history.get(muster_hill, []) + [challenger]
-                )[-EXCLUSION_TURNS:]
-        for old in list(self.challenger_history):
-            if old != muster_hill and old not in self.remembered_hills:
-                del self.challenger_history[old]
-        self.last_target = muster_hill
         # Walk off hill: a held ant on a home hill must step off.
         hill_set = set(my_hills)
         for ant_loc in held:
@@ -590,6 +572,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Understudy2())
+        Ants.run(Coroner())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
