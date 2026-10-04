@@ -487,3 +487,15 @@ Use this format.
 - claim: 76 tracked improvements at 3-15% 1v1 each; replay-driven fixes + perl auto-test harness vs older self.
 - evidence (implementable, one per 30-min iteration): 90%-turn timeout fuse with null-move fallback; food-first pipeline (food, combat, hills, explore); two-pass food commit (plan speculative, commit shortest/safest, revert rest); 4-ant food-race check with attackRange head-start; wise final food step (toward next food, away from pack); permutation mini-TSP for <=5 foods + fewest-options-first; 4-neighbor length-10 repulsion (+enemies when losing); win-phase attraction vectors scaled by ant-count tiers (50/120/180/240/300); long-vector projection with 90-degree fallback; 1/d^2 multi-goal BFS explore map + Manhattan-ratio maze detector; least-visited frontier + 2x-view investigation map.
 - idea: queue as economy tune family once combat approaches land.
+
+## Missing-bot hunt results (2026-10-04)
+- FOUND: FlagCapper #8 full C source + postmortem (see vendor README for URLs).
+  Combat: brute-force 5^n over island groups up to 8 ants (timeout-safe cap).
+  Beat xathis 4/5 head-to-head in finals (per commenter).
+- NOT FOUND: protocolocon #3 (Spain, one-man "Rufes Band", user 5916, no technique);
+  teapotahedron #5 (Russia/MSU, C++11, no postmortem ever); ChrisH #7 (user 10,
+  Area42 + jhines0042, Go) — but the "ChrisH tactic" is known: predictive
+  spawn-blocking (per-hill spawn scores + last-touched times -> blocking
+  incentive added to hill-attack moves; via Parasprites postmortem t=2169).
+- follow-up: archive.org CDX was offline; retry profile pages
+  (user=5916/573/10) and org rosters later.
