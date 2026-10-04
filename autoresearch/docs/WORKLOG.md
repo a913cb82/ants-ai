@@ -1790,3 +1790,15 @@ Use this format.
 - what changed: Battling as Duelist in Duelist.bot + Duelist.py. Two unmeasured ideas stacked before either played: situational 1-for-1 trades (blocked-rush 70% or hill-zone backup inside 20 with backup inside 6; blanket 14-friend gate deleted, strict superiority kept, inferior always refused) plus proportional guard (ceil(raiders/2) per threatened hill, gatherer draft capped at a third) with an early muster-front call (enemy inside 20 of the muster home hill counts as raid). Pure Duelist (1f62df3) was never isolated.
 - what you learned: the combo went 6-1 in duels but collapsed in the census (rank 8/10) and took only 3rd in the refine, so mu reached 25.69 against 52.52 — neither trades nor guard moved the needle, and stacking two unmeasured ideas in one filename destroyed attribution. Entries get fresh filenames from here on; coders stage from measured-champion files.
 - next: Endgame closing rule (exp8 committed, in exam queue).
+
+## 147 — denial takes the crown under the fixed exam (2026-10-04)
+- commit: 8dee7ed (bid Denial.bot-8dee7ed)
+- start: c96f1c9 (champion Flood files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag; first clean exam in champion order)
+- score: mu 66.6, sigma 3.18
+- champion mu: none (first row for the new tag — sets the baseline and takes the crown)
+- verdict: new champion
+- games: 5-2, FFA ranks 10p:1 6p:1
+- what changed: Battling as Denial in Denial.bot + Denial.py; Flood's united hunt, combat, and economy untouched, but a food cluster with 3+ visible enemies draws exactly two ants onto its two nearest foods (union-find clusters, torus-exact) instead of one ant per food. Known nit: one mypy annotation error (list-or-None assignment), zero runtime effect, all 12 bot tests green.
+- what you learned: denial won both FFAs outright (10p rank 1 ahead of Gang, 6p rank 1) and went 5-2 in duels, so mu reached 66.6 with sigma down to 3.18 — contested food was the census leak. Context: the exam order fix (census, refine, then duels) plus the pool scoping (branches only) retired all place43 rows, so Flood's 52.52 no longer counts; the Flowfield partial (5 duels, aborted mid-exam) and the endgame stack (content rated via one opponent game) stay unscored as orphans.
+- next: forward-spawn expansion (Gambler exp committed, queued for exam).

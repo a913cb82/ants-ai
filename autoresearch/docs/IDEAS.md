@@ -42,7 +42,7 @@ row. Leave the old row as it was.
 | done | Combat: skip any step without a local majority in attack range. |
 | done | Exploration: order the fallback by least-visited square first. |
 | trying | Flood: move a group of ants to one target. |
-| trying | Food denial: hold a contested food field. |
+| done | Food denial: hold a contested food field. |
 | done | Opponent model: threaten a home hill at 16 steps when an enemy closes. |
 | trying | Endgame: hold most hills until the turn limit. |
 | dropped | Situational 1-for-1: blocked rush or hill-zone backup (measured stacked in combo bb73244, mu 25.7). |
