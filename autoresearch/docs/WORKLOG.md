@@ -2160,3 +2160,15 @@ Use this format.
 - what changed: Battling as Turnstile2 in Turnstile2.bot + Turnstile2.py; Denial's united hunt, denial, and combat untouched, but sitters rotate off after 30 turns instead of 50.
 - what you learned: Turnstile2s went 2-5 in duels with mid-pack FFAs, so mu reached 50.4 against 66.6 — far below the 50-turn 66.8, so 30 is too hasty; the fuse has a real optimum at or beyond 50.
 - next: 70-turn bracket (Turnstile3 exp committed) closes the family; then user-directed pivot to a multi-iteration combat program.
+
+## 179 — long fuse never rotates (2026-10-04)
+- commit: c13bc9e (bid Turnstile3.bot-c13bc9e)
+- start: 8dee7ed (champion Denial files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 24.8, sigma 3.02
+- champion mu: 66.6 (Denial; Turnstile-50 candidate 66.8 HOLD)
+- verdict: keep Denial
+- games: 3-4, FFA ranks 10p:8 6p:1
+- what changed: Battling as Turnstile3 in Turnstile3.bot + Turnstile3.py; Denial's united hunt, denial, and combat untouched, but sitters rotate off after 70 turns instead of 50.
+- what you learned: Turnstile3s went 3-4 in duels and ranked 8th in the census, so mu reached 24.8 against 66.6 — the rotation family is closed (30: 50.4, 50: 66.8 HOLD, 70: 24.8); the fuse optimum sits at or near 50, and the 50-turn candidate stands unpromoted on its thin +0.2.
+- next: combat program leg 1 (Seek exp with shared combat.py + test_combat.py committed, queued for exam); user-directed 10-iteration combat arc.
