@@ -166,8 +166,8 @@ Two selections drive the loop. Score: oldest unscored leaf of
 the next live line, round-robin over lines. Spawn coders in
 this order, enough to reach 6 entries ahead of the scorer
 (coding plus unscored). 1. Extend: a live line has a scored leaf with no
-child in flight. Take the newest such leaf, round-robin over
-lines. 2. Split-branch: a second diagnosis exists for a failure
+child in flight. Take the newest scored leaf of the most
+recently examined live line. 2. Split-branch: a second diagnosis exists for a failure
 that already has a child. Branch the same parent. 3. Idle-branch:
 coder capacity is idle and every scored leaf has a child in
 flight. Take the oldest unscored leaf of the line with
