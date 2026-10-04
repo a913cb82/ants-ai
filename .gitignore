@@ -10,3 +10,4 @@ replays/
 autoresearch/runs/
 *.replay
 bots/greentea/build/
+league/ratings.json.lock
