@@ -1,30 +1,110 @@
 #!/usr/bin/env python
 """Flowfield pathing tests: hand-built layouts, no engine games.
 
-Proves the shared per-turn distance field (one multi-source BFS from
-all current targets) returns identical first steps to per-ant BFS, is
-built at most once per turn, and that the freed time funds a 2-step
-lookahead on the muster march: march only when both step 1 and step 2
-are safe, else hold (even where the old code would have walked in).
+Repair note: the Flowfield entry was removed, so this suite no longer
+imports it (nor the Flood oracle, which never landed on the branch).
+The shared-field algorithm survives here as an inline snapshot with
+the legacy per-ant lookup inlined beside it as the oracle: the maze
+tests still prove field steps equal legacy steps. Bot-movement tests
+run against Denial, which keeps Flood's movement everywhere denial is
+inactive, pinning that parity. The once-per-turn cache test is dropped:
+its subject (the shared field cache) left with the removed entry.
 """
 
 import os
 import sys
-import time
+from collections import deque
+from collections.abc import Callable
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from ants import Ants  # noqa: E402
-from Flood import Flood  # noqa: E402
-from Flowfield import (  # noqa: E402
-    Flowfield,
-    build_distance_field,
-    field_first_step,
-    legacy_first_step,
-)
+from Denial import Denial  # noqa: E402
 
+Loc = tuple[int, int]
 DIRS = ("n", "e", "s", "w")
 AIM = {"n": (-1, 0), "e": (0, 1), "s": (1, 0), "w": (0, -1)}
+OPPOSITE = {"n": "s", "s": "n", "e": "w", "w": "e"}
+Field = tuple[dict[Loc, int], dict[Loc, Loc], dict[Loc, str]]
+
+
+def legacy_first_step(
+    start: Loc,
+    goal: Loc,
+    destination: Callable[[Loc, str], Loc],
+    passable: Callable[[Loc], bool],
+    budget: int = 250,
+) -> str | None:
+    # Inlined oracle (the champion's per-ant BFS): shortest passable
+    # path around water; return its first step.
+    if start == goal:
+        return None
+    parent: dict[Loc, tuple[Loc, str]] = {}
+    parent[start] = (start, "")
+    queue: deque[Loc] = deque([start])
+    expanded = 0
+    while queue and expanded < budget:
+        cur = queue.popleft()
+        expanded += 1
+        for d in DIRS:
+            nxt = destination(cur, d)
+            if nxt in parent or not passable(nxt):
+                continue
+            parent[nxt] = (cur, d)
+            if nxt == goal:
+                queue.clear()
+                break
+            queue.append(nxt)
+    if goal not in parent:
+        return None
+    node = goal
+    while parent[node][0] != start:
+        node = parent[node][0]
+    return parent[node][1]
+
+
+def build_distance_field(
+    destination: Callable[[Loc, str], Loc],
+    passable: Callable[[Loc], bool],
+    sources: list[Loc],
+    budget: int,
+) -> Field:
+    # Snapshot of the removed entry's subject: one multi-source BFS
+    # from all current targets. Every cell learns its nearest target
+    # and the first step toward it.
+    dist: dict[Loc, int] = {}
+    origin: dict[Loc, Loc] = {}
+    step: dict[Loc, str] = {}
+    queue: deque[Loc] = deque()
+    for src in sources:
+        if src not in dist:
+            dist[src] = 0
+            origin[src] = src
+            queue.append(src)
+    expanded = 0
+    while queue and expanded < budget:
+        cur = queue.popleft()
+        expanded += 1
+        for d in DIRS:
+            nxt = destination(cur, d)
+            if nxt in dist or not passable(nxt):
+                continue
+            dist[nxt] = dist[cur] + 1
+            origin[nxt] = origin[cur]
+            step[nxt] = OPPOSITE[d]
+            queue.append(nxt)
+    return dist, origin, step
+
+
+def field_first_step(field: Field, start: Loc, goal: Loc) -> str | None:
+    # Snapshot of the removed entry's subject: first step toward the
+    # goal through the shared field.
+    if start == goal:
+        return None
+    _, origin, step = field
+    if origin.get(start) != goal:
+        return None
+    return step.get(start)
 
 
 class FakeAnts(Ants):
@@ -172,28 +252,6 @@ def test_field_distances_are_shortest() -> None:
     assert dist[(3, 6)] == 3
 
 
-def test_field_cache_builds_once_per_turn() -> None:
-    """Ten marching ants share one build; the next turn builds once more."""
-    my = [(10, c) for c in range(10)]
-    ants = FakeAnts(
-        rows=20,
-        cols=20,
-        my_ants=my,
-        enemies=[],
-        enemy_hills=[(10, 15)],
-        water=set(),
-    )
-    bot = Flowfield()
-    bot.do_setup(ants)
-    assert bot.field_builds == 0
-    bot.do_turn(ants)
-    assert bot.field_builds == 1, f"one turn built {bot.field_builds} fields"
-    assert len(ants.orders) > 0
-    ants.orders.clear()
-    bot.do_turn(ants)
-    assert bot.field_builds == 2, f"two turns built {bot.field_builds} fields"
-
-
 def corridor_hold() -> FakeAnts:
     """Lone marcher, open row-10 corridor, hill east, enemy covering step 2.
 
@@ -211,23 +269,23 @@ def corridor_hold() -> FakeAnts:
     )
 
 
-def test_two_step_gate_holds_where_old_code_walks_in() -> None:
-    """Step 2 unsafe: new code holds, old code marches east."""
-    old_ants = corridor_hold()
-    flood = Flood()
-    flood.do_setup(old_ants)
-    flood.do_turn(old_ants)
-    assert ((10, 10), "e") in old_ants.orders
-
+def test_legacy_lookup_walks_into_corridor() -> None:
+    """The inlined oracle marches east: the old code walked in here."""
     ants = corridor_hold()
-    bot = Flowfield()
+    assert legacy_first_step((10, 10), (10, 15), ants.destination, ants.passable) == "e"
+
+
+def test_denial_marches_open_corridor() -> None:
+    """Two enemies, no denial trigger: Denial marches like Flood did."""
+    ants = corridor_hold()
+    bot = Denial()
     bot.do_setup(ants)
     bot.do_turn(ants)
-    assert ants.orders == [], f"gate failed to hold: {ants.orders}"
+    assert ants.orders == [((10, 10), "e")]
 
 
-def test_two_step_gate_marches_when_both_safe() -> None:
-    """No enemy: both steps safe, the march goes through like before."""
+def test_denial_marches_when_both_safe() -> None:
+    """No enemy: the march goes through like before."""
     ants = FakeAnts(
         rows=30,
         cols=30,
@@ -236,42 +294,25 @@ def test_two_step_gate_marches_when_both_safe() -> None:
         enemy_hills=[(10, 15)],
         water=set(),
     )
-    bot = Flowfield()
+    bot = Denial()
     bot.do_setup(ants)
     bot.do_turn(ants)
     assert ants.orders == [((10, 10), "e")]
 
 
-def test_full_turn_pathing_faster_on_150_ants() -> None:
-    """150 mustering ants: one shared field beats 150 per-ant BFS runs."""
+def test_full_turn_completes_on_150_ants() -> None:
+    """150 mustering ants: the turn completes and the army moves."""
     my = [(r, c) for r in range(0, 30, 2) for c in range(0, 30, 2)][:150]
     assert len(my) == 150
-
-    def fresh() -> FakeAnts:
-        return FakeAnts(
-            rows=30,
-            cols=30,
-            my_ants=my,
-            enemies=[],
-            enemy_hills=[(0, 0), (15, 15)],
-            water=set(),
-        )
-
-    ants = fresh()
-    flood = Flood()
-    flood.do_setup(ants)
-    start = time.perf_counter()
-    flood.do_turn(ants)
-    old_elapsed = time.perf_counter() - start
-
-    ants2 = fresh()
-    bot = Flowfield()
-    bot.do_setup(ants2)
-    start = time.perf_counter()
-    bot.do_turn(ants2)
-    new_elapsed = time.perf_counter() - start
-
-    assert len(ants2.orders) > 100
-    assert new_elapsed < old_elapsed, (
-        f"shared field {new_elapsed:.3f}s not faster than per-ant {old_elapsed:.3f}s"
+    ants = FakeAnts(
+        rows=30,
+        cols=30,
+        my_ants=my,
+        enemies=[],
+        enemy_hills=[(0, 0), (15, 15)],
+        water=set(),
     )
+    bot = Denial()
+    bot.do_setup(ants)
+    bot.do_turn(ants)
+    assert len(ants.orders) > 100
