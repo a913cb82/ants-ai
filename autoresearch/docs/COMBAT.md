@@ -20,7 +20,7 @@ shows the ports with many games and mu below our champions.
 | dirichlet sampling | 5+0 | 0 | 26.3 / 36.4 / 37.2 / 27.2 / 28.3 | Dirichlet3 37.2 | DEAD (no new best in last 3) |
 | influence (Memetix) | 3 | 1 | 28.8 / 29.5 / 34.4 | Influence3 34.4 | tune3 coded, queued |
 | greedy fields | 2 | 2 | 16.1 / 26.6 | Greedy2 26.6 | tune2 coded, queued |
-| softmax 1-ply | 2 | 2 | 41.5 / 12.4 | Softmax 41.5 | gate backfired, immune (<4) |
+| softmax 1-ply | 3 | 1 | 41.5 / 12.4 / 41.9 | Softmax3 41.9 | contest-zone holds, 10p 1/10, immune |
 | sequential fixing | 3 | 1 | 49.7 / 10.3 / 44.4 | Fixing 49.7 | engage-gate holds, 10p 1/10, immune |
 | precomputed tables | 3 | 1 | 55.5 / 17.4 / 15.8 | Tables 55.5 | sidestep backfired, immune |
 | two-stage | 1 | 3 | 13.7 | TwoStage 13.7 | weak, tune or close |
