@@ -56,7 +56,7 @@ row. Leave the old row as it was.
 | done | Walk off hill: never end a turn on your own hill. |
 | dropped | Escape space: most-open safe move (mu 32.1 vs 66.6; 0-7 duels). |
 | done | Aggressive combat: trade 1-for-1 when 14+ friends near the fight. |
-| trying | Hill-first order: hunt hills before food. |
+| dropped | Hill-first order: hunt hills before food (mu 17.2 vs 66.6; 10/10 census). |
 | dropped | Standing orders: ants keep targets across turns. |
 | dropped | Mission detour: hill ants grab food within 3 steps. |
 | dropped | Stale missions: re-bid food when 5+ closer. |

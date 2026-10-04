@@ -1886,3 +1886,15 @@ Use this format.
 - what changed: Battling as Escape2 in Escape2.bot + Escape2.py; Denial's united hunt, denial, and combat untouched, but the stuck-explore fallback picks the most-open safe move (passable squares in radius 3) instead of least-visited-first. (Test portability nit: the suite referenced worktree-root staging files and errors at collection outside its birth tree; behavior valid, 5/5 green there.)
 - what you learned: Escape2s lost all 7 duels and ranked mid-pack in both FFAs, so mu reached 32.1 against 66.6 — open space is where the enemy already is; least-visited diffusion explores more safely.
 - next: clean endgame closing (Endgamer-2 exp committed, queued for exam).
+
+## 155 — hills-first starves the economy (2026-10-04)
+- commit: 56e86df (bid Hillfirst2.bot-56e86df)
+- start: 8dee7ed (champion Denial files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 17.2, sigma 3.18
+- champion mu: 66.6 (Denial)
+- verdict: keep Denial
+- games: 6-1, FFA ranks 10p:10 6p:1
+- what changed: Battling as Hillfirst2 in Hillfirst2.bot + Hillfirst2.py; Denial's united hunt, denial, and combat untouched, but ants holding both a food claim and a hill move take the hill first, except ants within 5 steps of food finish the pickup.
+- what you learned: Hillfirst2s went 6-1 in duels and won the refine, but finished DEAD LAST (10/10) in the census, so mu reached 17.2 against 66.6 — marching past food loses the growth race before hills matter; food-first is load-bearing in crowds.
+- next: endgame closing, third attempt (Endgamer-3 exp committed, queued for exam).
