@@ -155,29 +155,22 @@ worktree.
 Coders run in parallel, one branch per coder. Exams stay serial:
 one exam-runner at a time. Git stores the tree: each merge keeps
 the leaf as second parent, so `git log --graph` shows every line.
-The frontier is merged leaves with no exam row yet. The exam takes
-the oldest leaf of the next line, round-robin over lines (one
-line per approach). New lines join at once. Close a line when
-its budget is spent, or on 3 straight exams that trail line-best
-and champion with no upward trend. Upward trend means the
-window beats the earlier line best: max(last 3 exams) is above
-max(all earlier exams of the line). A line with fewer than
-4 exams cannot terminate. The champion line never closes.
+A line is dead when its last 3 exams never beat its earlier best.
+Upward trend means max(last 3) is above max(all earlier exams);
+a line with fewer than 4 exams is immune. Dead lines get no exams
+and no children. The champion line never dies.
+Two selections drive the loop. Score: oldest unscored leaf of
+the next live line, round-robin over lines. Extend: newest
+scored leaf of a live line gets a child through a coder; prefer
+this, evidence beats speculation. Branch: an unscored leaf gets
+a child only with a different diagnosis for the same failure, or
+when coder capacity is idle and every scored leaf has a child
+in flight; then take the oldest unscored leaf of the line with
+the fewest children in flight. Never give one leaf two children
+in flight.
 Split one failure with two diagnoses into one child leaf each.
 A leaf that wins big on a new mechanism starts its own line.
 Prune the weaker fork at its next exam.
-
-Three moves grow the tree. Score picks an unscored leaf and
-runs the exam on it: take the oldest unscored leaf of the next
-line, round-robin. Extend picks a scored leaf and gives it
-a child through a coder: take the newest scored leaf of a line
-with budget left. Prefer extend: evidence beats speculation.
-Branch picks an unscored leaf and gives it a child through
-a coder: do this only with a different diagnosis for the same
-failure, or when coder capacity is idle and every scored leaf
-has a child in flight. Then take the oldest unscored leaf of
-the line with the fewest children in flight. Never give one
-leaf two children in flight.
 
 ## Log
 
