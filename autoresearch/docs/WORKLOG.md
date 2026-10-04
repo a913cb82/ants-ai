@@ -2431,3 +2431,15 @@ Use this format.
 - what changed: Faithful delineate replication (zero-search 1/(1+d^2) fields, kill bonus only strict superiority) on the Crowd economy.
 - what you learned: dead last in the census — the enemy-field lure marches ants into masses; zero search cannot price crowds.
 - next: greedy-tune1 (enemy-field weight down) codes while Influence2 examines.
+
+## 202 — hill-push KILL barely moves (2026-10-04)
+- commit: 6bcb656 (bid Influence2.bot-6bcb656; approach exam 2/4)
+- start: a9d4173 (champion Crowd files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 29.5, sigma 3.32
+- champion mu: 67.9 (Crowd)
+- verdict: keep Crowd
+- games: 5-2, FFA ranks 10p:7 6p:3
+- what changed: influence-tune1 — KILL allowed on any hill-push muster/reinforce (not just deadlocks).
+- what you learned: 28.8 to 29.5, 5-2 duels beating base Influence head-to-head — direction right, magnitude small; FFAs still refuse too much.
+- next: influence-tune2 (softer overcount refinement) codes while Greedy2 examines.
