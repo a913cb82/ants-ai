@@ -246,69 +246,82 @@ def assign_food_targets(
     return target
 
 
-SCOUT_TURN = 10
-SCOUT_END = 60
-SCOUT_CONTACT_R = 5
+SUPPORT_R = 3
+SUPPORT_REACH = 10
 
 
-def scout_window(turn: int) -> bool:
-    # The early chicken probe lives on turns 10..59 only. Every
-    # other turn runs the champion untouched.
-    return SCOUT_TURN <= turn < SCOUT_END
+def pick_challenge_pair(
+    ants_list: list[Loc],
+    target: dict[int, Loc],
+    hills: list[Loc],
+    threatened: list[Loc],
+    distance: DistFn,
+) -> tuple[int, int] | None:
+    # One pair per turn: the lowest-index free ant is the challenger
+    # and the nearest other free ant within SUPPORT_REACH shadows
+    # it. Free means food-unclaimed; unthreatened means defense is
+    # quiet (threatened empty), so guards are never pulled off a
+    # home hill. None means the challenge goes solo, as today.
+    if not hills or threatened:
+        return None
+    free = [ai for ai in range(len(ants_list)) if ai not in target]
+    if len(free) < 2:
+        return None
+    challenger = free[0]
+    cloc = ants_list[challenger]
+    best_ai: int | None = None
+    best_d = SUPPORT_REACH + 1
+    for ai in free[1:]:
+        d = distance(ants_list[ai], cloc)
+        if d <= SUPPORT_REACH and (best_ai is None or d < best_d):
+            best_ai = ai
+            best_d = d
+    if best_ai is None:
+        return None
+    return (challenger, best_ai)
 
 
-def pick_scout(
-    ants_list: list[Loc], hills: list[Loc], distance: DistFn
-) -> tuple[int, Loc]:
-    # Nearest ant to the nearest known enemy hill, as one pair:
-    # the (ant, hill) pair with the smallest distance wins.
-    best_ai = 0
-    best_hill = hills[0]
-    best_key: tuple[int, int, Loc] | None = None
-    for ai, ant in enumerate(ants_list):
-        for hill in hills:
-            key = (distance(ant, hill), ai, hill)
-            if best_key is None or key < best_key:
-                best_key = key
-                best_ai = ai
-                best_hill = hill
-    return best_ai, best_hill
-
-
-def scout_contacted(scout: Loc, enemy_locs: list[Loc], distance: DistFn) -> bool:
-    # First enemy contact: any visible enemy within contact range.
-    return any(distance(scout, e) <= SCOUT_CONTACT_R for e in enemy_locs)
-
-
-def scout_retreat_dirs(
-    ant_loc: Loc,
-    home: Loc,
+def support_square(
+    challenger: Loc,
+    supporter: Loc,
     distance: DistFn,
     destination: Callable[[Loc, str], Loc],
-) -> list[str]:
-    # Greedy beeline home, nearest step first. The BFS the army
-    # uses cannot range a cross-map retreat, so the scout walks
-    # downhill instead; ties prefer north, then east, south, west.
-    return sorted(
-        ("n", "e", "s", "w"),
-        key=lambda d: (distance(destination(ant_loc, d), home), "nesw".index(d)),
-    )
+    passable: Callable[[Loc], bool],
+    occupied: set[Loc],
+) -> Loc | None:
+    # Nearest passable unoccupied square within SUPPORT_R of the
+    # challenger, measured from the supporter; ties prefer the
+    # smallest square. Ring walk, no BFS: a handful of distance
+    # checks, far under a millisecond on a crowded board.
+    seen = {challenger}
+    ring = [challenger]
+    cands: list[Loc] = []
+    for _ in range(SUPPORT_R):
+        nxt: list[Loc] = []
+        for loc in ring:
+            for d in ("n", "e", "s", "w"):
+                m = destination(loc, d)
+                if m not in seen:
+                    seen.add(m)
+                    if passable(m):
+                        cands.append(m)
+                        nxt.append(m)
+        ring = nxt
+    free = [m for m in cands if m not in occupied and m != supporter]
+    if not free:
+        return None
+    return min(free, key=lambda m: (distance(supporter, m), m))
 
 
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Scout2:
+class Second:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
         self.remembered_hills: set[tuple[int, int]] = set()
         self.prev_enemies: list[tuple[int, int]] = []
-        self.turn: int = 0
-        self.scout_loc: Loc | None = None
-        self.scout_hill: Loc | None = None
-        self.scout_home: Loc | None = None
-        self.retreating: bool = False
 
     # do_setup is run once at the start of the game
     # after the bot has received the game settings
@@ -318,22 +331,17 @@ class Scout2:
         self.visits = {}
         self.remembered_hills = set()
         self.prev_enemies = []
-        self.turn = 0
-        self.scout_loc = None
-        self.scout_hill = None
-        self.scout_home = None
-        self.retreating = False
 
     # do turn is run once per turn
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Scout2: Denial's economy, except at turn 10 the ant
-        # nearest the nearest known enemy hill detaches as a scout
-        # and walks that hill; on first enemy contact it retreats
-        # toward home, and by turn 60 it rejoins the economy.
-        # Turns 1-9 and 60+ run the champion untouched.
-        self.turn += 1
+        # Second: Denial's economy, except a hill challenge goes in
+        # pairs -- the nearest free (food-unclaimed, unthreatened)
+        # ant shadows the challenger onto a support square within 3
+        # instead of its normal fallback. No free ant within 10, or
+        # defense active, means the challenge goes solo, as today.
+        # Muster order, food, defense, and exploration match Denial.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -348,50 +356,6 @@ class Scout2:
                 self.remembered_hills.discard(hloc)
         hills = sorted(self.remembered_hills)
         my_hills = ants.my_hills()
-        # Early chicken probe: one scout on turns 10..59 only.
-        # Dispatch picks the nearest ant/hill pair at turn 10; later
-        # turns track that ant by proximity, latch retreat on first
-        # contact, and clear everything at turn 60. Outside the
-        # window scout_ai stays None and the loop below is champion.
-        scout_ai: int | None = None
-        scout_goal: Loc | None = None
-        if self.turn >= SCOUT_END:
-            self.scout_loc = None
-            self.scout_hill = None
-            self.scout_home = None
-            self.retreating = False
-        elif self.turn == SCOUT_TURN:
-            if hills and ants_list:
-                ai, hill = pick_scout(ants_list, hills, ants.distance)
-                ant = ants_list[ai]
-                home = (
-                    min(my_hills, key=lambda h: ants.distance(ant, h))
-                    if my_hills
-                    else ant
-                )
-                self.scout_loc = ant
-                self.scout_hill = hill
-                self.scout_home = home
-                self.retreating = scout_contacted(ant, enemy_locs, ants.distance)
-                scout_ai = ai
-                scout_goal = home if self.retreating else hill
-        elif scout_window(self.turn) and self.scout_loc is not None:
-            scout_ai = min(
-                range(len(ants_list)),
-                key=lambda i: ants.distance(ants_list[i], self.scout_loc),
-            )
-            sloc = ants_list[scout_ai]
-            self.scout_loc = sloc
-            if scout_contacted(sloc, enemy_locs, ants.distance):
-                self.retreating = True
-            if self.retreating:
-                scout_goal = (
-                    min(my_hills, key=lambda h: ants.distance(sloc, h))
-                    if my_hills
-                    else self.scout_home
-                )
-            else:
-                scout_goal = self.scout_hill
         # Match each visible enemy to a last-turn position to read
         # its heading. Ants move one square per turn, so matches at
         # distance 0 or 1 are the same ant; the rest are new spawns.
@@ -505,37 +469,25 @@ class Scout2:
         destinations: set[tuple[int, int]] = set()
         held: list[tuple[int, int]] = []
         anchored: set[tuple[int, int]] = set()
+        pair = pick_challenge_pair(ants_list, target, hills, threatened, ants.distance)
+        support_ai: int | None = None
+        support_goal: tuple[int, int] | None = None
+        if pair is not None:
+            square = support_square(
+                ants_list[pair[0]],
+                ants_list[pair[1]],
+                ants.distance,
+                ants.destination,
+                ants.passable,
+                set(ants_list) | set(enemy_locs),
+            )
+            if square is not None:
+                support_ai = pair[1]
+                support_goal = square
         for ai, ant_loc in enumerate(ants_list):
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
             best = target.get(ai)
             moved = False
-            if scout_ai is not None and ai == scout_ai and scout_goal is not None:
-                # The scout walks its goal fearlessly: the probe
-                # reuses the army BFS, while a retreat past BFS range
-                # walks a greedy beeline home instead. A blocked
-                # scout, or one standing on its goal, falls through
-                # to the champion logic below for this turn.
-                if ant_loc != scout_goal:
-                    if self.retreating:
-                        for direction in scout_retreat_dirs(
-                            ant_loc, scout_goal, ants.distance, ants.destination
-                        ):
-                            if try_step(ant_loc, direction, safe=False):
-                                moved = True
-                                self.scout_loc = ants.destination(ant_loc, direction)
-                                break
-                    else:
-                        scout_step = first_step(ant_loc, scout_goal)
-                        if scout_step is not None and try_step(
-                            ant_loc, scout_step, safe=False
-                        ):
-                            moved = True
-                            self.scout_loc = ants.destination(ant_loc, scout_step)
-                if moved:
-                    if ants.time_remaining() < 10:
-                        break
-                    continue
-                self.scout_loc = ant_loc
             if best is not None:
                 step = first_step(ant_loc, best)
                 if step is not None and try_step(ant_loc, step):
@@ -559,6 +511,16 @@ class Scout2:
                     anchored.add(nearest)
                     step = first_step(ant_loc, nearest)
                 if step is not None and try_step(ant_loc, step):
+                    moved = True
+            if not moved and support_ai is not None and ai == support_ai:
+                # Paired support: shadow the challenger instead of the
+                # normal fallback. A blocked supporter falls through to
+                # the champion logic below for this turn.
+                assert support_goal is not None
+                sstep = first_step(ant_loc, support_goal)
+                if sstep is not None and try_step(
+                    ant_loc, sstep, safe=len(my_hills) <= len(hills)
+                ):
                     moved = True
             if not moved and hills:
                 # Flood: the group marches on one target, the hill
@@ -625,6 +587,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Scout2())
+        Ants.run(Second())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
