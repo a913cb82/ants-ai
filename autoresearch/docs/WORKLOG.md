@@ -1802,3 +1802,15 @@ Use this format.
 - what changed: Battling as Denial in Denial.bot + Denial.py; Flood's united hunt, combat, and economy untouched, but a food cluster with 3+ visible enemies draws exactly two ants onto its two nearest foods (union-find clusters, torus-exact) instead of one ant per food. Known nit: one mypy annotation error (list-or-None assignment), zero runtime effect, all 12 bot tests green.
 - what you learned: denial won both FFAs outright (10p rank 1 ahead of Gang, 6p rank 1) and went 5-2 in duels, so mu reached 66.6 with sigma down to 3.18 — contested food was the census leak. Context: the exam order fix (census, refine, then duels) plus the pool scoping (branches only) retired all place43 rows, so Flood's 52.52 no longer counts; the Flowfield partial (5 duels, aborted mid-exam) and the endgame stack (content rated via one opponent game) stay unscored as orphans.
 - next: forward-spawn expansion (Gambler exp committed, queued for exam).
+
+## 148 — gambler expansion falls short (2026-10-04)
+- commit: 184a5ec (bid Gambler.bot-184a5ec)
+- start: 8dee7ed (champion Denial files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 64.5, sigma 3.12
+- champion mu: 66.6 (Denial)
+- verdict: keep Denial
+- games: 4-3, FFA ranks 10p:1 6p:2
+- what changed: Battling as Gambler in Gambler.bot + Gambler.py; Denial's united hunt, denial, combat, and economy untouched, but the first 3 spawn waves march unseen-ward (most-unseen column third, BFS through unseen) instead of taking nearby food, resuming normal economy from wave 4.
+- what you learned: Gamblers won the 10p census again (rank 1) and took 2nd in the refine, but went 4-3 in duels (3-1 vs Oracle, 1-2 vs Berserker), so mu reached 64.5 against 66.6 — early map control does not convert better than contested-food doubling; expansion tempo is not the binding constraint.
+- next: Dirichlet-sampler contact combat (Sampler exp committed, queued for exam).

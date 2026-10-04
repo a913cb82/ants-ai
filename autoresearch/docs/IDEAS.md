@@ -43,6 +43,7 @@ row. Leave the old row as it was.
 | done | Exploration: order the fallback by least-visited square first. |
 | trying | Flood: move a group of ants to one target. |
 | done | Food denial: hold a contested food field. |
+| dropped | Forward-spawn expansion: first 3 waves march unseen-ward (mu 64.5 vs 66.6). |
 | done | Opponent model: threaten a home hill at 16 steps when an enemy closes. |
 | trying | Endgame: hold most hills until the turn limit. |
 | dropped | Situational 1-for-1: blocked rush or hill-zone backup (measured stacked in combo bb73244, mu 25.7). |
