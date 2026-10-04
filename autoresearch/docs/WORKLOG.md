@@ -2136,3 +2136,15 @@ Use this format.
 - verdict: HOLD — keep Denial. +0.2 against sigma ~3.2 is indistinguishable from noise, and the harness records one exam per bid (re-run refused: "recorded earlier"), so a thin lead cannot validate on the same bid. Crown needs a leg with separation.
 - what you learned: the exam harness is one-shot per bid by design (record_report returns prior on repeat) — confirmation must come from fresh bids, i.e. tuning legs. Turnstile-2 (30-turn fuse) coding now; it and any further legs arbitrate the crown.
 - next: bait-and-ambush exam (Anvil picked), then Turnstile-2 exam.
+
+## 177 — the ambush never closes (2026-10-04)
+- commit: 831f3f5 (bid Anvil.bot-831f3f5)
+- start: 8dee7ed (champion Denial files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 17.0, sigma 3.15
+- champion mu: 66.6 (Denial)
+- verdict: keep Denial
+- games: 3-4, FFA ranks 10p:9 6p:2
+- what changed: Battling as Anvil in Anvil.bot + Anvil.py; Denial's united hunt, denial, and combat untouched, but a lone ant adjacent to 2+ enemies holds as bait while the nearest 2 friends within 15 converge.
+- what you learned: Anvils went 3-4 in duels and ranked 9th in the census, so mu reached 17.0 against 66.6 — the bait dies before help arrives and the rescuers abandon harvests; no ambush forms in time.
+- next: short-fuse sitter rotation (Turnstile2 exp committed, queued for exam).
