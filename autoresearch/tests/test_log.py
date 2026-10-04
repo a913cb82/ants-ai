@@ -134,3 +134,24 @@ def test_check_msg_rejects_unknown_kind(tmp_path: Path) -> None:
     msg = tmp_path / "msg"
     msg.write_text("wip stuff\n")
     assert not L.check_msg(msg)
+
+
+def test_scores_skips_corrupt_lines(tmp_path: Path) -> None:
+    root = _fixture(tmp_path)
+    prog = root / "autoresearch" / "docs" / "PROGRESS.jsonl"
+    with prog.open("a") as fh:
+        fh.write("not json\n")
+        fh.write("[1, 2]\n")
+        fh.write("\n")
+    assert L.best(root)["score"] == 55.5
+
+
+def test_show_unknown_sha_reports_error(tmp_path: Path) -> None:
+    root = _fixture(tmp_path)
+    assert L.show(root, "deadbee")["error"] == "unknown revision"
+
+
+def test_check_msg_rejects_empty_file(tmp_path: Path) -> None:
+    msg = tmp_path / "msg"
+    msg.write_text("")
+    assert not L.check_msg(msg)

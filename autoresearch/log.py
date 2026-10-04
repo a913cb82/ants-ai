@@ -42,10 +42,17 @@ def _commits(root: Path) -> list[tuple[str, list[str], str]]:
 def _scores(root: Path) -> dict[str, dict]:
     prog = root / "autoresearch" / "docs" / "PROGRESS.jsonl"
     scores: dict[str, dict] = {}
+    if not prog.exists():
+        return scores
     for line in prog.read_text().splitlines():
         if not line.strip():
             continue
-        row = json.loads(line)
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(row, dict):
+            continue
         bid = row.get("bot", "")
         short = bid.rsplit("-", 1)[-1] if "-" in bid else ""
         if short:
@@ -74,7 +81,10 @@ def frontier(root: Path) -> list[dict]:
 
 
 def show(root: Path, sha: str) -> dict:
-    full = _git(root, "rev-parse", sha)
+    try:
+        full = _git(root, "rev-parse", sha)
+    except subprocess.CalledProcessError:
+        return {"sha": sha, "error": "unknown revision"}
     subjects = {s: (p, subj) for s, p, subj in _commits(root)}
     parents, subject = subjects[full]
     idea = subject[5:] if subject.startswith("exp: ") else subject
@@ -104,7 +114,10 @@ KINDS = {"exp", "log", "merge", "docs", "fix", "fmt", "port", "perf", "chore", "
 
 def check_msg(path: Path) -> bool:
     """True when the commit subject starts with a known kind."""
-    subject = path.read_text().splitlines()[0].strip().lower()
+    lines = path.read_text().splitlines()
+    if not lines or not lines[0].strip():
+        return False
+    subject = lines[0].strip().lower()
     return subject.split(" ", 1)[0].rstrip(":") in KINDS
 
 
