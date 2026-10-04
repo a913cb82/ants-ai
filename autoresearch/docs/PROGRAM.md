@@ -181,7 +181,8 @@ Git is the log. `WORKLOG.md` is frozen (history only).
 - Coordinator merges with:
   `git merge --no-ff tree/<line>-<n> -m "merge tree/<line>-<n>: <idea>"`
 - Coordinator logs with `log: <idea>`. The body holds Score,
-  Learned, Next.
+  Learned, Next, Rivals. Rivals are open alternative explanations
+  of the same result. They arm split-branch.
 - A hook rejects other subjects. Explore with:
   `.venv/bin/python autoresearch/log.py frontier|show|lines|best`.
 
