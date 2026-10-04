@@ -208,3 +208,39 @@ def test_main_merged(tmp_path):
     subprocess.run(["git", "-C", str(r), "commit", "-qam", "three"], check=True)
     subprocess.run(["git", "-C", str(r), "checkout", "-q", "work"], check=True)
     assert main_merged(r) is False
+
+
+def test_all_commits_ignores_detached_and_worktree_heads(tmp_path):
+    import pool
+
+    r = make_repo(tmp_path / "r", {"b/main.bot": "python x.py", "b/x.py": "v1"})
+    subprocess.run(["git", "-C", str(r), "checkout", "-qb", "side"], check=True)
+    (r / "b" / "x.py").write_text("tweak")
+    subprocess.run(["git", "-C", str(r), "commit", "-qam", "side"], check=True)
+    subprocess.run(["git", "-C", str(r), "checkout", "-q", "-"], check=True)
+    subprocess.run(["git", "-C", str(r), "branch", "-D", "side"], check=True)
+    wt = tmp_path / "wt"
+    subprocess.run(
+        ["git", "-C", str(r), "worktree", "add", "--detach", str(wt)],
+        check=True,
+    )
+    (wt / "b" / "x.py").write_text("unmeasured")
+    subprocess.run(["git", "-C", str(wt), "commit", "-qam", "coder"], check=True)
+    names = subprocess.run(
+        ["git", "-C", str(r), "log", "--format=%s", "--all"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert "coder" in names  # the leak exists under --all
+    got = pool.all_commits(r)
+    main = subprocess.run(
+        ["git", "-C", str(r), "rev-parse", "--short", "HEAD"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    assert got == [main]
+    subprocess.run(
+        ["git", "-C", str(r), "worktree", "remove", "--force", str(wt)], check=True
+    )
