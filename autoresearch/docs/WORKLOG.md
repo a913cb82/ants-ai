@@ -1850,3 +1850,15 @@ Use this format.
 - what changed: Battling as Relief in Relief.bot + Relief.py; Denial's united hunt, denial, and combat untouched, but hills with 2+ raiders pull every ant within 15 off food into defense, resuming economy only when the raid clears.
 - what you learned: Reliefs went 3-4 in duels and only 4th in the refine, so mu reached 53.5 against 66.6 — total drafting wins the hill but loses the growth race behind it; proportional guard (draft at most a third) stays the better rule.
 - next: clean endgame closing (Endgamer-2 exp committed, queued for exam).
+
+## 152 — feet-following chains drag ants off task (2026-10-04)
+- commit: a6aae4a (bid Farmstead.bot-a6aae4a)
+- start: 8dee7ed (champion Denial files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 38.3, sigma 3.09
+- champion mu: 66.6 (Denial)
+- verdict: keep Denial
+- games: 0-7, FFA ranks 10p:4 6p:4
+- what changed: Battling as Farmstead in Farmstead.bot + Farmstead.py; Denial's united hunt, denial, and combat untouched, but idle ants step toward the nearest tasked friend (transitive chains) instead of diffusing to least-visited squares, falling back to explore only in isolation.
+- what you learned: Farmsteads lost all 7 duels and ranked 4th in both FFAs, so mu reached 38.3 against 66.6 — following feet pulls idles into traffic instead of onto squares; diffusion explores better than chains.
+- next: clean endgame closing (Endgamer-2 exp committed, queued for exam).

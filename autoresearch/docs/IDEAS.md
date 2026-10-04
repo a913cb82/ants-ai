@@ -179,6 +179,6 @@ row. Leave the old row as it was.
 | dropped | Homeward: explore to hills. |
 | dropped | General: battle-local 1-ply max-min combat resolution. |
 | dropped | Relief: fearless reinforce (mu 53.5 vs 66.6; drafting overdrafts). |
-| trying | Farmstead: feet plus fallback. |
+| dropped | Farmstead: feet plus fallback (mu 38.3 vs 66.6; 0-7 duels). |
 | done | Sow: gather-only opening, hunt after turn 30. |
 | done | Edgepush: fallback BFS-marches idle ants to the nearest unseen square. |
