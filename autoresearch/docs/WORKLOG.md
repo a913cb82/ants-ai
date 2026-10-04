@@ -1934,3 +1934,15 @@ Use this format.
 - what changed: Battling as Tollkeeper in Tollkeeper.bot + Tollkeeper.py; Denial's united hunt, denial, and combat untouched, but squares adjacent to superior enemy groups cost +3 steps in all BFS distance computations, routing marches around kill zones when a short safe path exists.
 - what you learned: Tollkeepers went 4-3 in duels and ranked 2nd in both FFAs, so mu reached 58.8 against 66.6 — detour mileage exceeds ambush losses; shortest paths stay shortest.
 - next: sentry standing guard (Sentry exp committed, queued for exam).
+
+## 159 — standing guards idle the workforce (2026-10-04)
+- commit: 4a9c5f0 (bid Sentry.bot-4a9c5f0)
+- start: 8dee7ed (champion Denial files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 14.5, sigma 3.18
+- champion mu: 66.6 (Denial)
+- verdict: keep Denial
+- games: 4-3, FFA ranks 10p:10 6p:1
+- what changed: Battling as Sentry in Sentry.bot + Sentry.py; Denial's united hunt, denial, and combat untouched, but every held hill drafts 2 standing sentries before food assignment, released only while directly threatened.
+- what you learned: Sentries went 4-3 in duels and won the refine, but finished DEAD LAST (10/10) in the census, so mu reached 14.5 against 66.6 — permanent guards idle the workers who win crowds; on-threat defense stays the rule.
+- next: threat-proportional militia draft (Militia exp committed, queued for exam).
