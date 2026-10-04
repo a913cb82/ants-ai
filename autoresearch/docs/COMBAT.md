@@ -17,7 +17,7 @@ Champion: Crowd (mu 67.9, `champion/main = a9d4173`).
 | softmax 1-ply | 1 | 3 | 41.5 | Softmax 41.5 | tune1 coding |
 | sequential fixing | 1 | 3 | 49.7 | Fixing 49.7 | tune1 coding |
 | precomputed tables | 1 | 3 | 55.5 | Tables 55.5 | tune1 coding |
-| two-stage | 0 | 4 | — | — | committed, queued |
+| two-stage | 1 | 3 | 13.7 | TwoStage 13.7 | weak, tune or close |
 
 Used counts the 4-per-approach budget; xathis/dirichlet were granted +3
 bold iterations each.

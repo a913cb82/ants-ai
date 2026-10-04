@@ -108,6 +108,7 @@ row. Leave the old row as it was.
 | approach | softmax 1-ply (41.5 impl; 3 iters left). |
 | approach | fixing sequential (49.7 impl; 3 iters left). |
 | approach | tables precomputed (55.5 impl; 3 iters left). |
+| approach | twostage (13.7 impl; weak). |
 | dropped | Anvil: bait-and-ambush (mu 17.0 vs 66.6; 10p:9). |
 | dropped | Patrol3: 30-step ranged patrol (mu 40.8 vs 66.6; range was never the bleed). |
 | dropped | Volunteers: duty drafts from spares only. |
