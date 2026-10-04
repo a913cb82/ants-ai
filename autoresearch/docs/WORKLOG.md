@@ -2323,3 +2323,15 @@ Use this format.
 - what changed: Faithful xathis replication (two-mode 1-ply, approach lines, open-space escape) on the Crowd economy.
 - what you learned: full 1-ply search wins the refine but ranks 8th in the census — search depth does not survive crowds; aggressive mode likely fires into unwinnable masses.
 - next: xathis-tune1 (aggressive only in small fights) codes while Dirichlet examines.
+
+## 193 — sampling suicides everywhere (2026-10-04)
+- commit: 260b548 (bid Dirichlet.bot-260b548; approach exam 1/4)
+- start: a9d4173 (champion Crowd files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 26.3, sigma 2.97
+- champion mu: 67.9 (Crowd)
+- verdict: keep Crowd
+- games: 2-5, FFA ranks 10p:6 6p:6
+- what changed: Faithful a1k0n replication (Dirichlet sampling, random ant order, provisional best-reply, 5ms fight budget) on the Crowd economy.
+- what you learned: a1k0n's documented weakness reproduces exactly — accidental suicides against cautious walls; loses in all formats.
+- next: dirichlet-tune1 (suicide veto) codes while Xathis2 examines.
