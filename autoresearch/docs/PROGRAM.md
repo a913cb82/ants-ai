@@ -54,8 +54,11 @@ Rules:
   Do not edit it. Commit it with your notes.
 - Read the code of the other bots. Do not edit their code.
 - The coder gets one idea and a fixed time budget (30 minutes unless
-  the brief says otherwise). It works in its own worktree on its own
-  branch (`coder/<n>`), never in the coordinator tree. Each entry gets
+  the brief says otherwise). It works detached in the shared worktree
+  (/tmp/loop-coder), never in the coordinator tree. No branch is ever
+  created for unmeasured code: a visible branch would leak into the
+  pool (`git log --all`), drafting unrated code as rulers and tripping
+  the duplicate guard on identical content later. Each entry gets
   fresh filenames: copy the staged champion files to a new name, add
   the one idea, and remove the predecessor's files. Never edit the
   previous entry's files in place — stacking two unmeasured ideas in
@@ -134,19 +137,21 @@ by worktree, never by discipline alone:
   coordinator's own `main`-side edits go through a scratch worktree.
 - Coders are sequential, so they share one worktree path
   (/tmp/loop-coder), recreated fresh from `autoresearch/main` for
-  each iteration on its own branch (`coder/<n>`). Fresh means no
-  stale scratch files leak across iterations. The coder never
-  enters the coordinator tree.
+  each iteration, always detached (`git worktree add --detach`:
+  no branch, so unmeasured code stays invisible to the pool).
+  Fresh means no stale scratch files leak across iterations. The
+  coder never enters the coordinator tree.
 - The coder never runs `iteration.py`. One exam call takes about
   25 minutes (7 duels plus two FFAs); the coordinator runs it after
   the exp commit lands. Running it from a dirty tree trips the
   harness guard and aborts the exam, and seeing scores early breaks
   the blind. Coders test with unit tests and replay reads.
-- A coder branch may hold bot changes only. The coordinator verifies
-  with `git diff --stat` and cherry-picks the exp commit onto
+- A detached exp commit holds bot changes only. The coordinator
+  verifies with `git diff --stat` and cherry-picks it onto
   `autoresearch/main` (linear history, exams run in commit order),
-  then deletes the branch and removes the shared worktree. The next
-  spawn recreates it.
+  then removes the shared worktree. The next spawn recreates it.
+  Cherry-picks only ever carry unrated content: rated content is
+  permanently unplayable as a fresh entry by design.
 
 ## Budget
 
