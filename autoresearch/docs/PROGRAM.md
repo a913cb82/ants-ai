@@ -79,8 +79,8 @@ coordinator measures it.
    A missing tag is fine. The rule above rebuilds it. The tag is
    local. Never push tags. Keep the commit in all cases. Start
    the next idea from the champion.
-7. Coordinator: add one entry to `autoresearch/docs/WORKLOG.md`.
-   Mark the idea's row in `autoresearch/docs/IDEAS.md`. On a crown
+7. Coordinator: record Score, Learned, Next in the body of
+   a `log: <idea>` commit. Mark the idea's row in `autoresearch/docs/IDEAS.md`. On a crown
    change, update the Current bot section of
    `autoresearch/docs/STRATEGY.md`. Commit the notes and the new
    games:
@@ -163,6 +163,18 @@ and champion with no upward trend. The champion line never closes.
 Split one failure with two diagnoses into one child leaf each.
 A leaf that wins big on a new mechanism starts its own line.
 Prune the weaker fork at its next exam.
+
+## Log
+
+Git is the log. `WORKLOG.md` is frozen (history only).
+
+- Coder commits `exp: <idea>` on its branch.
+- Coordinator merges with:
+  `git merge --no-ff tree/<line>-<n> -m "merge tree/<line>-<n>: <idea>"`
+- Coordinator logs with `log: <idea>`. The body holds Score,
+  Learned, Next.
+- A hook rejects other subjects. Explore with:
+  `.venv/bin/python autoresearch/log.py frontier|show|lines|best`.
 
 ## Harness
 

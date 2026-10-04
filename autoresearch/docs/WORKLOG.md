@@ -2496,3 +2496,8 @@ Use this format.
 - what changed: Faithful codetiger precomputed-tables replication (offline fight table, O(1) lookup per contact) on the Crowd economy.
 - what you learned: new implementation best (55.5 beats fixing 49.7); 5-1 vs Xathis rulers plus a Fixing head-to-head win — tables price fights better than live search at this budget.
 - next: twostage implementation examines (round-robin: 4 remaining).
+
+## FROZEN (2026-10-04)
+No new entries. Git is the log: `exp:`/`merge tree/`/`log:` commits plus
+`.venv/bin/python autoresearch/log.py frontier|show|lines|best`.
+History below stays for archaeology.

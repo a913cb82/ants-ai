@@ -42,3 +42,9 @@ repos:
         language: system
         types: [python]
         pass_filenames: false
+        exclude: '^vendor/'
+      - id: commit-msg
+        name: commit message format
+        entry: .venv/bin/python autoresearch/log.py check-msg
+        language: system
+        stages: [commit-msg]
