@@ -13,12 +13,6 @@ DENIAL_CLAIMS = 2
 _CELL = CLUSTER_R + 1
 
 
-def even_trade_allowed(my_count: int, enemy_count: int) -> bool:
-    # Hedge gate: take even (1-for-1) contact trades when ahead
-    # or even on visible ant count; disengage when outnumbered.
-    return my_count >= enemy_count
-
-
 def _scan_board(
     foods: list[Loc], enemy_locs: list[Loc], rows: int, cols: int
 ) -> tuple[list[int], dict[int, int]]:
@@ -252,15 +246,60 @@ def assign_food_targets(
     return target
 
 
+def pick_challenger(
+    hill: Loc,
+    ants_list: list[Loc],
+    distance: DistFn,
+    exclude: Loc | None = None,
+) -> Loc | None:
+    # Nearest ant to the hill, skipping the excluded last
+    # challenger. Ties break by list order (stable).
+    best: Loc | None = None
+    best_d = 0
+    for ant in ants_list:
+        if exclude is not None and ant == exclude:
+            continue
+        d = distance(ant, hill)
+        if best is None or d < best_d:
+            best = ant
+            best_d = d
+    return best
+
+
+def challenge_exclusion(
+    hill: Loc,
+    last_target: Loc | None,
+    held: set[Loc],
+    last_challenger: dict[Loc, Loc],
+    ants_list: list[Loc],
+    distance: DistFn,
+) -> Loc | None:
+    # Failed challenge: this hill was last turn's target and is
+    # still enemy-held. Rotate: sit the last challenger out. Any
+    # other hill, a freed hill, or a gone challenger picks open.
+    if last_target is None or hill != last_target or hill not in held:
+        return None
+    recorded = last_challenger.get(hill)
+    if recorded is None:
+        return None
+    # Same ant moved at most one square since last turn.
+    same = min(ants_list, key=lambda a: distance(a, recorded), default=None)
+    if same is None or distance(same, recorded) > 1:
+        return None
+    return same
+
+
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Hedge:
+class Understudy:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
         self.remembered_hills: set[tuple[int, int]] = set()
         self.prev_enemies: list[tuple[int, int]] = []
+        self.last_challenger: dict[tuple[int, int], tuple[int, int]] = {}
+        self.last_target: tuple[int, int] | None = None
 
     # do_setup is run once at the start of the game
     # after the bot has received the game settings
@@ -270,15 +309,13 @@ class Hedge:
         self.visits = {}
         self.remembered_hills = set()
         self.prev_enemies = []
+        self.last_challenger = {}
+        self.last_target = None
 
     # do turn is run once per turn
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Hedge: Denial's economy, except even contact trades need
-        # parity or better on visible ant count -- outnumbered armies
-        # disengage instead of trading 1-for-1. Ahead or even, every
-        # order matches Denial exactly.
         # Denial: Flood's economy, except a food cluster contested by
         # 3+ visible enemies draws two ants onto its two closest foods
         # (local 2v2+ posture) instead of one ant per food. Battling as Flood. Homeward structure, wide fallback,
@@ -299,6 +336,37 @@ class Hedge:
                 self.remembered_hills.discard(hloc)
         hills = sorted(self.remembered_hills)
         my_hills = ants.my_hills()
+        # Understudy: the muster target formula is unchanged, but a
+        # failed challenge rotates -- last turn's challenger sits out
+        # this hill's next challenge and a different ant goes instead.
+        muster_hill: tuple[int, int] | None = (
+            min(
+                hills,
+                key=lambda h: sum(ants.distance(a, h) for a in ants_list),
+            )
+            if hills
+            else None
+        )
+        understudy_out: tuple[int, int] | None = None
+        challenger: tuple[int, int] | None = None
+        if muster_hill is not None:
+            understudy_out = challenge_exclusion(
+                muster_hill,
+                self.last_target,
+                self.remembered_hills,
+                self.last_challenger,
+                ants_list,
+                ants.distance,
+            )
+            challenger = pick_challenger(
+                muster_hill, ants_list, ants.distance, understudy_out
+            )
+            if challenger is None:
+                # No understudy exists: the lone ant retries the hill.
+                understudy_out = None
+                challenger = pick_challenger(
+                    muster_hill, ants_list, ants.distance, None
+                )
         # Match each visible enemy to a last-turn position to read
         # its heading. Ants move one square per turn, so matches at
         # distance 0 or 1 are the same ant; the rest are new spawns.
@@ -362,14 +430,8 @@ class Hedge:
                     near += 1
             if friends + 1 > enemies:
                 return True
-            # Aggressive: 14+ friends near the fight accept equal
-            # trades, but only behind the hedge gate -- an
-            # outnumbered army disengages instead of trading even.
-            return (
-                near >= 14
-                and friends + 1 >= enemies
-                and even_trade_allowed(len(ants_list), len(enemy_locs))
-            )
+            # Aggressive: 14+ friends near the fight accept equal trades.
+            return near >= 14 and friends + 1 >= enemies
 
         def first_step(
             start: tuple[int, int], goal: tuple[int, int], budget: int = 250
@@ -446,15 +508,16 @@ class Hedge:
                     step = first_step(ant_loc, nearest)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
-            if not moved and hills:
+            if (
+                not moved
+                and hills
+                and muster_hill is not None
+                and ant_loc != understudy_out
+            ):
                 # Flood: the group marches on one target, the hill
                 # nearest the army as a whole. Hunt always; fearless
                 # when ahead on hills.
-                muster = min(
-                    hills,
-                    key=lambda h: sum(ants.distance(a, h) for a in ants_list),
-                )
-                step = first_step(ant_loc, muster)
+                step = first_step(ant_loc, muster_hill)
                 if step is not None and try_step(
                     ant_loc, step, safe=len(my_hills) <= len(hills)
                 ):
@@ -463,9 +526,10 @@ class Hedge:
                 # No hill move: reinforce the second-nearest hill.
                 ordered = sorted(hills, key=lambda h: ants.distance(ant_loc, h))
                 near = ordered[1] if len(ordered) > 1 else ordered[0]
-                hstep = first_step(ant_loc, near)
-                if hstep is not None and try_step(ant_loc, hstep):
-                    moved = True
+                if not (ant_loc == understudy_out and near == muster_hill):
+                    hstep = first_step(ant_loc, near)
+                    if hstep is not None and try_step(ant_loc, hstep):
+                        moved = True
             if not moved:
                 # Still stuck: explore least-visited squares first.
                 dirs = sorted(
@@ -489,6 +553,12 @@ class Hedge:
             # check if we still have time left to calculate more orders
             if ants.time_remaining() < 10:
                 break
+        if muster_hill is not None and challenger is not None:
+            self.last_challenger[muster_hill] = challenger
+        for old in list(self.last_challenger):
+            if old != muster_hill and old not in self.remembered_hills:
+                del self.last_challenger[old]
+        self.last_target = muster_hill
         # Walk off hill: a held ant on a home hill must step off.
         hill_set = set(my_hills)
         for ant_loc in held:
@@ -511,6 +581,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Hedge())
+        Ants.run(Understudy())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
