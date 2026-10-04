@@ -2419,3 +2419,15 @@ Use this format.
 - what changed: Faithful Memetix replication (two-field influence + overcount refinement + deadlock-only KILL) on the Crowd economy.
 - what you learned: even the full version with refinement mid-packs everywhere — influence-counted caution refuses winnable fights the majority filter takes.
 - next: influence-tune1 (KILL on hill-push turns) codes while Greedy examines.
+
+## 201 — greedy fields walk into crowds (2026-10-04)
+- commit: 99693a7 (bid Greedy.bot-99693a7; approach exam 1/4)
+- start: a9d4173 (champion Crowd files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 16.1, sigma 3.48
+- champion mu: 67.9 (Crowd)
+- verdict: keep Crowd
+- games: 4-3, FFA ranks 10p:10 6p:1
+- what changed: Faithful delineate replication (zero-search 1/(1+d^2) fields, kill bonus only strict superiority) on the Crowd economy.
+- what you learned: dead last in the census — the enemy-field lure marches ants into masses; zero search cannot price crowds.
+- next: greedy-tune1 (enemy-field weight down) codes while Influence2 examines.
