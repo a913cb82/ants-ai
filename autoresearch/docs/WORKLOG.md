@@ -2184,3 +2184,15 @@ Use this format.
 - what changed: Combat-program leg 1. Battling as Seek in Seek.bot + Seek.py + shared combat.py; Denial's united hunt, denial, and safety filter untouched, but idle ants with an enemy within 8 steps advance on it (xathis "Approach forms fighting lines").
 - what you learned: Seeks went 6-1 in duels and won the refine, but ranked only 6th in the census, so mu reached 40.1 against 66.6 — advancing works 1v1 and dies in crowds; lone advancers donate. Coordination (wolfpack join) is the prescribed next leg.
 - next: committed-join pack attacks (Wolfpack exp with extended combat.py + test_combat.py committed, queued for exam).
+
+## 181 — joined pairs donate into superior forces (2026-10-04)
+- commit: a06e3b7 (bid Wolfpack.bot-a06e3b7)
+- start: 8dee7ed (champion Denial files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 49.1, sigma 3.20
+- champion mu: 66.6 (Denial; Turnstile-50 candidate 66.8 HOLD)
+- verdict: keep Denial
+- games: 2-5, FFA ranks 10p:2 6p:6
+- what changed: Combat-program leg 2. Battling as Wolfpack in Wolfpack.bot + Wolfpack.py + shared combat.py; seek kept, plus committed-join (pas11: second ant to a fight releases both through the equal-trade gate).
+- what you learned: Wolfpacks went 2-5 in duels (1-4 vs Coroner family) and ranked last in the refine, so mu reached 49.1 against 66.6 — joining without a superiority check marches pairs into killers; commitment needs a gate.
+- next: 1v1 when ahead (Grinder exp with extended combat.py + test_combat.py committed, queued for exam).
