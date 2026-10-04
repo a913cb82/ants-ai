@@ -100,6 +100,7 @@ row. Leave the old row as it was.
 | crowned | Crowd: fearless under 10 enemies (mu 67.9 vs 66.6; both FFAs won; combat leg 7). |
 | dropped | Legion: press needs 10 ants (mu 24.6 vs 67.9; 10p:8; combat leg 8). |
 | dropped | Marshal: danger moves first (mu 31.6 vs 67.9; 10p:6; combat leg 9). |
+| dropped | Memetix: influence SAFE/KILL/DIE (mu 31.4 vs 67.9; 10p:7; combat leg 10, program closed). |
 | dropped | Anvil: bait-and-ambush (mu 17.0 vs 66.6; 10p:9). |
 | dropped | Patrol3: 30-step ranged patrol (mu 40.8 vs 66.6; range was never the bleed). |
 | dropped | Volunteers: duty drafts from spares only. |

@@ -2280,3 +2280,15 @@ Use this format.
 - what changed: Combat-program leg 9. Battling as Marshal in Marshal.bot + Marshal.py + shared combat.py; all prior legs kept, plus urgency ordering (ants nearest enemies move first in the ant loop).
 - what you learned: Marshals went 3-4 in duels with mid-pack FFAs, so mu reached 31.6 against 67.9 — move order is load-bearing for the food-claim economy; danger-first scrambles who gets what.
 - next: Memetix influence gate (Memetix exp with extended combat.py + test_combat.py committed, queued for exam; final leg of 10).
+
+## 189 — DIE gate refuses too much ground; combat program closes (2026-10-04)
+- commit: 80f9fd2 (bid Memetix.bot-80f9fd2)
+- start: a9d4173 (champion Crowd files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 31.4, sigma 3.18
+- champion mu: 67.9 (Crowd)
+- verdict: keep Crowd
+- games: 4-3, FFA ranks 10p:7 6p:2
+- what changed: Combat-program leg 10 (final). Battling as Memetix in Memetix.bot + Memetix.py + shared combat.py; all prior legs kept, plus a precomputed influence field classifying contact steps SAFE/KILL/DIE (DIE refused everywhere, KILL only while pushing a hill).
+- what you learned: Memetixes went 4-3 in duels but ranked only 7th in the census, so mu reached 31.4 against 67.9 — influence-counted danger refuses squares the old majority filter worked; strictness cedes ground.
+- program retrospective (10 legs): seek 40.1, wolfpack 49.1, grinder 55.1 (won census, 1-6 duels), screen 47.1, gate-10 51.0 (14-gate vindicated), gang 43.0, CROWD 67.9 crowned (fearless under 10 enemies, both FFAs won, Denial killed), legion 24.6, marshal 31.6, memetix 31.4. Pattern: every contact gate except crowd-fearless loses; duels punish trading, crowds reward pressing. Assets kept: shared combat.py + 67-test test_combat.py persist in the tree for the next arc. Champion stands: Crowd (champion/main).
