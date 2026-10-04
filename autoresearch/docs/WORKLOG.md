@@ -2030,3 +2030,15 @@ Use this format.
 - what changed: Battling as Patrol3 in Patrol3.bot + Patrol3.py; Denial's united hunt, denial, and combat untouched, but post-400 patrol only walks through uncontrolled enemy hills within 30 steps, ignoring farther ones.
 - what you learned: Patrol3s went 3-4 in duels with mid-pack FFAs, so mu reached 40.8 against 66.6 — far below the full-map Patrol2's 62.6, so range was never the bleed; the patrol tax itself is the cost. (Note: harness display named the tied Understudy bid as comparator at equal 66.6; tag stays Denial per tie-keeps-incumbent.)
 - next: two-turn exclusion rotation (Understudy2 exp committed, queued for exam).
+
+## 168 — longer memory benches good challengers (2026-10-04)
+- commit: b145a07 (bid Understudy2.bot-b145a07)
+- start: 8dee7ed (champion Denial files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 55.5, sigma 3.24
+- champion mu: 66.6 (Denial)
+- verdict: keep Denial
+- games: 4-3, FFA ranks 10p:3 6p:1
+- what changed: Battling as Understudy2 in Understudy2.bot + Understudy2.py; Denial's united hunt, denial, and combat untouched, but a failed hill challenge excludes the last challenger for two turns per hill instead of one.
+- what you learned: Understudy2s went 4-3 in duels with mid-pack FFAs, so mu reached 55.5 against 66.6 — far below the 1-turn window's tie, so longer memory benches ants that would have won; the 1-turn window stands as the best rotation.
+- next: loss-memory avoidance (Coroner exp committed, queued for exam).
