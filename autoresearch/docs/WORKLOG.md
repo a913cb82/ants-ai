@@ -2220,3 +2220,15 @@ Use this format.
 - what changed: Combat-program leg 4. Battling as Screen in Screen.bot + Screen.py + shared combat.py; seek + join + grinder kept, plus off-hill interception (first guard holds, extras meet the razer at the halfway square).
 - what you learned: Screens went 2-5 in duels with mid-pack FFAs, so mu reached 47.1 against 66.6 — halfway squares are empty geometry, not the razer's path; extras mill off-hill while razers walk past.
 - next: cheaper equal trades at 10 near (Odds exp with extended combat.py + test_combat.py committed, queued for exam).
+
+## 184 — cheaper trades donate in duels (2026-10-04)
+- commit: f7037f0 (bid Odds.bot-f7037f0)
+- start: 8dee7ed (champion Denial files)
+- budget: 10p census, 6p refine, 7 duels (ord=10-6-2 tag)
+- score: mu 51.0, sigma 3.33
+- champion mu: 66.6 (Denial; Turnstile-50 candidate 66.8 HOLD)
+- verdict: keep Denial
+- games: 1-6, FFA ranks 10p:2 6p:4
+- what changed: Combat-program leg 5. Battling as Odds in Odds.bot + Odds.py + shared combat.py; seek + join + grinder + screen kept, plus the equal-trade gate lowered 14 to 10 near friends (14 is not gospel).
+- what you learned: Odds went 1-6 in duels (Flowfield/Counter lines) despite 2nd in the census, so mu reached 51.0 against 66.6 — the 14-gate was pricing duel survival correctly; cheaper equals donate.
+- next: pack-gated advance (Gang exp with extended combat.py + test_combat.py committed, queued for exam).
