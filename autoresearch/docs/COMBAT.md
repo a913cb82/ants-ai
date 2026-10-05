@@ -23,7 +23,7 @@ shows the ports with many games and mu below our champions.
 | softmax 1-ply | 3 | 1 | 41.5 / 12.4 / 41.9 | Softmax3 41.9 | contest-zone holds, 10p 1/10, immune |
 | sequential fixing | 4+0 | 0 | 49.7 / 10.3 / 44.4 / 42.5 | Fixing 49.7 | DEAD (no new best in last 3) |
 | precomputed tables | 4+0 | 0 | 55.5 / 17.4 / 15.8 / 23.0 | Tables 55.5 | DEAD (no new best in last 3); Tables5 orphaned |
-| two-stage | 1 | 3 | 13.7 | TwoStage 13.7 | weak, tune or close |
+| two-stage | 2 | 2 | 13.7 / 43.2 | TwoStage2 43.2 | net-disadvantage triples it, immune |
 
 Used counts the 4-per-approach budget; xathis/dirichlet were granted +3
 bold iterations each.
