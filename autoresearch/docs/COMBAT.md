@@ -20,7 +20,7 @@ shows the ports with many games and mu below our champions.
 | dirichlet sampling | 5+0 | 0 | 26.3 / 36.4 / 37.2 / 27.2 / 28.3 | Dirichlet3 37.2 | DEAD (no new best in last 3) |
 | influence (Memetix) | 5 | 0 | 28.8 / 29.5 / 34.4 / 26.9 / 38.4 | Influence5 38.4 | combat-only stamps, new best, alive |
 | greedy fields | 4 | 0 | 16.1 / 26.6 / 41.4 / 39.1 | Greedy3 41.4 | bravery holds, 6p 1/6, alive (41.4 best of last 3) |
-| softmax 1-ply | 4 | 0 | 41.5 / 12.4 / 41.9 / 9.1 | Softmax3 41.9 | owner-gate collapses, alive (41.9 best of last 3) |
+| softmax 1-ply | 5 | 0 | 41.5 / 12.4 / 41.9 / 9.1 / 1.8 | Softmax3 41.9 | size-press poison, alive (41.9 best of last 3) |
 | sequential fixing | 4+0 | 0 | 49.7 / 10.3 / 44.4 / 42.5 | Fixing 49.7 | DEAD (no new best in last 3) |
 | precomputed tables | 4+0 | 0 | 55.5 / 17.4 / 15.8 / 23.0 | Tables 55.5 | DEAD (no new best in last 3); Tables5 orphaned |
 | two-stage | 3 | 1 | 13.7 / 43.2 / 38.4 | TwoStage2 43.2 | disengage holds, immune |
