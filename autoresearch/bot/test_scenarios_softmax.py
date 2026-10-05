@@ -27,6 +27,7 @@ import Softmax4 as S4  # noqa: E402
 import Softmax5 as S5  # noqa: E402
 import Softmax6 as S6  # noqa: E402
 import Softmax7 as S7  # noqa: E402
+import Softmax8 as S8  # noqa: E402
 
 Loc = tuple[int, int]
 ROWS = 20
@@ -55,8 +56,9 @@ class World(TypedDict):
 
 
 def _bot_for(mod: object):
-    """Newest entry class the module provides (S7 > S6 > S5 > S4 > S3 > S2)."""
+    """Newest entry class the module provides (S8 > S7 > ... > S2)."""
     for name in (
+        "Softmax8",
         "Softmax7",
         "Softmax6",
         "Softmax5",
@@ -635,3 +637,74 @@ def test_crowd_clash_untouched_by_timing() -> None:
     res7 = run_clash(S7, [1, 2])
     print(f"\ncrowd-clash S3={res3} S7={res7}")
     assert res7 == res3
+
+
+# Owner-collapse battery (Softmax8): a 3v3 hill clash where rival 2
+# fields only a forward scout ((6, 7)) beside rival 1's holding pair.
+# The scout dies in the opening exchange WITHOUT scripting, so the
+# visible owner count collapses from {1, 2} to {1} emergently and the
+# grind continues as a contested 3v2. The instantaneous gate flips
+# into the deterministic duel press at the collapse; sticky memory
+# keeps the crowd coin. Measured: S4 ends at (1, ((0, 14),)) while
+# S8 ends at (1, ((18, 14),)) — same score, different dance; the
+# pure-duel control ([1, 1, 1] throughout) plays exactly the base
+# game, pinning that the entry changes nothing outside collapse.
+COLLAPSE_OWN: list[Loc] = [(5, 5), (5, 6), (6, 5)]
+COLLAPSE_FOES: list[Loc] = [(5, 8), (5, 9), (6, 7)]
+
+
+def run_collapse(mod: object, owners: list[int]) -> tuple[int, tuple[Loc, ...]]:
+    """3v3 clash with an emergent owner collapse; returns (score, own)."""
+    world: World = {
+        "own": list(COLLAPSE_OWN),
+        "enemies": list(COLLAPSE_FOES),
+        "own_hills": [(16, 16)],
+        "foe_hills": [],
+        "foods": [],
+    }
+    bot = _bot_for(mod)
+    foes: list[tuple[Loc, int]] = list(zip(COLLAPSE_FOES, owners, strict=True))
+    kills = deaths = 0
+    for _ in range(TURNS):
+        world["enemies"] = [loc for loc, _ in foes]
+        ants = SimAnts(world, [o for _, o in foes])
+        bot.do_turn(ants)
+        _apply_orders(world, ants.orders)
+        own, foe2, d, k = _resolve(list(world["own"]), list(world["enemies"]))
+        deaths += d
+        kills += k
+        world["own"] = own
+        keep = set(foe2)
+        foes = [(loc, o) for loc, o in foes if loc in keep]
+        world["enemies"] = foe2
+    return kills - deaths + len(world["own"]), tuple(sorted(world["own"]))
+
+
+def test_collapse_runs_fast_and_scores() -> None:
+    start = time.perf_counter()
+    res8 = run_collapse(S8, [1, 1, 2])
+    elapsed = time.perf_counter() - start
+    print(f"\ncollapse S8={res8} time={elapsed:.2f}s")
+    assert elapsed < 10.0
+    assert res8 == (1, ((18, 14),))
+
+
+def test_collapse_diverges_from_instant_gate() -> None:
+    """Same emergent collapse, different memory: S8 keeps the crowd
+    coin after the scout dies while S4 flips into the deterministic
+    duel press, so the end positions must differ (scores may tie:
+    the gate steers the dance, not the decisive tactics)."""
+    res4 = run_collapse(S4, [1, 1, 2])
+    res8 = run_collapse(S8, [1, 1, 2])
+    print(f"\ncollapse S4={res4} S8={res8}")
+    assert res8 != res4
+
+
+def test_collapse_duel_control_matches_base() -> None:
+    """Pure-duel owners ([1, 1, 1] throughout): the memory never sees
+    a second owner, so S8 must play exactly the S4 game. Pins that
+    the entry changes nothing outside the collapse path."""
+    res4 = run_collapse(S4, [1, 1, 1])
+    res8 = run_collapse(S8, [1, 1, 1])
+    print(f"\ncollapse-duel S4={res4} S8={res8}")
+    assert res8 == res4
