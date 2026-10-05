@@ -28,6 +28,7 @@ import Softmax5 as S5  # noqa: E402
 import Softmax6 as S6  # noqa: E402
 import Softmax7 as S7  # noqa: E402
 import Softmax8 as S8  # noqa: E402
+import Softmax9 as S9  # noqa: E402
 
 Loc = tuple[int, int]
 ROWS = 20
@@ -58,6 +59,7 @@ class World(TypedDict):
 def _bot_for(mod: object):
     """Newest entry class the module provides (S8 > S7 > ... > S2)."""
     for name in (
+        "Softmax9",
         "Softmax8",
         "Softmax7",
         "Softmax6",
@@ -708,3 +710,86 @@ def test_collapse_duel_control_matches_base() -> None:
     res8 = run_collapse(S8, [1, 1, 1])
     print(f"\ncollapse-duel S4={res4} S8={res8}")
     assert res8 == res4
+
+
+# Hill-gated small press battery (Softmax9): the open-field 2v2 melee
+# must play exactly the Softmax3 coin game (press abandoned where
+# nothing is at stake), while a prize-adjacent 2v2 is deterministic
+# (press fires, no coin draw) and steers elsewhere. The 3v2 crowd
+# clash plays exactly the base game (big fights keep the coin) and
+# the 2v3 defense battery aggregate must not trail the coin it tunes.
+# Measured: open S9 == S3 == (1, ((1, 13),)) vs S5 (1, ((4, 14),));
+# prize S9 deterministic at (1, ((5, 13),)); clash S9 == S3 ==
+# (3, 1, ((0, 18), (2, 19))); battery S3 total 3, S9 total 3.
+PRIZE_HILL: Loc = (5, 13)
+
+
+def run_prize_parity(mod: object) -> tuple[int, tuple[Loc, ...], float]:
+    """2v2 head-on melee beside a foe hill; returns (score, own, s)."""
+    world: World = {
+        "own": [(5, 5), (5, 6)],
+        "enemies": [(5, 8), (5, 9)],
+        "own_hills": [(16, 16)],
+        "foe_hills": [PRIZE_HILL],
+        "foods": [],
+    }
+    bot = _bot_for(mod)
+    kills = deaths = 0
+    start = time.perf_counter()
+    for _ in range(TURNS):
+        ants = SimAnts(world)
+        bot.do_turn(ants)
+        _apply_orders(world, ants.orders)
+        own, foe, d, k = _resolve(list(world["own"]), list(world["enemies"]))
+        deaths += d
+        kills += k
+        world["own"] = own
+        world["enemies"] = foe
+    elapsed = time.perf_counter() - start
+    return kills - deaths + len(world["own"]), tuple(sorted(world["own"])), elapsed
+
+
+def test_open_melee_gated_keeps_coin() -> None:
+    """Open-field 2v2: S9 plays exactly the S3 coin game (the press
+    is abandoned where no hill is at stake), and both differ from
+    the S5 deterministic press path."""
+    res3 = run_parity(S3)
+    res9 = run_parity(S9)
+    res5 = run_parity(S5)
+    print(f"\nopen-melee S3={res3} S9={res9} S5={res5}")
+    assert res9[2] < 10.0
+    assert res9[:2] == res3[:2] == (1, ((1, 13),))
+    assert res9[1] != res5[1]
+
+
+def test_prize_melee_press_is_deterministic() -> None:
+    """Prize-adjacent 2v2: two S9 runs agree exactly (no coin draw
+    on the gated press path), and the prize steers elsewhere than
+    the open-field coin game."""
+    first = run_prize_parity(S9)
+    second = run_prize_parity(S9)
+    opened = run_parity(S9)
+    print(f"\nprize-melee S9={first} open={opened[:2]}")
+    assert first[2] < 10.0
+    assert first[:2] == second[:2] == (1, ((5, 13),))
+    assert first[1] != opened[1]
+
+
+def test_crowd_clash_untouched_by_prize_gate() -> None:
+    """Two-owner 3v2 clash: Softmax9 must play exactly the base game
+    (5-ant fights keep the coin on or off a prize)."""
+    res3 = run_clash(S3, [1, 2])
+    res9 = run_clash(S9, [1, 2])
+    print(f"\ncrowd-clash S3={res3} S9={res9}")
+    assert res9 == res3 == (3, 1, ((0, 18), (2, 19)))
+
+
+def test_duel_battery_prize_gate_holds() -> None:
+    """Single-owner 2v3 battery: scattered openings split into small
+    fights near and far from the hill, so per-setup signs vary; the
+    aggregate must not trail the base coin."""
+    scores3, _ = run_defense_battery(S3, [1, 1, 1])
+    scores9, elapsed = run_defense_battery(S9, [1, 1, 1])
+    print(f"\nduel-battery S3={scores3} S9={scores9}")
+    assert elapsed < 10.0
+    assert sum(scores9) >= sum(scores3)
