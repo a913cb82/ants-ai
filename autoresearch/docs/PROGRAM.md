@@ -69,7 +69,9 @@ coordinator measures it.
    The merge keeps the leaf sha: exams and history reference one
    node. List it with `git log --graph`. Then delete the branch.
    A conflicted merge resolves in a scratch worktree first:
-   the exam tree is never dirty while a scorer runs.
+   the exam tree is never dirty while a scorer runs. Merge
+   commits land only when no scorer runs: coder branches wait
+   for the exam boundary.
    Then play the budget:
    `.venv/bin/python autoresearch/iteration.py --bot <live bot file>`
 5. Read the score. The harness prints the score. It adds one JSON
