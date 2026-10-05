@@ -18,7 +18,7 @@ shows the ports with many games and mu below our champions.
 |---|---|---|---|---|---|
 | xathis 1-ply | 6+0 | 0 | 25.2 / 27.0 / 30.7 / 16.5 / 28.8 / 28.6 | Xathis3 30.7 | DEAD (no new best in last 3) |
 | dirichlet sampling | 5+0 | 0 | 26.3 / 36.4 / 37.2 / 27.2 / 28.3 | Dirichlet3 37.2 | DEAD (no new best in last 3) |
-| influence (Memetix) | 9 | 0 | 28.8 / 29.5 / 34.4 / 26.9 / 38.4 / 28.4 / 41.9 / 45.9 / 38.7 | Influence8 45.9 | heading-gate holds, alive (45.9 best of last 3) |
+| influence (Memetix) | 10 | 0 | 28.8 / 29.5 / 34.4 / 26.9 / 38.4 / 28.4 / 41.9 / 45.9 / 38.7 / 32.4 | Influence8 45.9 | priced-KILL middles, alive (45.9 best of last 3) |
 | greedy fields | 8 | 0 | 16.1 / 26.6 / 41.4 / 39.1 / 35.7 / 47.7 / 16.4 / 13.3 | Greedy6 47.7 | crowd-cap backfires, alive (47.7 best of last 3) |
 | softmax 1-ply | 6+0 | 0 | 41.5 / 12.4 / 41.9 / 9.1 / 1.8 / 2.6 | Softmax3 41.9 | DEAD (no new best in last 3); S7/S8/S9 orphaned |
 | sequential fixing | 4+0 | 0 | 49.7 / 10.3 / 44.4 / 42.5 | Fixing 49.7 | DEAD (no new best in last 3) |
