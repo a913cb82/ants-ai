@@ -1,13 +1,12 @@
-"""Valid coder starts from the autoresearch tree.
+"""Coder starts from the autoresearch tree.
 
 Usage:
-    candidates.py            extend pick, split points, idle pick, dead lines
+    candidates.py            ranked starts, unscored queue, dead lines
 
-Rules (PROGRAM.md Tree): dead lines get nothing. Extend takes the
-newest scored leaf of the most recently examined live line. Split
-branches the parent of a scored failure that already has a child.
-Idle takes the oldest unscored leaf of the line with the fewest
-children in flight. The champion line never dies.
+Rules: the champion is a start. Other starts rank by games:
+first bots that beat the champion, then bots that beat strong
+bots. Dead lines get nothing. No bot gets two coders at once.
+Only the top starts print: the rest is history.
 """
 
 import json
@@ -21,26 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import log as L
 
 CHAMPION_LINE = "champion"
-
-
-def _merge_lines(root: Path) -> set[str]:
-    """line names from merge tree/<line>-<n> subjects."""
-    out: set[str] = set()
-    for _, _, subject in L._commits(root):
-        if subject.startswith("merge tree/"):
-            line = subject[len("merge tree/") :].split(":", 1)[0].rsplit("-", 1)[0]
-            out.add(line)
-    return out
-
-
-def _leaf_lines(nodes: list[tuple[str, list[str], str]]) -> dict[str, str]:
-    """merged exp sha -> line, from merge second parents."""
-    out = {}
-    for _, parents, subject in nodes:
-        if subject.startswith("merge tree/") and len(parents) > 1:
-            line = subject[len("merge tree/") :].split(":", 1)[0].rsplit("-", 1)[0]
-            out[parents[1]] = line
-    return out
+TOP_N = 6
 
 
 def _flight(root: Path, shas: set[str]) -> set[str]:
@@ -65,36 +45,23 @@ def _flight(root: Path, shas: set[str]) -> set[str]:
     return out
 
 
-def _prefix(bot: str) -> str:
-    m = re.match(r"([A-Za-z]+)", bot.split("/bot/")[-1])
-    return m.group(1).lower() if m else ""
-
-
 def _basename(bot: str) -> str:
     """entry name without sha: unique per entry, stable across revs."""
     return bot.split("/")[-1].rsplit("-", 1)[0]
 
 
-def exploiter(
-    games: list[list[str]], champ: set[str], mu_of: dict[str, float]
-) -> dict[str, tuple[int, float]]:
-    """main-wins and victim cover per entry basename.
+def _prefix(bot: str) -> str:
+    m = re.match(r"([A-Za-z]+)", bot.split("/bot/")[-1])
+    return m.group(1).lower() if m else ""
 
-    games rank winner first. main-wins counts games above a
-    champion entry. cover sums victim mus over distinct victims:
-    breadth of blind spots, not volume of farmed games.
-    """
-    main: dict[str, int] = {}
-    seen: dict[str, set[str]] = {}
-    for result in games:
-        names = [_basename(b) for b in result]
-        for i, winner in enumerate(names):
-            for loser in names[i + 1 :]:
-                if loser in champ:
-                    main[winner] = main.get(winner, 0) + 1
-                seen.setdefault(winner, set()).add(loser)
-    cover = {w: sum(mu_of.get(v, 0.0) for v in vs) for w, vs in seen.items()}
-    return {n: (main.get(n, 0), cover.get(n, 0.0)) for n in set(main) | set(cover)}
+
+def _leafs(nodes: list[tuple[str, list[str], str]]) -> set[str]:
+    """exp shas merged as tree/<line>-<n> second parents."""
+    out: set[str] = set()
+    for _, parents, subject in nodes:
+        if subject.startswith("merge tree/") and len(parents) > 1:
+            out.add(parents[1])
+    return out
 
 
 def candidates(
@@ -102,118 +69,97 @@ def candidates(
     exams: list[tuple[str, float]],
     flight: set[str],
     champion: str | None,
-    known: set[str],
     games: list[list[str]],
+    mu_of: dict[str, float],
 ) -> dict:
     """Pure pick logic. exams is (bot, score) in PROGRESS order."""
-    known = known | {CHAMPION_LINE}
     ideas = {s: subj[5:] for s, _, subj in nodes if subj.startswith("exp:")}
     order = [s for s, _, subj in nodes if subj.startswith("exp:")]
-    pos = {s: i for i, s in enumerate(reversed(order))}
-    parents_of = {s: ps for s, ps, _ in nodes}
-    leaf_line = _leaf_lines(nodes)
+    leafs = _leafs(nodes)
 
-    seq: dict[str, list[float]] = {ln: [] for ln in known}
-    exp_line: dict[str, str] = {}
-    score_of: dict[str, float] = {}
     name_of: dict[str, str] = {}
-    mu_of: dict[str, float] = {}
+    seq: dict[str, list[float]] = {}
     champ_names: set[str] = set()
     for bot, score in exams:
         short = bot.rsplit("-", 1)[-1] if "-" in bot else ""
         sha = next((s for s in order if short and s.startswith(short)), None)
         name = _basename(bot)
-        mu_of[name] = max(mu_of.get(name, score), score)
+        if champion and sha == champion:
+            ln, champ = CHAMPION_LINE, True
+        else:
+            ln, champ = _prefix(bot), False
+        if champ:
+            champ_names.add(name)
+        seq.setdefault(ln, []).append(score)
         if sha is not None:
             name_of.setdefault(sha, name)
-        if champion and sha == champion:
-            ln = CHAMPION_LINE
-            champ_names.add(name)
-        elif _prefix(bot) in known:
-            ln = _prefix(bot)
-        else:
-            continue
-        seq[ln].append(score)
-        if sha is not None:
-            exp_line.setdefault(sha, ln)
-            score_of[sha] = score
-    for sha, ln in leaf_line.items():
-        if ln in known:
-            exp_line.setdefault(sha, ln)
-    if champion and champion in ideas:
-        exp_line.setdefault(champion, CHAMPION_LINE)
 
     def dead(ln: str) -> bool:
         if ln == CHAMPION_LINE:
             return False
-        s = [x for x in seq[ln] if x == x]
+        s = seq.get(ln, [])
         return len(s) >= 4 and max(s[-3:]) <= max(s[:-3])
 
-    dead_lines = {ln for ln in known if dead(ln)}
-    live = {ln for ln in known if ln not in dead_lines}
+    dead_lines = {ln for ln in seq if dead(ln)}
 
-    by_line: dict[str, list[str]] = {ln: [] for ln in live}
-    for sha, ln in exp_line.items():
-        if ln in live:
-            by_line[ln].append(sha)
-    for ln in by_line:
-        by_line[ln].sort(key=lambda s: pos.get(s, -1))
+    scored: dict[str, tuple[str, str]] = {}
+    for bot, _ in exams:
+        short = bot.rsplit("-", 1)[-1] if "-" in bot else ""
+        sha = next((s for s in order if short and s.startswith(short)), None)
+        if sha is None or sha in flight:
+            continue
+        ln = CHAMPION_LINE if champion and sha == champion else _prefix(bot)
+        if ln in dead_lines:
+            continue
+        scored[sha] = (ln, _basename(bot))
 
-    def examined(sha: str) -> bool:
-        return sha in score_of
+    main: dict[str, int] = {}
+    seen: dict[str, set[str]] = {}
+    for result in games:
+        names = [_basename(b) for b in result]
+        for i, winner in enumerate(names):
+            for loser in names[i + 1 :]:
+                if loser in champ_names:
+                    main[winner] = main.get(winner, 0) + 1
+                seen.setdefault(winner, set()).add(loser)
+    cover = {w: sum(mu_of.get(v, 0.0) for v in vs) for w, vs in seen.items()}
 
-    avail: dict[str, str] = {}
-    for ln in live:
-        cands = [s for s in reversed(by_line[ln]) if examined(s)]
-        if cands and cands[0] not in flight:
-            avail[ln] = cands[0]
-    extend = None
-    if avail:
-        last_exam: dict[str, int] = {}
-        for i, (bot, _) in enumerate(exams):
-            short = bot.rsplit("-", 1)[-1] if "-" in bot else ""
-            sha = next((s for s in order if short and s.startswith(short)), None)
-            if sha in exp_line and exp_line[sha] in live:
-                last_exam[exp_line[sha]] = i
-        pick = max(avail, key=lambda ln: last_exam.get(ln, -1))
-        extend = (avail[pick], pick)
-
-    best = {ln: max(seq[ln]) for ln in live if seq[ln]}
-    value = exploiter(games, champ_names, mu_of)
-    split: list[tuple[str, str, str, int, float]] = []
-    for ln in live:
-        for i, sha in enumerate(by_line[ln]):
-            if not examined(sha):
-                continue
-            later = by_line[ln][i + 1 :]
-            if score_of[sha] < best[ln] and (later or sha in flight):
-                ps = parents_of.get(sha, [])
-                main_wins, cover = value.get(name_of.get(sha, ""), (0, 0.0))
-                split.append((sha, ln, ps[0] if ps else "", main_wins, cover))
-    split.sort(key=lambda t: (-t[3], -t[4]))
-    ranked = [(sha, ln, parent) for sha, ln, parent, _, _ in split]
-
+    champ_sha = champion if champion in order else None
+    ranked = sorted(
+        scored,
+        key=lambda s: (
+            s != champ_sha,
+            -main.get(name_of.get(s, ""), 0),
+            -cover.get(name_of.get(s, ""), 0.0),
+        ),
+    )
     unscored = [
-        sha
-        for ln in live
-        for sha in by_line[ln]
-        if not examined(sha) and sha not in flight
+        s for s in reversed(order) if s in leafs and s not in scored and s not in flight
     ]
-    flying: dict[str, int] = dict.fromkeys(live, 0)
-    for sha in flight:
-        if sha in exp_line and exp_line[sha] in flying:
-            flying[exp_line[sha]] += 1
-    idle = None
-    if unscored:
-        pick = min(unscored, key=lambda s: (flying[exp_line[s]], pos.get(s, 0)))
-        idle = (pick, exp_line[pick])
     return {
-        "extend": extend,
-        "split": ranked,
-        "idle": idle,
+        "starts": [(s, name_of.get(s, "")) for s in ranked],
+        "unscored": [(s, ideas[s]) for s in unscored],
         "dead": sorted(dead_lines),
         "ideas": ideas,
     }
+
+
+def _mu(root: Path) -> dict[str, float]:
+    """live mu per entry basename, ports included."""
+    out: dict[str, float] = {}
+    prog = root / "league" / "ratings.json"
+    if not prog.exists():
+        return out
+    try:
+        data = json.loads(prog.read_text())
+    except json.JSONDecodeError:
+        return out
+    bots = data.get("bots", data) if isinstance(data, dict) else {}
+    for bid, e in bots.items():
+        if isinstance(e, dict) and "mu" in e:
+            name = _basename(str(bid))
+            out[name] = max(out.get(name, e["mu"]), e["mu"])
+    return out
 
 
 def _games(root: Path) -> list[list[str]]:
@@ -236,7 +182,7 @@ def _games(root: Path) -> list[list[str]]:
 
 def main(root: Path) -> None:
     nodes = L._commits(root)
-    exams: list[tuple[str, float]] = []
+    exams: list[tuple[str, str, float]] = []
     prog = root / "autoresearch" / "docs" / "PROGRESS.jsonl"
     for line in prog.read_text().splitlines():
         if not line.strip():
@@ -248,9 +194,9 @@ def main(root: Path) -> None:
         if isinstance(r, dict) and ("score" in r or "mu" in r):
             score = r.get("score", r.get("mu"))
             assert isinstance(score, (int, float))
-            exams.append((r.get("bot", ""), float(score)))
+            exams.append((r.get("bot", ""), r.get("budget", ""), float(score)))
     try:
-        champion = (
+        champion: str | None = (
             subprocess.run(
                 ["git", "rev-parse", "champion/main"],
                 capture_output=True,
@@ -263,17 +209,13 @@ def main(root: Path) -> None:
     except subprocess.CalledProcessError:
         champion = None
     flight = _flight(root, {s for s, _, _ in nodes})
-    out = candidates(nodes, exams, flight, champion, _merge_lines(root), _games(root))
-    if out["extend"]:
-        sha, ln = out["extend"]
-        print(f"extend {sha[:7]} {ln} {out['ideas'].get(sha, '')}")
-    else:
-        print("extend: none")
-    for sha, ln, parent in out["split"]:
-        print(f"split {sha[:7]} {ln} from {parent[:7]}")
-    if out["idle"]:
-        sha, ln = out["idle"]
-        print(f"idle {sha[:7]} {ln} {out['ideas'].get(sha, '')}")
+    current = exams[-1][1] if exams else ""
+    era = [(b, s) for b, budget, s in exams if budget == current]
+    out = candidates(nodes, era, flight, champion, _games(root), _mu(root))
+    for sha, name in out["starts"][:TOP_N]:
+        print(f"start {sha[:7]} {name} {out['ideas'].get(sha, '')}")
+    for sha, idea in out["unscored"][:TOP_N]:
+        print(f"unscored {sha[:7]} {idea}")
     for ln in out["dead"]:
         print(f"dead {ln}")
 
