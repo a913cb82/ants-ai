@@ -51,3 +51,18 @@ def test_cover_counts_breadth_not_volume():
     out = C.candidates(exams, games, mu_of)
     names = [C._basename(b) for b, _ in out["starts"]]
     assert names[1] == "Tables2.bot", names
+
+
+def test_rates_beat_totals():
+    exams = [
+        ("autoresearch/bot/Tables.bot-b111111", 30.0),
+        ("autoresearch/bot/Tables2.bot-d333333", 20.0),
+        ("autoresearch/bot/Crowd.bot-c222222", 67.0),
+    ]
+    farmed = [["x/Tables.bot-b111111", f"y/V{i}.bot-000000{i}"] for i in range(10)]
+    games = farmed + [["x/Tables2.bot-d333333", "y/Strong.bot-9999999"]]
+    mu_of = {f"V{i}.bot": 10.0 for i in range(10)}
+    mu_of["Strong.bot"] = 60.0
+    out = C.candidates(exams, games, mu_of)
+    names = [C._basename(b) for b, _ in out["starts"]]
+    assert names[1] == "Tables2.bot", names

@@ -31,21 +31,27 @@ def candidates(
 
     main: dict[str, int] = {}
     seen: dict[str, set[str]] = {}
+    played: dict[str, int] = {}
     for result in games:
         names = [_basename(b) for b in result]
+        for winner in names:
+            played[winner] = played.get(winner, 0) + 1
         for i, winner in enumerate(names):
             for loser in names[i + 1 :]:
                 if loser in champ_names:
                     main[winner] = main.get(winner, 0) + 1
                 seen.setdefault(winner, set()).add(loser)
     cover = {w: sum(mu_of.get(v, 0.0) for v in vs) for w, vs in seen.items()}
+    rate = {
+        w: (main.get(w, 0) / played[w], cover.get(w, 0.0) / played[w]) for w in played
+    }
 
     ranked = sorted(
         exams,
         key=lambda r: (
             r[0] != champ,
-            -main.get(_basename(r[0]), 0),
-            -cover.get(_basename(r[0]), 0.0),
+            -rate.get(_basename(r[0]), (0, 0))[0],
+            -rate.get(_basename(r[0]), (0, 0))[1],
         ),
     )
     return {
