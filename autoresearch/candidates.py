@@ -10,6 +10,7 @@ is history.
 """
 
 import json
+import random
 from pathlib import Path
 
 TOP_N = 5
@@ -70,6 +71,12 @@ def candidates(
     }
 
 
+def choose(starts: list, rng: random.Random | None = None) -> tuple:
+    """one random pick from the ranked starts."""
+    rng = rng or random.Random()
+    return rng.choice(starts)
+
+
 def main(root: Path) -> None:
     exams: list[tuple[str, str, float]] = []
     prog = root / "autoresearch" / "docs" / "PROGRESS.jsonl"
@@ -112,8 +119,8 @@ def main(root: Path) -> None:
             mu_of[name] = max(mu_of.get(name, e["mu"]), e["mu"])
 
     out = candidates(era, games, mu_of)
-    for bot, score in out["starts"]:
-        print(f"start {bot} {round(score, 1)}")
+    bot, score = choose(out["starts"])
+    print(f"start {bot} {round(score, 1)}")
 
 
 if __name__ == "__main__":

@@ -93,3 +93,13 @@ def test_five_plus_five_seats():
     assert names[0] == "Crowd.bot"
     assert names[1:6] == [f"B{i}.bot" for i in range(5)], names
     assert names[6:] == ["B5.bot", "B6.bot", "B7.bot"], names
+
+
+def test_choose_picks_seeded_member():
+    import random
+
+    starts = [("a", 1.0), ("b", 2.0), ("c", 3.0)]
+    first = C.choose(starts, random.Random(7))
+    assert first in starts
+    again = C.choose(starts, random.Random(7))
+    assert again == first
