@@ -111,6 +111,12 @@ Build the best bot possible from the staged start files.
 60 minutes: run `date +%s` first. Use all of it: keep
 improving and testing until the last minute.
 
+Study first: read the leaderboard (`league/board.py`), the git
+history of `autoresearch/bot/`, and two bots you have never read.
+Steal ideas, never code. Your entry must differ in some way
+from every bot in the repo: a new mechanism, a new mix, a new
+rule. A copy with new names is a failure.
+
 Work on `tree/<line>-<n>` in its worktree. Never enter the
 coordinator tree. Never push `tree/*`.
 
