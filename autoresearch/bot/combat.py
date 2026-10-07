@@ -38,13 +38,6 @@ than CROWD_LIMIT enemies are visible, so packed hunters skip the
 safety filter on advancing moves in small fights and keep full
 champion safety in crowds.
 
-Leg 8 adds the Horde gate: march_with_pack reports whether an ant
-may march on a remembered hill -- only with the same pack the
-seek gate demands. A packless ant skips the muster and reinforce
-branches and regroups one step toward its nearest friend (or
-explores when alone), so lone ants stop donating across the map
-while groups still flood and strays rejoin them.
-
 Research: "Approach forms fighting lines" (xathis approaching
 enemies) -- ants near enemies advance on them instead of walking
 only to food, hills, or empty ground.
@@ -113,24 +106,6 @@ def has_pack(
             if found >= need:
                 return True
     return False
-
-
-def march_with_pack(
-    ant_loc: Loc,
-    ants_list: list[Loc],
-    distance: DistFn,
-    need: int = PACK_NEED,
-    radius: int = PACK_RADIUS,
-) -> bool:
-    """Whether an ant may march on a remembered hill: only with a pack.
-
-    The march rule reuses the seek pack -- need+ friends within
-    radius steps -- so muster and reinforce flood with groups and
-    never send a lone ant across the map to donate. The ant
-    itself never counts toward its own pack. Pure: no board
-    state, no side effects.
-    """
-    return has_pack(ant_loc, ants_list, distance, need, radius)
 
 
 def nearest_seek_enemy(
