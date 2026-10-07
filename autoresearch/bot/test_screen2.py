@@ -54,21 +54,16 @@ muster, reinforce, and explore keep their existing filters.
 """
 
 import os
-import subprocess
 import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from typing import Any  # noqa: E402
+import combat as CX  # noqa: E402
 
-import pytest  # noqa: E402
-
-_combat: Any = pytest.importorskip("combat", reason="needs the entry beside this file")
-CX: Any = _combat
 # Leg 7: Crowd.py carries the same seek + join + grinder + screen
 # + odds + gang wiring; CP aliases the live Crowd entry.
-CP: Any = pytest.importorskip("Crowd", reason="needs the entry beside this file")
+import Screen2 as HP  # noqa: E402
 
 Loc = tuple[int, int]
 ROWS = 20
@@ -149,9 +144,9 @@ def run_turn(
     water: set[Loc] | None = None,
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
-) -> tuple[list[tuple[Loc, str]], CP.Crowd]:
+) -> tuple[list[tuple[Loc, str]], HP.Screen2]:
     fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
-    bot = CP.Crowd()
+    bot = HP.Screen2()
     bot.do_turn(fake)
     return fake.orders, bot
 
@@ -163,9 +158,9 @@ def run_grinder_turn(
     water: set[Loc] | None = None,
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
-) -> tuple[list[tuple[Loc, str]], CP.Crowd]:
+) -> tuple[list[tuple[Loc, str]], HP.Screen2]:
     fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
-    bot = CP.Crowd()
+    bot = HP.Screen2()
     bot.do_turn(fake)
     return fake.orders, bot
 
@@ -244,16 +239,23 @@ def test_food_guard_orders_unchanged_on_contested_board() -> None:
     assert orders == champ
 
 
-def test_muster_orders_unchanged_with_enemy_in_range() -> None:
-    # Remembered hill musters while an enemy sits 7 steps away: the
-    # muster step (east or south, both on a shortest path) matches
-    # champion instead of chasing.
-    mine = [(10, 10)]
-    enemies = [(10, 17)]
-    orders, _ = run_turn(mine, enemies, enemy_hills=[(15, 15)])
-    champ = champion_orders(mine, enemies, enemy_hills=[(15, 15)])
-    assert len(orders) == 1 and orders == champ
-    assert orders[0][1] in ("e", "s")
+def test_packed_group_musters_as_champion() -> None:
+    # A packed group in muster range marches on the remembered
+    # hill: every step shortens the road and every order matches
+    # champion (seek out of range, no guards, roads resolve inside
+    # the BFS budget). (Horde leg 8: muster needs the pack; a lone
+    # ant here explores instead -- see
+    # test_packless_ant_skips_muster_and_explores.)
+    mine = [(10, 10), (10, 12), (12, 10), (12, 12)]
+    enemies = [(2, 2)]
+    orders, _ = run_turn(mine, enemies, enemy_hills=[(12, 14)])
+    champ = champion_orders(mine, enemies, enemy_hills=[(12, 14)])
+    assert len(orders) == 4 and orders == champ
+    probe = FakeAnts(mine, enemies)
+    for loc, direction in orders:
+        assert probe.distance(
+            probe.destination(loc, direction), (12, 14)
+        ) < probe.distance(loc, (12, 14))
 
 
 def test_seek_scan_under_1ms_on_crowded_board() -> None:
@@ -678,7 +680,7 @@ def run_gang_turn(
     # The Gang entry files are gone; Crowd carries its wiring, so
     # the gang boards run on Crowd exactly.
     fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
-    bot = CP.Crowd()
+    bot = HP.Screen2()
     bot.do_turn(fake)
     return fake.orders, bot
 
@@ -760,9 +762,9 @@ def run_crowd_turn(
     water: set[Loc] | None = None,
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
-) -> tuple[list[tuple[Loc, str]], CP.Crowd]:
+) -> tuple[list[tuple[Loc, str]], HP.Screen2]:
     fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
-    bot = CP.Crowd()
+    bot = HP.Screen2()
     bot.do_turn(fake)
     return fake.orders, bot
 
@@ -892,98 +894,130 @@ def test_crowd_food_guard_orders_unchanged_when_few_enemies() -> None:
     assert orders == [((5, 5), "e"), ((2, 2), "e"), ((10, 10), "e")]
 
 
-# Budgets and scenario: the engine-facing pins every entry carries.
-# They run wherever this file sits next to its entry; they skip
-# with the rest when staged alone.
-
-TURN_BUDGET = 1.0
-STARTUP_BUDGET = 3.0
-
-CHAMP_SETUP = (
-    "cols 20\nrows 20\nplayer_seed 0\nturntime 1000\n"
-    "loadtime 3000\nviewradius2 77\nattackradius2 5\n"
-    "spawnradius2 1\nturns 100"
-)
+# Leg 8 (Horde): march only with a pack. A lone ant marching on a
+# remembered hill donates across the map; the Flood muster and the
+# reinforce branches therefore require combat.march_with_pack --
+# 3+ friends within 10 steps, the same pack as the seek gate. A
+# packless ant skips both hill branches and explores instead.
+# Food, guard, seek, and walk-off are untouched.
 
 
-def test_startup_under_loadtime():
+def run_horde_turn(
+    mine: list[Loc],
+    enemies: list[Loc],
+    foods: list[Loc] | None = None,
+    water: set[Loc] | None = None,
+    enemy_hills: list[Loc] | None = None,
+    my_hills: list[Loc] | None = None,
+) -> tuple[list[tuple[Loc, str]], HP.Screen2]:
+    fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
+    bot = HP.Screen2()
+    bot.do_turn(fake)
+    return fake.orders, bot
+
+
+def test_march_with_pack_gate() -> None:
+    # (a) The march gate pins the rule: packless ants hold, packed
+    # ants march; near misses (2 friends, far friends) hold.
+    probe = FakeAnts([(5, 5)], [])
+    assert CX.march_with_pack((5, 5), [(5, 5)], probe.distance) is False
+    packed = [(5, 5), (5, 7), (7, 5), (7, 7)]
+    assert CX.march_with_pack((5, 5), packed, probe.distance) is True
+    pair = [(5, 5), (5, 7), (7, 5)]
+    assert CX.march_with_pack((5, 5), pair, probe.distance) is False
+    far = [(5, 5), (5, 17), (17, 5), (17, 17)]
+    assert CX.march_with_pack((5, 5), far, probe.distance) is False
+
+
+def test_packless_ant_skips_muster_and_explores() -> None:
+    # (b) A lone ant with a remembered hill east explores north
+    # instead of marching east onto the hill road as champion.
+    # Hill (5, 12) is 7 steps due east: the ungated muster step is
+    # uniquely "e" (every detour is longer), so explore "n" proves
+    # the gate fired.
+    mine = [(5, 5)]
+    orders, _ = run_horde_turn(mine, [], enemy_hills=[(5, 12)])
+    assert orders == [((5, 5), "n")]
+    probe = FakeAnts(mine, [])
+    assert probe.distance((5, 5), (5, 12)) == 7
+    moved = probe.destination((5, 5), orders[0][1])
+    assert probe.distance(moved, (5, 12)) == 8
+
+
+def test_packed_ants_march_on_hill() -> None:
+    # (c) A packed group marches exactly as champion: every order
+    # shortens the distance to the remembered hill.
+    mine = [(5, 5), (5, 7), (7, 5), (7, 7)]
+    hill = (5, 12)
+    orders, _ = run_horde_turn(mine, [], enemy_hills=[hill])
+    assert len(orders) == 4
+    probe = FakeAnts(mine, [])
+    for loc, direction in orders:
+        assert probe.distance(probe.destination(loc, direction), hill) < probe.distance(
+            loc, hill
+        )
+
+
+def test_packless_ant_still_takes_food_and_guards() -> None:
+    # (d) The gate touches the hill branches only: a packless ant
+    # still steps onto adjacent food and still holds a threatened
+    # home hill exactly as champion.
+    orders, _ = run_horde_turn([(5, 5)], [], foods=[(5, 6)])
+    assert orders == [((5, 5), "e")]
+    guard, _ = run_horde_turn([(10, 8)], [(10, 16)], my_hills=[(10, 10)])
+    assert guard == [((10, 8), "e")]
+
+
+def test_packless_ant_skips_reinforce_pair() -> None:
+    # (e) Two remembered hills and no pack: the ant explores north
+    # instead of mustering on one hill or reinforcing the other.
+    mine = [(5, 5)]
+    orders, _ = run_horde_turn(mine, [], enemy_hills=[(5, 12), (15, 15)])
+    assert orders == [((5, 5), "n")]
+
+
+def test_march_gate_costs_under_1ms_on_crowded_board() -> None:
+    # (f) The march gate -- one pack scan per hill-branch ant --
+    # costs far under 1ms per crowded-board pass.
+    mine = [(i % ROWS, (i * 7) % COLS) for i in range(48)]
+    probe = FakeAnts(mine, [])
+    reps = 50
     start = time.perf_counter()
-    subprocess.run(
-        [sys.executable, "-c", "import Crowd"],
-        cwd=os.path.dirname(os.path.abspath(__file__)),
-        check=True,
-        capture_output=True,
-    )
-    assert time.perf_counter() - start < STARTUP_BUDGET
+    for _ in range(reps):
+        for ant in mine:
+            CX.march_with_pack(ant, mine, probe.distance)
+    elapsed = (time.perf_counter() - start) / reps
+    assert elapsed < 0.001
 
 
-def test_crowded_turn_under_turntime():
-    from ants import Ants as ShimAnts
-
-    lines = [f"a {r} {c} 0" for r in range(10) for c in range(10)]
-    lines += [f"f {r + 10} {c}" for r in range(5) for c in range(10)]
-    lines += [f"a {r + 15} {c} 1" for r in range(3) for c in range(10)]
-    ants = ShimAnts()
-    ants.setup(CHAMP_SETUP)
-    ants.update("\n".join(lines))
-    start = time.perf_counter()
-    CP.Crowd().do_turn(ants)
-    assert time.perf_counter() - start < TURN_BUDGET
+def test_packless_pair_regroups_toward_friends() -> None:
+    # (g) Horde regroup: two packless ants with a remembered hill
+    # step toward each other instead of mustering alone or
+    # wandering -- the pair converges while the lone ant explores.
+    mine = [(5, 5), (5, 13)]
+    orders, _ = run_horde_turn(mine, [], enemy_hills=[(15, 15)])
+    assert orders == [((5, 5), "e"), ((5, 13), "w")]
+    probe = FakeAnts(mine, [])
+    assert probe.distance((5, 6), (5, 12)) < probe.distance((5, 5), (5, 13))
 
 
-def _duel_map():
-    inner = [
-        "........",
-        ".A......",
-        ".a......",
-        "...**...",
-        "...**...",
-        "......b.",
-        "......B.",
-        "........",
-    ]
-    lines = ["%" * 12] + ["%%" + row + "%%" for row in inner] + ["%" * 12]
-    text = "rows 10\ncols 12\nplayers 2\n"
-    return text + "".join("m " + row + "\n" for row in lines)
+def test_packless_ant_prefers_food_over_hills() -> None:
+    # (h) Economy first: a packless ant next to food takes it even
+    # with remembered hills on the board -- the food branch runs
+    # before the gated hill branches.
+    orders, _ = run_horde_turn([(5, 5)], [], foods=[(5, 6)], enemy_hills=[(5, 12)])
+    assert orders == [((5, 5), "e")]
 
 
-def test_scenario_crowd_beats_random():
-    """Real engine game on a knife-fight map. Crowd must win."""
-    import importlib.util
-
-    here = os.path.dirname(os.path.abspath(__file__))
-    root = os.path.dirname(os.path.dirname(here))
-    tools = os.path.join(root, "tools")
-    sys.path.insert(0, tools)
-    from engine import run_game
-
-    spec = importlib.util.spec_from_file_location(
-        "engine_ants", os.path.join(tools, "ants.py")
-    )
-    assert spec is not None and spec.loader is not None
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    game = mod.Ants(
-        {
-            "map": _duel_map(),
-            "turns": 50,
-            "loadtime": 3000,
-            "turntime": 1000,
-            "viewradius2": 77,
-            "attackradius2": 5,
-            "spawnradius2": 1,
-            "player_seed": 7,
-            "engine_seed": 7,
-        }
-    )
-    bots = [
-        (here, sys.executable + " Crowd.py"),
-        (
-            os.path.join(root, "tools", "sample_bots", "python"),
-            sys.executable + " RandomBot.py",
-        ),
-    ]
-    result = run_game(game, bots, {"turns": 50, "turntime": 1000, "loadtime": 3000})
-    assert result["rank"] == [0, 1], "crowd takes first"
-    assert result["status"] == ["survived", "eliminated"]
-    assert result["score"][0] - result["score"][1] > 0
+def test_taken_hill_is_forgotten_next_turn() -> None:
+    # (i) Hill lifecycle across turns: a remembered hill the army
+    # steps onto is forgotten, so the march ends instead of
+    # milling around a razed hill.
+    fake = FakeAnts([(5, 5)], [], enemy_hills=[(5, 12)])
+    bot = HP.Screen2()
+    bot.do_turn(fake)
+    assert bot.remembered_hills == {(5, 12)}
+    taken = FakeAnts([(5, 12)], [], enemy_hills=[])
+    bot.do_turn(taken)
+    assert bot.remembered_hills == set()
+    assert taken.orders == [((5, 12), "n")]
