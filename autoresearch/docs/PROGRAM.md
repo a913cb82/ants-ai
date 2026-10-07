@@ -15,9 +15,9 @@ is the best recorded score for the current budget.
 Three roles run the loop. Each role has its own files. No role
 touches another role's files.
 
-- Coder: writes one bot change per iteration, inside a fixed time
-  budget. It edits `autoresearch/bot/` only. It never plays games.
-  It never learns scores.
+- Coder: builds the best bot it can from a given start,
+  inside 60 minutes. It edits `autoresearch/bot/` only.
+  It never plays games.
 - Coordinator: runs the exam and keeps the notes. It edits
   `autoresearch/docs/` only. It never writes bot code.
 - Scorer: plays one exam through `autoresearch/iteration.py`.
@@ -52,15 +52,13 @@ coordinator measures it.
 1. Coordinator: merge `main` into `autoresearch/main`:
    `git checkout autoresearch/main && git merge main`
    Resolve any conflict before briefing the coder.
-2. Coordinator: pick one problem from `autoresearch/docs/IDEAS.md`
-   or from research. Choose the start. The champion is safe. An
-   older bot or a new design also works. Brief a coder with
-   the failure, the evidence, and the constraints — never the fix.
-   The coder finds the idea. Brief the time budget. At spawn, stage
-   the measured-champion files as the coder base. Copy any replay
+2. Coordinator: pick the start: the code in `autoresearch/bot/`
+   on a given commit. Brief a coder with the start and the goal:
+   build the best bot possible. On bold steps the brief also prompts
+a new direction. Brief the 60-minute budget. At spawn, stage
+   the start files as the coder base. Copy any replay
    files the brief cites: runs/ is ignored, so fresh worktrees
-   lack them. Every entry is
-   champion plus exactly one idea.
+   lack them.
 3. Coder: write failing test cases first for the risky part. Then
    write the bot code. Run the tests inside the budget. Commit:
    `git add autoresearch/bot && git commit -m "exp: <idea>"`
@@ -108,8 +106,7 @@ worktree.
 
 ## Coder
 
-- The coder gets one idea and a fixed time budget. The budget is
-  30 minutes unless the brief says otherwise. The coder manages
+- The coder gets a start commit and 60 minutes. The coder manages
   its own clock. Run `date +%s` first. Compute the deadline.
   Check again before each major step. Stop coding early enough to run
   tests plus hooks plus commit before the deadline. Uncommitted
@@ -124,8 +121,8 @@ worktree.
   branch lives past its merge, so unmeasured code never sits in
   the pool (`git log --all`) drafting unrated rulers or tripping
   the duplicate guard later. Never push `tree/*` branches.
-- Each entry gets fresh filenames. Copy the staged champion files
-  to a new name. Add the one idea. Remove the predecessor's files.
+- Each entry gets fresh filenames. Copy the staged base files
+  to a new name. Build the best bot possible within the budget.
   Never edit the previous entry's files in place. Stacking two
   unmeasured ideas in one filename destroys attribution.
 - Tests are vital to making bots good. The coder writes failing
