@@ -109,7 +109,9 @@ worktree.
 
 Build the best bot possible from the staged start files.
 60 minutes: run `date +%s` first. Use all of it: keep
-improving and testing until the last minute.
+improving and testing until the last minute. Never sleep or
+wait: if tests pass, add the next improvement; if stuck, study
+another bot and try its idea your way.
 
 Study first: read the leaderboard (`league/board.py`), the git
 history of `autoresearch/bot/`, and two bots you have never read.
