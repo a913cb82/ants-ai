@@ -1,11 +1,11 @@
-"""Tests for autoresearch/candidates.py: ranked coder starts."""
+"""Tests for autoresearch/candidate_coder.py: ranked coder starts."""
 
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import candidates as C
+import candidate_coder as C
 
 
 def test_champion_starts_first():
