@@ -117,8 +117,6 @@ coordinator tree. Never push `tree/*`.
 
 Fresh filenames per entry. Never edit another entry in place.
 
-Tests first, whole suite green. Tests live in `autoresearch/bot/`.
-
 Self-contained entry: stdlib plus `ants.py` only. One turn must
 finish in 1000 ms. Use `.venv/bin/python`.
 
