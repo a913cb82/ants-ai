@@ -70,12 +70,40 @@ def _prefix(bot: str) -> str:
     return m.group(1).lower() if m else ""
 
 
+def _basename(bot: str) -> str:
+    """entry name without sha: unique per entry, stable across revs."""
+    return bot.split("/")[-1].rsplit("-", 1)[0]
+
+
+def exploiter(
+    games: list[list[str]], champ: set[str], mu_of: dict[str, float]
+) -> dict[str, tuple[int, float]]:
+    """main-wins and victim cover per entry basename.
+
+    games rank winner first. main-wins counts games above a
+    champion entry. cover sums victim mus over distinct victims:
+    breadth of blind spots, not volume of farmed games.
+    """
+    main: dict[str, int] = {}
+    seen: dict[str, set[str]] = {}
+    for result in games:
+        names = [_basename(b) for b in result]
+        for i, winner in enumerate(names):
+            for loser in names[i + 1 :]:
+                if loser in champ:
+                    main[winner] = main.get(winner, 0) + 1
+                seen.setdefault(winner, set()).add(loser)
+    cover = {w: sum(mu_of.get(v, 0.0) for v in vs) for w, vs in seen.items()}
+    return {n: (main.get(n, 0), cover.get(n, 0.0)) for n in set(main) | set(cover)}
+
+
 def candidates(
     nodes: list[tuple[str, list[str], str]],
     exams: list[tuple[str, float]],
     flight: set[str],
     champion: str | None,
     known: set[str],
+    games: list[list[str]],
 ) -> dict:
     """Pure pick logic. exams is (bot, score) in PROGRESS order."""
     known = known | {CHAMPION_LINE}
@@ -88,11 +116,19 @@ def candidates(
     seq: dict[str, list[float]] = {ln: [] for ln in known}
     exp_line: dict[str, str] = {}
     score_of: dict[str, float] = {}
+    name_of: dict[str, str] = {}
+    mu_of: dict[str, float] = {}
+    champ_names: set[str] = set()
     for bot, score in exams:
         short = bot.rsplit("-", 1)[-1] if "-" in bot else ""
         sha = next((s for s in order if short and s.startswith(short)), None)
+        name = _basename(bot)
+        mu_of[name] = max(mu_of.get(name, score), score)
+        if sha is not None:
+            name_of.setdefault(sha, name)
         if champion and sha == champion:
             ln = CHAMPION_LINE
+            champ_names.add(name)
         elif _prefix(bot) in known:
             ln = _prefix(bot)
         else:
@@ -143,7 +179,8 @@ def candidates(
         extend = (avail[pick], pick)
 
     best = {ln: max(seq[ln]) for ln in live if seq[ln]}
-    split = []
+    value = exploiter(games, champ_names, mu_of)
+    split: list[tuple[str, str, str, int, float]] = []
     for ln in live:
         for i, sha in enumerate(by_line[ln]):
             if not examined(sha):
@@ -151,7 +188,10 @@ def candidates(
             later = by_line[ln][i + 1 :]
             if score_of[sha] < best[ln] and (later or sha in flight):
                 ps = parents_of.get(sha, [])
-                split.append((sha, ln, ps[0] if ps else ""))
+                main_wins, cover = value.get(name_of.get(sha, ""), (0, 0.0))
+                split.append((sha, ln, ps[0] if ps else "", main_wins, cover))
+    split.sort(key=lambda t: (-t[3], -t[4]))
+    ranked = [(sha, ln, parent) for sha, ln, parent, _, _ in split]
 
     unscored = [
         sha
@@ -169,11 +209,29 @@ def candidates(
         idle = (pick, exp_line[pick])
     return {
         "extend": extend,
-        "split": split,
+        "split": ranked,
         "idle": idle,
         "dead": sorted(dead_lines),
         "ideas": ideas,
     }
+
+
+def _games(root: Path) -> list[list[str]]:
+    """rank-ordered result lists, winner first."""
+    out: list[list[str]] = []
+    prog = root / "league" / "games.jsonl"
+    if not prog.exists():
+        return out
+    for line in prog.read_text().splitlines():
+        if not line.strip():
+            continue
+        try:
+            r = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(r, dict) and isinstance(r.get("result"), list):
+            out.append([str(b) for b in r["result"]])
+    return out
 
 
 def main(root: Path) -> None:
@@ -205,7 +263,7 @@ def main(root: Path) -> None:
     except subprocess.CalledProcessError:
         champion = None
     flight = _flight(root, {s for s, _, _ in nodes})
-    out = candidates(nodes, exams, flight, champion, _merge_lines(root))
+    out = candidates(nodes, exams, flight, champion, _merge_lines(root), _games(root))
     if out["extend"]:
         sha, ln = out["extend"]
         print(f"extend {sha[:7]} {ln} {out['ideas'].get(sha, '')}")
