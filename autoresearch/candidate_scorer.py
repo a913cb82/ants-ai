@@ -35,6 +35,33 @@ def unscored(pool_ids: list[str], scored: set[str]) -> list[str]:
     ]
 
 
+def group_by_code(pairs: list[tuple[str, str]]) -> dict[str, list[str]]:
+    """bot ids by code blob: same file contents means same bot."""
+    out: dict[str, list[str]] = {}
+    for bid, blob in pairs:
+        out.setdefault(blob, []).append(bid)
+    return out
+
+
+def code_blobs(root: Path, revs: list[str]) -> dict[str, dict[str, str]]:
+    """rev -> {filename: blob} for the bot dir, one git call per rev."""
+    out: dict[str, dict[str, str]] = {}
+    for rev in dict.fromkeys(r for r in revs if r):
+        log = subprocess.run(
+            ["git", "ls-tree", "-r", rev, "--", "autoresearch/bot/"],
+            capture_output=True,
+            check=True,
+            cwd=root,
+        ).stdout.decode()
+        blobs = {}
+        for line in log.splitlines():
+            parts = line.split()
+            if len(parts) == 4:
+                blobs[parts[3].split("/")[-1]] = parts[2]
+        out[rev] = blobs
+    return out
+
+
 def births(root: Path, revs: list[str]) -> dict[str, str]:
     """input rev -> committer date, one git call."""
     out: dict[str, str] = {}
@@ -78,10 +105,25 @@ def main(root: Path) -> None:
         if isinstance(r, dict) and "bot" in r:
             scored.add(_basename(str(r["bot"])))
     queue = unscored(pool(root), scored)
-    print(len(queue))
-    if queue:
-        birth_of = births(root, [_rev(b) for b in queue])
-        print(oldest(queue, {_rev(b): birth_of.get(_rev(b), "") for b in queue}))
+    revs = [_rev(b) for b in queue]
+    blobs = code_blobs(root, revs)
+    pairs = []
+    for b in queue:
+        code = _basename(b)[:-4] + ".py"
+        pairs.append((b, blobs.get(_rev(b), {}).get(code, "MISSING:" + b)))
+    groups = group_by_code(pairs)
+    print(len(groups))
+    if groups:
+        birth_of = births(root, revs)
+        dated = {_rev(b): birth_of.get(_rev(b), "") for b in queue}
+
+        def born(ids: list[str]) -> str:
+            dates = [dated.get(_rev(b), "") for b in ids]
+            dates = [d for d in dates if d]
+            return min(dates) if dates else "~~"
+
+        first = min(groups.values(), key=born)
+        print(oldest(first, dated))
 
 
 if __name__ == "__main__":

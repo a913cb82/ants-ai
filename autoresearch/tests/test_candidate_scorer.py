@@ -31,3 +31,14 @@ def test_oldest_without_dates_keeps_pool_order():
 
 def test_oldest_empty_is_empty():
     assert S.oldest([], {}) == ""
+
+
+def test_group_by_code_merges_same_contents():
+    pairs = [
+        ("a/X.bot-111", "blob1"),
+        ("a/X.bot-222", "blob1"),
+        ("a/Y.bot-333", "blob2"),
+    ]
+    groups = S.group_by_code(pairs)
+    assert len(groups) == 2
+    assert sorted(groups["blob1"]) == ["a/X.bot-111", "a/X.bot-222"]
