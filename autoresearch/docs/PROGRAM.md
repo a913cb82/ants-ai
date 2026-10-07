@@ -108,7 +108,8 @@ worktree.
 ## Coder
 
 Build the best bot possible from the staged start files.
-60 minutes: run `date +%s` first.
+60 minutes: run `date +%s` first. Use all of it: keep
+improving and testing until the last minute.
 
 Work on `tree/<line>-<n>` in its worktree. Never enter the
 coordinator tree. Never push `tree/*`.
