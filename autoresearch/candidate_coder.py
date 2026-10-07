@@ -28,6 +28,7 @@ def candidates(
     mu_of: dict[str, float],
 ) -> dict:
     """Pure pick logic. exams is (bot id, score) in PROGRESS order."""
+    exams = [r for r in exams if r[0].startswith("autoresearch/bot/")]
     champ = max(exams, key=lambda r: r[1])[0] if exams else ""
     champ_names = {_basename(champ)}
 

@@ -103,3 +103,13 @@ def test_choose_picks_seeded_member():
     assert first in starts
     again = C.choose(starts, random.Random(7))
     assert again == first
+
+
+def test_only_autoresearch_bots_start():
+    exams = [
+        ("bots/other/main.bot-9999999", 99.0),
+        ("autoresearch/bot/Crowd.bot-c222222", 67.0),
+    ]
+    out = C.candidates(exams, [], {})
+    names = [C._basename(b) for b, _ in out["starts"]]
+    assert names == ["Crowd.bot"], names
