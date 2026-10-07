@@ -5,6 +5,7 @@ Usage:
 
 An autoresearch bot is unscored when no PROGRESS row names it.
 Oldest means earliest birth commit among its pool revisions.
+Template scaffolding (Example*) never plays.
 """
 
 import json
@@ -31,7 +32,9 @@ def unscored(pool_ids: list[str], scored: set[str]) -> list[str]:
     return [
         b
         for b in pool_ids
-        if b.startswith("autoresearch/bot/") and _basename(b) not in scored
+        if b.startswith("autoresearch/bot/")
+        and _basename(b) not in scored
+        and not _basename(b).startswith("Example")
     ]
 
 

@@ -42,3 +42,11 @@ def test_group_by_code_merges_same_contents():
     groups = S.group_by_code(pairs)
     assert len(groups) == 2
     assert sorted(groups["blob1"]) == ["a/X.bot-111", "a/X.bot-222"]
+
+
+def test_template_never_queues():
+    pool_ids = [
+        "autoresearch/bot/Example.bot-1234567",
+        "autoresearch/bot/Tables2.bot-d333333",
+    ]
+    assert S.unscored(pool_ids, set()) == ["autoresearch/bot/Tables2.bot-d333333"]
