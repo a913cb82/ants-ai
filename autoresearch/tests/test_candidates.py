@@ -66,3 +66,19 @@ def test_rates_beat_totals():
     out = C.candidates(exams, games, mu_of)
     names = [C._basename(b) for b, _ in out["starts"]]
     assert names[1] == "Tables2.bot", names
+
+
+def test_padded_rates_favor_evidence():
+    exams = [
+        ("autoresearch/bot/Tables.bot-b111111", 30.0),
+        ("autoresearch/bot/Tables2.bot-d333333", 20.0),
+        ("autoresearch/bot/Crowd.bot-c222222", 67.0),
+    ]
+    wonder = [["x/Tables.bot-b111111", "y/Strong.bot-9999999"]]
+    solid = [["x/Tables2.bot-d333333", f"y/V{i}.bot-000000{i}"] for i in range(30)]
+    games = wonder + solid
+    mu_of = {"Strong.bot": 60.0}
+    mu_of.update({f"V{i}.bot": 10.0 for i in range(30)})
+    out = C.candidates(exams, games, mu_of)
+    names = [C._basename(b) for b, _ in out["starts"]]
+    assert names[1] == "Tables2.bot", names

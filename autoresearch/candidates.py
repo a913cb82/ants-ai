@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 
 TOP_N = 6
+PAD_GAMES = 9
 
 
 def _basename(bot: str) -> str:
@@ -43,7 +44,11 @@ def candidates(
                 seen.setdefault(winner, set()).add(loser)
     cover = {w: sum(mu_of.get(v, 0.0) for v in vs) for w, vs in seen.items()}
     rate = {
-        w: (main.get(w, 0) / played[w], cover.get(w, 0.0) / played[w]) for w in played
+        w: (
+            main.get(w, 0) / (played[w] + PAD_GAMES),
+            cover.get(w, 0.0) / (played[w] + PAD_GAMES),
+        )
+        for w in played
     }
 
     ranked = sorted(
