@@ -114,7 +114,8 @@ wait: if tests pass, add the next improvement; if stuck, study
 another bot and try its idea your way.
 
 Study first: read the leaderboard (`league/board.py`), the git
-history of `autoresearch/bot/`, and two bots you have never read.
+history of `autoresearch/bot/`, and other bot code. Read widely
+and keep reading while you work.
 Steal ideas, never code. Your entry must differ in some way
 from every bot in the repo: a new mechanism, a new mix, a new
 rule. A copy with new names is a failure.
