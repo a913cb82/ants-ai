@@ -56,9 +56,6 @@ def run(turn, seed=0, capsys=None):
     return ants
 
 
-# 1. correctness
-
-
 def test_hunts_nearest_target(capsys):
     orders = run("a 10 10 0\nf 10 13\nf 10 5", capsys=capsys)
     assert orders, "ant with food in sight must move"
@@ -82,9 +79,6 @@ def test_orders_land_off_water(capsys):
 
 def test_idles_with_no_targets(capsys):
     assert run("a 7 7 0", capsys=capsys) == []
-
-
-# 2. runtime
 
 
 def test_startup_under_loadtime():
@@ -112,9 +106,6 @@ def test_crowded_turn_under_turntime():
     start = time.perf_counter()
     EB.Example().do_turn(ants)
     assert time.perf_counter() - start < TURN_BUDGET
-
-
-# 3. scenario
 
 
 def generate_duel_map(tmp_path):
