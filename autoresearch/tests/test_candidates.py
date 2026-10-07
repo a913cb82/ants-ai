@@ -82,3 +82,14 @@ def test_padded_rates_favor_evidence():
     out = C.candidates(exams, games, mu_of)
     names = [C._basename(b) for b, _ in out["starts"]]
     assert names[1] == "Tables2.bot", names
+
+
+def test_five_plus_five_seats():
+    exams = [(f"autoresearch/bot/B{i}.bot-000000{i}", 10.0) for i in range(8)]
+    exams.append(("autoresearch/bot/Crowd.bot-c222222", 67.0))
+    games = [[f"x/B{i}.bot-000000{i}", "y/Crowd.bot-c222222"] for i in range(6)]
+    out = C.candidates(exams, games, {})
+    names = [C._basename(b) for b, _ in out["starts"]]
+    assert names[0] == "Crowd.bot"
+    assert names[1:6] == [f"B{i}.bot" for i in range(5)], names
+    assert names[6:] == ["B5.bot", "B6.bot", "B7.bot"], names

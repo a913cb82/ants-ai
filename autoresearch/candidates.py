@@ -12,7 +12,7 @@ is history.
 import json
 from pathlib import Path
 
-TOP_N = 6
+TOP_N = 5
 PAD_GAMES = 9
 
 
@@ -51,16 +51,21 @@ def candidates(
         for w in played
     }
 
-    ranked = sorted(
-        exams,
-        key=lambda r: (
-            r[0] != champ,
-            -rate.get(_basename(r[0]), (0, 0))[0],
-            -rate.get(_basename(r[0]), (0, 0))[1],
-        ),
+    by_champ = sorted(
+        [r for r in exams if r[0] != champ],
+        key=lambda r: -rate.get(_basename(r[0]), (0, 0))[0],
     )
+    exploiters = [r for r in by_champ if rate.get(_basename(r[0]), (0, 0))[0] > 0][
+        :TOP_N
+    ]
+    taken = {r[0] for r in exploiters} | {champ}
+    by_cover = sorted(
+        [r for r in exams if r[0] not in taken],
+        key=lambda r: -rate.get(_basename(r[0]), (0, 0))[1],
+    )
+    ranked = [next(r for r in exams if r[0] == champ)] + exploiters + by_cover[:TOP_N]
     return {
-        "starts": ranked[:TOP_N],
+        "starts": ranked[: 1 + 2 * TOP_N],
         "champion": champ,
     }
 
