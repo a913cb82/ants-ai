@@ -106,52 +106,24 @@ worktree.
 
 ## Coder
 
-- The coder gets a start commit and 60 minutes. The coder manages
-  its own clock. Run `date +%s` first. Compute the deadline.
-  Check again before each major step. Stop coding early enough to run
-  tests plus hooks plus commit before the deadline. Uncommitted
-  work at budget end is dropped. A smaller green commit beats
-  a bigger uncommitted one.
-- It works on a branch named `tree/<line>-<n>` in a worktree path
-  from the pool (/tmp/cbt-0
-  to /tmp/cbt-5). The coordinator creates both fresh for each
-  iteration. The coder never enters the coordinator tree. The
-  coordinator merges the branch after the exp commit
-  (`git merge --no-ff`), then deletes the branch. No `tree/*`
-  branch lives past its merge, so unmeasured code never sits in
-  the pool (`git log --all`) drafting unrated rulers or tripping
-  the duplicate guard later. Never push `tree/*` branches.
-- Each entry gets fresh filenames. Copy the staged base files
-  to a new name. Build the best bot possible within the budget.
-  Never edit the previous entry's files in place. Stacking two
-  unmeasured ideas in one filename destroys attribution.
-- Tests are vital to making bots good. The coder writes failing
-  test cases first for the whole idea, not just the risky part.
-  Then it writes the bot code. It spends the budget on the idea
-  and its scenarios.
-- Tests live beside the bot in `autoresearch/bot/`. They are
-  first-class loop code. Entry test files (`test_<Entry>.py`) go
-  away with their entry. Shared helper modules (for example
-  `combat.py`) and their tests (for example `test_combat.py`)
-  persist between iterations and grow. Each coder extends them.
-  Each coder keeps the whole suite green. Tests never go under
-  `tests/`. Tests never reference worktree-root staging files.
-- Tests are not only correctness checks. Every coder brief names
-  2-3 benchmark scenarios. They are small hand-built situations.
-  They cover any part of play. Each one discriminates base from
-  tuned. Each one runs in seconds. Scenario files persist as
-  a regression suite. Use them to understand the idea. Try
-  variants. Watch what changes. Report what you learn. Scenarios
-  guide experiment, not maximisation. A scenario score is
-  evidence, not the goal.
-- Read the code of the other bots. Do not edit their code. Know
-  the 2011 top-bots. Sources are in `vendor/ants-topbots/`. Seven
-  run in `bots/`. Steal mechanisms, not constants.
-- Use `.venv/bin/python` for every command. Each command runs in
-  a new shell. An activated venv does not stay active. Use only
-  the Python standard library and the packages in the venv. Do not
-  run pip. One turn must finish in 1000 ms. A slow bot loses on
-  time. The load time is 3000 ms.
+## Coder
+
+Build the best bot possible from the staged start files.
+60 minutes: run `date +%s` first, reserve the last 10 for
+tests plus hooks plus commit.
+
+Work on `tree/<line>-<n>` in its worktree. Never enter the
+coordinator tree. Never push `tree/*`.
+
+Fresh filenames per entry. Never edit another entry in place.
+
+Tests first, whole suite green. Tests live in `autoresearch/bot/`.
+
+Self-contained entry: stdlib plus `ants.py` only. One turn must
+finish in 1000 ms. Use `.venv/bin/python`.
+
+Commit `git add autoresearch/bot` only, message `exp: <idea>`.
+Report and stop. No games, no push.
 
 ## Tree
 
