@@ -106,8 +106,6 @@ worktree.
 
 ## Coder
 
-## Coder
-
 Build the best bot possible from the staged start files.
 60 minutes: run `date +%s` first, reserve the last 10 for
 tests plus hooks plus commit.
