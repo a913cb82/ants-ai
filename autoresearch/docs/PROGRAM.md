@@ -143,9 +143,11 @@ Two scripts pick. Both read scores and games, never git.
   strong-bot-beater. Stage that bot's files as the coder base.
 
 Coders run in parallel, one branch per coder. Exams stay serial:
-one scorer at a time. Spawn a coder whenever coders working plus
-unscored bots is below 6. Count coders with `git branch --list
-'tree/*'` and unscored bots with candidate_scorer.py. Git stores the tree: each merge keeps
+one scorer at a time. Always run a scorer while anything is
+scorable. When nothing is scorable, run 6 coders. Spawn a coder
+whenever coders working plus unscored bots is below 6. Count
+coders with `git branch --list 'tree/*'` and unscored bots with
+candidate_scorer.py. Git stores the tree: each merge keeps
 the leaf as second parent, so `git log --graph` shows every line.
 
 ## Log
