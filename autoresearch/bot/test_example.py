@@ -1,9 +1,4 @@
-"""Example tests: the three kinds every entry carries.
-
-1. correctness: pass/fail pins on a fake world.
-2. runtime: the engine budgets, pass/fail.
-3. scenario: a real engine game; reports a score, not pass/fail.
-"""
+"""Example tests for the example bot."""
 
 import os
 import random
