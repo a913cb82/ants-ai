@@ -144,9 +144,10 @@ Two scripts pick. Both read scores and games, never git.
 
 Coders run in parallel, one branch per coder. Exams stay serial:
 one scorer at a time. Always run a scorer while anything is
-scorable. When nothing is scorable, run 6 coders. Spawn a coder
-whenever coders working plus unscored bots is below 6. Count
-coders with `git branch --list 'tree/*'` and unscored bots with
+scorable; otherwise code. Never spawn past the free slots:
+queued agents get aborted. Usually that means 1 scorer plus
+3 coders, or 4 coders with no scorer. Count coders with
+git branch --list 'tree/*' and unscored bots with
 candidate_scorer.py. Git stores the tree: each merge keeps
 the leaf as second parent, so `git log --graph` shows every line.
 
