@@ -63,7 +63,9 @@ a new direction. Brief the 60-minute budget. At spawn, stage
 3. Coder: write failing test cases first for the risky part. Then
    write the bot code. Run the tests inside the budget. Commit:
    `git add autoresearch/bot && git commit -m "exp: <idea>"`
-   Then report and stop. No games, no notes, no push. Never
+   Then report and stop. No games, no notes, no push. Stay inside
+your worktree: never delete, move, or relink anything in the
+repo checkout, especially the repo .venv. Never
    --no-verify: if hooks miss .venv in the worktree, link it with
    `ln -s /home/acbraith/projects/ants-ai/.venv <worktree>/.venv`.
    Never touch the repo .venv itself.
