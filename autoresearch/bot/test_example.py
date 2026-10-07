@@ -109,15 +109,19 @@ def test_crowded_turn_under_turntime():
 
 
 def generate_duel_map(tmp_path):
-    """Small symmetric 2p map, built by the scenario itself."""
-    inner = ["." * 26 for _ in range(28)]
-    inner[2] = "...A......................"
-    inner[3] = "...a......................"
-    inner[25] = "......................B..."
-    inner[10] = "......*..................."
-    inner[17] = "...................*......"
-    lines = ["%" * 30] + ["%%" + row + "%%" for row in inner] + ["%" * 30]
-    text = "rows 30\ncols 30\nplayers 2\n"
+    """Small knife-fight map, built by the scenario itself."""
+    inner = [
+        "........",
+        ".A......",
+        ".a......",
+        "...**...",
+        "...**...",
+        "......b.",
+        "......B.",
+        "........",
+    ]
+    lines = ["%" * 12] + ["%%" + row + "%%" for row in inner] + ["%" * 12]
+    text = "rows 10\ncols 12\nplayers 2\n"
     text += "".join("m " + row + "\n" for row in lines)
     path = str(tmp_path / "duel.map")
     with open(path, "w") as fh:
@@ -126,7 +130,7 @@ def generate_duel_map(tmp_path):
 
 
 def test_scenario_scores_short_game(tmp_path):
-    """50 real engine turns, Example vs RandomBot. Reports score."""
+    """Example vs RandomBot on a knife-fight map. Hunter must win."""
     text = generate_duel_map(tmp_path)
     game = GameAnts(
         {
@@ -149,7 +153,8 @@ def test_scenario_scores_short_game(tmp_path):
         ),
     ]
     result = run_game(game, bots, {"turns": 50, "turntime": 1000, "loadtime": 3000})
-    assert result["game_length"] == 50, "scenario must run the full game"
-    assert result["status"] == ["survived", "survived"]
+    assert result["rank"] == [0, 1], "hunter takes first"
+    assert result["status"] == ["survived", "eliminated"]
     score = result["score"][0] - result["score"][1]
-    print(f"\nscenario score (Example - Random): {score} (ranks {result['rank']})")
+    assert score > 0, "hunter outscores the random walker"
+    print(f"\nscenario score (Example - Random): {score}")
