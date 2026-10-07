@@ -52,8 +52,9 @@ coordinator measures it.
 1. Coordinator: merge `main` into `autoresearch/main`:
    `git checkout autoresearch/main && git merge main`
    Resolve any conflict before briefing the coder.
-2. Coordinator: pick the start: the code in `autoresearch/bot/`
-   on a given commit. Brief a coder with the start and the goal:
+2. Coordinator: pick the start: run
+   `.venv/bin/python autoresearch/candidate_coder.py`.
+   It prints one bot. Brief a coder with the start and the goal:
    build the best bot possible. On bold steps the brief also prompts
 a new direction. Brief the 60-minute budget. At spawn, stage
    the start files as the coder base. Copy any replay
@@ -120,31 +121,21 @@ finish in 1000 ms. Use `.venv/bin/python`.
 Commit `git add autoresearch/bot` only, message `exp: <idea>`.
 Report and stop. No games, no `iteration.py`, no push.
 
-## Tree
+## Selection
+
+Two scripts pick. Both read scores and games, never git.
+
+- Scorer next: run `.venv/bin/python autoresearch/candidate_scorer.py`.
+  It prints a count of unscored bots, then the oldest one.
+  Examine that bot.
+- Coder start: run `.venv/bin/python autoresearch/candidate_coder.py`.
+  It prints one bot: the champion, a champion-beater, or a
+  strong-bot-beater. Stage that bot's files as the coder base.
 
 Coders run in parallel, one branch per coder. Exams stay serial:
 one scorer at a time. Keep at most 6 entries ahead of the scorer
 (coding plus unscored). Spawn no coder past that. Git stores the tree: each merge keeps
 the leaf as second parent, so `git log --graph` shows every line.
-A line is dead when its last 3 exams never beat its earlier best.
-Upward trend means max(last 3) is above max(all earlier exams);
-a line with fewer than 4 exams is immune. Dead lines get no exams
-and no children. The champion line never dies.
-Two selections drive the loop. Score: oldest unscored leaf of
-the next live line, round-robin over lines. Spawn coders in
-this order, enough to reach 6 entries ahead of the scorer
-(coding plus unscored). 1. Extend: a live line has a scored leaf with no
-child in flight. Take the newest scored leaf of the most
-recently examined live line. 2. Split-branch: a second diagnosis exists for a failure
-that already has a child. Branch the same parent. Rank branch points:
-first bots that beat the champion, then bots that beat strong bots. 3. Idle-branch:
-coder capacity is idle and every scored leaf has a child in
-flight. Take the oldest unscored leaf of the line with
-the fewest children in flight. Never give one leaf two children
-in flight.
-Split one failure with two diagnoses into one child leaf each.
-A leaf that wins big on a new mechanism starts its own line.
-Prune the weaker fork at its next exam.
 
 ## Log
 
@@ -155,7 +146,7 @@ Git is the log. `WORKLOG.md` is frozen (history only).
   `git merge --no-ff tree/<line>-<n> -m "merge tree/<line>-<n>: <idea>"`
 - Coordinator logs with `log: <idea>`. The body holds Score,
   Learned, Next, Rivals. Rivals are open alternative explanations
-  of the same result. They arm split-branch.
+  of the same result.
 - A hook rejects other subjects. Explore with:
   `.venv/bin/python autoresearch/log.py frontier|show|lines|best`.
 
