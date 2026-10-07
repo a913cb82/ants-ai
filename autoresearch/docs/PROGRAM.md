@@ -123,7 +123,7 @@ Self-contained entry: stdlib plus `ants.py` only. One turn must
 finish in 1000 ms. Use `.venv/bin/python`.
 
 Commit `git add autoresearch/bot` only, message `exp: <idea>`.
-Report and stop. No games, no push.
+Report and stop. No games, no `iteration.py`, no push.
 
 ## Tree
 
