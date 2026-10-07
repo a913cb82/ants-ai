@@ -5,12 +5,11 @@ Usage:
 
 Rules: the champion (best recorded score) starts first. Other
 starts rank by games: first bots that beat the champion, then
-bots that beat strong bots. Dead lines get nothing. Only the
-top starts print: the rest is history.
+bots that beat strong bots. Only the top starts print: the rest
+is history.
 """
 
 import json
-import re
 from pathlib import Path
 
 TOP_N = 6
@@ -21,11 +20,6 @@ def _basename(bot: str) -> str:
     return bot.split("/")[-1].rsplit("-", 1)[0]
 
 
-def _prefix(bot: str) -> str:
-    m = re.match(r"([A-Za-z]+)", bot.split("/bot/")[-1])
-    return m.group(1).lower() if m else ""
-
-
 def candidates(
     exams: list[tuple[str, float]],
     games: list[list[str]],
@@ -34,19 +28,6 @@ def candidates(
     """Pure pick logic. exams is (bot id, score) in PROGRESS order."""
     champ = max(exams, key=lambda r: r[1])[0] if exams else ""
     champ_names = {_basename(champ)}
-
-    seq: dict[str, list[float]] = {}
-    for bot, score in exams:
-        seq.setdefault(_prefix(bot), []).append(score)
-
-    def dead(ln: str) -> bool:
-        if ln == _prefix(champ):
-            return False
-        s = seq.get(ln, [])
-        return len(s) >= 4 and max(s[-3:]) <= max(s[:-3])
-
-    dead_lines = {ln for ln in seq if dead(ln)}
-    live = [(bot, score) for bot, score in exams if _prefix(bot) not in dead_lines]
 
     main: dict[str, int] = {}
     seen: dict[str, set[str]] = {}
@@ -60,7 +41,7 @@ def candidates(
     cover = {w: sum(mu_of.get(v, 0.0) for v in vs) for w, vs in seen.items()}
 
     ranked = sorted(
-        live,
+        exams,
         key=lambda r: (
             r[0] != champ,
             -main.get(_basename(r[0]), 0),
@@ -69,7 +50,6 @@ def candidates(
     )
     return {
         "starts": ranked[:TOP_N],
-        "dead": sorted(dead_lines),
         "champion": champ,
     }
 
@@ -118,8 +98,6 @@ def main(root: Path) -> None:
     out = candidates(era, games, mu_of)
     for bot, score in out["starts"]:
         print(f"start {bot} {round(score, 1)}")
-    for ln in out["dead"]:
-        print(f"dead {ln}")
 
 
 if __name__ == "__main__":

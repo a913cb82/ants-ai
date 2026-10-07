@@ -16,7 +16,6 @@ def test_champion_starts_first():
     out = C.candidates(exams, [], {})
     assert out["starts"][0][0] == "autoresearch/bot/Crowd.bot-c222222"
     assert out["champion"] == "autoresearch/bot/Crowd.bot-c222222"
-    assert out["dead"] == []
 
 
 def test_champ_beater_outranks_cover():
@@ -52,16 +51,3 @@ def test_cover_counts_breadth_not_volume():
     out = C.candidates(exams, games, mu_of)
     names = [C._basename(b) for b, _ in out["starts"]]
     assert names[1] == "Tables2.bot", names
-
-
-def test_dead_lines_get_no_starts():
-    exams = [
-        ("autoresearch/bot/Tables.bot-b111111", 55.0),
-        ("autoresearch/bot/Tables2.bot-b111111", 17.0),
-        ("autoresearch/bot/Tables3.bot-b111111", 15.0),
-        ("autoresearch/bot/Tables4.bot-b111111", 23.0),
-        ("autoresearch/bot/Crowd.bot-c222222", 67.0),
-    ]
-    out = C.candidates(exams, [], {})
-    assert out["dead"] == ["tables"]
-    assert [b for b, _ in out["starts"]] == ["autoresearch/bot/Crowd.bot-c222222"]
