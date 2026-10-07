@@ -63,7 +63,10 @@ a new direction. Brief the 60-minute budget. At spawn, stage
 3. Coder: write failing test cases first for the risky part. Then
    write the bot code. Run the tests inside the budget. Commit:
    `git add autoresearch/bot && git commit -m "exp: <idea>"`
-   Then report and stop. No games, no notes, no push.
+   Then report and stop. No games, no notes, no push. Never
+   --no-verify: if hooks miss .venv in the worktree, link it with
+   `ln -s /home/acbraith/projects/ants-ai/.venv <worktree>/.venv`.
+   Never touch the repo .venv itself.
 4. Coordinator: merge the coder branch with `git merge --no-ff`.
    The merge keeps the leaf sha: exams and history reference one
    node. List it with `git log --graph`. Then delete the branch.
