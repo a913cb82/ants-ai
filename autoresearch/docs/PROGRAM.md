@@ -146,7 +146,8 @@ Coders run in parallel, one branch per coder. Exams stay serial:
 one scorer at a time. Always run a scorer while anything is
 scorable; otherwise code. Never spawn past the free slots:
 queued agents get aborted. Usually that means 1 scorer plus
-3 coders, or 4 coders with no scorer. Count coders with
+3 coders, or 4 coders with no scorer. Scorer first: a waiting
+exam always beats a fourth coder. Count coders with
 git branch --list 'tree/*' and unscored bots with
 candidate_scorer.py. Git stores the tree: each merge keeps
 the leaf as second parent, so `git log --graph` shows every line.
