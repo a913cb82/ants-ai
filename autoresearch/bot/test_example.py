@@ -5,14 +5,18 @@ import random
 import subprocess
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join("tools"))
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.dirname(HERE))
+TOOLS = os.path.join(ROOT, "tools")
+# Tools first: `ants` and `engine` must resolve to the real engine in
+# tools/, never the bot-side shim beside this file.
+sys.path.insert(0, HERE)
+sys.path.insert(0, TOOLS)
 
 import Example as EB  # noqa: E402
 from ants import Ants  # noqa: E402
 from engine import run_game  # noqa: E402
 
-HERE = os.path.dirname(os.path.abspath(__file__))
 ROWS = 20
 COLS = 20
 AIM = {"n": (-1, 0), "e": (0, 1), "s": (1, 0), "w": (0, -1)}
