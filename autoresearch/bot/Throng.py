@@ -1,158 +1,23 @@
 #!/usr/bin/env python
-"""Codetiger precomputed-resolution combat (Tables entry).
-
-Faithful port of the codetiger Python datapoint
-(autoresearch/docs/RESEARCH.md, "codetiger Python time datapoint"):
-full battle search is infeasible in Python under the turn limit, so
-local battle outcomes are PRECOMPUTED once at setup into lookup
-tables derived from the engine's focus-battle rules (an ant dies
-iff its minimum enemy nearby-count is <= its own nearby-count).
-Per-turn contact decisions
-are pure table lookups -- the turn loop never resolves a battle
-live per ant. Friendless 1v1 sacrifices (mutual-death trades) are
-allowed ONLY within radius 14 of a held home hill, hiding the
-replacement cost; elsewhere they always refuse.
-
-Board economy (clustered denial food claims), threatened-hill
-detection, guard (hold plus off-hill screen), muster, reinforce,
-explore, and walk-off match champion Crowd; only the combat core
-(majority filter, committed join, grinder army gate,
-crowd-fearless, influence) is replaced by the table lookup plus
-the hill-gated trade rule. Self-contained: stdlib plus ants.py
-only, never combat.py.
-"""
-
 from collections import deque
 from collections.abc import Callable
 
+import combat
 from ants import Ants
 
 Loc = tuple[int, int]
 DistFn = Callable[[Loc, Loc], int]
 
+# Sow gathers for SOW_TURNS turns before hunting hills. One ant
+# eats one food per turn, so bank ants first, then muster. Seek,
+# guard, food, and explore are untouched -- only the hill march
+# waits.
+SOW_TURNS = 30
+
 CLUSTER_R = 8
 DENIAL_ENEMIES = 3
 DENIAL_CLAIMS = 2
 _CELL = CLUSTER_R + 1
-
-# Codetiger combat core: precomputed battle-resolution tables.
-SEEK_RANGE = 8
-HILL_SACRIFICE_RADIUS = 14
-TABLE_MAX = 32
-
-# Outcome classes for one planned contact step, keyed by
-# (own ants in attack radius including the mover, enemy ants in
-# attack radius). Derived once from the focus-battle rule under
-# mutual contact (each side's nearby-count is the other side's
-# ant count):
-# we die iff OURS <= THEIRS, they die iff THEIRS <= OURS.
-SAFE = "SAFE"
-WIN = "WIN"
-TRADE = "TRADE"
-LOSE = "LOSE"
-
-
-def build_battle_table(max_side: int = TABLE_MAX) -> dict[tuple[int, int], str]:
-    """Precompute local battle outcomes for every count pair.
-
-    Runs once at setup: (ours, theirs) with ours including the
-    moving ant. No enemies means no battle (SAFE); otherwise more
-    ants wins clean (WIN), equal counts die together (TRADE), and
-    fewer dies alone (LOSE). Pure: integer compares, no board.
-    """
-    table: dict[tuple[int, int], str] = {}
-    for ours in range(max_side + 1):
-        for theirs in range(max_side + 1):
-            if theirs == 0:
-                table[(ours, theirs)] = SAFE
-            elif ours > theirs:
-                table[(ours, theirs)] = WIN
-            elif ours == theirs:
-                table[(ours, theirs)] = TRADE
-            else:
-                table[(ours, theirs)] = LOSE
-    return table
-
-
-def lookup_verdict(table: dict[tuple[int, int], str], ours: int, theirs: int) -> str:
-    """Outcome class for one contact: a pure dict lookup.
-
-    Counts clamp to the table span so crowded boards never raise
-    KeyError; the clamped verdict still follows the rule (capped
-    equal stays TRADE, capped superiority stays WIN). Pure: dict
-    lookup plus clamps, far under 0.1ms.
-    """
-    ours = min(max(ours, 0), TABLE_MAX)
-    theirs = min(max(theirs, 0), TABLE_MAX)
-    return table[(ours, theirs)]
-
-
-def _nearest_seek_enemy(
-    ant_loc: Loc, enemy_locs: list[Loc], distance: DistFn
-) -> Loc | None:
-    """Nearest visible enemy within SEEK_RANGE steps, else None.
-
-    Ties keep the first enemy in list order so the branch is
-    deterministic. Pure: no board state, no side effects.
-    """
-    best: Loc | None = None
-    best_d = SEEK_RANGE + 1
-    for foe in enemy_locs:
-        d = distance(ant_loc, foe)
-        if d <= SEEK_RANGE and d < best_d:
-            best_d = d
-            best = foe
-    return best
-
-
-def _intercept_square(
-    hill: Loc,
-    enemy_locs: list[Loc],
-    distance: DistFn,
-    passable: Callable[[Loc], bool],
-    rows: int,
-    cols: int,
-) -> Loc | None:
-    """Off-hill intercept for one threatened home hill.
-
-    Screens the razer instead of piling onto the hill: take the
-    nearest enemy to the hill, halve the toroidal approach, and
-    return the nearest passable square to that midpoint (the
-    midpoint itself when open). Ties keep the first enemy in list
-    order so the branch is deterministic. No enemies -- or no
-    passable square on the whole board -- returns None so the
-    caller holds the champion fallback. Pure: no board state, no
-    side effects.
-    """
-    if not enemy_locs or rows <= 0 or cols <= 0:
-        return None
-    foe = min(enemy_locs, key=lambda e: distance(hill, e))
-    dr = foe[0] - hill[0]
-    if dr > rows // 2:
-        dr -= rows
-    elif dr < -(rows // 2):
-        dr += rows
-    dc = foe[1] - hill[1]
-    if dc > cols // 2:
-        dc -= cols
-    elif dc < -(cols // 2):
-        dc += cols
-    mid = ((hill[0] + int(dr / 2)) % rows, (hill[1] + int(dc / 2)) % cols)
-    if passable(mid):
-        return mid
-    seen = {mid}
-    queue: deque[Loc] = deque([mid])
-    while queue:
-        cur = queue.popleft()
-        for step in ((-1, 0), (0, 1), (1, 0), (0, -1)):
-            nxt = ((cur[0] + step[0]) % rows, (cur[1] + step[1]) % cols)
-            if nxt in seen:
-                continue
-            seen.add(nxt)
-            if passable(nxt):
-                return nxt
-            queue.append(nxt)
-    return None
 
 
 def _scan_board(
@@ -391,22 +256,13 @@ def assign_food_targets(
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Tables:
+class Throng:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
         self.remembered_hills: set[tuple[int, int]] = set()
         self.prev_enemies: list[tuple[int, int]] = []
-        # Precomputed battle-resolution tables (codetiger): built
-        # once here so tests driving do_turn directly get lookups.
-        self.battle_table = build_battle_table()
-        # Cached per-turn board state for contact_verdict.
-        self._ants_list: list[Loc] = []
-        self._enemy_locs: list[Loc] = []
-        self._home_hills: list[Loc] = []
-        self._attack_r2: int = 5
-        self._rows: int = 0
-        self._cols: int = 0
+        self.turn_no: int = 0
 
     # do_setup is run once at the start of the game
     # after the bot has received the game settings
@@ -416,58 +272,21 @@ class Tables:
         self.visits = {}
         self.remembered_hills = set()
         self.prev_enemies = []
-        self.battle_table = build_battle_table()
-        self._ants_list = []
-        self._enemy_locs = []
-        self._home_hills = []
-        self._attack_r2 = 5
-        self._rows = 0
-        self._cols = 0
-
-    def _sq(self, a: Loc, b: Loc) -> int:
-        # Squared toroidal distance for attack-range checks.
-        rows, cols = self._rows, self._cols
-        if rows <= 0 or cols <= 0:
-            return 10**9
-        dr = abs(a[0] - b[0])
-        dr = min(dr, rows - dr)
-        dc = abs(a[1] - b[1])
-        dc = min(dc, cols - dc)
-        return dr * dr + dc * dc
-
-    def contact_verdict(self, dest: Loc, self_loc: Loc) -> str:
-        """Outcome class for stepping onto dest: a pure table lookup.
-
-        Counts own (excluding the mover) and enemy ants within
-        attack radius of dest, then looks the pair up in the
-        setup-precomputed battle table. Never re-derives battle
-        math live: dict-lookup scale, far under 0.1ms per call.
-        """
-        foes = 0
-        for e in self._enemy_locs:
-            if self._sq(dest, e) <= self._attack_r2:
-                foes += 1
-        if foes == 0:
-            return SAFE
-        pals = 0
-        for f in self._ants_list:
-            if f == self_loc:
-                continue
-            if self._sq(dest, f) <= self._attack_r2:
-                pals += 1
-        return lookup_verdict(self.battle_table, pals + 1, foes)
+        self.turn_no = 0
 
     # do turn is run once per turn
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Tables: champion Crowd's economy, muster, guard, explore,
-        # and walk-off, with the combat core replaced by codetiger
-        # precomputed battle tables. WIN and empty squares advance;
-        # mutual TRADE sacrifices go through only under home-hill
-        # cover (within HILL_SACRIFICE_RADIUS); LOSE and open-field
-        # trades fall through to the next branch. Food, guard,
-        # muster, reinforce, explore, and walk-off are champion.
+        # Throng: Crowd's wiring (Denial's economy, pack-gated seek
+        # approach, committed-join packs, ahead-only 1v1 duels,
+        # off-hill screening, 10-gate equal trades, fearless small
+        # fights), except the wall posts at most combat.GUARD_CAP
+        # guards per threatened hill. The holder and one screener
+        # guard; further foodless ants skip the wall and hunt, so
+        # one razer never ties down the army. Food, seek, muster,
+        # reinforce, explore, and walk-off are champion.
+        self.turn_no += 1
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -482,6 +301,7 @@ class Tables:
                 self.remembered_hills.discard(hloc)
         hills = sorted(self.remembered_hills)
         my_hills = ants.my_hills()
+        hill_set = set(my_hills)
         # Match each visible enemy to a last-turn position to read
         # its heading. Ants move one square per turn, so matches at
         # distance 0 or 1 are the same ant; the rest are new spawns.
@@ -517,37 +337,53 @@ class Tables:
         ]
         attack_r2 = ants.attackradius2 or 5
         rows, cols = ants.rows, ants.cols
-        # Cache turn state so contact_verdict stays a bare lookup.
-        self._ants_list = ants_list
-        self._enemy_locs = enemy_locs
-        self._home_hills = my_hills
-        self._attack_r2 = attack_r2
-        self._rows = rows
-        self._cols = cols
 
-        def near_home(nloc: tuple[int, int]) -> bool:
-            # Hill cover: the sacrifice hides inside the spawn flow
-            # only within HILL_SACRIFICE_RADIUS of a held home hill.
-            return any(
-                ants.distance(nloc, h) <= HILL_SACRIFICE_RADIUS for h in my_hills
-            )
+        def sq_dist(a: tuple[int, int], b: tuple[int, int]) -> int:
+            dr = abs(a[0] - b[0])
+            dr = min(dr, rows - dr) if rows else dr
+            dc = abs(a[1] - b[1])
+            dc = min(dc, cols - dc) if cols else dc
+            return dr * dr + dc * dc
 
-        def square_safe(nloc: tuple[int, int], self_loc: tuple[int, int]) -> bool:
-            # Table-backed safety: WIN and empty squares pass, LOSE
-            # refuses, and TRADE passes only under hill cover.
-            verdict = self.contact_verdict(nloc, self_loc)
-            if verdict in (SAFE, WIN):
+        def is_safe(nloc: tuple[int, int], self_loc: tuple[int, int]) -> bool:
+            enemies = 0
+            for e in enemy_locs:
+                if sq_dist(nloc, e) <= attack_r2:
+                    enemies += 1
+                    if enemies >= len(ants_list):
+                        break
+            if enemies == 0:
                 return True
-            if verdict == LOSE:
-                return False
-            return near_home(nloc)
+            friends = 0
+            near = 0
+            for f in ants_list:
+                if f == self_loc:
+                    continue
+                if sq_dist(nloc, f) <= attack_r2:
+                    friends += 1
+                if ants.distance(nloc, f) <= 10:
+                    near += 1
+            if friends + 1 > enemies:
+                return True
+            # Odds: EQUAL_TRADE_NEAR (10) near friends accept equal
+            # trades, down from champion's tuned 14.
+            return near >= combat.EQUAL_TRADE_NEAR and friends + 1 >= enemies
+
+        # Per-turn path memo: many ants share one goal (muster hill,
+        # intercept, pack pal) and the board never changes mid-turn,
+        # so the first BFS pays for every repeat exactly.
+        step_cache: dict[tuple[tuple[int, int], tuple[int, int]], str | None] = {}
 
         def first_step(
             start: tuple[int, int], goal: tuple[int, int], budget: int = 250
         ) -> str | None:
             # Shortest passable path around water; return its first step.
+            # Results memoize in step_cache above.
             if start == goal:
                 return None
+            key = (start, goal)
+            if key in step_cache:
+                return step_cache[key]
             parent: dict[tuple[int, int], tuple[tuple[int, int], str]] = {}
             parent[start] = (start, "")
             queue: deque[tuple[int, int]] = deque([start])
@@ -565,10 +401,12 @@ class Tables:
                         break
                     queue.append(nxt)
             if goal not in parent:
+                step_cache[key] = None
                 return None
             node = goal
             while parent[node][0] != start:
                 node = parent[node][0]
+            step_cache[key] = parent[node][1]
             return parent[node][1]
 
         def try_step(
@@ -579,30 +417,67 @@ class Tables:
                 new_loc not in destinations
                 and ants.passable(new_loc)
                 and ants.unoccupied(new_loc)
-                and (not safe or square_safe(new_loc, ant_loc))
+                and (not safe or is_safe(new_loc, ant_loc))
             ):
                 ants.issue_order((ant_loc, direction))
                 destinations.add(new_loc)
                 return True
             return False
 
-        def try_move(ant_loc: tuple[int, int], direction: str) -> bool:
-            # The table already cleared this step: only passable,
-            # occupancy, and destination clashes check here.
+        def try_join(ant_loc: tuple[int, int], direction: str) -> bool:
+            # Committed-join: the pack already holds this foe, so an
+            # equal trade goes through without the near gate.
+            # Strictly losing fights still hold. Passable, occupancy,
+            # and destination clashes check as usual.
             new_loc = ants.destination(ant_loc, direction)
             if (
-                new_loc not in destinations
-                and ants.passable(new_loc)
-                and ants.unoccupied(new_loc)
+                new_loc in destinations
+                or not ants.passable(new_loc)
+                or not ants.unoccupied(new_loc)
             ):
-                ants.issue_order((ant_loc, direction))
-                destinations.add(new_loc)
-                return True
-            return False
+                return False
+            foes = 0
+            for e in enemy_locs:
+                if sq_dist(new_loc, e) <= attack_r2:
+                    foes += 1
+                    if foes >= len(ants_list):
+                        break
+            if foes > 0:
+                backup = 0
+                for f in ants_list:
+                    if f != ant_loc and sq_dist(new_loc, f) <= attack_r2:
+                        backup += 1
+                if backup + 1 < foes:
+                    return False
+            ants.issue_order((ant_loc, direction))
+            destinations.add(new_loc)
+            return True
+
+        # Join pre-pass: which ants would step into contact this
+        # turn, and on whom. Ants holding food claims never reach the
+        # seek branch, so only claim-free ants commit. The join set is
+        # the ants whose foe draws 2+ commitments.
+        commitments: dict[int, tuple[int, int]] = {}
+        if enemy_locs:
+            for cai, cant in enumerate(ants_list):
+                if target.get(cai) is not None:
+                    continue
+                chase = combat.nearest_seek_enemy(cant, enemy_locs, ants.distance)
+                if chase is None:
+                    continue
+                cstep = first_step(cant, chase)
+                if cstep is None:
+                    continue
+                cloc = ants.destination(cant, cstep)
+                cfoe = combat.contact_foe(cloc, enemy_locs, sq_dist, attack_r2)
+                if cfoe is not None:
+                    commitments[cai] = cfoe
+        joined = combat.joined_attackers(commitments)
 
         destinations: set[tuple[int, int]] = set()
         held: list[tuple[int, int]] = []
         anchored: set[tuple[int, int]] = set()
+        guards: dict[tuple[int, int], int] = {}
         for ai, ant_loc in enumerate(ants_list):
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
             best = target.get(ai)
@@ -616,51 +491,95 @@ class Tables:
                     # ant chases the same region this turn.
                     pass
             if not moved and threatened:
-                # No food or blocked: first guard holds the hill,
-                # extras screen the razer off it.
+                # No food or blocked: at most GUARD_CAP guards per
+                # hill -- the first holds it, the second screens the
+                # razer off it. Capped-out ants skip the wall and
+                # hunt below instead of piling on.
                 nearest = min(threatened, key=lambda h: ants.distance(ant_loc, h))
-                if nearest in anchored:
-                    inter = _intercept_square(
-                        nearest,
-                        enemy_locs,
-                        ants.distance,
-                        ants.passable,
-                        ants.rows,
-                        ants.cols,
-                    )
-                    if inter is None:
-                        inter = min(
+                step = None
+                if combat.guard_open(guards, nearest):
+                    guards[nearest] = guards.get(nearest, 0) + 1
+                    if nearest in anchored:
+                        inter = combat.intercept_square(
+                            nearest,
                             enemy_locs,
-                            key=lambda e: ants.distance(nearest, e),
-                            default=nearest,
+                            ants.distance,
+                            ants.passable,
+                            ants.rows,
+                            ants.cols,
                         )
-                    step = first_step(ant_loc, inter)
-                else:
-                    anchored.add(nearest)
-                    step = first_step(ant_loc, nearest)
+                        if inter is None:
+                            inter = min(
+                                enemy_locs,
+                                key=lambda e: ants.distance(nearest, e),
+                                default=nearest,
+                            )
+                        step = first_step(ant_loc, inter)
+                    else:
+                        anchored.add(nearest)
+                        step = first_step(ant_loc, nearest)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved and enemy_locs:
-                # Tables: advance on the nearest foe within range;
-                # the precomputed table clears the step. WIN and
-                # empty squares go fearlessly; TRADE sacrifices go
-                # only under home-hill cover; LOSE and open-field
-                # trades fall through to muster/reinforce/explore.
-                foe = _nearest_seek_enemy(ant_loc, enemy_locs, ants.distance)
+                # Crowd: no food or guard move; hunt only with a pack,
+                # fearless in small fights. A packless ant never
+                # advances -- it packs up one step toward its nearest
+                # friend instead (below), under the normal filter.
+                foe = combat.nearest_seek_enemy(ant_loc, enemy_locs, ants.distance)
+                if foe is not None and not combat.has_pack(
+                    ant_loc, ants_list, ants.distance
+                ):
+                    pal = min(
+                        (f for f in ants_list if f != ant_loc),
+                        key=lambda f: ants.distance(ant_loc, f),
+                        default=None,
+                    )
+                    if pal is not None:
+                        pstep = first_step(ant_loc, pal)
+                        if pstep is not None and try_step(ant_loc, pstep):
+                            moved = True
+                    foe = None
                 if foe is not None:
+                    # Packed: fearless ahead while fewer than
+                    # CROWD_LIMIT enemies are visible -- the advancing
+                    # step skips the safety filter. In crowds the legs
+                    # 1-3 rules hold: a joined ant (its foe drew 2+
+                    # commitments) engages with equal trades allowed;
+                    # an unjoined ant on a friendless 1v1 contact
+                    # engages only while the visible army leads,
+                    # otherwise the leg-1 safe seek holds.
                     step = first_step(ant_loc, foe)
                     if step is not None:
-                        nloc = ants.destination(ant_loc, step)
-                        verdict = self.contact_verdict(nloc, ant_loc)
-                        cleared = verdict in (SAFE, WIN) or (
-                            verdict == TRADE and near_home(nloc)
-                        )
-                        if cleared and try_move(ant_loc, step):
-                            moved = True
-            if not moved and hills:
+                        if combat.crowd_fearless(len(enemy_locs), combat.CROWD_LIMIT):
+                            if try_step(ant_loc, step, safe=False):
+                                moved = True
+                        elif ai in joined:
+                            if try_join(ant_loc, step):
+                                moved = True
+                        else:
+                            nloc = ants.destination(ant_loc, step)
+                            foes = 0
+                            for e in enemy_locs:
+                                if sq_dist(nloc, e) <= attack_r2:
+                                    foes += 1
+                                    if foes > 1:
+                                        break
+                            pals = 0
+                            for f in ants_list:
+                                if f != ant_loc and sq_dist(nloc, f) <= attack_r2:
+                                    pals += 1
+                                    break
+                            if combat.grinder_release(
+                                pals, foes, len(ants_list), len(enemy_locs)
+                            ):
+                                if try_join(ant_loc, step):
+                                    moved = True
+                            elif try_step(ant_loc, step):
+                                moved = True
+            if not moved and hills and self.turn_no >= SOW_TURNS:
                 # Flood: the group marches on one target, the hill
-                # nearest the army as a whole. Hunt always; fearless
-                # when ahead on hills.
+                # nearest the army as a whole. Hunt always past the
+                # Sow opening; fearless when ahead on hills.
                 muster = min(
                     hills,
                     key=lambda h: sum(ants.distance(a, h) for a in ants_list),
@@ -670,7 +589,7 @@ class Tables:
                     ant_loc, step, safe=len(my_hills) <= len(hills)
                 ):
                     moved = True
-            if not moved and hills:
+            if not moved and hills and self.turn_no >= SOW_TURNS:
                 # No hill move: reinforce the second-nearest hill.
                 ordered = sorted(hills, key=lambda h: ants.distance(ant_loc, h))
                 near = ordered[1] if len(ordered) > 1 else ordered[0]
@@ -679,6 +598,10 @@ class Tables:
                     moved = True
             if not moved:
                 # Still stuck: explore least-visited squares first.
+                # Never finish on a home hill: a wanderer ending on
+                # one blocks spawning, so hill squares are skipped
+                # here. Guards above still hold threatened hills on
+                # purpose, and walk-off below still steps holders off.
                 dirs = sorted(
                     ("n", "e", "s", "w"),
                     key=lambda d: self.visits.get(ants.destination(ant_loc, d), 0),
@@ -687,9 +610,10 @@ class Tables:
                     new_loc = ants.destination(ant_loc, direction)
                     if (
                         new_loc not in destinations
+                        and new_loc not in hill_set
                         and ants.passable(new_loc)
                         and ants.unoccupied(new_loc)
-                        and square_safe(new_loc, ant_loc)
+                        and is_safe(new_loc, ant_loc)
                     ):
                         ants.issue_order((ant_loc, direction))
                         destinations.add(new_loc)
@@ -701,7 +625,6 @@ class Tables:
             if ants.time_remaining() < 10:
                 break
         # Walk off hill: a held ant on a home hill must step off.
-        hill_set = set(my_hills)
         for ant_loc in held:
             if ant_loc in hill_set and ants.time_remaining() >= 10:
                 for direction in ("s", "e", "w", "n"):
@@ -722,6 +645,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Tables())
+        Ants.run(Throng())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
