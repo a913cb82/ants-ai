@@ -2,7 +2,6 @@
 from collections import deque
 from collections.abc import Callable
 
-import combat
 from ants import Ants
 
 Loc = tuple[int, int]
@@ -247,10 +246,227 @@ def assign_food_targets(
     return target
 
 
+SqDistFn = Callable[[Loc, Loc], int]
+PassFn = Callable[[Loc], bool]
+Weights = tuple[float, float, float, float]
+
+# Delineate combat (RESEARCH.md "delineate heuristic combat", top
+# 10, briefly top 3): zero search. Every candidate move scores
+# greedily from horizon-limited BFS feature fields of the form
+# 1/(1+d^2): food, enemy, hill, and unseen (visits paint) fields,
+# plus a kill bonus gated on strict local superiority. No minimax,
+# no sampling, no influence maps -- pure greedy field climbing.
+FIELD_HORIZON = 8
+COMBAT_RANGE = 8
+W_FOOD = 1.0
+W_ENEMY = 0.5
+W_HILL = 3.0
+W_UNSEEN = 0.1
+KILL_BONUS = 2.0
+WEIGHTS: Weights = (W_FOOD, W_ENEMY, W_HILL, W_UNSEEN)
+
+# Off-hill screen and the 10-gate, vendored from the champion's
+# combat helpers so this entry stays self-contained (stdlib +
+# ants.py only, never combat.py). The first guard still holds the
+# threatened hill; extras march halfway to its nearest enemy.
+EQUAL_TRADE_NEAR = 10
+# Reinforcement-race bravery: an even-trade combat step (ours equals
+# theirs, at least one foe in range) is worth taking when a
+# non-moving friend stands within SUPPORT_R of the destination --
+# backup wins the reinforcement race -- and no uncounted foe stands
+# within SUPPORT_R + 1 (no enemy backup joins next turn). Pure duel
+# geometry: no food, no hills, no objectives. 1vN is never brave,
+# and isolated or shadowed 1v1s still hold.
+SUPPORT_R = 3
+
+
+def intercept_square(
+    hill: Loc,
+    enemy_locs: list[Loc],
+    distance: DistFn,
+    passable: PassFn,
+    rows: int,
+    cols: int,
+) -> Loc | None:
+    """Off-hill intercept for one threatened home hill.
+
+    Screens the razer instead of piling onto the hill: take the
+    nearest enemy to the hill, halve the toroidal approach, and
+    return the nearest passable square to that midpoint (the
+    midpoint itself when open). Ties keep the first enemy in list
+    order so the branch is deterministic. No enemies -- or no
+    passable square on the whole board -- returns None so the
+    caller holds the champion fallback. Pure: no board state, no
+    side effects.
+    """
+    if not enemy_locs or rows <= 0 or cols <= 0:
+        return None
+    foe = min(enemy_locs, key=lambda e: distance(hill, e))
+    dr = foe[0] - hill[0]
+    if dr > rows // 2:
+        dr -= rows
+    elif dr < -(rows // 2):
+        dr += rows
+    dc = foe[1] - hill[1]
+    if dc > cols // 2:
+        dc -= cols
+    elif dc < -(cols // 2):
+        dc += cols
+    mid = ((hill[0] + int(dr / 2)) % rows, (hill[1] + int(dc / 2)) % cols)
+    if passable(mid):
+        return mid
+    seen = {mid}
+    queue: deque[Loc] = deque([mid])
+    while queue:
+        cur = queue.popleft()
+        for step in ((-1, 0), (0, 1), (1, 0), (0, -1)):
+            nxt = ((cur[0] + step[0]) % rows, (cur[1] + step[1]) % cols)
+            if nxt in seen:
+                continue
+            seen.add(nxt)
+            if passable(nxt):
+                return nxt
+            queue.append(nxt)
+    return None
+
+
+def _bfs_dists(
+    start: Loc, passable: PassFn, rows: int, cols: int, horizon: int
+) -> dict[Loc, int]:
+    # Toroidal BFS distances from start; water blocks, steps past
+    # horizon are never expanded. Pure: no board state, no effects.
+    seen = {start: 0}
+    if horizon < 0 or rows <= 0 or cols <= 0:
+        return seen
+    queue: deque[Loc] = deque([start])
+    while queue:
+        cur = queue.popleft()
+        if seen[cur] >= horizon:
+            continue
+        dist = seen[cur] + 1
+        for step in ((-1, 0), (0, 1), (1, 0), (0, -1)):
+            nxt = ((cur[0] + step[0]) % rows, (cur[1] + step[1]) % cols)
+            if nxt in seen or not passable(nxt):
+                continue
+            seen[nxt] = dist
+            queue.append(nxt)
+    return seen
+
+
+def bfs_field(
+    start: Loc,
+    targets: set[Loc],
+    passable: PassFn,
+    rows: int,
+    cols: int,
+    horizon: int = FIELD_HORIZON,
+) -> float:
+    # One BFS feature field: the sum of 1/(1+d^2) over targets
+    # within horizon BFS steps of start. Pure: no side effects.
+    if not targets:
+        return 0.0
+    total = 0.0
+    dists = _bfs_dists(start, passable, rows, cols, horizon)
+    for node, dist in dists.items():
+        if node in targets:
+            total += 1.0 / (1.0 + dist * dist)
+    return total
+
+
+def count_sides(
+    dest: Loc,
+    mover: Loc,
+    own_ants: list[Loc],
+    enemy_locs: list[Loc],
+    sq_dist: SqDistFn,
+    attack_r2: int,
+) -> tuple[int, int]:
+    # (ours, theirs) at dest: friends in attack range plus the
+    # moving ant itself, versus enemies in attack range. Pure.
+    theirs = sum(1 for e in enemy_locs if sq_dist(dest, e) <= attack_r2)
+    friends = sum(1 for f in own_ants if f != mover and sq_dist(dest, f) <= attack_r2)
+    return (friends + 1, theirs)
+
+
+def brave_support(
+    dest: Loc,
+    mover: Loc,
+    own_ants: list[Loc],
+    enemy_locs: list[Loc],
+    distance: DistFn,
+    sq_dist: SqDistFn,
+    attack_r2: int,
+    radius: int = SUPPORT_R,
+) -> bool:
+    # True only for an even trade (equal ants, at least one foe in
+    # range) where a non-moving friend stands within radius of dest
+    # and no uncounted foe stands within radius + 1 (too far to join
+    # next turn). Strict wins and crowd-backed equals go through
+    # is_safe; 1vN (theirs exceeds ours) is never brave. Pure duel
+    # geometry: no food, no hills, no side effects.
+    ours, theirs = count_sides(dest, mover, own_ants, enemy_locs, sq_dist, attack_r2)
+    if theirs < 1 or ours != theirs:
+        return False
+    if not any(distance(dest, f) <= radius for f in own_ants if f != mover):
+        return False
+    return not any(
+        sq_dist(dest, e) > attack_r2 and distance(dest, e) <= radius + 1
+        for e in enemy_locs
+    )
+
+
+def score_move(
+    dest: Loc,
+    mover: Loc,
+    own_ants: list[Loc],
+    enemy_locs: list[Loc],
+    foods: set[Loc],
+    hills: set[Loc],
+    visits: dict[Loc, int] | None,
+    passable: PassFn,
+    sq_dist: SqDistFn,
+    attack_r2: int,
+    rows: int,
+    cols: int,
+    horizon: int = FIELD_HORIZON,
+    weights: Weights | None = None,
+) -> float:
+    # Greedy delineate score for ending the move on dest: weighted
+    # food/enemy/hill/unseen fields from a single BFS, plus
+    # KILL_BONUS only with strict local superiority (ours exceeds
+    # theirs with at least one foe in range). Equality earns no
+    # bonus, so hold wins unless another field does. Pure.
+    wf, we, wh, wu = WEIGHTS if weights is None else weights
+    food = 0.0
+    enemy = 0.0
+    hill = 0.0
+    unseen = 0.0
+    dists = _bfs_dists(dest, passable, rows, cols, horizon)
+    for node, dist in dists.items():
+        bump = 1.0 / (1.0 + dist * dist)
+        if node in foods:
+            food += bump
+        if node in enemy_locs:
+            enemy += bump
+        if node in hills:
+            hill += bump
+        if visits is not None and visits.get(node, 0) == 0:
+            unseen += bump
+    ours, theirs = count_sides(dest, mover, own_ants, enemy_locs, sq_dist, attack_r2)
+    bonus = KILL_BONUS if theirs >= 1 and ours > theirs else 0.0
+    return wf * food + we * enemy + wh * hill + wu * unseen + bonus
+
+
+def pick_best(scores: dict[str, float]) -> str:
+    # Direction with the highest score; ties keep the first-listed
+    # candidate, so callers list hold first and ties hold. Pure.
+    return max(scores, key=lambda d: scores[d])
+
+
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Tandem:
+class Greedy6:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -270,18 +486,14 @@ class Tandem:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Tandem: Odds wiring (Denial's economy, seek approach,
-        # committed-join packs, ahead-only 1v1 duels, off-hill
-        # screening, 10-gate equal trades), except (a) a refused
-        # friendless 1v1 contact (grinder shut) rallies to the
-        # nearest friend within combat.RALLY_RANGE (6) with the
-        # normal safety filter, so the pair meets next turn and the
-        # join fires instead of both ants scattering; no buddy, no
-        # path, or an unsafe rally square falls through exactly as
-        # champion; and (b) explore tries dead-end pockets
-        # (3+ water neighbours) last, so idle ants stop donating
-        # turns into them. Strict superiority, join, grinder,
-        # muster, reinforce, and walk-off are champion.
+        # Greedy: champion wiring (Denial's economy, off-hill
+        # screening guards, single-target muster, reinforce,
+        # least-visited explore, walk-off) with the combat core
+        # replaced by delineate greedy fields: zero search, each
+        # candidate move scores 1/(1+d^2) food/enemy/hill/unseen
+        # fields plus a kill bonus only under strict local
+        # superiority. Food, guard, muster, reinforce, explore,
+        # and walk-off are champion.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -361,7 +573,7 @@ class Tandem:
                 return True
             # Odds: EQUAL_TRADE_NEAR (10) near friends accept equal
             # trades, down from champion's tuned 14.
-            return near >= combat.EQUAL_TRADE_NEAR and friends + 1 >= enemies
+            return near >= EQUAL_TRADE_NEAR and friends + 1 >= enemies
 
         def first_step(
             start: tuple[int, int], goal: tuple[int, int], budget: int = 250
@@ -407,56 +619,6 @@ class Tandem:
                 return True
             return False
 
-        def try_join(ant_loc: tuple[int, int], direction: str) -> bool:
-            # Committed-join: the pack already holds this foe, so an
-            # equal trade goes through without the near gate.
-            # Strictly losing fights still hold. Passable, occupancy,
-            # and destination clashes check as usual.
-            new_loc = ants.destination(ant_loc, direction)
-            if (
-                new_loc in destinations
-                or not ants.passable(new_loc)
-                or not ants.unoccupied(new_loc)
-            ):
-                return False
-            foes = 0
-            for e in enemy_locs:
-                if sq_dist(new_loc, e) <= attack_r2:
-                    foes += 1
-                    if foes >= len(ants_list):
-                        break
-            if foes > 0:
-                backup = 0
-                for f in ants_list:
-                    if f != ant_loc and sq_dist(new_loc, f) <= attack_r2:
-                        backup += 1
-                if backup + 1 < foes:
-                    return False
-            ants.issue_order((ant_loc, direction))
-            destinations.add(new_loc)
-            return True
-
-        # Join pre-pass: which ants would step into contact this
-        # turn, and on whom. Ants holding food claims never reach the
-        # seek branch, so only claim-free ants commit. The join set is
-        # the ants whose foe draws 2+ commitments.
-        commitments: dict[int, tuple[int, int]] = {}
-        if enemy_locs:
-            for cai, cant in enumerate(ants_list):
-                if target.get(cai) is not None:
-                    continue
-                chase = combat.nearest_seek_enemy(cant, enemy_locs, ants.distance)
-                if chase is None:
-                    continue
-                cstep = first_step(cant, chase)
-                if cstep is None:
-                    continue
-                cloc = ants.destination(cant, cstep)
-                cfoe = combat.contact_foe(cloc, enemy_locs, sq_dist, attack_r2)
-                if cfoe is not None:
-                    commitments[cai] = cfoe
-        joined = combat.joined_attackers(commitments)
-
         destinations: set[tuple[int, int]] = set()
         held: list[tuple[int, int]] = []
         anchored: set[tuple[int, int]] = set()
@@ -477,7 +639,7 @@ class Tandem:
                 # extras screen the razer off it.
                 nearest = min(threatened, key=lambda h: ants.distance(ant_loc, h))
                 if nearest in anchored:
-                    inter = combat.intercept_square(
+                    inter = intercept_square(
                         nearest,
                         enemy_locs,
                         ants.distance,
@@ -498,56 +660,71 @@ class Tandem:
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved and enemy_locs:
-                # Grinder: no food or guard move; advance one step
-                # toward the nearest enemy in range. A joined ant (its
-                # foe drew 2+ commitments) engages with equal trades
-                # allowed; an unjoined ant on a friendless 1v1 contact
-                # engages only while the visible army leads, otherwise
-                # everyone else keeps the leg-1 safe seek, so behind
-                # or even lone ants still hold as champion.
-                foe = combat.nearest_seek_enemy(ant_loc, enemy_locs, ants.distance)
-                if foe is not None:
-                    step = first_step(ant_loc, foe)
-                    if step is not None:
-                        if ai in joined:
-                            if try_join(ant_loc, step):
-                                moved = True
-                        else:
-                            nloc = ants.destination(ant_loc, step)
-                            foes = 0
-                            for e in enemy_locs:
-                                if sq_dist(nloc, e) <= attack_r2:
-                                    foes += 1
-                                    if foes > 1:
-                                        break
-                            pals = 0
-                            for f in ants_list:
-                                if f != ant_loc and sq_dist(nloc, f) <= attack_r2:
-                                    pals += 1
-                                    break
-                            if combat.grinder_release(
-                                pals, foes, len(ants_list), len(enemy_locs)
-                            ):
-                                if try_join(ant_loc, step):
-                                    moved = True
-                            elif pals == 0 and foes == 1:
-                                # Tandem: refused friendless duel, army
-                                # not ahead -- rally to the nearest
-                                # friend to form next turn's pair.
-                                buddy = combat.nearest_rally_buddy(
-                                    ant_loc,
-                                    ants_list,
-                                    ants.distance,
-                                    combat.RALLY_RANGE,
-                                )
-                                if buddy is not None:
-                                    bstep = first_step(ant_loc, buddy)
-                                    if bstep is not None and try_step(ant_loc, bstep):
-                                        moved = True
-                                if not moved and try_step(ant_loc, step):
-                                    moved = True
-                            elif try_step(ant_loc, step):
-                                moved = True
+                # Delineate: no food or guard move and a foe within
+                # COMBAT_RANGE. Zero search: score hold plus every
+                # passable, unoccupied, unclaimed neighbor on the
+                # 1/(1+d^2) food/enemy/hill/unseen fields, with the
+                # kill bonus only under strict local superiority.
+                # Step only to a strict winner that is also safe to
+                # stand on (no foe in range, strict local edge, or
+                # an equal trade backed by EQUAL_TRADE_NEAR friends
+                # nearby), or to a brave even trade whose backup wins
+                # the reinforcement race (a friend within SUPPORT_R
+                # and no uncounted foe close enough to join next
+                # turn); other suicides hold and fall through to
+                # muster, reinforce, and explore. Ties hold likewise.
+                in_range = enemy_locs and (
+                    min(ants.distance(ant_loc, e) for e in enemy_locs) <= COMBAT_RANGE
+                )
+                if not moved and in_range:
+                    options: dict[str, Loc] = {"-": ant_loc}
+                    for d in ("n", "e", "s", "w"):
+                        cand = ants.destination(ant_loc, d)
+                        if (
+                            cand not in destinations
+                            and ants.passable(cand)
+                            and ants.unoccupied(cand)
+                        ):
+                            options[d] = cand
+                    food_set = set(foods)
+                    hill_set = set(hills)
+                    scored = {
+                        d: score_move(
+                            loc,
+                            ant_loc,
+                            ants_list,
+                            enemy_locs,
+                            food_set,
+                            hill_set,
+                            self.visits,
+                            ants.passable,
+                            sq_dist,
+                            attack_r2,
+                            rows,
+                            cols,
+                        )
+                        for d, loc in options.items()
+                    }
+                    choice = pick_best(scored)
+                    if (
+                        choice != "-"
+                        and scored[choice] > scored["-"]
+                        and (
+                            is_safe(options[choice], ant_loc)
+                            or brave_support(
+                                options[choice],
+                                ant_loc,
+                                ants_list,
+                                enemy_locs,
+                                ants.distance,
+                                sq_dist,
+                                attack_r2,
+                            )
+                        )
+                    ):
+                        ants.issue_order((ant_loc, choice))
+                        destinations.add(options[choice])
+                        moved = True
             if not moved and hills:
                 # Flood: the group marches on one target, the hill
                 # nearest the army as a whole. Hunt always; fearless
@@ -569,22 +746,10 @@ class Tandem:
                 if hstep is not None and try_step(ant_loc, hstep):
                     moved = True
             if not moved:
-                # Still stuck: explore least-visited squares first,
-                # dead-end pockets last, so idle ants stop donating
-                # turns into them. A lone pocket with no other safe
-                # step still goes exactly as champion.
+                # Still stuck: explore least-visited squares first.
                 dirs = sorted(
                     ("n", "e", "s", "w"),
-                    key=lambda d: (
-                        combat.dead_end(
-                            [
-                                ants.destination(ants.destination(ant_loc, d), e)
-                                for e in ("n", "e", "s", "w")
-                            ],
-                            ants.passable,
-                        ),
-                        self.visits.get(ants.destination(ant_loc, d), 0),
-                    ),
+                    key=lambda d: self.visits.get(ants.destination(ant_loc, d), 0),
                 )
                 for direction in dirs:
                     new_loc = ants.destination(ant_loc, direction)
@@ -625,6 +790,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Tandem())
+        Ants.run(Greedy6())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
