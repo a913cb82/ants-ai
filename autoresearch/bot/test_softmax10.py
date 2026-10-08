@@ -340,7 +340,7 @@ def test_fuzz_random_maps_never_crash() -> None:
     import random
 
     rng = random.Random(20260613)
-    for trial in range(10):
+    for _trial in range(10):
         water = {
             (rng.randrange(ROWS), rng.randrange(COLS)) for _ in range(30)
         }

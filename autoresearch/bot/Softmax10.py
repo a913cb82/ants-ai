@@ -531,10 +531,9 @@ class Softmax10:
                             if not press_donation(
                                 nloc, ant_loc, ants_list, enemy_locs,
                                 sq_dist, attack_r2,
-                            ):
-                                if try_step(ant_loc, step, safe=False):
-                                    moved = True
-                                    pressed = True
+                            ) and try_step(ant_loc, step, safe=False):
+                                moved = True
+                                pressed = True
                         if not pressed:
                             if ai in joined:
                                 if try_join(ant_loc, step):
