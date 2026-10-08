@@ -1,8 +1,24 @@
 #!/usr/bin/env python
+"""Herald: turn-scaled muster quorum with standard rally.
+
+Understudy base (denial food, flood muster, challenger rotation,
+threatened guard, safety filter, BFS steps, least-visited explore,
+walk-off) with one new mechanism: the muster march needs a quorum
+that grows as the war runs on -- 2 + turn // 150, capped at 6.
+Early, pairs still race hills for tempo; late, only a massed pack
+marches, so the army stops donating ones and twos into defenders.
+Quorum-short ants do not scatter: they rally to the army standard
+(the medoid ant) and stay massed until enough have answered the
+call. A suppressed turn records no challenge, so the next march
+picks open instead of falsely rotating. Triumph relaxes the late
+quorum to the early pair-race while ahead on hills, so a winning
+army closes out instead of massing. Commitment holds a march already
+under way with one fewer ant, so the army does not yo-yo as food
+comes and goes."""
+
 from collections import deque
 from collections.abc import Callable
 
-import combat
 from ants import Ants
 
 Loc = tuple[int, int]
@@ -125,10 +141,10 @@ def _scan_board(
         hit: set[int] = set()
         for dbr in (-1, 0, 1):
             for dbc in (-1, 0, 1):
-                cell_members = buckets.get((br + dbr, bc + dbc))
-                if not cell_members:
+                nearby = buckets.get((br + dbr, bc + dbc))
+                if not nearby:
                     continue
-                for j in cell_members:
+                for j in nearby:
                     dr = er - fr[j]
                     if dr < 0:
                         dr = -dr
@@ -247,15 +263,106 @@ def assign_food_targets(
     return target
 
 
+def pick_challenger(
+    hill: Loc,
+    ants_list: list[Loc],
+    distance: DistFn,
+    exclude: Loc | None = None,
+) -> Loc | None:
+    # Nearest ant to the hill, skipping the excluded last
+    # challenger. Ties break by list order (stable).
+    best: Loc | None = None
+    best_d = 0
+    for ant in ants_list:
+        if exclude is not None and ant == exclude:
+            continue
+        d = distance(ant, hill)
+        if best is None or d < best_d:
+            best = ant
+            best_d = d
+    return best
+
+
+def challenge_exclusion(
+    hill: Loc,
+    last_target: Loc | None,
+    held: set[Loc],
+    last_challenger: dict[Loc, Loc],
+    ants_list: list[Loc],
+    distance: DistFn,
+) -> Loc | None:
+    # Failed challenge: this hill was last turn's target and is
+    # still enemy-held. Rotate: sit the last challenger out. Any
+    # other hill, a freed hill, or a gone challenger picks open.
+    if last_target is None or hill != last_target or hill not in held:
+        return None
+    recorded = last_challenger.get(hill)
+    if recorded is None:
+        return None
+    # Same ant moved at most one square since last turn.
+    same = min(ants_list, key=lambda a: distance(a, recorded), default=None)
+    if same is None or distance(same, recorded) > 1:
+        return None
+    return same
+
+
+HERALD_QUORUM_BASE = 2
+HERALD_QUORUM_STEP = 150
+HERALD_QUORUM_CAP = 6
+
+
+def muster_quorum(turn: int) -> int:
+    # How many mission-free ants the muster march needs this turn.
+    # Grows as the war runs on: pairs race early for tempo, a massed
+    # pack marches late so lone ants stop donating into defenders.
+    return min(HERALD_QUORUM_BASE + turn // HERALD_QUORUM_STEP, HERALD_QUORUM_CAP)
+
+
+def march_allowed(
+    mission_free: int, turn: int, ahead: bool = False, committed: bool = False
+) -> bool:
+    # Whether the muster march goes out: enough mission-free ants
+    # answered the herald's call this turn. Triumph relaxes the
+    # late quorum to the early pair-race when ahead on hills, so a
+    # winning army closes out instead of massing. Commitment holds a
+    # march already under way with one fewer ant, so the army does
+    # not yo-yo between marching and rallying as food comes and goes.
+    need = HERALD_QUORUM_BASE if ahead else muster_quorum(turn)
+    if committed:
+        need = max(1, need - 1)
+    return mission_free >= need
+
+
+def rally_point(ants_list: list[Loc], distance: DistFn) -> Loc | None:
+    # The army standard: the medoid ant, minimizing the summed
+    # distance to the whole army. Quorum-short ants gather here
+    # instead of scattering. Ties keep list order (stable).
+    if not ants_list:
+        return None
+    best = ants_list[0]
+    best_sum: int | None = None
+    for candidate in ants_list:
+        total = 0
+        for other in ants_list:
+            total += distance(candidate, other)
+        if best_sum is None or total < best_sum:
+            best_sum = total
+            best = candidate
+    return best
+
+
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Crowd:
+class Herald:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
         self.remembered_hills: set[tuple[int, int]] = set()
         self.prev_enemies: list[tuple[int, int]] = []
+        self.last_challenger: dict[tuple[int, int], tuple[int, int]] = {}
+        self.last_target: tuple[int, int] | None = None
+        self.turn: int = 0
 
     # do_setup is run once at the start of the game
     # after the bot has received the game settings
@@ -265,19 +372,21 @@ class Crowd:
         self.visits = {}
         self.remembered_hills = set()
         self.prev_enemies = []
+        self.last_challenger = {}
+        self.last_target = None
+        self.turn = 0
 
     # do turn is run once per turn
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Crowd: Gang's wiring (Denial's economy, pack-gated seek
-        # approach, committed-join packs, ahead-only 1v1 duels,
-        # off-hill screening, 10-gate equal trades), except a packed
-        # hunter advances fearlessly -- skipping the safety filter --
-        # while fewer than combat.CROWD_LIMIT enemies are visible.
-        # With CROWD_LIMIT+ enemies visible the full champion safety
-        # applies. Food, guard, muster, reinforce, explore, and
-        # walk-off are champion.
+        # Herald: Understudy wiring, except the muster march needs a
+        # quorum that grows with the war (2 + turn // 150, cap 6).
+        # Quorum-short ants rally to the army standard (medoid) and
+        # stay massed instead of donating; food, guard, rotation,
+        # safety, explore, and walk-off are base. A suppressed turn
+        # records no challenge, so the next march picks open.
+        self.turn += 1
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -292,6 +401,50 @@ class Crowd:
                 self.remembered_hills.discard(hloc)
         hills = sorted(self.remembered_hills)
         my_hills = ants.my_hills()
+        # Herald: the march goes out only when enough mission-free
+        # (foodless) ants answered the call; the rest rally to the
+        # standard and stay massed until the pack is big enough.
+        # Triumph: ahead on hills, the pair-race stays open all war.
+        # Commitment: a march already under way holds with one fewer.
+        ahead = len(my_hills) > len(hills)
+        committed = self.last_target is not None and self.last_target in hills
+        marching = march_allowed(
+            len(ants_list) - len(target), self.turn, ahead, committed
+        )
+        standard: tuple[int, int] | None = (
+            rally_point(ants_list, ants.distance) if not marching else None
+        )
+        # Understudy: the muster target formula is unchanged, but a
+        # failed challenge rotates -- last turn's challenger sits out
+        # this hill's next challenge and a different ant goes instead.
+        muster_hill: tuple[int, int] | None = (
+            min(
+                hills,
+                key=lambda h: sum(ants.distance(a, h) for a in ants_list),
+            )
+            if hills
+            else None
+        )
+        understudy_out: tuple[int, int] | None = None
+        challenger: tuple[int, int] | None = None
+        if muster_hill is not None:
+            understudy_out = challenge_exclusion(
+                muster_hill,
+                self.last_target,
+                self.remembered_hills,
+                self.last_challenger,
+                ants_list,
+                ants.distance,
+            )
+            challenger = pick_challenger(
+                muster_hill, ants_list, ants.distance, understudy_out
+            )
+            if challenger is None:
+                # No understudy exists: the lone ant retries the hill.
+                understudy_out = None
+                challenger = pick_challenger(
+                    muster_hill, ants_list, ants.distance, None
+                )
         # Match each visible enemy to a last-turn position to read
         # its heading. Ants move one square per turn, so matches at
         # distance 0 or 1 are the same ant; the rest are new spawns.
@@ -355,9 +508,8 @@ class Crowd:
                     near += 1
             if friends + 1 > enemies:
                 return True
-            # Odds: EQUAL_TRADE_NEAR (10) near friends accept equal
-            # trades, down from champion's tuned 14.
-            return near >= combat.EQUAL_TRADE_NEAR and friends + 1 >= enemies
+            # Aggressive: 14+ friends near the fight accept equal trades.
+            return near >= 14 and friends + 1 >= enemies
 
         def first_step(
             start: tuple[int, int], goal: tuple[int, int], budget: int = 250
@@ -403,56 +555,6 @@ class Crowd:
                 return True
             return False
 
-        def try_join(ant_loc: tuple[int, int], direction: str) -> bool:
-            # Committed-join: the pack already holds this foe, so an
-            # equal trade goes through without the near gate.
-            # Strictly losing fights still hold. Passable, occupancy,
-            # and destination clashes check as usual.
-            new_loc = ants.destination(ant_loc, direction)
-            if (
-                new_loc in destinations
-                or not ants.passable(new_loc)
-                or not ants.unoccupied(new_loc)
-            ):
-                return False
-            foes = 0
-            for e in enemy_locs:
-                if sq_dist(new_loc, e) <= attack_r2:
-                    foes += 1
-                    if foes >= len(ants_list):
-                        break
-            if foes > 0:
-                backup = 0
-                for f in ants_list:
-                    if f != ant_loc and sq_dist(new_loc, f) <= attack_r2:
-                        backup += 1
-                if backup + 1 < foes:
-                    return False
-            ants.issue_order((ant_loc, direction))
-            destinations.add(new_loc)
-            return True
-
-        # Join pre-pass: which ants would step into contact this
-        # turn, and on whom. Ants holding food claims never reach the
-        # seek branch, so only claim-free ants commit. The join set is
-        # the ants whose foe draws 2+ commitments.
-        commitments: dict[int, tuple[int, int]] = {}
-        if enemy_locs:
-            for cai, cant in enumerate(ants_list):
-                if target.get(cai) is not None:
-                    continue
-                chase = combat.nearest_seek_enemy(cant, enemy_locs, ants.distance)
-                if chase is None:
-                    continue
-                cstep = first_step(cant, chase)
-                if cstep is None:
-                    continue
-                cloc = ants.destination(cant, cstep)
-                cfoe = combat.contact_foe(cloc, enemy_locs, sq_dist, attack_r2)
-                if cfoe is not None:
-                    commitments[cai] = cfoe
-        joined = combat.joined_attackers(commitments)
-
         destinations: set[tuple[int, int]] = set()
         held: list[tuple[int, int]] = []
         anchored: set[tuple[int, int]] = set()
@@ -473,102 +575,55 @@ class Crowd:
                 # extras screen the razer off it.
                 nearest = min(threatened, key=lambda h: ants.distance(ant_loc, h))
                 if nearest in anchored:
-                    inter = combat.intercept_square(
-                        nearest,
+                    screen = min(
                         enemy_locs,
-                        ants.distance,
-                        ants.passable,
-                        ants.rows,
-                        ants.cols,
+                        key=lambda e: ants.distance(nearest, e),
+                        default=nearest,
                     )
-                    if inter is None:
-                        inter = min(
-                            enemy_locs,
-                            key=lambda e: ants.distance(nearest, e),
-                            default=nearest,
-                        )
-                    step = first_step(ant_loc, inter)
+                    step = first_step(ant_loc, screen)
                 else:
                     anchored.add(nearest)
                     step = first_step(ant_loc, nearest)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
-            if not moved and enemy_locs:
-                # Crowd: no food or guard move; hunt only with a pack,
-                # fearless in small fights. A packless ant never
-                # advances -- it packs up one step toward its nearest
-                # friend instead (below), under the normal filter.
-                foe = combat.nearest_seek_enemy(ant_loc, enemy_locs, ants.distance)
-                if foe is not None and not combat.has_pack(
-                    ant_loc, ants_list, ants.distance
-                ):
-                    pal = min(
-                        (f for f in ants_list if f != ant_loc),
-                        key=lambda f: ants.distance(ant_loc, f),
-                        default=None,
-                    )
-                    if pal is not None:
-                        pstep = first_step(ant_loc, pal)
-                        if pstep is not None and try_step(ant_loc, pstep):
-                            moved = True
-                    foe = None
-                if foe is not None:
-                    # Packed: fearless ahead while fewer than
-                    # CROWD_LIMIT enemies are visible -- the advancing
-                    # step skips the safety filter. In crowds the legs
-                    # 1-3 rules hold: a joined ant (its foe drew 2+
-                    # commitments) engages with equal trades allowed;
-                    # an unjoined ant on a friendless 1v1 contact
-                    # engages only while the visible army leads,
-                    # otherwise the leg-1 safe seek holds.
-                    step = first_step(ant_loc, foe)
-                    if step is not None:
-                        if combat.crowd_fearless(len(enemy_locs), combat.CROWD_LIMIT):
-                            if try_step(ant_loc, step, safe=False):
-                                moved = True
-                        elif ai in joined:
-                            if try_join(ant_loc, step):
-                                moved = True
-                        else:
-                            nloc = ants.destination(ant_loc, step)
-                            foes = 0
-                            for e in enemy_locs:
-                                if sq_dist(nloc, e) <= attack_r2:
-                                    foes += 1
-                                    if foes > 1:
-                                        break
-                            pals = 0
-                            for f in ants_list:
-                                if f != ant_loc and sq_dist(nloc, f) <= attack_r2:
-                                    pals += 1
-                                    break
-                            if combat.grinder_release(
-                                pals, foes, len(ants_list), len(enemy_locs)
-                            ):
-                                if try_join(ant_loc, step):
-                                    moved = True
-                            elif try_step(ant_loc, step):
-                                moved = True
-            if not moved and hills:
+            if (
+                not moved
+                and marching
+                and hills
+                and muster_hill is not None
+                and ant_loc != understudy_out
+            ):
                 # Flood: the group marches on one target, the hill
                 # nearest the army as a whole. Hunt always; fearless
                 # when ahead on hills.
-                muster = min(
-                    hills,
-                    key=lambda h: sum(ants.distance(a, h) for a in ants_list),
-                )
-                step = first_step(ant_loc, muster)
+                step = first_step(ant_loc, muster_hill)
                 if step is not None and try_step(
                     ant_loc, step, safe=len(my_hills) <= len(hills)
                 ):
                     moved = True
-            if not moved and hills:
+            if (
+                not moved
+                and not marching
+                and standard is not None
+                and muster_hill is not None
+                and ant_loc != standard
+            ):
+                # Quorum short with a march to wait for: gather on the
+                # standard instead of marching or scattering, so the
+                # pack stays massed. With no known hills the scouts
+                # keep scouting (explore below) instead. The standard
+                # itself holds for explore below.
+                rstep = first_step(ant_loc, standard)
+                if rstep is not None and try_step(ant_loc, rstep):
+                    moved = True
+            if not moved and hills and marching:
                 # No hill move: reinforce the second-nearest hill.
                 ordered = sorted(hills, key=lambda h: ants.distance(ant_loc, h))
                 near = ordered[1] if len(ordered) > 1 else ordered[0]
-                hstep = first_step(ant_loc, near)
-                if hstep is not None and try_step(ant_loc, hstep):
-                    moved = True
+                if not (ant_loc == understudy_out and near == muster_hill):
+                    hstep = first_step(ant_loc, near)
+                    if hstep is not None and try_step(ant_loc, hstep):
+                        moved = True
             if not moved:
                 # Still stuck: explore least-visited squares first.
                 dirs = sorted(
@@ -592,6 +647,14 @@ class Crowd:
             # check if we still have time left to calculate more orders
             if ants.time_remaining() < 10:
                 break
+        if muster_hill is not None and challenger is not None and marching:
+            self.last_challenger[muster_hill] = challenger
+        for old in list(self.last_challenger):
+            if old != muster_hill and old not in self.remembered_hills:
+                del self.last_challenger[old]
+        # A suppressed turn is waiting, not a failed challenge: record
+        # no target so the next march picks open, never a false rotate.
+        self.last_target = muster_hill if marching else None
         # Walk off hill: a held ant on a home hill must step off.
         hill_set = set(my_hills)
         for ant_loc in held:
@@ -614,6 +677,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Crowd())
+        Ants.run(Herald())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
