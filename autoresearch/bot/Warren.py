@@ -250,7 +250,7 @@ def assign_food_targets(
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Screen:
+class Warren:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -270,15 +270,17 @@ class Screen:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Screen: Grinder's wiring (Denial's economy, seek approach,
-        # committed-join packs, ahead-only 1v1 duels), except extra
-        # guards screen the razer off the hill: the first guard holds
-        # the threatened hill, but extras march to
-        # combat.intercept_square -- the passable square halfway
-        # between the hill and its nearest enemy -- instead of onto
-        # the hill, so the hill stays spawnable. Unthreatened hills,
-        # first guards, and everything else -- muster, reinforce,
-        # explore, walk-off -- is champion.
+        # Warren: Crowd's wiring (Denial's economy, pack-gated seek
+        # approach, committed-join packs, ahead-only 1v1 duels,
+        # off-hill screening, 10-gate equal trades, fearless packed
+        # hunters under combat.CROWD_LIMIT enemies), plus a rout
+        # pre-pass: an ant standing in a strictly losing contact
+        # (combat.losing_contact: foes > friends + 1 in attack range
+        # of its own square) evacuates first -- to the neighbor with
+        # the fewest foes in range (combat.rout_square) -- forfeiting
+        # any food claim. Equal or winning stands hold exactly as
+        # Crowd; food, guard, muster, reinforce, explore, and
+        # walk-off are champion.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -356,8 +358,9 @@ class Screen:
                     near += 1
             if friends + 1 > enemies:
                 return True
-            # Aggressive: 14+ friends near the fight accept equal trades.
-            return near >= 14 and friends + 1 >= enemies
+            # Odds: EQUAL_TRADE_NEAR (10) near friends accept equal
+            # trades, down from champion's tuned 14.
+            return near >= combat.EQUAL_TRADE_NEAR and friends + 1 >= enemies
 
         def first_step(
             start: tuple[int, int], goal: tuple[int, int], budget: int = 250
@@ -405,7 +408,7 @@ class Screen:
 
         def try_join(ant_loc: tuple[int, int], direction: str) -> bool:
             # Committed-join: the pack already holds this foe, so an
-            # equal trade goes through without the 14-near gate.
+            # equal trade goes through without the near gate.
             # Strictly losing fights still hold. Passable, occupancy,
             # and destination clashes check as usual.
             new_loc = ants.destination(ant_loc, direction)
@@ -432,6 +435,60 @@ class Screen:
             destinations.add(new_loc)
             return True
 
+        def try_rout(ant_loc: tuple[int, int], dest: tuple[int, int]) -> bool:
+            # Rout step: fleeing certain death beats the safety
+            # filter, so only passable, occupancy, and destination
+            # clashes gate the evacuation square rout_square picked.
+            for direction in ("n", "e", "s", "w"):
+                if ants.destination(ant_loc, direction) == dest:
+                    new_loc = dest
+                    if (
+                        new_loc not in destinations
+                        and ants.passable(new_loc)
+                        and ants.unoccupied(new_loc)
+                    ):
+                        ants.issue_order((ant_loc, direction))
+                        destinations.add(new_loc)
+                        return True
+                    return False
+            return False
+
+        # Rout roll-call: which ants stand overrun with a way out.
+        # Routing ants forfeit all missions and flee, so -- like
+        # food-claimed ants -- they never commit to the join below:
+        # no buddy counts a fleeing ant as its pair. Destinations are
+        # still empty here, so options are passable + unoccupied only.
+        routing: set[int] = set()
+        if enemy_locs:
+            for rai, rant in enumerate(ants_list):
+                rfoes = 0
+                for e in enemy_locs:
+                    if sq_dist(rant, e) <= attack_r2:
+                        rfoes += 1
+                if rfoes > 1:
+                    rfriends = 0
+                    for f in ants_list:
+                        if f != rant and sq_dist(rant, f) <= attack_r2:
+                            rfriends += 1
+                    if combat.losing_contact(rfriends, rfoes):
+                        ropts = []
+                        for rd in ("n", "e", "s", "w"):
+                            rcand = ants.destination(rant, rd)
+                            if ants.passable(rcand) and ants.unoccupied(rcand):
+                                ropts.append(rcand)
+                        if (
+                            combat.rout_square(
+                                rant,
+                                ropts,
+                                ants_list,
+                                enemy_locs,
+                                sq_dist,
+                                attack_r2,
+                            )
+                            is not None
+                        ):
+                            routing.add(rai)
+
         # Join pre-pass: which ants would step into contact this
         # turn, and on whom. Ants holding food claims never reach the
         # seek branch, so only claim-free ants commit. The join set is
@@ -440,6 +497,8 @@ class Screen:
         if enemy_locs:
             for cai, cant in enumerate(ants_list):
                 if target.get(cai) is not None:
+                    continue
+                if cai in routing:
                     continue
                 chase = combat.nearest_seek_enemy(cant, enemy_locs, ants.distance)
                 if chase is None:
@@ -458,9 +517,30 @@ class Screen:
         anchored: set[tuple[int, int]] = set()
         for ai, ant_loc in enumerate(ants_list):
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
-            best = target.get(ai)
             moved = False
-            if best is not None:
+            # Rout pre-pass: overrun ants evacuate before any
+            # mission -- food claims included. The roll-call above
+            # already proved the stand is losing with a way out;
+            # only the destination clash can still refuse the square.
+            if ai in routing:
+                options = []
+                for direction in ("n", "e", "s", "w"):
+                    cand = ants.destination(ant_loc, direction)
+                    if (
+                        cand not in destinations
+                        and ants.passable(cand)
+                        and ants.unoccupied(cand)
+                    ):
+                        options.append(cand)
+                rout = combat.rout_square(
+                    ant_loc, options, ants_list, enemy_locs, sq_dist, attack_r2
+                )
+                if rout is not None and try_rout(ant_loc, rout):
+                    moved = True
+            best = target.get(ai)
+            # Routed ants forfeit their claim: no other mission
+            # this turn, so every branch below checks `not moved`.
+            if not moved and best is not None:
                 step = first_step(ant_loc, best)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
@@ -494,18 +574,39 @@ class Screen:
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved and enemy_locs:
-                # Grinder: no food or guard move; advance one step
-                # toward the nearest enemy in range. A joined ant (its
-                # foe drew 2+ commitments) engages with equal trades
-                # allowed; an unjoined ant on a friendless 1v1 contact
-                # engages only while the visible army leads, otherwise
-                # everyone else keeps the leg-1 safe seek, so behind
-                # or even lone ants still hold as champion.
+                # Crowd: no food or guard move; hunt only with a pack,
+                # fearless in small fights. A packless ant never
+                # advances -- it packs up one step toward its nearest
+                # friend instead (below), under the normal filter.
                 foe = combat.nearest_seek_enemy(ant_loc, enemy_locs, ants.distance)
+                if foe is not None and not combat.has_pack(
+                    ant_loc, ants_list, ants.distance
+                ):
+                    pal = min(
+                        (f for f in ants_list if f != ant_loc),
+                        key=lambda f: ants.distance(ant_loc, f),
+                        default=None,
+                    )
+                    if pal is not None:
+                        pstep = first_step(ant_loc, pal)
+                        if pstep is not None and try_step(ant_loc, pstep):
+                            moved = True
+                    foe = None
                 if foe is not None:
+                    # Packed: fearless ahead while fewer than
+                    # CROWD_LIMIT enemies are visible -- the advancing
+                    # step skips the safety filter. In crowds the legs
+                    # 1-3 rules hold: a joined ant (its foe drew 2+
+                    # commitments) engages with equal trades allowed;
+                    # an unjoined ant on a friendless 1v1 contact
+                    # engages only while the visible army leads,
+                    # otherwise the leg-1 safe seek holds.
                     step = first_step(ant_loc, foe)
                     if step is not None:
-                        if ai in joined:
+                        if combat.crowd_fearless(len(enemy_locs), combat.CROWD_LIMIT):
+                            if try_step(ant_loc, step, safe=False):
+                                moved = True
+                        elif ai in joined:
                             if try_join(ant_loc, step):
                                 moved = True
                         else:
@@ -593,6 +694,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Screen())
+        Ants.run(Warren())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")

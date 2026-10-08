@@ -250,7 +250,7 @@ def assign_food_targets(
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Screen3:
+class Crowd:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -270,18 +270,14 @@ class Screen3:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Screen3: Crowd's wiring (Denial's economy, pack-gated
-        # seek approach, committed-join packs, ahead-only 1v1 duels,
-        # corridor screening, 10-gate equal trades, fearless small
-        # fights), except a packed hunter or a blocked marcher whose
-        # shortest-path step fails fills the hole -- second-rank
-        # hole-filling through combat.hole_steps: the other
-        # directions that still close on the same foe or hill, under
-        # the same safety regime, never through the join or the
-        # grinder release. A flooded screen midpoint meets the razer
-        # on its approach corridor instead of the nearest dry
-        # square. Food, guard, reinforce, explore, and walk-off are
-        # champion.
+        # Crowd: Gang's wiring (Denial's economy, pack-gated seek
+        # approach, committed-join packs, ahead-only 1v1 duels,
+        # off-hill screening, 10-gate equal trades), except a packed
+        # hunter advances fearlessly -- skipping the safety filter --
+        # while fewer than combat.CROWD_LIMIT enemies are visible.
+        # With CROWD_LIMIT+ enemies visible the full champion safety
+        # applies. Food, guard, muster, reinforce, explore, and
+        # walk-off are champion.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -363,21 +359,12 @@ class Screen3:
             # trades, down from champion's tuned 14.
             return near >= combat.EQUAL_TRADE_NEAR and friends + 1 >= enemies
 
-        # Per-turn path memo: many ants share one goal (muster hill,
-        # intercept, pack pal) and the board never changes mid-turn,
-        # so the first BFS pays for every repeat exactly.
-        step_cache: dict[tuple[tuple[int, int], tuple[int, int]], str | None] = {}
-
         def first_step(
             start: tuple[int, int], goal: tuple[int, int], budget: int = 250
         ) -> str | None:
             # Shortest passable path around water; return its first step.
-            # Results memoize in step_cache above.
             if start == goal:
                 return None
-            key = (start, goal)
-            if key in step_cache:
-                return step_cache[key]
             parent: dict[tuple[int, int], tuple[tuple[int, int], str]] = {}
             parent[start] = (start, "")
             queue: deque[tuple[int, int]] = deque([start])
@@ -395,12 +382,10 @@ class Screen3:
                         break
                     queue.append(nxt)
             if goal not in parent:
-                step_cache[key] = None
                 return None
             node = goal
             while parent[node][0] != start:
                 node = parent[node][0]
-            step_cache[key] = parent[node][1]
             return parent[node][1]
 
         def try_step(
@@ -488,15 +473,11 @@ class Screen3:
                 # extras screen the razer off it.
                 nearest = min(threatened, key=lambda h: ants.distance(ant_loc, h))
                 if nearest in anchored:
-                    # Screen3 corridor: the midpoint stands when dry;
-                    # a flooded midpoint meets the razer on its
-                    # approach instead of the nearest dry square.
-                    inter = combat.screen_square(
+                    inter = combat.intercept_square(
                         nearest,
                         enemy_locs,
                         ants.distance,
                         ants.passable,
-                        ants.destination,
                         ants.rows,
                         ants.cols,
                     )
@@ -513,7 +494,7 @@ class Screen3:
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved and enemy_locs:
-                # Screen3: no food or guard move; hunt only with a pack,
+                # Crowd: no food or guard move; hunt only with a pack,
                 # fearless in small fights. A packless ant never
                 # advances -- it packs up one step toward its nearest
                 # friend instead (below), under the normal filter.
@@ -568,45 +549,19 @@ class Screen3:
                                     moved = True
                             elif try_step(ant_loc, step):
                                 moved = True
-                    if not moved and step is not None:
-                        # Screen3 gap-fill: the shortest-path step
-                        # failed (blocked, occupied, or refused), so
-                        # the second rank fills a hole -- any other
-                        # direction that still closes on the same foe,
-                        # nearest closing first, under the same safety
-                        # regime. Never through the join or the grinder
-                        # release: lone contacts stay out in crowds
-                        # exactly as the legs hold them.
-                        fearless = combat.crowd_fearless(
-                            len(enemy_locs), combat.CROWD_LIMIT
-                        )
-                        for alt in combat.hole_steps(
-                            ant_loc, foe, step, ants.distance, ants.destination
-                        ):
-                            if try_step(ant_loc, alt, safe=not fearless):
-                                moved = True
-                                break
             if not moved and hills:
                 # Flood: the group marches on one target, the hill
                 # nearest the army as a whole. Hunt always; fearless
-                # when ahead on hills. A blocked marcher fills the
-                # hole -- another step closing on the same hill --
-                # instead of reinforcing elsewhere.
+                # when ahead on hills.
                 muster = min(
                     hills,
                     key=lambda h: sum(ants.distance(a, h) for a in ants_list),
                 )
                 step = first_step(ant_loc, muster)
-                march_safe = len(my_hills) <= len(hills)
-                if step is not None and try_step(ant_loc, step, safe=march_safe):
+                if step is not None and try_step(
+                    ant_loc, step, safe=len(my_hills) <= len(hills)
+                ):
                     moved = True
-                if not moved and step is not None:
-                    for alt in combat.hole_steps(
-                        ant_loc, muster, step, ants.distance, ants.destination
-                    ):
-                        if try_step(ant_loc, alt, safe=march_safe):
-                            moved = True
-                            break
             if not moved and hills:
                 # No hill move: reinforce the second-nearest hill.
                 ordered = sorted(hills, key=lambda h: ants.distance(ant_loc, h))
@@ -659,6 +614,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Screen3())
+        Ants.run(Crowd())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
