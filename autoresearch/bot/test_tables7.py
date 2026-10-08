@@ -696,3 +696,24 @@ def test_seeded_boards_stay_legal_and_fast() -> None:
         assert len(set(dests)) == len(dests)
         assert all(d not in water for d in dests)
     assert time.perf_counter() - start < 2.0
+
+
+def test_precomputed_denial_groups_match_fresh_scan() -> None:
+    # Single-scan turn economy: passing the caller's denial groups
+    # assigns byte-identical targets to a fresh scan, so sharing
+    # one bucketed scan never changes food claims or bound support.
+    mine = [(5, 3), (5, 4)]
+    foes = [(5, 7), (5, 9), (6, 9)]
+    foods = [(5, 5), (5, 6)]
+    probe = FakeAnts(mine, foes, foods)
+    groups = TB.denied_food_groups(foods, foes, probe.distance, ROWS, COLS)
+    fresh = TB.assign_food_targets(mine, foods, foes, probe.distance, ROWS, COLS)
+    shared = TB.assign_food_targets(
+        mine, foods, foes, probe.distance, ROWS, COLS, denial_groups=groups
+    )
+    assert shared == fresh
+    assert set(shared.values()) <= set(foods)
+    orders, bot = run_turn(mine, foes, foods)
+    assert orders == [((5, 3), "n"), ((5, 4), "e")]
+    assert (5, 3) in bot._bound
+    assert (5, 4) in bot._bound

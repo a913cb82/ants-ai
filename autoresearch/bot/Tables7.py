@@ -344,18 +344,23 @@ def assign_food_targets(
     distance: DistFn,
     rows: int,
     cols: int,
+    denial_groups: list[list[int]] | None = None,
 ) -> dict[int, Loc]:
     # Champion greedy everywhere, except contested clusters take
     # exactly DENIAL_CLAIMS ants on their nearest foods (distinct ants
     # and distinct foods, nearest pairs first); the cluster's other
     # foods stay unclaimed this turn instead of spreading one per food.
     # A one-food cluster can only draw one claimant.
+    # denial_groups reuses the caller's single denial scan so a turn
+    # never runs the bucketed board scan twice for the same board.
     target: dict[int, Loc] = {}
     if not foods or not ants_list:
         return target
     claimed: set[int] = set()
     denied: set[int] = set()
-    for group in denied_food_groups(foods, enemy_locs, distance, rows, cols):
+    if denial_groups is None:
+        denial_groups = denied_food_groups(foods, enemy_locs, distance, rows, cols)
+    for group in denial_groups:
         denied.update(group)
         picks = 0
         ordered = sorted(
@@ -480,8 +485,19 @@ class Tables7:
         ants_list = ants.my_ants()
         my_set = set(ants_list)
         enemy_locs = [loc for loc, _ in ants.enemy_ants()]
+        # Single denial scan per turn: food assignment and bound
+        # support share these groups instead of scanning twice.
+        denial_groups = denied_food_groups(
+            foods, enemy_locs, ants.distance, ants.rows, ants.cols
+        )
         target = assign_food_targets(
-            ants_list, foods, enemy_locs, ants.distance, ants.rows, ants.cols
+            ants_list,
+            foods,
+            enemy_locs,
+            ants.distance,
+            ants.rows,
+            ants.cols,
+            denial_groups=denial_groups,
         )
         for hloc, _ in ants.enemy_hills():
             self.remembered_hills.add(hloc)
@@ -536,13 +552,11 @@ class Tables7:
         # denial holders -- a contested-cluster claim is a combat
         # mission, not a harvest walk. Greedy harvest claims never
         # count. Every issued order records its live square below.
+        # denied_locs reuses the single turn scan above.
         self._bound = {
             ants_list[ai] for ai in range(len(ants_list)) if ai not in target
         }
-        denied_locs: set[Loc] = set()
-        for group in denied_food_groups(foods, enemy_locs, ants.distance, rows, cols):
-            for fi in group:
-                denied_locs.add(foods[fi])
+        denied_locs = {foods[fi] for group in denial_groups for fi in group}
         for ai, floc in target.items():
             if floc in denied_locs:
                 self._bound.add(ants_list[ai])
