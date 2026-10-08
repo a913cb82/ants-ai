@@ -373,6 +373,17 @@ def test_ahead_army_presses_lone_duel() -> None:
     assert ((5, 6), "e") in fake.orders
 
 
+def test_behind_army_joined_pair_still_engages() -> None:
+    # 4v5, but two ants commit on the same foe: the hunter engages
+    # through the join path (arriving backup) while its partner,
+    # blocked on the foe squares, correctly holds back.
+    mine = [(5, 6), (5, 10), (5, 0), (6, 0)]
+    foes = [(5, 9), (15, 15), (15, 16), (15, 17), (16, 15)]
+    fake = run_turn(mine, foes)
+    assert ((5, 6), "e") in fake.orders
+    assert ((5, 10), "w") not in fake.orders
+
+
 def test_large_army_turn_stays_fast() -> None:
     import random
 
