@@ -128,6 +128,13 @@ and keep reading while you work.
 Steal ideas, never code. Your entry must differ in some way
 from every bot in the repo: a new mechanism, a new mix, a new
 rule. A copy with new names is a failure.
+Study the ported 2011 champions first of all: runevision
+(mu 72, the king), greentea, xathis, a1k0n, fourmidable,
+lazarant, flagcapper. Their exact source is in `bots/` and
+`vendor/ants-topbots/`. Read how they actually win: hill
+attack quotas, combat math, retreat rules, explore order.
+Port their best mechanisms onto our base and beat them.
+The goal is a bot that outscores Crowd AND the ports.
 
 Work on `tree/<line>-<n>` in its worktree. Never enter the
 coordinator tree. Never push `tree/*`.
