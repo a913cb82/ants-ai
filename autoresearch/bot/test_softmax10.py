@@ -396,6 +396,30 @@ def test_maze_scale_turn_stays_fast() -> None:
     assert len(fake.orders) > 0
 
 
+def test_extreme_one_vs_many_holds() -> None:
+    import random
+
+    rng = random.Random(5)
+    free = [(r, c) for r in range(ROWS) for c in range(COLS)]
+    foes = rng.sample([s for s in free if s != (10, 10)], 50)
+    bot = SM10.Softmax10()
+    bot.remembered_hills = {(0, 0)}
+    start = time.perf_counter()
+    fake = FakeAnts([(10, 10)], foes, my_hills=[(10, 10)])
+    bot.do_turn(fake)
+    assert (time.perf_counter() - start) < 1.0
+
+
+def test_corridor_map_routes_around() -> None:
+    # Two-column land corridor: the ant must travel it, never stall.
+    water = {(r, c) for r in range(ROWS) for c in range(COLS) if c not in (9, 10)}
+    fake = run_turn([(5, 9)], [(15, 10)], foods=[(15, 9)], water=water)
+    assert fake.orders
+    ((r, c), d) = fake.orders[0]
+    dest = FakeAnts([(5, 9)], []).destination((r, c), d)
+    assert dest not in water
+
+
 def test_fuzz_random_maps_never_crash() -> None:
     import random
 
