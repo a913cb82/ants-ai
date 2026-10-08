@@ -12,7 +12,10 @@ with PACK_NEED friends inside PACK_RADIUS (packless ants rally to
 their nearest friend); joint contacts on one foe engage together;
 friendless 1v1 contacts engage only while the visible army leads;
 equal trades need EQUAL_TRADE_NEAR friends nearby; hunters press
-fearlessly while fewer than CROWD_LIMIT foes are visible.
+fearlessly while fewer than CROWD_LIMIT foes are visible, except
+two unbacked-contact rules that hold instead of donating: the
+press refuses steps contacting 2+ foes without backup, and
+refuses friendless 1v1 contacts while the visible army trails.
 
 Explore: least-visited first, tiebroken toward the nearest
 remembered enemy hill, so idle ants drift at future razes. Guard,
