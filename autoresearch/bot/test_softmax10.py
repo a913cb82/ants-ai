@@ -135,9 +135,7 @@ def test_taxed_distance_adds_per_foe() -> None:
     assert SM10.taxed_distance((0, 0), (5, 5), foes, _dist) == (
         base + 2 * SM10.THREAT_TAX
     )
-    assert SM10.taxed_distance((0, 0), (15, 15), foes, _dist) == _dist(
-        (0, 0), (15, 15)
-    )
+    assert SM10.taxed_distance((0, 0), (15, 15), foes, _dist) == _dist((0, 0), (15, 15))
 
 
 def test_lurker_reroutes_harvest_to_safe_food() -> None:
@@ -251,9 +249,7 @@ def test_guard_holds_threatened_hill() -> None:
 def test_screen_midpoint_truncates_toward_zero() -> None:
     # Negative-odd approach (hill (10,10), foe (7,9): dr=-3, dc=-1)
     # truncates toward zero to (9,10), never floors to (8,10).
-    mid = SM10._midpoint_screen(
-        (10, 10), [(7, 9)], _dist, lambda loc: True, ROWS, COLS
-    )
+    mid = SM10._midpoint_screen((10, 10), [(7, 9)], _dist, lambda loc: True, ROWS, COLS)
     assert mid == (9, 10)
 
 
@@ -327,9 +323,7 @@ def test_large_army_turn_stays_fast() -> None:
     free = [(r, c) for r in range(ROWS) for c in range(COLS)]
     mine = rng.sample(free, 150)
     foes = rng.sample([sq for sq in free if sq not in mine], 100)
-    foods = rng.sample(
-        [sq for sq in free if sq not in mine and sq not in foes], 40
-    )
+    foods = rng.sample([sq for sq in free if sq not in mine and sq not in foes], 40)
     start = time.perf_counter()
     fake = run_turn(mine, foes, foods, enemy_hills=[(15, 15)])
     assert (time.perf_counter() - start) < 1.0
@@ -344,6 +338,7 @@ def test_maze_scale_turn_stays_fast() -> None:
             super().__init__(mine, enemies, foods, water)
             self.rows = 60
             self.cols = 60
+
     rng = random.Random(11)
     water = {(r, 30) for r in range(60) if r % 4} | {
         (30, c) for c in range(60) if c % 4
@@ -351,9 +346,7 @@ def test_maze_scale_turn_stays_fast() -> None:
     free = [(r, c) for r in range(60) for c in range(60) if (r, c) not in water]
     mine = rng.sample(free, 100)
     foes = rng.sample([s for s in free if s not in mine], 60)
-    foods = rng.sample(
-        [s for s in free if s not in mine and s not in foes], 25
-    )
+    foods = rng.sample([s for s in free if s not in mine and s not in foes], 25)
     bot = SM10.Softmax10()
     start = time.perf_counter()
     fake = BigFake(mine, foes, foods, water)
@@ -367,20 +360,11 @@ def test_fuzz_random_maps_never_crash() -> None:
 
     rng = random.Random(20260613)
     for _trial in range(10):
-        water = {
-            (rng.randrange(ROWS), rng.randrange(COLS)) for _ in range(30)
-        }
-        free = [
-            (r, c)
-            for r in range(ROWS)
-            for c in range(COLS)
-            if (r, c) not in water
-        ]
+        water = {(rng.randrange(ROWS), rng.randrange(COLS)) for _ in range(30)}
+        free = [(r, c) for r in range(ROWS) for c in range(COLS) if (r, c) not in water]
         mine = rng.sample(free, 12)
         foes = rng.sample([sq for sq in free if sq not in mine], 8)
-        foods = rng.sample(
-            [sq for sq in free if sq not in mine and sq not in foes], 6
-        )
+        foods = rng.sample([sq for sq in free if sq not in mine and sq not in foes], 6)
         hills = rng.sample(free, 2)
         bot = SM10.Softmax10()
         start = time.perf_counter()

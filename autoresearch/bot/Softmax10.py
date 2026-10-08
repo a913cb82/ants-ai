@@ -210,7 +210,9 @@ def nearest_seek_enemy(
 
 
 def contact_foe(
-    dest: Loc, enemy_locs: list[Loc], sq_dist: Callable[[Loc, Loc], int],
+    dest: Loc,
+    enemy_locs: list[Loc],
+    sq_dist: Callable[[Loc, Loc], int],
     attack_r2: int,
 ) -> Loc | None:
     """Nearest foe in attack range of a planned step, else None."""
@@ -256,9 +258,7 @@ def press_donation(
     foes = sum(1 for e in enemy_locs if sq_dist(dest, e) <= attack_r2)
     if foes < 2:
         return False
-    backup = sum(
-        1 for f in ants_list if f != ant_loc and sq_dist(dest, f) <= attack_r2
-    )
+    backup = sum(1 for f in ants_list if f != ant_loc and sq_dist(dest, f) <= attack_r2)
     return backup + 1 < foes
 
 
@@ -529,8 +529,12 @@ class Softmax10:
                         if crowd_fearless(len(enemy_locs)):
                             nloc = ants.destination(ant_loc, step)
                             if not press_donation(
-                                nloc, ant_loc, ants_list, enemy_locs,
-                                sq_dist, attack_r2,
+                                nloc,
+                                ant_loc,
+                                ants_list,
+                                enemy_locs,
+                                sq_dist,
+                                attack_r2,
                             ) and try_step(ant_loc, step, safe=False):
                                 moved = True
                                 pressed = True
