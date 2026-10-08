@@ -75,7 +75,9 @@ repo checkout, especially the repo .venv. Never
    A conflicted merge resolves in a scratch worktree first:
    the exam tree is never dirty while a scorer runs. Stage only
    bot files there: never `git add -A` a worktree .venv link
-   into a merge. Merge
+   into a merge. Never `git add` an unmerged file: check out
+   the right side first, grep for `<<<<<<<`, run bot tests
+   green, then commit the merge. Merge
    commits land only when no scorer runs: coder branches wait
    for the exam boundary.
    Then play the budget:
