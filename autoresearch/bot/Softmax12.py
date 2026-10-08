@@ -1,17 +1,80 @@
 #!/usr/bin/env python
+"""Softmax12: path-aware harvest by BFS food miles on crowd combat.
+
+Economy is Denial-style contested clusters (exactly DENIAL_CLAIMS
+ants on miles-nearest foods of a hot cluster) with one new rule no
+repo Python bot uses: every harvest claim is ordered by BFS food
+miles -- the true shortest walk around water -- instead of toroidal
+manhattan. Wall-blocked foods sink (long mile, or manhattan plus
+WALL_PENALTY when sealed beyond the horizon) so ants stop queuing
+for food across stone. On open ground miles equal manhattan, so the
+champion greedy is preserved exactly where it already wins.
+
+Combat is the crowd chain (legs 1-7, no sampling anywhere):
+pack-gated seek approach, committed-join pair attacks, ahead-only
+1v1 duels, off-hill screening, 10-gate equal trades, fearless press
+while fewer than CROWD_LIMIT foes show. Guard, muster, reinforce,
+explore, and walk-off are champion.
+
+Second mechanism, ported from fourmidable (2011 #9,
+FoodAndHills.java): a food race gate. An ant skips a harvest claim
+when the nearest visible foe walks to that food more than
+FOOD_HEAD_START (3, fourmidable's number) steps ahead of it, so
+ants stop donating long walks to camped food. Enemy walks come
+from the same per-food BFS (foes join the goal set). Contested
+denial clusters stay exempt as deliberate fights.
+
+Distinct from the base and its line:
+- Softmax (staged): joint max-min over sampled enemy replies with
+  a logistic aggression coin -- Softmax12 has no sampling, no RNG,
+  no joint enumeration, no carve.
+- Softmax10: per-foe threat tax on harvest plus pack-press rules --
+  Softmax12 taxes nothing per foe; walls, not lurkers, move claims.
+- Softmax11: ghost memory, deterministic pursuit, wall-aware carve,
+  directed retreat -- Softmax12 remembers no ghosts, pursues only
+  with a pack, carves nothing, retreats nowhere special.
+- Crowd (champion): manhattan harvest -- Softmax12's miles reorder
+  every claim behind walls. New mix, new rule.
+"""
+
 from collections import deque
 from collections.abc import Callable
 
-import combat
 from ants import Ants
 
 Loc = tuple[int, int]
 DistFn = Callable[[Loc, Loc], int]
+PassFn = Callable[[Loc], bool]
+DestFn = Callable[[Loc, str], Loc]
 
 CLUSTER_R = 8
 DENIAL_ENEMIES = 3
 DENIAL_CLAIMS = 2
 _CELL = CLUSTER_R + 1
+
+# BFS food miles: true walk length around water from each food.
+# Horizon caps the walk; beyond it the food counts as sealed and
+# falls back to manhattan plus WALL_PENALTY. Budget caps work per
+# food so crowded maze turns stay far under the clock.
+MILE_HORIZON = 32
+MILE_BUDGET = 800
+WALL_PENALTY = 50
+
+# Food race gate, ported from fourmidable (2011 #9, MyBot
+# FOOD_HEAD_START = 3): an ant skips a food when the nearest
+# visible foe walks there more than this many steps ahead of it.
+# Contested denial clusters are deliberate fights and stay exempt.
+FOOD_HEAD_START = 3
+
+# Crowd combat legs (same numbers as the champion chain).
+SEEK_RANGE = 8
+EQUAL_TRADE_NEAR = 10
+PACK_NEED = 3
+PACK_RADIUS = 10
+CROWD_LIMIT = 10
+
+_DIRS = ("n", "e", "s", "w")
+_AIM = {"n": (-1, 0), "e": (0, 1), "s": (1, 0), "w": (0, -1)}
 
 
 def _scan_board(
@@ -19,10 +82,8 @@ def _scan_board(
 ) -> tuple[list[int], dict[int, int]]:
     # One bucketed pass: cluster roots for foods within CLUSTER_R and,
     # per cluster, how many distinct enemies sit within CLUSTER_R of a
-    # member food. Buckets are linear (no wrap): adjacent buckets catch
-    # every linear-close pair, and explicit seam bands catch the pairs
-    # the torus folds together (rows 0..R with rows-R..rows-1, same for
-    # cols). Toroid manhattan inline, same formula as Ants.distance.
+    # member food. Linear buckets plus explicit seam bands, same wrap
+    # formula as Ants.distance.
     n = len(foods)
     cell = _CELL
     fr = [f[0] for f in foods]
@@ -56,8 +117,6 @@ def _scan_board(
                 ci = fc[i]
                 group_b = members[ii + 1 :] if inner else others
                 for j in group_b:
-                    # Linear-gap reject: seam pairs never share
-                    # linear buckets, so this never misfires.
                     dr = ri - fr[j]
                     if dr < 0:
                         dr = -dr
@@ -200,6 +259,124 @@ def denied_food_groups(
     return list(groups.values())
 
 
+def bfs_miles(
+    source: Loc,
+    rows: int,
+    cols: int,
+    passable: PassFn,
+    destination: DestFn,
+    horizon: int = MILE_HORIZON,
+    budget: int = MILE_BUDGET,
+    goals: set[Loc] | None = None,
+) -> dict[Loc, int]:
+    """True walk lengths from a food around water, up to a horizon.
+
+    Breadth-first over passable squares on the torus; the source is
+    0 even when unpassable (food sits on open ground). Stops at the
+    horizon, at the expansion budget, and as soon as every goal is
+    reached (recorded miles are already exact then), so maze boards
+    stay cheap. Pure: no board state beyond the two callbacks.
+    """
+    miles: dict[Loc, int] = {source: 0}
+    if horizon <= 0:
+        return miles
+    pending = set(goals) - {source} if goals else set()
+    if goals is not None and not pending:
+        return miles
+    queue: deque[Loc] = deque([source])
+    expanded = 0
+    while queue and expanded < budget:
+        cur = queue.popleft()
+        expanded += 1
+        step = miles[cur] + 1
+        if step > horizon:
+            continue
+        for d in _DIRS:
+            nxt = destination(cur, d)
+            if nxt in miles or not passable(nxt):
+                continue
+            miles[nxt] = step
+            queue.append(nxt)
+            if nxt in pending:
+                pending.discard(nxt)
+                if not pending:
+                    queue.clear()
+                    break
+    return miles
+
+
+def food_mile(
+    ant: Loc,
+    food: Loc,
+    rows: int,
+    cols: int,
+    passable: PassFn,
+    destination: DestFn,
+    distance: DistFn,
+    cache: dict[Loc, dict[Loc, int]],
+    goals: set[Loc] | None = None,
+) -> int:
+    """Harvest cost of one ant-food pair: BFS walk, else penalized.
+
+    Reached squares cost their exact walk length; sealed squares
+    (beyond horizon or budget) cost manhattan plus WALL_PENALTY so
+    they sink below every walkable claim without starving the army
+    when everything is sealed. The per-food BFS is shared by cache.
+    """
+    field = cache.get(food)
+    if field is None:
+        field = bfs_miles(food, rows, cols, passable, destination, goals=goals)
+        cache[food] = field
+    walked = field.get(ant)
+    if walked is not None:
+        return walked
+    return distance(ant, food) + WALL_PENALTY
+
+
+def nearest_foe_mile(
+    food: Loc,
+    rows: int,
+    cols: int,
+    passable: PassFn,
+    destination: DestFn,
+    distance: DistFn,
+    enemies: list[Loc],
+    cache: dict[Loc, dict[Loc, int]],
+    goals: set[Loc] | None = None,
+) -> int | None:
+    """Nearest visible foe's walk to a food, else None."""
+    best: int | None = None
+    for foe in enemies:
+        mile = food_mile(
+            foe, food, rows, cols, passable, destination, distance, cache, goals
+        )
+        if best is None or mile < best:
+            best = mile
+    return best
+
+
+def bfs_worthwhile(
+    foods: list[Loc],
+    ants_list: list[Loc],
+    distance: DistFn,
+    horizon: int = MILE_HORIZON,
+) -> set[int]:
+    """Food indices worth a BFS: some ant within horizon manhattan.
+
+    A walk is never shorter than manhattan (each step cuts it by at
+    most one), so foods farther than the horizon from every ant can
+    never be reached in-budget: they keep the manhattan-plus-penalty
+    fallback exactly, with no BFS spent. Pure speed, no behavior.
+    """
+    near: set[int] = set()
+    for fi, food in enumerate(foods):
+        for ant in ants_list:
+            if distance(ant, food) <= horizon:
+                near.add(fi)
+                break
+    return near
+
+
 def assign_food_targets(
     ants_list: list[Loc],
     foods: list[Loc],
@@ -207,83 +384,247 @@ def assign_food_targets(
     distance: DistFn,
     rows: int,
     cols: int,
+    passable: PassFn,
+    destination: DestFn,
 ) -> dict[int, Loc]:
-    # Champion greedy everywhere, except contested clusters take
-    # exactly DENIAL_CLAIMS ants on their nearest foods (distinct ants
-    # and distinct foods, nearest pairs first); the cluster's other
-    # foods stay unclaimed this turn instead of spreading one per food.
-    # A one-food cluster can only draw one claimant.
+    """Denial claims plus greedy harvest, all ordered by BFS miles.
+
+    Contested clusters take exactly DENIAL_CLAIMS ants on their
+    miles-nearest foods (distinct ants and foods, miles first with
+    manhattan and indices breaking ties); every other food draws
+    one ant by global miles order. Open ground reproduces the
+    champion greedy exactly; walls reroute claims to walkable food.
+    """
     target: dict[int, Loc] = {}
     if not foods or not ants_list:
         return target
+    cache: dict[Loc, dict[Loc, int]] = {}
+    # Exact prefilter: foods beyond the horizon from every ant keep
+    # the fallback value, so mark them sealed without a BFS.
+    near = bfs_worthwhile(foods, ants_list, distance)
+    for fi in range(len(foods)):
+        if fi not in near:
+            cache[foods[fi]] = {}
     claimed: set[int] = set()
     denied: set[int] = set()
+    reach = set(ants_list) | set(enemy_locs)
     for group in denied_food_groups(foods, enemy_locs, distance, rows, cols):
         denied.update(group)
         picks = 0
         ordered = sorted(
-            (distance(ant, foods[fi]), ai, fi)
+            (
+                food_mile(
+                    ant,
+                    foods[fi],
+                    rows,
+                    cols,
+                    passable,
+                    destination,
+                    distance,
+                    cache,
+                    reach,
+                ),
+                distance(ant, foods[fi]),
+                ai,
+                fi,
+            )
             for ai, ant in enumerate(ants_list)
             for fi in group
         )
-        for _, ai, fi in ordered:
+        for _, _, ai, fi in ordered:
             if picks >= DENIAL_CLAIMS:
                 break
             if ai not in target and fi not in claimed:
                 target[ai] = foods[fi]
                 claimed.add(fi)
                 picks += 1
-    pairs: list[tuple[int, int, int]] = []
+    # Race gate (fourmidable): per food, the nearest foe's walk. A
+    # pair dies when the ant walks more than HEAD_START behind it;
+    # denial clusters above already claimed as deliberate fights.
+    foe_best: dict[int, int] = {}
+    if enemy_locs:
+        for fi, food_loc in enumerate(foods):
+            if fi in denied:
+                continue
+            best = nearest_foe_mile(
+                food_loc,
+                rows,
+                cols,
+                passable,
+                destination,
+                distance,
+                enemy_locs,
+                cache,
+                reach,
+            )
+            assert best is not None
+            foe_best[fi] = best
+    pairs: list[tuple[int, int, int, int]] = []
     for ai, ant_loc in enumerate(ants_list):
         for fi, food_loc in enumerate(foods):
-            pairs.append((distance(ant_loc, food_loc), ai, fi))
+            if fi in denied:
+                continue
+            mile = food_mile(
+                ant_loc,
+                food_loc,
+                rows,
+                cols,
+                passable,
+                destination,
+                distance,
+                cache,
+                reach,
+            )
+            if fi in foe_best and mile > foe_best[fi] + FOOD_HEAD_START:
+                continue
+            pairs.append((mile, distance(ant_loc, food_loc), ai, fi))
     pairs.sort()
-    for _, ai, fi in pairs:
-        if fi in denied:
-            continue
+    for _, _, ai, fi in pairs:
         if ai not in target and fi not in claimed:
             target[ai] = foods[fi]
             claimed.add(fi)
     return target
 
 
-# define a class with a do_turn method
-# the Ants.run method will parse and update bot input
-# it will also run the do_turn method for us
-class Crowd:
+def has_pack(
+    ant_loc: Loc,
+    ants_list: list[Loc],
+    distance: DistFn,
+    need: int = PACK_NEED,
+    radius: int = PACK_RADIUS,
+) -> bool:
+    """Whether an ant holds need+ friends within radius steps."""
+    found = 0
+    for friend in ants_list:
+        if friend == ant_loc:
+            continue
+        if distance(ant_loc, friend) <= radius:
+            found += 1
+            if found >= need:
+                return True
+    return False
+
+
+def nearest_seek_enemy(
+    ant_loc: Loc, enemy_locs: list[Loc], distance: DistFn
+) -> Loc | None:
+    """Nearest visible enemy within SEEK_RANGE steps, else None."""
+    best: Loc | None = None
+    best_d = SEEK_RANGE + 1
+    for foe in enemy_locs:
+        d = distance(ant_loc, foe)
+        if d <= SEEK_RANGE and d < best_d:
+            best_d = d
+            best = foe
+    return best
+
+
+def contact_foe(
+    dest: Loc,
+    enemy_locs: list[Loc],
+    sq_dist: Callable[[Loc, Loc], int],
+    attack_r2: int,
+) -> Loc | None:
+    """Nearest enemy within attack range of a planned step, else None."""
+    best: Loc | None = None
+    best_d = attack_r2 + 1
+    for foe in enemy_locs:
+        d = sq_dist(dest, foe)
+        if d <= attack_r2 and d < best_d:
+            best_d = d
+            best = foe
+    return best
+
+
+def joined_attackers(commitments: dict[int, Loc]) -> set[int]:
+    """Ant indices released: foes with 2+ committers engage together."""
+    counts: dict[Loc, int] = {}
+    for foe in commitments.values():
+        counts[foe] = counts.get(foe, 0) + 1
+    return {ai for ai, foe in commitments.items() if counts[foe] >= 2}
+
+
+def grinder_release(friends: int, enemies: int, my_army: int, enemy_army: int) -> bool:
+    """Engage a friendless 1v1 contact only when the army leads."""
+    return friends == 0 and enemies == 1 and my_army > enemy_army
+
+
+def crowd_fearless(enemy_count: int, limit: int = CROWD_LIMIT) -> bool:
+    """Press fearlessly while fewer than limit enemies show."""
+    return enemy_count < limit
+
+
+def _intercept_square(
+    hill: Loc,
+    enemy_locs: list[Loc],
+    distance: DistFn,
+    passable: PassFn,
+    rows: int,
+    cols: int,
+) -> Loc | None:
+    """Off-hill intercept: nearest passable square to the midpoint."""
+    if not enemy_locs or rows <= 0 or cols <= 0:
+        return None
+    foe = min(enemy_locs, key=lambda e: distance(hill, e))
+    dr = foe[0] - hill[0]
+    if dr > rows // 2:
+        dr -= rows
+    elif dr < -(rows // 2):
+        dr += rows
+    dc = foe[1] - hill[1]
+    if dc > cols // 2:
+        dc -= cols
+    elif dc < -(cols // 2):
+        dc += cols
+    mid = ((hill[0] + int(dr / 2)) % rows, (hill[1] + int(dc / 2)) % cols)
+    if passable(mid):
+        return mid
+    seen = {mid}
+    queue: deque[Loc] = deque([mid])
+    while queue:
+        cur = queue.popleft()
+        for step in ((-1, 0), (0, 1), (1, 0), (0, -1)):
+            nxt = ((cur[0] + step[0]) % rows, (cur[1] + step[1]) % cols)
+            if nxt in seen:
+                continue
+            seen.add(nxt)
+            if passable(nxt):
+                return nxt
+            queue.append(nxt)
+    return None
+
+
+class Softmax12:
     def __init__(self):
-        # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
         self.remembered_hills: set[tuple[int, int]] = set()
         self.prev_enemies: list[tuple[int, int]] = []
 
-    # do_setup is run once at the start of the game
-    # after the bot has received the game settings
-    # the ants class is created and setup by the Ants.run method
     def do_setup(self, ants: Ants):
-        # initialize data structures after learning the game settings
         self.visits = {}
         self.remembered_hills = set()
         self.prev_enemies = []
 
-    # do turn is run once per turn
-    # the ants class has the game state and is updated by the Ants.run method
-    # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Crowd: Gang's wiring (Denial's economy, pack-gated seek
-        # approach, committed-join packs, ahead-only 1v1 duels,
-        # off-hill screening, 10-gate equal trades), except a packed
-        # hunter advances fearlessly -- skipping the safety filter --
-        # while fewer than combat.CROWD_LIMIT enemies are visible.
-        # With CROWD_LIMIT+ enemies visible the full champion safety
-        # applies. Food, guard, muster, reinforce, explore, and
+        # Softmax12: path-aware harvest (BFS miles) with the crowd
+        # combat chain. Claims reroute around walls; packed hunters
+        # press small fights fearlessly, join pairs, duel ahead-only
+        # 1v1s, screen razers off threatened hills, and take equal
+        # trades at 10 near friends. Muster, reinforce, explore, and
         # walk-off are champion.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
         enemy_locs = [loc for loc, _ in ants.enemy_ants()]
         target = assign_food_targets(
-            ants_list, foods, enemy_locs, ants.distance, ants.rows, ants.cols
+            ants_list,
+            foods,
+            enemy_locs,
+            ants.distance,
+            ants.rows,
+            ants.cols,
+            ants.passable,
+            ants.destination,
         )
         for hloc, _ in ants.enemy_hills():
             self.remembered_hills.add(hloc)
@@ -292,9 +633,6 @@ class Crowd:
                 self.remembered_hills.discard(hloc)
         hills = sorted(self.remembered_hills)
         my_hills = ants.my_hills()
-        # Match each visible enemy to a last-turn position to read
-        # its heading. Ants move one square per turn, so matches at
-        # distance 0 or 1 are the same ant; the rest are new spawns.
         unmatched = self.prev_enemies[:]
         headings: dict[tuple[int, int], tuple[int, int]] = {}
         for cur in enemy_locs:
@@ -355,14 +693,11 @@ class Crowd:
                     near += 1
             if friends + 1 > enemies:
                 return True
-            # Odds: EQUAL_TRADE_NEAR (10) near friends accept equal
-            # trades, down from champion's tuned 14.
-            return near >= combat.EQUAL_TRADE_NEAR and friends + 1 >= enemies
+            return near >= EQUAL_TRADE_NEAR and friends + 1 >= enemies
 
         def first_step(
             start: tuple[int, int], goal: tuple[int, int], budget: int = 250
         ) -> str | None:
-            # Shortest passable path around water; return its first step.
             if start == goal:
                 return None
             parent: dict[tuple[int, int], tuple[tuple[int, int], str]] = {}
@@ -404,10 +739,6 @@ class Crowd:
             return False
 
         def try_join(ant_loc: tuple[int, int], direction: str) -> bool:
-            # Committed-join: the pack already holds this foe, so an
-            # equal trade goes through without the near gate.
-            # Strictly losing fights still hold. Passable, occupancy,
-            # and destination clashes check as usual.
             new_loc = ants.destination(ant_loc, direction)
             if (
                 new_loc in destinations
@@ -432,26 +763,22 @@ class Crowd:
             destinations.add(new_loc)
             return True
 
-        # Join pre-pass: which ants would step into contact this
-        # turn, and on whom. Ants holding food claims never reach the
-        # seek branch, so only claim-free ants commit. The join set is
-        # the ants whose foe draws 2+ commitments.
         commitments: dict[int, tuple[int, int]] = {}
         if enemy_locs:
             for cai, cant in enumerate(ants_list):
                 if target.get(cai) is not None:
                     continue
-                chase = combat.nearest_seek_enemy(cant, enemy_locs, ants.distance)
+                chase = nearest_seek_enemy(cant, enemy_locs, ants.distance)
                 if chase is None:
                     continue
                 cstep = first_step(cant, chase)
                 if cstep is None:
                     continue
                 cloc = ants.destination(cant, cstep)
-                cfoe = combat.contact_foe(cloc, enemy_locs, sq_dist, attack_r2)
+                cfoe = contact_foe(cloc, enemy_locs, sq_dist, attack_r2)
                 if cfoe is not None:
                     commitments[cai] = cfoe
-        joined = combat.joined_attackers(commitments)
+        joined = joined_attackers(commitments)
 
         destinations: set[tuple[int, int]] = set()
         held: list[tuple[int, int]] = []
@@ -464,16 +791,10 @@ class Crowd:
                 step = first_step(ant_loc, best)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
-                if not moved:
-                    # Assigned food is blocked; keep the claim so no other
-                    # ant chases the same region this turn.
-                    pass
             if not moved and threatened:
-                # No food or blocked: first guard holds the hill,
-                # extras screen the razer off it.
                 nearest = min(threatened, key=lambda h: ants.distance(ant_loc, h))
                 if nearest in anchored:
-                    inter = combat.intercept_square(
+                    inter = _intercept_square(
                         nearest,
                         enemy_locs,
                         ants.distance,
@@ -494,14 +815,8 @@ class Crowd:
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved and enemy_locs:
-                # Crowd: no food or guard move; hunt only with a pack,
-                # fearless in small fights. A packless ant never
-                # advances -- it packs up one step toward its nearest
-                # friend instead (below), under the normal filter.
-                foe = combat.nearest_seek_enemy(ant_loc, enemy_locs, ants.distance)
-                if foe is not None and not combat.has_pack(
-                    ant_loc, ants_list, ants.distance
-                ):
+                foe = nearest_seek_enemy(ant_loc, enemy_locs, ants.distance)
+                if foe is not None and not has_pack(ant_loc, ants_list, ants.distance):
                     pal = min(
                         (f for f in ants_list if f != ant_loc),
                         key=lambda f: ants.distance(ant_loc, f),
@@ -513,17 +828,9 @@ class Crowd:
                             moved = True
                     foe = None
                 if foe is not None:
-                    # Packed: fearless ahead while fewer than
-                    # CROWD_LIMIT enemies are visible -- the advancing
-                    # step skips the safety filter. In crowds the legs
-                    # 1-3 rules hold: a joined ant (its foe drew 2+
-                    # commitments) engages with equal trades allowed;
-                    # an unjoined ant on a friendless 1v1 contact
-                    # engages only while the visible army leads,
-                    # otherwise the leg-1 safe seek holds.
                     step = first_step(ant_loc, foe)
                     if step is not None:
-                        if combat.crowd_fearless(len(enemy_locs), combat.CROWD_LIMIT):
+                        if crowd_fearless(len(enemy_locs), CROWD_LIMIT):
                             if try_step(ant_loc, step, safe=False):
                                 moved = True
                         elif ai in joined:
@@ -542,7 +849,7 @@ class Crowd:
                                 if f != ant_loc and sq_dist(nloc, f) <= attack_r2:
                                     pals += 1
                                     break
-                            if combat.grinder_release(
+                            if grinder_release(
                                 pals, foes, len(ants_list), len(enemy_locs)
                             ):
                                 if try_join(ant_loc, step):
@@ -550,9 +857,6 @@ class Crowd:
                             elif try_step(ant_loc, step):
                                 moved = True
             if not moved and hills:
-                # Flood: the group marches on one target, the hill
-                # nearest the army as a whole. Hunt always; fearless
-                # when ahead on hills.
                 muster = min(
                     hills,
                     key=lambda h: sum(ants.distance(a, h) for a in ants_list),
@@ -563,14 +867,12 @@ class Crowd:
                 ):
                     moved = True
             if not moved and hills:
-                # No hill move: reinforce the second-nearest hill.
                 ordered = sorted(hills, key=lambda h: ants.distance(ant_loc, h))
                 near = ordered[1] if len(ordered) > 1 else ordered[0]
                 hstep = first_step(ant_loc, near)
                 if hstep is not None and try_step(ant_loc, hstep):
                     moved = True
             if not moved:
-                # Still stuck: explore least-visited squares first.
                 dirs = sorted(
                     ("n", "e", "s", "w"),
                     key=lambda d: self.visits.get(ants.destination(ant_loc, d), 0),
@@ -589,10 +891,8 @@ class Crowd:
                         break
             if not moved:
                 held.append(ant_loc)
-            # check if we still have time left to calculate more orders
             if ants.time_remaining() < 10:
                 break
-        # Walk off hill: a held ant on a home hill must step off.
         hill_set = set(my_hills)
         for ant_loc in held:
             if ant_loc in hill_set and ants.time_remaining() >= 10:
@@ -602,7 +902,6 @@ class Crowd:
 
 
 if __name__ == "__main__":
-    # psyco will speed up python a little, but is not needed
     try:
         import psyco
 
@@ -611,9 +910,6 @@ if __name__ == "__main__":
         pass
 
     try:
-        # if run is passed a class with a do_turn method, it will do the work
-        # this is not needed, in which case you will need to write your own
-        # parsing function and your own game state class
-        Ants.run(Crowd())
+        Ants.run(Softmax12())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
