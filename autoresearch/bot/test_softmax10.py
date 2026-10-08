@@ -332,6 +332,31 @@ def test_press_still_takes_single_contact() -> None:
     assert ((5, 6), "e") in fake.orders
 
 
+def test_behind_army_refuses_lone_duel() -> None:
+    # 4v5: the hunter's fearless step is a friendless 1v1 contact
+    # with a trailing army, so the press must not issue.
+    mine = [(5, 6), (5, 0), (6, 0), (4, 0)]
+    foes = [(5, 8), (15, 15), (15, 16), (15, 17), (16, 15)]
+    fake = run_turn(mine, foes)
+    assert ((5, 6), "e") not in fake.orders
+
+
+def test_even_army_keeps_lone_duel_tempo() -> None:
+    # 4v4: even armies keep the champion press, ceding no tempo.
+    mine = [(5, 6), (5, 0), (6, 0), (4, 0)]
+    foes = [(5, 8), (15, 15), (15, 16), (15, 17)]
+    fake = run_turn(mine, foes)
+    assert ((5, 6), "e") in fake.orders
+
+
+def test_ahead_army_presses_lone_duel() -> None:
+    # 4v2: a leading army presses exactly as champion does.
+    mine = [(5, 6), (5, 0), (6, 0), (4, 0)]
+    foes = [(5, 8), (15, 15)]
+    fake = run_turn(mine, foes)
+    assert ((5, 6), "e") in fake.orders
+
+
 def test_large_army_turn_stays_fast() -> None:
     import random
 

@@ -262,6 +262,25 @@ def press_donation(
     return backup + 1 < foes
 
 
+def duel_refusal(
+    dest: Loc,
+    ant_loc: Loc,
+    ants_list: list[Loc],
+    enemy_locs: list[Loc],
+    sq_dist: Callable[[Loc, Loc], int],
+    attack_r2: int,
+) -> bool:
+    """Whether a fearless 1v1 press donates a trailing army: the
+    step contacts exactly one foe with no backup in range while
+    our visible army trails theirs. Even or leading armies keep
+    the champion press; only behind-army duels hold."""
+    foes = sum(1 for e in enemy_locs if sq_dist(dest, e) <= attack_r2)
+    if foes != 1:
+        return False
+    backup = sum(1 for f in ants_list if f != ant_loc and sq_dist(dest, f) <= attack_r2)
+    return backup == 0 and len(ants_list) < len(enemy_locs)
+
+
 def _midpoint_screen(
     hill: Loc,
     enemy_locs: list[Loc],
@@ -528,14 +547,25 @@ class Softmax10:
                         pressed = False
                         if crowd_fearless(len(enemy_locs)):
                             nloc = ants.destination(ant_loc, step)
-                            if not press_donation(
-                                nloc,
-                                ant_loc,
-                                ants_list,
-                                enemy_locs,
-                                sq_dist,
-                                attack_r2,
-                            ) and try_step(ant_loc, step, safe=False):
+                            if (
+                                not press_donation(
+                                    nloc,
+                                    ant_loc,
+                                    ants_list,
+                                    enemy_locs,
+                                    sq_dist,
+                                    attack_r2,
+                                )
+                                and not duel_refusal(
+                                    nloc,
+                                    ant_loc,
+                                    ants_list,
+                                    enemy_locs,
+                                    sq_dist,
+                                    attack_r2,
+                                )
+                                and try_step(ant_loc, step, safe=False)
+                            ):
                                 moved = True
                                 pressed = True
                         if not pressed:
