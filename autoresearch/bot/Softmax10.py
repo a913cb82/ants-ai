@@ -242,6 +242,26 @@ def crowd_fearless(enemy_count: int, limit: int = CROWD_LIMIT) -> bool:
     return enemy_count < limit
 
 
+def press_donation(
+    dest: Loc,
+    ant_loc: Loc,
+    ants_list: list[Loc],
+    enemy_locs: list[Loc],
+    sq_dist: Callable[[Loc, Loc], int],
+    attack_r2: int,
+) -> bool:
+    """Whether a fearless step donates: 2+ contacted foes outnumber
+    the ant plus its backup in attack range. Single contacts and
+    backed trades press ahead; only unbacked crowd donations hold."""
+    foes = sum(1 for e in enemy_locs if sq_dist(dest, e) <= attack_r2)
+    if foes < 2:
+        return False
+    backup = sum(
+        1 for f in ants_list if f != ant_loc and sq_dist(dest, f) <= attack_r2
+    )
+    return backup + 1 < foes
+
+
 def _midpoint_screen(
     hill: Loc,
     enemy_locs: list[Loc],
@@ -505,32 +525,40 @@ class Softmax10:
                 if foe is not None:
                     step = first_step(ant_loc, foe)
                     if step is not None:
+                        pressed = False
                         if crowd_fearless(len(enemy_locs)):
-                            if try_step(ant_loc, step, safe=False):
-                                moved = True
-                        elif ai in joined:
-                            if try_join(ant_loc, step):
-                                moved = True
-                        else:
                             nloc = ants.destination(ant_loc, step)
-                            foes = 0
-                            for e in enemy_locs:
-                                if sq_dist(nloc, e) <= attack_r2:
-                                    foes += 1
-                                    if foes > 1:
-                                        break
-                            pals = 0
-                            for f in ants_list:
-                                if f != ant_loc and sq_dist(nloc, f) <= attack_r2:
-                                    pals += 1
-                                    break
-                            if grinder_release(
-                                pals, foes, len(ants_list), len(enemy_locs)
+                            if not press_donation(
+                                nloc, ant_loc, ants_list, enemy_locs,
+                                sq_dist, attack_r2,
                             ):
+                                if try_step(ant_loc, step, safe=False):
+                                    moved = True
+                                    pressed = True
+                        if not pressed:
+                            if ai in joined:
                                 if try_join(ant_loc, step):
                                     moved = True
-                            elif try_step(ant_loc, step):
-                                moved = True
+                            else:
+                                nloc = ants.destination(ant_loc, step)
+                                foes = 0
+                                for e in enemy_locs:
+                                    if sq_dist(nloc, e) <= attack_r2:
+                                        foes += 1
+                                        if foes > 1:
+                                            break
+                                pals = 0
+                                for f in ants_list:
+                                    if f != ant_loc and sq_dist(nloc, f) <= attack_r2:
+                                        pals += 1
+                                        break
+                                if grinder_release(
+                                    pals, foes, len(ants_list), len(enemy_locs)
+                                ):
+                                    if try_join(ant_loc, step):
+                                        moved = True
+                                elif try_step(ant_loc, step):
+                                    moved = True
             if not moved and hills:
                 muster = min(
                     hills,

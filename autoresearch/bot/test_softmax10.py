@@ -295,6 +295,22 @@ def test_seam_neighbors_cluster_together() -> None:
     assert sorted(groups[0]) == [0, 1]
 
 
+def test_press_refuses_two_for_one_donation() -> None:
+    # Packed hunter (friends within PACK_RADIUS but out of attack
+    # range) facing two foes: the fearless step would land in
+    # 2-foe contact with no backup, so the press must not issue.
+    mine = [(5, 6), (5, 0), (6, 0), (4, 0)]
+    fake = run_turn(mine, [(5, 8), (5, 9)])
+    assert ((5, 6), "e") not in fake.orders
+
+
+def test_press_still_takes_single_contact() -> None:
+    # Same pack against one foe: the fearless 1v1 press goes ahead.
+    mine = [(5, 6), (5, 0), (6, 0), (4, 0)]
+    fake = run_turn(mine, [(5, 8)])
+    assert ((5, 6), "e") in fake.orders
+
+
 def test_fuzz_random_maps_never_crash() -> None:
     import random
 
