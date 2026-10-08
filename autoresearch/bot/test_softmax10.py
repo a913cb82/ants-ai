@@ -243,6 +243,25 @@ def test_guard_holds_threatened_hill() -> None:
     assert fake.orders, "guard issued no order"
 
 
+def test_first_guard_anchors_second_screens() -> None:
+    # One threatened hill, two free ants: the first steps onto the
+    # hill, the second screens at the halfway square, never piling
+    # on where it blocks spawning.
+    fake = run_turn([(10, 12), (10, 8)], [(10, 16)], my_hills=[(10, 10)])
+    assert fake.orders == [((10, 12), "w"), ((10, 8), "e")]
+
+
+def test_joined_pair_engages_together_in_crowds() -> None:
+    # Ten visible foes switch off the fearless press; the pair
+    # whose steps contact the same foe still engages jointly.
+    mine = [(5, 6), (6, 7)]
+    near = [(5, 9)]
+    far = [(15, 15 + i) for i in range(9)]
+    fake = run_turn(mine, near + far)
+    assert ((5, 6), "e") in fake.orders
+    assert len(fake.orders) == len(mine)
+
+
 def test_screen_midpoint_truncates_toward_zero() -> None:
     # Negative-odd approach (hill (10,10), foe (7,9): dr=-3, dc=-1)
     # truncates toward zero to (9,10), never floors to (8,10).
