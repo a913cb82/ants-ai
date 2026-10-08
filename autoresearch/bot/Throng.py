@@ -8,6 +8,12 @@ from ants import Ants
 Loc = tuple[int, int]
 DistFn = Callable[[Loc, Loc], int]
 
+# Sow gathers for SOW_TURNS turns before hunting hills. One ant
+# eats one food per turn, so bank ants first, then muster. Seek,
+# guard, food, and explore are untouched -- only the hill march
+# waits.
+SOW_TURNS = 30
+
 CLUSTER_R = 8
 DENIAL_ENEMIES = 3
 DENIAL_CLAIMS = 2
@@ -247,115 +253,16 @@ def assign_food_targets(
     return target
 
 
-SIT_LIMIT = 50
-
-
-def turnstile_swaps(
-    sit: dict[Loc, int],
-    ants_list: list[Loc],
-    enemy_locs: list[Loc],
-    attackradius2: int,
-    rows: int,
-    cols: int,
-) -> dict[Loc, Loc]:
-    # Squares holding the same ant for SIT_LIMIT+ consecutive turns map
-    # to the nearest non-sitting ant's square. Sitters under direct
-    # threat (an enemy inside the attack radius) stay put, and squares
-    # below the limit -- or holding no ant -- never rotate.
-    fresh: list[Loc] = []
-    stale: list[Loc] = []
-    get = sit.get
-    for loc in ants_list:
-        if get(loc, 0) < SIT_LIMIT:
-            fresh.append(loc)
-        else:
-            stale.append(loc)
-    if not fresh or not stale:
-        return {}
-    fr = [loc[0] for loc in fresh]
-    fc = [loc[1] for loc in fresh]
-    nf = len(fresh)
-    er = [loc[0] for loc in enemy_locs]
-    ec = [loc[1] for loc in enemy_locs]
-    ne = len(enemy_locs)
-    a2 = attackradius2
-    rr = rows
-    cc = cols
-    swaps: dict[Loc, Loc] = {}
-    for bloc in stale:
-        br = bloc[0]
-        bc = bloc[1]
-        hit = False
-        for k in range(ne):
-            dr = br - er[k]
-            if dr < 0:
-                dr = -dr
-            if dr > rr - dr:
-                dr = rr - dr
-            if dr * dr > a2:
-                continue
-            dc = bc - ec[k]
-            if dc < 0:
-                dc = -dc
-            if dc > cc - dc:
-                dc = cc - dc
-            if dr * dr + dc * dc <= a2:
-                hit = True
-                break
-        if hit:
-            continue
-        bi = 0
-        bd = -1
-        for i in range(nf):
-            dr = br - fr[i]
-            if dr < 0:
-                dr = -dr
-            if dr > rr - dr:
-                dr = rr - dr
-            dc = bc - fc[i]
-            if dc < 0:
-                dc = -dc
-            if dc > cc - dc:
-                dc = cc - dc
-            dd = dr + dc
-            if bd < 0 or dd < bd:
-                bd = dd
-                bi = i
-                if bd <= 1:
-                    break
-        if bd >= 0 and fresh[bi] != bloc:
-            swaps[bloc] = fresh[bi]
-    return swaps
-
-
-def age_sits(
-    sit: dict[Loc, int],
-    ants_list: list[Loc],
-    ordered_from: set[Loc],
-) -> None:
-    # Sits age one turn for ants that held, reset for ants that moved,
-    # and vanish for squares no ant occupies.
-    mine = set(ants_list)
-    for key in list(sit):
-        if key not in mine:
-            del sit[key]
-    for loc in ants_list:
-        if loc in ordered_from:
-            sit.pop(loc, None)
-        else:
-            sit[loc] = sit.get(loc, 0) + 1
-
-
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Turnstile4:
+class Throng:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
         self.remembered_hills: set[tuple[int, int]] = set()
         self.prev_enemies: list[tuple[int, int]] = []
-        self.sit: dict[tuple[int, int], int] = {}
+        self.turn_no: int = 0
 
     # do_setup is run once at the start of the game
     # after the bot has received the game settings
@@ -365,19 +272,21 @@ class Turnstile4:
         self.visits = {}
         self.remembered_hills = set()
         self.prev_enemies = []
-        self.sit = {}
+        self.turn_no = 0
 
     # do turn is run once per turn
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Turnstile4: champion Crowd's full combat chain (pack-gated
-        # seek, committed-join packs, ahead-only 1v1 duels, off-hill
-        # screening, 10-gate equal trades, fearless small fights)
-        # plus Turnstile's economy guard: a 50-turn sitter rotates
-        # off toward the nearest non-sitting ant instead of idling.
-        # Food, guard, muster, reinforce, explore, and walk-off are
-        # champion.
+        # Throng: Crowd's wiring (Denial's economy, pack-gated seek
+        # approach, committed-join packs, ahead-only 1v1 duels,
+        # off-hill screening, 10-gate equal trades, fearless small
+        # fights), except the wall posts at most combat.GUARD_CAP
+        # guards per threatened hill. The holder and one screener
+        # guard; further foodless ants skip the wall and hunt, so
+        # one razer never ties down the army. Food, seek, muster,
+        # reinforce, explore, and walk-off are champion.
+        self.turn_no += 1
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -392,6 +301,7 @@ class Turnstile4:
                 self.remembered_hills.discard(hloc)
         hills = sorted(self.remembered_hills)
         my_hills = ants.my_hills()
+        hill_set = set(my_hills)
         # Match each visible enemy to a last-turn position to read
         # its heading. Ants move one square per turn, so matches at
         # distance 0 or 1 are the same ant; the rest are new spawns.
@@ -459,12 +369,21 @@ class Turnstile4:
             # trades, down from champion's tuned 14.
             return near >= combat.EQUAL_TRADE_NEAR and friends + 1 >= enemies
 
+        # Per-turn path memo: many ants share one goal (muster hill,
+        # intercept, pack pal) and the board never changes mid-turn,
+        # so the first BFS pays for every repeat exactly.
+        step_cache: dict[tuple[tuple[int, int], tuple[int, int]], str | None] = {}
+
         def first_step(
             start: tuple[int, int], goal: tuple[int, int], budget: int = 250
         ) -> str | None:
             # Shortest passable path around water; return its first step.
+            # Results memoize in step_cache above.
             if start == goal:
                 return None
+            key = (start, goal)
+            if key in step_cache:
+                return step_cache[key]
             parent: dict[tuple[int, int], tuple[tuple[int, int], str]] = {}
             parent[start] = (start, "")
             queue: deque[tuple[int, int]] = deque([start])
@@ -482,10 +401,12 @@ class Turnstile4:
                         break
                     queue.append(nxt)
             if goal not in parent:
+                step_cache[key] = None
                 return None
             node = goal
             while parent[node][0] != start:
                 node = parent[node][0]
+            step_cache[key] = parent[node][1]
             return parent[node][1]
 
         def try_step(
@@ -500,7 +421,6 @@ class Turnstile4:
             ):
                 ants.issue_order((ant_loc, direction))
                 destinations.add(new_loc)
-                ordered_from.add(ant_loc)
                 return True
             return False
 
@@ -531,7 +451,6 @@ class Turnstile4:
                     return False
             ants.issue_order((ant_loc, direction))
             destinations.add(new_loc)
-            ordered_from.add(ant_loc)
             return True
 
         # Join pre-pass: which ants would step into contact this
@@ -556,35 +475,11 @@ class Turnstile4:
         joined = combat.joined_attackers(commitments)
 
         destinations: set[tuple[int, int]] = set()
-        ordered_from: set[tuple[int, int]] = set()
         held: list[tuple[int, int]] = []
         anchored: set[tuple[int, int]] = set()
-        swaps = turnstile_swaps(self.sit, ants_list, enemy_locs, attack_r2, rows, cols)
-        rotated: set[tuple[int, int]] = set()
-        for bloc, tsq in sorted(swaps.items()):
-            # Turnstile: a 50-turn sitter steps toward the nearest
-            # non-sitting ant (least-visited safe square when that
-            # step is blocked) instead of continuing economy.
-            if ants.time_remaining() < 10:
-                break
-            rstep = first_step(bloc, tsq)
-            if rstep is not None and try_step(bloc, rstep):
-                rotated.add(bloc)
-                continue
-            rdirs = sorted(
-                ("n", "e", "s", "w"),
-                key=lambda d: self.visits.get(ants.destination(bloc, d), 0),
-            )
-            for rdirection in rdirs:
-                if try_step(bloc, rdirection):
-                    rotated.add(bloc)
-                    break
+        guards: dict[tuple[int, int], int] = {}
         for ai, ant_loc in enumerate(ants_list):
             self.visits[ant_loc] = self.visits.get(ant_loc, 0) + 1
-            if ant_loc in rotated:
-                if ants.time_remaining() < 10:
-                    break
-                continue
             best = target.get(ai)
             moved = False
             if best is not None:
@@ -596,28 +491,33 @@ class Turnstile4:
                     # ant chases the same region this turn.
                     pass
             if not moved and threatened:
-                # No food or blocked: first guard holds the hill,
-                # extras screen the razer off it.
+                # No food or blocked: at most GUARD_CAP guards per
+                # hill -- the first holds it, the second screens the
+                # razer off it. Capped-out ants skip the wall and
+                # hunt below instead of piling on.
                 nearest = min(threatened, key=lambda h: ants.distance(ant_loc, h))
-                if nearest in anchored:
-                    inter = combat.intercept_square(
-                        nearest,
-                        enemy_locs,
-                        ants.distance,
-                        ants.passable,
-                        ants.rows,
-                        ants.cols,
-                    )
-                    if inter is None:
-                        inter = min(
+                step = None
+                if combat.guard_open(guards, nearest):
+                    guards[nearest] = guards.get(nearest, 0) + 1
+                    if nearest in anchored:
+                        inter = combat.intercept_square(
+                            nearest,
                             enemy_locs,
-                            key=lambda e: ants.distance(nearest, e),
-                            default=nearest,
+                            ants.distance,
+                            ants.passable,
+                            ants.rows,
+                            ants.cols,
                         )
-                    step = first_step(ant_loc, inter)
-                else:
-                    anchored.add(nearest)
-                    step = first_step(ant_loc, nearest)
+                        if inter is None:
+                            inter = min(
+                                enemy_locs,
+                                key=lambda e: ants.distance(nearest, e),
+                                default=nearest,
+                            )
+                        step = first_step(ant_loc, inter)
+                    else:
+                        anchored.add(nearest)
+                        step = first_step(ant_loc, nearest)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved and enemy_locs:
@@ -676,10 +576,10 @@ class Turnstile4:
                                     moved = True
                             elif try_step(ant_loc, step):
                                 moved = True
-            if not moved and hills:
+            if not moved and hills and self.turn_no >= SOW_TURNS:
                 # Flood: the group marches on one target, the hill
-                # nearest the army as a whole. Hunt always; fearless
-                # when ahead on hills.
+                # nearest the army as a whole. Hunt always past the
+                # Sow opening; fearless when ahead on hills.
                 muster = min(
                     hills,
                     key=lambda h: sum(ants.distance(a, h) for a in ants_list),
@@ -689,7 +589,7 @@ class Turnstile4:
                     ant_loc, step, safe=len(my_hills) <= len(hills)
                 ):
                     moved = True
-            if not moved and hills:
+            if not moved and hills and self.turn_no >= SOW_TURNS:
                 # No hill move: reinforce the second-nearest hill.
                 ordered = sorted(hills, key=lambda h: ants.distance(ant_loc, h))
                 near = ordered[1] if len(ordered) > 1 else ordered[0]
@@ -698,6 +598,10 @@ class Turnstile4:
                     moved = True
             if not moved:
                 # Still stuck: explore least-visited squares first.
+                # Never finish on a home hill: a wanderer ending on
+                # one blocks spawning, so hill squares are skipped
+                # here. Guards above still hold threatened hills on
+                # purpose, and walk-off below still steps holders off.
                 dirs = sorted(
                     ("n", "e", "s", "w"),
                     key=lambda d: self.visits.get(ants.destination(ant_loc, d), 0),
@@ -706,13 +610,13 @@ class Turnstile4:
                     new_loc = ants.destination(ant_loc, direction)
                     if (
                         new_loc not in destinations
+                        and new_loc not in hill_set
                         and ants.passable(new_loc)
                         and ants.unoccupied(new_loc)
                         and is_safe(new_loc, ant_loc)
                     ):
                         ants.issue_order((ant_loc, direction))
                         destinations.add(new_loc)
-                        ordered_from.add(ant_loc)
                         moved = True
                         break
             if not moved:
@@ -721,13 +625,11 @@ class Turnstile4:
             if ants.time_remaining() < 10:
                 break
         # Walk off hill: a held ant on a home hill must step off.
-        hill_set = set(my_hills)
         for ant_loc in held:
             if ant_loc in hill_set and ants.time_remaining() >= 10:
                 for direction in ("s", "e", "w", "n"):
                     if try_step(ant_loc, direction):
                         break
-        age_sits(self.sit, ants_list, ordered_from)
 
 
 if __name__ == "__main__":
@@ -743,6 +645,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Turnstile4())
+        Ants.run(Throng())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")

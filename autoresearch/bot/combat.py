@@ -38,6 +38,11 @@ than CROWD_LIMIT enemies are visible, so packed hunters skip the
 safety filter on advancing moves in small fights and keep full
 champion safety in crowds.
 
+Throng adds the wall quota: GUARD_CAP caps the guards on one
+threatened hill at two, and guard_open reports whether a hill
+still has room, so extra ants hunt instead of piling onto the
+wall.
+
 Research: "Approach forms fighting lines" (xathis approaching
 enemies) -- ants near enemies advance on them instead of walking
 only to food, hills, or empty ground.
@@ -73,6 +78,11 @@ PACK_RADIUS = 10
 # Donations happen in crowds, not duels.
 CROWD_LIMIT = 10
 
+# Throng: two guards per threatened hill -- the holder plus one
+# screener. Further foodless ants skip the wall and hunt, so one
+# razer never ties down the whole army.
+GUARD_CAP = 2
+
 
 def crowd_fearless(enemy_count: int, limit: int = CROWD_LIMIT) -> bool:
     """Whether hunters advance fearlessly at this visible count.
@@ -106,6 +116,17 @@ def has_pack(
             if found >= need:
                 return True
     return False
+
+
+def guard_open(guards: dict[Loc, int], hill: Loc, limit: int = GUARD_CAP) -> bool:
+    """Whether a threatened hill still has room for another guard.
+
+    Guards maps each hill to the ants already posted there this
+    turn. True while fewer than limit ants hold the hill, so the
+    caller posts the holder and one screener, then waves the rest
+    on to the hunt. Pure: dict lookup, no side effects.
+    """
+    return guards.get(hill, 0) < limit
 
 
 def nearest_seek_enemy(
