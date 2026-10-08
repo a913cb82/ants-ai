@@ -1,22 +1,12 @@
 #!/usr/bin/env python
-"""anthonyvh greedy sequential fixing combat (53rd/7897).
+"""Swarm entry: reserves reinforce joined battles.
 
-Fresh champion-chain entry: Crowd's economy, muster, guard, and
-explore byte-identical; the combat core is the faithful anthonyvh
-port (Memetix-style influence plus greedy sequential fixing,
-stationary enemies pinned first, suicide only to unblock a hill
-rush). Self-contained: stdlib plus ants.py only.
-
-Complexity per turn: one influence pass O(E*R^2) over the visible
-enemies (R = threat reach, 3 at attackradius2 5), then one greedy
-fix over the combat ants -- most-constrained-first pops from a lazy
-bucketed queue in O(1) amortized, and each pin re-scores only the
-neighbors within R+1 steps (4 table lookups each) via incremental
-support stamps instead of recomputing the field. Total
-O(E*R^2 + A*(4 + neighbors*4)) for A combat ants: no 5^A exact
-search (rejected past 10-ant zones, per anthonyvh) and no full
-recompute per pin. Measured under 10 ms per fight; anthonyvh cut
-200 ms to 5-10 ms the same way.
+Champion Crowd wiring (denial food, pack-gated seek, committed-join,
+grinder 1v1, off-hill screen, 10-gate equal trades, crowd fearless,
+flood muster, least-visited explore) with one new mechanism: an ant
+with no food, guard, seek, or muster move reinforces the nearest
+JOINED battle within REINFORCE_RANGE instead of exploring, so 2v1
+commitments become 3v1s. Stdlib plus ants.py only.
 """
 
 from collections import deque
@@ -26,9 +16,8 @@ from ants import Ants
 
 Loc = tuple[int, int]
 DistFn = Callable[[Loc, Loc], int]
+SqDistFn = Callable[[Loc, Loc], int]
 PassFn = Callable[[Loc], bool]
-DestFn = Callable[[Loc, str], Loc]
-UnoccFn = Callable[[Loc], bool]
 
 CLUSTER_R = 8
 DENIAL_ENEMIES = 3
@@ -269,127 +258,113 @@ def assign_food_targets(
     return target
 
 
-# define a class with a do_turn method
-# the Ants.run method will parse and update bot input
-# it will also run the do_turn method for us
-# anthonyvh greedy sequential fixing -- combat core (no combat.py).
-#
-# Influence first: each square rates how many enemies could attack it
-# after one move (toroidal manhattan diamond of threat_reach around
-# each enemy -- the Memetix single pass). Stationary enemies stamp
-# first as the fixed points of the field. Then greedy sequential
-# fixing: our combat ants pin most-constrained-first (fewest
-# acceptable moves; hotter squares and list order break ties), each
-# ant taking its best move given the already-pinned ants, with only
-# neighbors re-scored after each pin through incremental support
-# stamps (no full recompute) ordered by a lazy bucketed queue (no
-# 5^A search). Suicide -- issuing a DIE order -- is allowed if and
-# only if its square unblocks this turn's hill rush.
-
-# Combat trigger horizon: claim-free ants with an enemy inside it
-# resolve here; the same population the champion pre-pass screened.
 SEEK_RANGE = 8
 
-# Odds gate, kept for the champion safety filter on food, guard, and
-# explore steps: equal trades (friends + 1 == enemies) need this many
-# near friends (within 10 steps). Champion tuned 14; Crowd tests 10.
+# Equal trades (friends + 1 == enemies) need this many near friends
+# (within 10 steps of the step) for the safety filter to accept.
 EQUAL_TRADE_NEAR = 10
 
-# Influence verdicts for one planned step. DIE refuses exactly as a
-# losing fight; KILL trades 1-for-1 only to break deadlocks while
-# pushing a hill; SAFE keeps champion pressure.
-SAFE = "SAFE"
-KILL = "KILL"
-DIE = "DIE"
+# Hunt only with a pack: PACK_NEED+ friends within PACK_RADIUS steps,
+# else pack up toward the nearest friend instead of advancing.
+PACK_NEED = 3
+PACK_RADIUS = 10
 
-_DIRS = ("n", "e", "s", "w")
+# Fearless under ten enemies: packed hunters skip the safety filter
+# on advancing moves while fewer than CROWD_LIMIT enemies are
+# visible; CROWD_LIMIT+ keeps full champion safety.
+CROWD_LIMIT = 10
 
-
-def threat_reach(attack_r2: int) -> int:
-    """Manhattan threat radius of one enemy after it moves one step.
-
-    Attack reach is the floor square root of attackradius2, plus the
-    one square the enemy may step before attacking.
-    """
-    return int(attack_r2**0.5) + 1
+# Swarm reserves: a packed ant with no other mission reinforces the
+# nearest joined battle within this many steps instead of exploring.
+# Past SEEK_RANGE (else seek would fire), near enough to arrive.
+REINFORCE_RANGE = 12
 
 
-def _stamp(field: list[list[int]], foe: Loc, rows: int, cols: int, reach: int) -> None:
-    """Stamp one enemy's toroidal threat diamond onto the field."""
-    for dr in range(-reach, reach + 1):
-        width = reach - abs(dr)
-        row = field[(foe[0] + dr) % rows]
-        for dc in range(-width, width + 1):
-            row[(foe[1] + dc) % cols] += 1
+def crowd_fearless(enemy_count: int, limit: int = CROWD_LIMIT) -> bool:
+    """Whether hunters advance fearlessly at this visible count."""
+    return enemy_count < limit
 
 
-def influence_field(
-    enemy_locs: list[Loc], rows: int, cols: int, reach: int
-) -> list[list[int]]:
-    """Per-square count of enemies within reach manhattan steps.
+def has_pack(
+    ant_loc: Loc,
+    ants_list: list[Loc],
+    distance: DistFn,
+    need: int = PACK_NEED,
+    radius: int = PACK_RADIUS,
+) -> bool:
+    """Whether an ant holds a pack: need+ friends within radius steps."""
+    found = 0
+    for friend in ants_list:
+        if friend == ant_loc:
+            continue
+        if distance(ant_loc, friend) <= radius:
+            found += 1
+            if found >= need:
+                return True
+    return False
 
-    One pass: each enemy stamps its toroidal diamond once, so the
-    whole crowded board costs far under a millisecond.
-    """
-    field = [[0] * cols for _ in range(rows)]
-    if reach < 0 or rows <= 0 or cols <= 0:
-        return field
+
+def nearest_seek_enemy(
+    ant_loc: Loc, enemy_locs: list[Loc], distance: DistFn
+) -> Loc | None:
+    """Nearest visible enemy within SEEK_RANGE steps, else None."""
+    best: Loc | None = None
+    best_d = SEEK_RANGE + 1
     for foe in enemy_locs:
-        _stamp(field, foe, rows, cols, reach)
-    return field
+        d = distance(ant_loc, foe)
+        if d <= SEEK_RANGE and d < best_d:
+            best_d = d
+            best = foe
+    return best
 
 
-def classify_step(field: list[list[int]], dest: Loc, friends: int) -> str:
-    """Verdict for a planned step onto dest with friends backing it.
+def contact_foe(
+    dest: Loc, enemy_locs: list[Loc], sq_dist: SqDistFn, attack_r2: int
+) -> Loc | None:
+    """Nearest enemy within attack range of a planned step, else None."""
+    best: Loc | None = None
+    best_d = attack_r2 + 1
+    for foe in enemy_locs:
+        d = sq_dist(dest, foe)
+        if d <= attack_r2 and d < best_d:
+            best_d = d
+            best = foe
+    return best
 
-    Ours is friends + 1 (the moving ant): DIE when enemy influence
-    strictly exceeds us, KILL when equal (expect a 1-for-1), SAFE
-    when we lead.
+
+def joined_attackers(commitments: dict[int, Loc]) -> set[int]:
+    """Ant indices released to attack: foes with 2+ committers."""
+    counts: dict[Loc, int] = {}
+    for foe in commitments.values():
+        counts[foe] = counts.get(foe, 0) + 1
+    return {ai for ai, foe in commitments.items() if counts[foe] >= 2}
+
+
+def reinforce_target(
+    ant_loc: Loc,
+    joined_foes: set[Loc],
+    distance: DistFn,
+    limit: int = REINFORCE_RANGE,
+) -> Loc | None:
+    """Nearest joined foe within limit steps, else None.
+
+    Only foes drawing 2+ commitments this turn qualify, so reserves
+    back real pack fights instead of chasing lone contacts. Sorted
+    scan keeps ties deterministic. Pure: no board state.
     """
-    theirs = field[dest[0]][dest[1]]
-    ours = friends + 1
-    if theirs > ours:
-        return DIE
-    if theirs == ours:
-        return KILL
-    return SAFE
+    best: Loc | None = None
+    best_d = limit + 1
+    for foe in sorted(joined_foes):
+        d = distance(ant_loc, foe)
+        if d <= limit and d < best_d:
+            best_d = d
+            best = foe
+    return best
 
 
-def stationary_pins(
-    prev_enemies: list[Loc], cur_enemies: list[Loc], distance: DistFn
-) -> list[Loc]:
-    """Visible enemies that did not move since last turn, in order.
-
-    Matches each current enemy to an unmatched last-turn position
-    within 1 step (the same rule do_turn's headings use); a match at
-    distance 0 is the same ant holding still. These pin first during
-    evaluation as the fixed points of the field.
-    """
-    unmatched = list(prev_enemies)
-    pinned = []
-    for cur in cur_enemies:
-        match = None
-        match_d = 2
-        for prev in unmatched:
-            d = distance(cur, prev)
-            if d < match_d:
-                match_d = d
-                match = prev
-        if match is not None:
-            unmatched.remove(match)
-            if match == cur:
-                pinned.append(cur)
-    return pinned
-
-
-def unblocks_hill_rush(ant: Loc, dest: Loc, hills: list[Loc], distance: DistFn) -> bool:
-    """Whether stepping onto dest opens this turn's hill rush.
-
-    True iff dest sits strictly closer than the ant to a contested
-    (remembered) enemy hill: the death square still moves the rush
-    forward. Empty hills never unblock, so peacetime suicides refuse.
-    """
-    return any(distance(dest, hill) < distance(ant, hill) for hill in hills)
+def grinder_release(friends: int, enemies: int, my_army: int, enemy_army: int) -> bool:
+    """Engage a friendless 1v1 contact only when the army leads."""
+    return friends == 0 and enemies == 1 and my_army > enemy_army
 
 
 def intercept_square(
@@ -400,16 +375,7 @@ def intercept_square(
     rows: int,
     cols: int,
 ) -> Loc | None:
-    """Off-hill intercept for one threatened home hill.
-
-    Screens the razer instead of piling onto the hill: take the
-    nearest enemy to the hill, halve the toroidal approach, and
-    return the nearest passable square to that midpoint (the
-    midpoint itself when open). Ties keep the first enemy in list
-    order so the branch is deterministic. No enemies -- or no
-    passable square on the whole board -- returns None so the
-    caller holds the champion fallback.
-    """
+    """Off-hill intercept: passable square halfway to the nearest foe."""
     if not enemy_locs or rows <= 0 or cols <= 0:
         return None
     foe = min(enemy_locs, key=lambda e: distance(hill, e))
@@ -441,246 +407,10 @@ def intercept_square(
     return None
 
 
-def add_support(
-    support: dict[Loc, int], dest: Loc, rows: int, cols: int, attack_r2: int
-) -> None:
-    """Stamp one pinned ant's backing onto its attack disc, in place.
-
-    The incremental local update: only squares this pin touches are
-    written, so later ants re-evaluate against pinned support without
-    recomputing anything. Attack discs are square-distance, matching
-    the battle resolution the old safety filter approximates.
-    """
-    rad = int(attack_r2**0.5)
-    for dr in range(-rad, rad + 1):
-        for dc in range(-rad, rad + 1):
-            if dr * dr + dc * dc <= attack_r2:
-                sq = ((dest[0] + dr) % rows, (dest[1] + dc) % cols)
-                support[sq] = support.get(sq, 0) + 1
-
-
-def acceptable_moves(
-    ant: Loc,
-    field: list[list[int]],
-    support: dict[Loc, int],
-    hills: list[Loc],
-    distance: DistFn,
-    destination: DestFn,
-    passable: PassFn,
-    unoccupied: UnoccFn,
-) -> list[str]:
-    """Pinnable step directions for one ant, in n/e/s/w order.
-
-    A step is acceptable when legal (passable, unoccupied) and SAFE,
-    or KILL while pushing a remembered hill (the deadlock break), or
-    DIE when its square unblocks this turn's hill rush (the only
-    allowed suicide). Staying never pins: a held ant falls through
-    to muster exactly as a refused seek does.
-    """
-    moves = []
-    for direction in _DIRS:
-        dest = destination(ant, direction)
-        if not passable(dest) or not unoccupied(dest):
-            continue
-        rating = classify_step(field, dest, support.get(dest, 0))
-        if rating == SAFE:
-            moves.append(direction)
-        elif rating == KILL:
-            if hills:
-                moves.append(direction)
-        elif unblocks_hill_rush(ant, dest, hills, distance):
-            moves.append(direction)
-    return moves
-
-
-def best_move(
-    ant: Loc,
-    field: list[list[int]],
-    support: dict[Loc, int],
-    hills: list[Loc],
-    enemy_locs: list[Loc],
-    distance: DistFn,
-    destination: DestFn,
-    passable: PassFn,
-    unoccupied: UnoccFn,
-) -> str | None:
-    """Best pinnable step for one ant given already-pinned support.
-
-    Ranks acceptable moves SAFE first, then KILL, then allowed DIE;
-    ties press toward the nearest enemy, then n/e/s/w order, so the
-    greedy pin advances fighting lines instead of milling. None when
-    nothing is acceptable: the ant holds for muster fallthrough.
-    """
-    options = acceptable_moves(
-        ant, field, support, hills, distance, destination, passable, unoccupied
-    )
-    if not options:
-        return None
-
-    def rank(direction: str) -> tuple[int, int, int]:
-        dest = destination(ant, direction)
-        rating = classify_step(field, dest, support.get(dest, 0))
-        press = 0
-        if enemy_locs:
-            press = min(distance(dest, foe) for foe in enemy_locs)
-        return (
-            0 if rating == SAFE else (1 if rating == KILL else 2),
-            press,
-            _DIRS.index(direction),
-        )
-
-    return min(options, key=rank)
-
-
-def resolve_fight(
-    our_ants: list[Loc],
-    enemy_locs: list[Loc],
-    stationary: list[Loc],
-    rows: int,
-    cols: int,
-    attack_r2: int,
-    hills: list[Loc],
-    distance: DistFn,
-    destination: DestFn,
-    passable: PassFn,
-    unoccupied: UnoccFn,
-    trace: list[str] | None = None,
-) -> dict[int, str]:
-    """Greedy sequential fixing for one turn's combat ants.
-
-    Stationary enemies stamp first as fixed points of the field,
-    mobile enemies stamp after (same single-pass arithmetic -- the
-    pin order is what "pinned first" means). Our ants then pin
-    most-constrained-first: fewest acceptable moves, hotter squares
-    first, list order on full ties. Each pin stamps support locally
-    around its square and re-scores only neighbors within reach+1
-    through the lazy bucketed queue (stale entries skipped), so no
-    pin ever recomputes the field. Returns pinned directions keyed
-    by ant index; unpinned ants hold for muster fallthrough.
-    """
-    plan: dict[int, str] = {}
-    if not our_ants or not enemy_locs:
-        return plan
-    reach = threat_reach(attack_r2)
-    stat = set(stationary)
-    field = [[0] * cols for _ in range(rows)]
-    for foe in [e for e in enemy_locs if e in stat]:
-        _stamp(field, foe, rows, cols, reach)
-        if trace is not None:
-            trace.append(f"pin enemy {foe}")
-    for foe in [e for e in enemy_locs if e not in stat]:
-        _stamp(field, foe, rows, cols, reach)
-    support: dict[Loc, int] = {}
-    count = len(our_ants)
-    buckets: list[deque[tuple[int, int]]] = [deque() for _ in range(5)]
-    version = [0] * count
-    unpinned = set(range(count))
-
-    def push(i: int) -> None:
-        moves = acceptable_moves(
-            our_ants[i],
-            field,
-            support,
-            hills,
-            distance,
-            destination,
-            passable,
-            unoccupied,
-        )
-        version[i] += 1
-        buckets[len(moves)].append((i, version[i]))
-
-    for i in range(count):
-        push(i)
-    while unpinned:
-        cur = None
-        for constraint in range(5):
-            while buckets[constraint]:
-                i, stamped = buckets[constraint].popleft()
-                if i in unpinned and stamped == version[i]:
-                    cur = i
-                    break
-            if cur is not None:
-                break
-        if cur is None:
-            break
-        unpinned.discard(cur)
-        move = best_move(
-            our_ants[cur],
-            field,
-            support,
-            hills,
-            enemy_locs,
-            distance,
-            destination,
-            passable,
-            unoccupied,
-        )
-        if move is None:
-            if trace is not None:
-                trace.append(f"hold {cur}")
-            continue
-        dest = destination(our_ants[cur], move)
-        plan[cur] = move
-        add_support(support, dest, rows, cols, attack_r2)
-        if trace is not None:
-            trace.append(f"fix {cur} {move}")
-        for j in list(unpinned):
-            if distance(our_ants[j], dest) <= reach + 1:
-                push(j)
-    return plan
-
-
-def plan_fixing(
-    ants_list: list[Loc],
-    target: dict[int, Loc],
-    enemy_locs: list[Loc],
-    stationary: list[Loc],
-    rows: int,
-    cols: int,
-    attack_r2: int,
-    hills: list[Loc],
-    distance: DistFn,
-    destination: DestFn,
-    passable: PassFn,
-    unoccupied: UnoccFn,
-    trace: list[str] | None = None,
-) -> dict[int, str]:
-    """Pin this turn's combat moves, keyed by ant index.
-
-    The population matches the champion screen: claim-free ants with
-    an enemy in SEEK_RANGE. Thin wrapper over resolve_fight that
-    selects the population and maps the sub-index plan back.
-    """
-    if not enemy_locs:
-        return {}
-    picked = [
-        ai
-        for ai, ant in enumerate(ants_list)
-        if target.get(ai) is None
-        and any(distance(ant, foe) <= SEEK_RANGE for foe in enemy_locs)
-    ]
-    if not picked:
-        return {}
-    sub = [ants_list[ai] for ai in picked]
-    sub_plan = resolve_fight(
-        sub,
-        enemy_locs,
-        stationary,
-        rows,
-        cols,
-        attack_r2,
-        hills,
-        distance,
-        destination,
-        passable,
-        unoccupied,
-        trace,
-    )
-    return {picked[k]: direction for k, direction in sub_plan.items()}
-
-
-class Fixing:
+# define a class with a do_turn method
+# the Ants.run method will parse and update bot input
+# it will also run the do_turn method for us
+class Swarm:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
@@ -700,16 +430,14 @@ class Fixing:
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Fixing: champion Crowd economy, muster, guard, and explore
-        # byte-identical (Denial food claims, threatened-hill guards
-        # with off-hill screening, muster plus reinforce, visits
-        # explore, walk-off); the combat core is anthonyvh greedy
-        # sequential fixing instead of the pack/join/grinder/crowd
-        # gates. Influence rates every square by the enemies that
-        # could attack it after one move; stationary enemies pin
-        # first; each combat ant pins its best move
-        # most-constrained-first with local re-evaluation after every
-        # pin; suicide issues only to unblock a hill rush.
+        # Swarm: champion Crowd wiring (Denial's economy, pack-gated
+        # seek approach, committed-join packs, ahead-only 1v1 duels,
+        # off-hill screening, 10-gate equal trades, fearless press
+        # under CROWD_LIMIT enemies), plus reserve reinforcement: a
+        # packed ant with no food, guard, seek, or muster move marches
+        # on the nearest joined battle within REINFORCE_RANGE instead
+        # of exploring. Food, guard, muster, walk-off, and the rest
+        # of explore are champion.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -835,31 +563,56 @@ class Fixing:
                 return True
             return False
 
-        # Fixing pre-pass (anthonyvh greedy sequential fixing): pin
-        # stationary enemies first -- they are the fixed points of
-        # the field -- then pin each combat ant's best move in
-        # most-constrained-first order, re-evaluating neighbors
-        # locally after every pin (incremental support stamps, lazy
-        # bucketed queue; no full recompute, no 5^A search). The
-        # population matches the champion screen: claim-free ants
-        # with an enemy in SEEK_RANGE. Guards keep precedence: a
-        # planned ant that takes a guard move above simply leaves
-        # its pin unused, and pins check destinations on issue.
-        stationary = [cur for cur in enemy_locs if headings.get(cur) == cur]
-        fight_plan = plan_fixing(
-            ants_list,
-            target,
-            enemy_locs,
-            stationary,
-            rows,
-            cols,
-            attack_r2,
-            hills,
-            ants.distance,
-            ants.destination,
-            ants.passable,
-            ants.unoccupied,
-        )
+        def try_join(ant_loc: tuple[int, int], direction: str) -> bool:
+            # Committed-join: the pack already holds this foe, so an
+            # equal trade goes through without the near gate.
+            # Strictly losing fights still hold. Passable, occupancy,
+            # and destination clashes check as usual.
+            new_loc = ants.destination(ant_loc, direction)
+            if (
+                new_loc in destinations
+                or not ants.passable(new_loc)
+                or not ants.unoccupied(new_loc)
+            ):
+                return False
+            foes = 0
+            for e in enemy_locs:
+                if sq_dist(new_loc, e) <= attack_r2:
+                    foes += 1
+                    if foes >= len(ants_list):
+                        break
+            if foes > 0:
+                backup = 0
+                for f in ants_list:
+                    if f != ant_loc and sq_dist(new_loc, f) <= attack_r2:
+                        backup += 1
+                if backup + 1 < foes:
+                    return False
+            ants.issue_order((ant_loc, direction))
+            destinations.add(new_loc)
+            return True
+
+        # Join pre-pass: which ants would step into contact this
+        # turn, and on whom. Ants holding food claims never reach the
+        # seek branch, so only claim-free ants commit. The join set is
+        # the ants whose foe draws 2+ commitments.
+        commitments: dict[int, tuple[int, int]] = {}
+        if enemy_locs:
+            for cai, cant in enumerate(ants_list):
+                if target.get(cai) is not None:
+                    continue
+                chase = nearest_seek_enemy(cant, enemy_locs, ants.distance)
+                if chase is None:
+                    continue
+                cstep = first_step(cant, chase)
+                if cstep is None:
+                    continue
+                cloc = ants.destination(cant, cstep)
+                cfoe = contact_foe(cloc, enemy_locs, sq_dist, attack_r2)
+                if cfoe is not None:
+                    commitments[cai] = cfoe
+        joined = joined_attackers(commitments)
+        joined_foes = {commitments[ai] for ai in joined}
 
         destinations: set[tuple[int, int]] = set()
         held: list[tuple[int, int]] = []
@@ -901,23 +654,60 @@ class Fixing:
                     step = first_step(ant_loc, nearest)
                 if step is not None and try_step(ant_loc, step):
                     moved = True
-            if not moved and ai in fight_plan:
-                # Fixing: this ant's move was pinned above given the
-                # already-pinned ants. Issue it while still legal
-                # (passable, unoccupied, unclaimed by an earlier
-                # mover); otherwise fall through to muster exactly as
-                # a refused seek does. DIE pins only exist when their
-                # square unblocks this turn's hill rush.
-                step = fight_plan[ai]
-                nloc = ants.destination(ant_loc, step)
-                if (
-                    nloc not in destinations
-                    and ants.passable(nloc)
-                    and ants.unoccupied(nloc)
-                ):
-                    ants.issue_order((ant_loc, step))
-                    destinations.add(nloc)
-                    moved = True
+            if not moved and enemy_locs:
+                # Swarm: no food or guard move; hunt only with a pack,
+                # fearless in small fights. A packless ant never
+                # advances -- it packs up one step toward its nearest
+                # friend instead (below), under the normal filter.
+                foe = nearest_seek_enemy(ant_loc, enemy_locs, ants.distance)
+                if foe is not None and not has_pack(ant_loc, ants_list, ants.distance):
+                    pal = min(
+                        (f for f in ants_list if f != ant_loc),
+                        key=lambda f: ants.distance(ant_loc, f),
+                        default=None,
+                    )
+                    if pal is not None:
+                        pstep = first_step(ant_loc, pal)
+                        if pstep is not None and try_step(ant_loc, pstep):
+                            moved = True
+                    foe = None
+                if foe is not None:
+                    # Packed: fearless ahead while fewer than
+                    # CROWD_LIMIT enemies are visible -- the advancing
+                    # step skips the safety filter. In crowds the legs
+                    # 1-3 rules hold: a joined ant (its foe drew 2+
+                    # commitments) engages with equal trades allowed;
+                    # an unjoined ant on a friendless 1v1 contact
+                    # engages only while the visible army leads,
+                    # otherwise the leg-1 safe seek holds.
+                    step = first_step(ant_loc, foe)
+                    if step is not None:
+                        if crowd_fearless(len(enemy_locs), CROWD_LIMIT):
+                            if try_step(ant_loc, step, safe=False):
+                                moved = True
+                        elif ai in joined:
+                            if try_join(ant_loc, step):
+                                moved = True
+                        else:
+                            nloc = ants.destination(ant_loc, step)
+                            foes = 0
+                            for e in enemy_locs:
+                                if sq_dist(nloc, e) <= attack_r2:
+                                    foes += 1
+                                    if foes > 1:
+                                        break
+                            pals = 0
+                            for f in ants_list:
+                                if f != ant_loc and sq_dist(nloc, f) <= attack_r2:
+                                    pals += 1
+                                    break
+                            if grinder_release(
+                                pals, foes, len(ants_list), len(enemy_locs)
+                            ):
+                                if try_join(ant_loc, step):
+                                    moved = True
+                            elif try_step(ant_loc, step):
+                                moved = True
             if not moved and hills:
                 # Flood: the group marches on one target, the hill
                 # nearest the army as a whole. Hunt always; fearless
@@ -938,6 +728,21 @@ class Fixing:
                 hstep = first_step(ant_loc, near)
                 if hstep is not None and try_step(ant_loc, hstep):
                     moved = True
+            if not moved and not hills and joined_foes:
+                # Swarm reserves: no hill mission claimed this ant, so
+                # a packed ant with no seek foe backs the nearest
+                # joined battle within REINFORCE_RANGE (2v1s become
+                # 3v1s) under the normal safety filter. Packless ants,
+                # out-of-range battles, and blocked steps explore.
+                back = (
+                    reinforce_target(ant_loc, joined_foes, ants.distance)
+                    if has_pack(ant_loc, ants_list, ants.distance)
+                    else None
+                )
+                if back is not None:
+                    bstep = first_step(ant_loc, back)
+                    if bstep is not None and try_step(ant_loc, bstep):
+                        moved = True
             if not moved:
                 # Still stuck: explore least-visited squares first.
                 dirs = sorted(
@@ -983,6 +788,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Fixing())
+        Ants.run(Swarm())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
