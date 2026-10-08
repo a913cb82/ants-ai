@@ -515,14 +515,7 @@ def assign_food_targets(
     return target
 
 
-<<<<<<<< HEAD:autoresearch/bot/Crowd.py
-# define a class with a do_turn method
-# the Ants.run method will parse and update bot input
-# it will also run the do_turn method for us
-class Crowd:
-========
 class Hastati:
->>>>>>>> tree/legion-3:autoresearch/bot/Hastati.py
     def __init__(self):
         self.visits: dict[tuple[int, int], int] = {}
         self.seen: set[tuple[int, int]] = set()
@@ -538,17 +531,6 @@ class Hastati:
         self.pin = None
 
     def do_turn(self, ants: Ants):
-<<<<<<<< HEAD:autoresearch/bot/Crowd.py
-        # Crowd: Gang's wiring (Denial's economy, pack-gated seek
-        # approach, committed-join packs, ahead-only 1v1 duels,
-        # off-hill screening, 10-gate equal trades), except a packed
-        # hunter advances fearlessly -- skipping the safety filter --
-        # while fewer than combat.CROWD_LIMIT enemies are visible.
-        # With CROWD_LIMIT+ enemies visible the full champion safety
-        # applies. Food, guard, muster, reinforce, explore, and
-        # walk-off are champion.
-========
->>>>>>>> tree/legion-3:autoresearch/bot/Hastati.py
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -785,23 +767,12 @@ class Hastati:
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved and enemy_locs:
-<<<<<<<< HEAD:autoresearch/bot/Crowd.py
-                # Crowd: no food or guard move; hunt only with a pack,
-                # fearless in small fights. A packless ant never
-                # advances -- it packs up one step toward its nearest
-                # friend instead (below), under the normal filter.
-                foe = combat.nearest_seek_enemy(ant_loc, enemy_locs, ants.distance)
-                if foe is not None and not combat.has_pack(
-                    ant_loc, ants_list, ants.distance
-                ):
-========
                 cached = chase_cache.get(ai)
                 if cached is None:
                     foe, step = chase_for(ant_loc)
                 else:
                     foe, step = cached
                 if foe is not None and not has_pack(ant_loc, ants_list, ants.distance):
->>>>>>>> tree/legion-3:autoresearch/bot/Hastati.py
                     pal = min(
                         (f for f in ants_list if f != ant_loc),
                         key=lambda f: ants.distance(ant_loc, f),
@@ -812,45 +783,6 @@ class Hastati:
                         if pstep is not None and try_step(ant_loc, pstep):
                             moved = True
                     foe = None
-<<<<<<<< HEAD:autoresearch/bot/Crowd.py
-                if foe is not None:
-                    # Packed: fearless ahead while fewer than
-                    # CROWD_LIMIT enemies are visible -- the advancing
-                    # step skips the safety filter. In crowds the legs
-                    # 1-3 rules hold: a joined ant (its foe drew 2+
-                    # commitments) engages with equal trades allowed;
-                    # an unjoined ant on a friendless 1v1 contact
-                    # engages only while the visible army leads,
-                    # otherwise the leg-1 safe seek holds.
-                    step = first_step(ant_loc, foe)
-                    if step is not None:
-                        if combat.crowd_fearless(len(enemy_locs), combat.CROWD_LIMIT):
-                            if try_step(ant_loc, step, safe=False):
-                                moved = True
-                        elif ai in joined:
-                            if try_join(ant_loc, step):
-                                moved = True
-                        else:
-                            nloc = ants.destination(ant_loc, step)
-                            foes = 0
-                            for e in enemy_locs:
-                                if sq_dist(nloc, e) <= attack_r2:
-                                    foes += 1
-                                    if foes > 1:
-                                        break
-                            pals = 0
-                            for f in ants_list:
-                                if f != ant_loc and sq_dist(nloc, f) <= attack_r2:
-                                    pals += 1
-                                    break
-                            if combat.grinder_release(
-                                pals, foes, len(ants_list), len(enemy_locs)
-                            ):
-                                if try_join(ant_loc, step):
-                                    moved = True
-                            elif try_step(ant_loc, step):
-                                moved = True
-========
                 if foe is not None and step is not None:
                     # Always safe: joined pairs may take equal
                     # trades, friendless 1v1s only while ahead,
@@ -876,7 +808,6 @@ class Hastati:
                                 moved = True
                         elif try_step(ant_loc, step):
                             moved = True
->>>>>>>> tree/legion-3:autoresearch/bot/Hastati.py
             if not moved and hills:
                 muster = min(
                     hills,
@@ -894,16 +825,12 @@ class Hastati:
                 if hstep is not None and try_step(ant_loc, hstep):
                     moved = True
             if not moved:
-<<<<<<<< HEAD:autoresearch/bot/Crowd.py
-                # Still stuck: explore least-visited squares first.
-========
                 # Scout: push the unseen edge first, so maze corridors
                 # get walked early and distant food shows sooner.
                 estep = edge_step(ant_loc, self.seen, ants.passable, ants.destination)
                 if estep is not None and try_step(ant_loc, estep):
                     moved = True
             if not moved:
->>>>>>>> tree/legion-3:autoresearch/bot/Hastati.py
                 dirs = sorted(
                     ("n", "e", "s", "w"),
                     key=lambda d: self.visits.get(ants.destination(ant_loc, d), 0),
@@ -941,13 +868,6 @@ if __name__ == "__main__":
         pass
 
     try:
-<<<<<<<< HEAD:autoresearch/bot/Crowd.py
-        # if run is passed a class with a do_turn method, it will do the work
-        # this is not needed, in which case you will need to write your own
-        # parsing function and your own game state class
-        Ants.run(Crowd())
-========
         Ants.run(Hastati())
->>>>>>>> tree/legion-3:autoresearch/bot/Hastati.py
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
