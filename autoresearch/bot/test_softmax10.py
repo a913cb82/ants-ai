@@ -269,6 +269,22 @@ def test_screen_midpoint_truncates_toward_zero() -> None:
     assert mid == (9, 10)
 
 
+def test_screen_falls_back_to_nearest_passable() -> None:
+    # Midpoint (10,12) is water: the screen returns the nearest
+    # passable square scanning north first.
+    mid = SM10._midpoint_screen(
+        (10, 10), [(10, 14)], _dist, lambda loc: loc != (10, 12), ROWS, COLS
+    )
+    assert mid == (9, 12)
+
+
+def test_explore_wraps_at_map_edge() -> None:
+    # North of (0,10) wraps to (19,10); a visit there must count,
+    # steering the ant away from north.
+    order = SM10.explore_order((0, 10), {(19, 10): 9}, set(), _dist, ROWS, COLS)
+    assert order[0] == "e"
+
+
 def test_walk_off_home_hill() -> None:
     fake = run_turn([(5, 5)], [], my_hills=[(5, 5)])
     assert fake.orders, "sitter never stepped off"
