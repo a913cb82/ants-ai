@@ -336,6 +336,32 @@ def test_large_army_turn_stays_fast() -> None:
     assert len(fake.orders) > 0
 
 
+def test_maze_scale_turn_stays_fast() -> None:
+    import random
+
+    class BigFake(FakeAnts):
+        def __init__(self, mine, enemies, foods=None, water=None):
+            super().__init__(mine, enemies, foods, water)
+            self.rows = 60
+            self.cols = 60
+    rng = random.Random(11)
+    water = {(r, 30) for r in range(60) if r % 4} | {
+        (30, c) for c in range(60) if c % 4
+    }
+    free = [(r, c) for r in range(60) for c in range(60) if (r, c) not in water]
+    mine = rng.sample(free, 100)
+    foes = rng.sample([s for s in free if s not in mine], 60)
+    foods = rng.sample(
+        [s for s in free if s not in mine and s not in foes], 25
+    )
+    bot = SM10.Softmax10()
+    start = time.perf_counter()
+    fake = BigFake(mine, foes, foods, water)
+    bot.do_turn(fake)
+    assert (time.perf_counter() - start) < 1.0
+    assert len(fake.orders) > 0
+
+
 def test_fuzz_random_maps_never_crash() -> None:
     import random
 
