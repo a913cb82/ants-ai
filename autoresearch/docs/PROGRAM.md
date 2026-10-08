@@ -73,7 +73,9 @@ repo checkout, especially the repo .venv. Never
    The merge keeps the leaf sha: exams and history reference one
    node. List it with `git log --graph`. Then delete the branch.
    A conflicted merge resolves in a scratch worktree first:
-   the exam tree is never dirty while a scorer runs. Merge
+   the exam tree is never dirty while a scorer runs. Stage only
+   bot files there: never `git add -A` a worktree .venv link
+   into a merge. Merge
    commits land only when no scorer runs: coder branches wait
    for the exam boundary.
    Then play the budget:
