@@ -284,7 +284,7 @@ def _midpoint_screen(
         dc -= cols
     elif dc < -(cols // 2):
         dc += cols
-    mid = ((hill[0] + dr // 2) % rows, (hill[1] + dc // 2) % cols)
+    mid = ((hill[0] + int(dr / 2)) % rows, (hill[1] + int(dc / 2)) % cols)
     if passable(mid):
         return mid
     seen = {mid}

@@ -248,6 +248,15 @@ def test_guard_holds_threatened_hill() -> None:
     assert fake.orders, "guard issued no order"
 
 
+def test_screen_midpoint_truncates_toward_zero() -> None:
+    # Negative-odd approach (hill (10,10), foe (7,9): dr=-3, dc=-1)
+    # truncates toward zero to (9,10), never floors to (8,10).
+    mid = SM10._midpoint_screen(
+        (10, 10), [(7, 9)], _dist, lambda loc: True, ROWS, COLS
+    )
+    assert mid == (9, 10)
+
+
 def test_walk_off_home_hill() -> None:
     fake = run_turn([(5, 5)], [], my_hills=[(5, 5)])
     assert fake.orders, "sitter never stepped off"
@@ -309,6 +318,22 @@ def test_press_still_takes_single_contact() -> None:
     mine = [(5, 6), (5, 0), (6, 0), (4, 0)]
     fake = run_turn(mine, [(5, 8)])
     assert ((5, 6), "e") in fake.orders
+
+
+def test_large_army_turn_stays_fast() -> None:
+    import random
+
+    rng = random.Random(7)
+    free = [(r, c) for r in range(ROWS) for c in range(COLS)]
+    mine = rng.sample(free, 150)
+    foes = rng.sample([sq for sq in free if sq not in mine], 100)
+    foods = rng.sample(
+        [sq for sq in free if sq not in mine and sq not in foes], 40
+    )
+    start = time.perf_counter()
+    fake = run_turn(mine, foes, foods, enemy_hills=[(15, 15)])
+    assert (time.perf_counter() - start) < 1.0
+    assert len(fake.orders) > 0
 
 
 def test_fuzz_random_maps_never_crash() -> None:
