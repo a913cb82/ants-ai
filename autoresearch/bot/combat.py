@@ -38,10 +38,15 @@ than CROWD_LIMIT enemies are visible, so packed hunters skip the
 safety filter on advancing moves in small fights and keep full
 champion safety in crowds.
 
-Throng adds the wall quota: GUARD_CAP caps the guards on one
-threatened hill at two, and guard_open reports whether a hill
-still has room, so extra ants hunt instead of piling onto the
-wall.
+Leg 8 adds Screen3 hole-filling: hole_steps lists the other
+directions that still close on a goal, so a hunter or marcher
+whose shortest-path step fails fills the hole instead of
+wandering. Regimes, join, and release gates are untouched.
+
+Screen3 also screens on the corridor: screen_square keeps the
+geometric midpoint when it is passable and otherwise stands on
+the half-path tile of the hill-foe approach, degrading to the
+midpoint flood when walled off.
 
 Research: "Approach forms fighting lines" (xathis approaching
 enemies) -- ants near enemies advance on them instead of walking
@@ -78,11 +83,6 @@ PACK_RADIUS = 10
 # Donations happen in crowds, not duels.
 CROWD_LIMIT = 10
 
-# Throng: two guards per threatened hill -- the holder plus one
-# screener. Further foodless ants skip the wall and hunt, so one
-# razer never ties down the whole army.
-GUARD_CAP = 2
-
 
 def crowd_fearless(enemy_count: int, limit: int = CROWD_LIMIT) -> bool:
     """Whether hunters advance fearlessly at this visible count.
@@ -118,15 +118,38 @@ def has_pack(
     return False
 
 
-def guard_open(guards: dict[Loc, int], hill: Loc, limit: int = GUARD_CAP) -> bool:
-    """Whether a threatened hill still has room for another guard.
+# Leg 8 (Screen3): second-rank hole-filling -- directions that
+# still close on a goal. Destination squares come from the
+# caller's destination function; passability, occupancy, and the
+# safety regime stay the caller's checks.
+DestFn = Callable[[Loc, str], Loc]
 
-    Guards maps each hill to the ants already posted there this
-    turn. True while fewer than limit ants hold the hill, so the
-    caller posts the holder and one screener, then waves the rest
-    on to the hunt. Pure: dict lookup, no side effects.
+
+def hole_steps(
+    ant_loc: Loc,
+    goal: Loc,
+    failed: str | None,
+    distance: DistFn,
+    destination: DestFn,
+) -> list[str]:
+    """Alternate steps that still close on the goal, nearest first.
+
+    The failed shortest-path step is excluded; only directions
+    whose destination lands strictly closer to the goal qualify,
+    ordered by resulting distance with ties keeping n, e, s, w
+    order so the branch is deterministic. Pure: no board state,
+    no side effects.
     """
-    return guards.get(hill, 0) < limit
+    here = distance(ant_loc, goal)
+    ranked = sorted(
+        ("n", "e", "s", "w"),
+        key=lambda d: distance(destination(ant_loc, d), goal),
+    )
+    return [
+        d
+        for d in ranked
+        if d != failed and distance(destination(ant_loc, d), goal) < here
+    ]
 
 
 def nearest_seek_enemy(
@@ -193,6 +216,76 @@ def grinder_release(friends: int, enemies: int, my_army: int, enemy_army: int) -
     champion does today. Pure: integer compare, no side effects.
     """
     return friends == 0 and enemies == 1 and my_army > enemy_army
+
+
+def _raw_mid(hill: Loc, foe: Loc, rows: int, cols: int) -> Loc:
+    """Geometric halfway square between a hill and its foe."""
+    dr = foe[0] - hill[0]
+    if dr > rows // 2:
+        dr -= rows
+    elif dr < -(rows // 2):
+        dr += rows
+    dc = foe[1] - hill[1]
+    if dc > cols // 2:
+        dc -= cols
+    elif dc < -(cols // 2):
+        dc += cols
+    return ((hill[0] + int(dr / 2)) % rows, (hill[1] + int(dc / 2)) % cols)
+
+
+def screen_square(
+    hill: Loc,
+    enemy_locs: list[Loc],
+    distance: DistFn,
+    passable: PassFn,
+    destination: DestFn,
+    rows: int,
+    cols: int,
+    budget: int = 250,
+) -> Loc | None:
+    """Off-hill screen that prefers the approach corridor on maze boards.
+
+    The geometric midpoint stands when passable, exactly as
+    intercept_square; a flooded midpoint screens at the
+    half-path tile of the shortest hill-foe approach instead of
+    the nearest dry square, so the guard meets the razer on its
+    corridor. A razer on or beside the hill (one step or less)
+    holds the hill, and a walled-off foe degrades to the midpoint
+    flood exactly as intercept_square. Pure: no board state, no
+    side effects.
+    """
+    if not enemy_locs or rows <= 0 or cols <= 0:
+        return None
+    foe = min(enemy_locs, key=lambda e: distance(hill, e))
+    mid = _raw_mid(hill, foe, rows, cols)
+    if passable(mid):
+        return mid
+    parent: dict[Loc, Loc] = {hill: hill}
+    queue: deque[Loc] = deque([hill])
+    expanded = 0
+    while queue and expanded < budget:
+        cur = queue.popleft()
+        expanded += 1
+        if cur == foe:
+            break
+        for step in ("n", "e", "s", "w"):
+            nxt = destination(cur, step)
+            if nxt in parent or not passable(nxt):
+                continue
+            parent[nxt] = cur
+            queue.append(nxt)
+    if foe in parent and foe != hill:
+        nodes = [foe]
+        node = foe
+        while node != hill:
+            node = parent[node]
+            nodes.append(node)
+        nodes.reverse()
+        path_len = len(nodes) - 1
+        if path_len <= 1:
+            return hill
+        return nodes[(path_len + 1) // 2]
+    return intercept_square(hill, enemy_locs, distance, passable, rows, cols)
 
 
 def intercept_square(

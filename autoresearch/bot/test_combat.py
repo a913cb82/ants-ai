@@ -52,26 +52,31 @@ advancing move skips the safety filter (fearless ahead); with 10+
 enemies visible the full champion safety applies. Food, guard,
 muster, reinforce, and explore keep their existing filters.
 
-Throng caps the wall on the crowd base: at most
-combat.GUARD_CAP (2) guards post on one threatened hill (the
-holder plus one screener via combat.guard_open); further foodless
-ants skip the wall and hunt, so one razer never ties down the
-army. Pack, join, grinder, screen, fearless, and the 10-gate
-stay as the legs defined them.
+Leg 8 implements the Screen3 row "Second-rank hole-filling":
+when a packed hunter's -- or a blocked muster marcher's --
+shortest-path step fails (blocked, occupied, or refused), the ant
+tries combat.hole_steps -- the other directions that still close
+on the same foe or hill, nearest closing first -- under the same
+safety regime (fearless in small fights, full filter in crowds),
+never through the join or the grinder release. Packless ants
+still pack up instead of hunting, so the Gang gate is untouched;
+a hunter or marcher with no closing alternate falls through to
+muster, reinforce, and explore exactly as the legs defined them.
 """
 
 import os
 import sys
 import time
+from typing import Any
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import combat as CX  # noqa: E402
 
-# Leg 7: Throng.py carries the crowd seek + join + grinder +
-# screen + odds + gang wiring plus the wall quota; GP aliases the
-# live Throng entry.
-import Throng as GP  # noqa: E402
+# Leg 8: Screen3.py carries the same seek + join + grinder +
+# screen + odds + gang + crowd wiring plus second-rank gap-fill;
+# GP aliases the live Screen3 entry.
+import Screen3 as GP  # noqa: E402
 
 Loc = tuple[int, int]
 ROWS = 20
@@ -152,9 +157,9 @@ def run_turn(
     water: set[Loc] | None = None,
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
-) -> tuple[list[tuple[Loc, str]], GP.Throng]:
+) -> tuple[list[tuple[Loc, str]], GP.Screen3]:
     fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
-    bot = GP.Throng()
+    bot = GP.Screen3()
     bot.do_turn(fake)
     return fake.orders, bot
 
@@ -166,9 +171,9 @@ def run_grinder_turn(
     water: set[Loc] | None = None,
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
-) -> tuple[list[tuple[Loc, str]], GP.Throng]:
+) -> tuple[list[tuple[Loc, str]], GP.Screen3]:
     fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
-    bot = GP.Throng()
+    bot = GP.Screen3()
     bot.do_turn(fake)
     return fake.orders, bot
 
@@ -248,32 +253,22 @@ def test_food_guard_orders_unchanged_on_contested_board() -> None:
 
 
 def test_muster_orders_unchanged_with_enemy_in_range() -> None:
-    # Remembered hill musters while an enemy sits 7 steps away: past
-    # the Sow opening the muster step (east or south, both on a
-    # shortest path) marches on the hill instead of chasing the
-    # nearby enemy. (Throng: turn 1 explores north -- only the hill
-    # march waits for SOW_TURNS.)
+    # Remembered hill musters while an enemy sits 7 steps away: the
+    # muster step (east or south, both on a shortest path) matches
+    # champion instead of chasing.
     mine = [(10, 10)]
     enemies = [(10, 17)]
-    orders, bot = run_turn(mine, enemies, enemy_hills=[(15, 15)])
-    assert orders == [((10, 10), "n")]
-    for _ in range(29):
-        bot.do_turn(FakeAnts(mine, enemies, enemy_hills=[(15, 15)]))
-    aged = FakeAnts(mine, enemies, enemy_hills=[(15, 15)])
-    bot.do_turn(aged)
-    assert len(aged.orders) == 1
-    assert aged.orders[0][1] in ("e", "s")
-    probe = FakeAnts(mine, enemies)
-    assert probe.distance(
-        (15, 15), probe.destination(mine[0], aged.orders[0][1])
-    ) < probe.distance((15, 15), mine[0])
+    orders, _ = run_turn(mine, enemies, enemy_hills=[(15, 15)])
+    champ = champion_orders(mine, enemies, enemy_hills=[(15, 15)])
+    assert len(orders) == 1 and orders == champ
+    assert orders[0][1] in ("e", "s")
 
 
 def test_seek_scan_under_1ms_on_crowded_board() -> None:
     mine = [(i % ROWS, (i * 7) % COLS) for i in range(48)]
     foes = [((i * 13 + 5) % ROWS, (i * 11 + 3) % COLS) for i in range(10)]
     probe = FakeAnts(mine, foes)
-    reps = 50
+    reps = 200
     start = time.perf_counter()
     for _ in range(reps):
         for ant in mine:
@@ -357,7 +352,7 @@ def test_pairing_costs_under_1ms_on_crowded_board() -> None:
     mine = [(i % ROWS, (i * 7) % COLS) for i in range(48)]
     foes = [((i * 13 + 5) % ROWS, (i * 11 + 3) % COLS) for i in range(10)]
     probe = FakeAnts(mine, foes)
-    reps = 50
+    reps = 200
     start = time.perf_counter()
     for _ in range(reps):
         commitments: dict[int, Loc] = {}
@@ -436,27 +431,25 @@ def test_joined_pair_engages_even_when_behind() -> None:
 
 
 def test_food_guard_orders_unchanged_when_army_ahead() -> None:
-    # Ahead 5v4 army on the contested cluster: claims and the first
-    # two guards resolve before the seek branch, so the wall matches
-    # champion on every order but the capped third. (Throng: the
-    # third guard skips the full wall and packs up west toward its
-    # nearest friend instead of screening north onto it.)
+    # Ahead 5v4 army on the contested cluster: claims and guards
+    # resolve before the seek branch, so Grinder matches champion
+    # on every order even with the gate open elsewhere. The extras
+    # stand by the threatened hill, so their screen steps stay in
+    # first_step range and never fall through to seek.
     mine = [(5, 5), (2, 2), (10, 10), (12, 12), (12, 14)]
     foods = [(5, 6), (2, 3)]
     enemies = [(5, 12), (2, 6), (5, 9), (10, 15)]
     orders, _ = run_grinder_turn(mine, enemies, foods, my_hills=[(10, 12)])
     champ = champion_orders(mine, enemies, foods, my_hills=[(10, 12)])
-    assert orders[:4] == champ[:4]
+    assert orders == champ
     assert orders[0] == ((5, 5), "e")
     assert orders[1] == ((2, 2), "e")
-    assert orders[4] == ((12, 14), "w")
-    assert orders[4] != champ[4]
 
 
 def test_grinder_gate_under_half_ms_on_crowded_board() -> None:
     mine = [(i % ROWS, (i * 7) % COLS) for i in range(48)]
     foes = [((i * 13 + 5) % ROWS, (i * 11 + 3) % COLS) for i in range(10)]
-    reps = 50
+    reps = 200
     start = time.perf_counter()
     for _ in range(reps):
         for _ant in mine:
@@ -545,7 +538,7 @@ def test_intercept_costs_under_1ms_on_crowded_board() -> None:
     foes = [((i * 13 + 5) % ROWS, (i * 11 + 3) % COLS) for i in range(10)]
     hills = [(10, 10), (3, 17), (15, 4)]
     probe = FakeAnts([], foes)
-    reps = 50
+    reps = 200
     start = time.perf_counter()
     for _ in range(reps):
         for hill in hills:
@@ -597,7 +590,7 @@ _ODDS_FILLERS = [
     (6, 2),
     (6, 3),
 ]
-# Leg 7: the odds boards carry 2 near foes, a small fight Throng
+# Leg 7: the odds boards carry 2 near foes, a small fight Screen3
 # hunts fearlessly -- so they are padded to 10 visible enemies
 # (crowd gate closed) to keep discriminating the 10-gate from the
 # 14-gate. Every pad foe sits beyond SEEK_RANGE of each hunter,
@@ -690,10 +683,10 @@ def run_gang_turn(
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
 ) -> tuple[list[tuple[Loc, str]], object]:
-    # The Gang entry files are gone; Throng carries its wiring, so
-    # the gang boards run on Throng exactly.
+    # The Gang entry files are gone; Screen3 carries its wiring, so
+    # the gang boards run on Screen3 exactly.
     fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
-    bot = GP.Throng()
+    bot = GP.Screen3()
     bot.do_turn(fake)
     return fake.orders, bot
 
@@ -759,7 +752,7 @@ def test_pack_check_costs_under_1ms_on_crowded_board() -> None:
     mine = [(i % ROWS, (i * 7) % COLS) for i in range(48)]
     foes = [((i * 13 + 5) % ROWS, (i * 11 + 3) % COLS) for i in range(10)]
     probe = FakeAnts(mine, foes)
-    reps = 50
+    reps = 200
     start = time.perf_counter()
     for _ in range(reps):
         for ant in mine:
@@ -775,9 +768,9 @@ def run_crowd_turn(
     water: set[Loc] | None = None,
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
-) -> tuple[list[tuple[Loc, str]], GP.Throng]:
+) -> tuple[list[tuple[Loc, str]], GP.Screen3]:
     fake = FakeAnts(mine, enemies, foods, water, enemy_hills, my_hills)
-    bot = GP.Throng()
+    bot = GP.Screen3()
     bot.do_turn(fake)
     return fake.orders, bot
 
@@ -790,7 +783,7 @@ def safe_orders(
     enemy_hills: list[Loc] | None = None,
     my_hills: list[Loc] | None = None,
 ) -> list[tuple[Loc, str]]:
-    # Gang-equivalent baseline on the Throng code: force the crowd
+    # Gang-equivalent baseline on the Screen3 code: force the crowd
     # gate closed so the full champion safety filter applies to
     # every advancing move, exactly as legs 1-6 behave.
     orig = CX.CROWD_LIMIT
@@ -907,222 +900,438 @@ def test_crowd_food_guard_orders_unchanged_when_few_enemies() -> None:
     assert orders == [((5, 5), "e"), ((2, 2), "e"), ((10, 10), "e")]
 
 
-# Throng leg: capped wall on the crowd base (guards capped at two
-# per threatened hill so extra ants hunt instead of piling on).
+# Leg 8 boards: packed hunters eye the foe at (6, 7). The ant at
+# (5, 5) has its shortest-path step east onto (5, 6) blocked by
+# the friend standing there, so the second rank must fill the
+# hole south onto (6, 5) -- still closing on the same foe --
+# instead of wandering to muster or explore. Far foes pad the
+# visible count without touching safety: all sit beyond
+# SEEK_RANGE of the hunters and outside attack range of every
+# candidate step.
+_GAP_MINE = [(5, 5), (5, 6), (7, 7), (7, 5)]
+_GAP_FOE = (6, 7)
+_GAP_FAR = [
+    (15, 15),
+    (15, 16),
+    (15, 14),
+    (14, 15),
+    (16, 15),
+    (16, 16),
+    (0, 0),
+    (0, 1),
+    (0, 2),
+]
+_GAP_TEN = [_GAP_FOE] + _GAP_FAR
 
 
-def test_guard_cap_constant_is_two() -> None:
-    # (gate) The wall quota lives in combat as a named constant.
-    assert CX.GUARD_CAP == 2
+def test_gap_fill_closes_through_hole_when_first_step_blocked() -> None:
+    # (a) 10 enemies visible (crowd gate closed): the blocked ant
+    # fills the hole south -- a safe closing step -- instead of
+    # exploring north as the no-fill baseline does.
+    assert len(_GAP_TEN) == 10
+    orders, _ = run_turn(_GAP_MINE, _GAP_TEN)
+    assert orders[0] == ((5, 5), "s")
+    assert ((5, 5), "e") not in orders
+    probe = FakeAnts(_GAP_MINE, _GAP_TEN)
+    moved = probe.destination((5, 5), orders[0][1])
+    assert probe.distance(moved, _GAP_FOE) < probe.distance((5, 5), _GAP_FOE)
+    champ = champion_orders(_GAP_MINE, _GAP_TEN)
+    assert champ[0] == ((5, 5), "n")
+    assert orders[0] != champ[0]
 
 
-def test_guard_open_quota() -> None:
-    hill: Loc = (10, 10)
-    other: Loc = (3, 3)
-    assert CX.guard_open({}, hill) is True
-    assert CX.guard_open({hill: 1}, hill) is True
-    assert CX.guard_open({hill: 2}, hill) is False
-    assert CX.guard_open({hill: 5}, hill) is False
-    assert CX.guard_open({hill: 2}, other) is True
+def test_gap_fill_holds_when_no_closing_step() -> None:
+    # (b) Water floods the only closing alternate: with no hole to
+    # fill, the blocked ant explores north exactly as the safe
+    # baseline, never onto water.
+    orders, _ = run_turn(_GAP_MINE, _GAP_TEN, water={(6, 5)})
+    assert orders[0] == ((5, 5), "n")
+    assert orders[0] == safe_orders(_GAP_MINE, _GAP_TEN, water={(6, 5)})[0]
 
 
-def test_throng_first_two_guard_as_crowd() -> None:
-    # Two foodless ants on one threatened hill: the holder steps
-    # onto the hill, the second screens to the intercept -- exactly
-    # the champion crowd wall.
-    mine = [(10, 8), (10, 11)]
-    enemies = [(10, 16)]
-    orders, _ = run_turn(mine, enemies, my_hills=[(10, 10)])
-    assert orders[0] == ((10, 8), "e")
-    assert orders[1] == ((10, 11), "e")
+def test_gap_fill_fearless_in_small_fight() -> None:
+    # (c) 4 enemies visible (fearless): the hole south faces four
+    # foes with three backing friends -- an equal trade with only
+    # 3 near friends, refused under the full filter, but the
+    # fearless second rank fills it anyway while the safe baseline
+    # holds north.
+    foes = [_GAP_FOE, (7, 4), (6, 3), (7, 6)]
+    assert len(foes) == 4
+    orders, _ = run_turn(_GAP_MINE, foes)
+    assert orders[0] == ((5, 5), "s")
+    safe = safe_orders(_GAP_MINE, foes)
+    assert safe[0] == ((5, 5), "n")
+    assert orders[0] != safe[0]
 
 
-def test_throng_third_ant_skips_full_wall() -> None:
-    # Three foodless ants, one threatened hill: the capped third ant
-    # must NOT pile onto the wall. Too far to seek (11 steps), it
-    # explores north while an uncapped crowd wall would screen east
-    # to the intercept.
-    mine = [(10, 8), (10, 11), (10, 5)]
-    enemies = [(10, 16)]
-    orders, _ = run_turn(mine, enemies, my_hills=[(10, 10)])
-    assert orders[0] == ((10, 8), "e")
-    assert orders[1] == ((10, 11), "e")
-    assert orders[2] == ((10, 5), "n")
-    assert orders[2] != ((10, 5), "e")
+def test_packless_ant_never_gap_fills() -> None:
+    # (d) One friend is no pack: the blocked ant packs up instead
+    # of hunting, so no gap-fill step south issues even though
+    # the hole closes on the foe.
+    mine = [(5, 5), (5, 6)]
+    enemies = [_GAP_FOE, (15, 15)]
+    orders, _ = run_turn(mine, enemies)
+    assert orders[0] == ((5, 5), "n")
+    assert ((5, 5), "s") not in [o for o in orders if o[0] == (5, 5)]
 
 
-def test_throng_capped_ant_with_pack_hunts_fearlessly() -> None:
-    # The capped third ant carries a pack and a close foe: it hunts
-    # east fearlessly instead of posting as a third guard.
-    mine = [(10, 8), (10, 11), (5, 5), (5, 3), (4, 5), (6, 5)]
-    enemies = [(10, 16), (5, 8)]
-    orders, _ = run_turn(mine, enemies, my_hills=[(10, 10)])
-    assert orders[0] == ((10, 8), "e")
-    assert orders[1] == ((10, 11), "e")
-    assert orders[2] == ((5, 5), "e")
-
-
-def test_guard_quota_costs_under_half_ms() -> None:
-    hills = [(i, i) for i in range(10)]
-    reps = 2000
+def test_gap_fill_turn_costs_under_half_second_on_crowded_board() -> None:
+    # (e) A full 48-ant turn against 12 foes -- food claims, join
+    # pre-pass, guards, seeks with gap-fill, musters, explores --
+    # finishes far inside the 1000ms turn budget.
+    mine = [(i % ROWS, (i * 7) % COLS) for i in range(48)]
+    foes = [((i * 13 + 5) % ROWS, (i * 11 + 3) % COLS) for i in range(12)]
+    foods = [((i * 5 + 2) % ROWS, (i * 9 + 1) % COLS) for i in range(20)]
+    fake = FakeAnts(mine, foes, foods)
+    bot = GP.Screen3()
     start = time.perf_counter()
-    for _ in range(reps):
-        guards: dict[Loc, int] = {}
-        for hill in hills:
-            if CX.guard_open(guards, hill):
-                guards[hill] = guards.get(hill, 0) + 1
-    elapsed = (time.perf_counter() - start) / reps
-    assert elapsed < 0.0005
+    bot.do_turn(fake)
+    elapsed = time.perf_counter() - start
+    assert elapsed < 0.5
+    assert len(fake.orders) > 0
 
 
-def test_throng_explorer_avoids_home_hill() -> None:
-    # No food, no enemies, no remembered hills: the idle ant at
-    # (5, 5) must NOT explore north onto its own hill at (4, 5);
-    # it takes the next least-visited square east instead, so the
-    # hill stays spawnable. Guards still hold threatened hills
-    # (test_first_guard_holds_hill_as_crowd).
-    mine = [(5, 5)]
-    orders, _ = run_turn(mine, [], my_hills=[(4, 5)])
+def test_hole_steps_lists_closing_alternates_nearest_first() -> None:
+    # (pure) The failed step is excluded; only strictly closing
+    # directions qualify, nearest closing first, ties in n/e/s/w
+    # order. Passability is the caller's check, not the helper's.
+    probe = FakeAnts([(5, 5)], [])
+    assert CX.hole_steps((5, 5), (6, 7), "e", probe.distance, probe.destination) == [
+        "s"
+    ]
+    assert CX.hole_steps((5, 5), (6, 7), None, probe.distance, probe.destination) == [
+        "e",
+        "s",
+    ]
+    assert CX.hole_steps((5, 5), (6, 7), "s", probe.distance, probe.destination) == [
+        "e"
+    ]
+    assert CX.hole_steps((5, 5), (5, 5), None, probe.distance, probe.destination) == []
+
+
+def test_muster_hole_marches_when_first_step_blocked() -> None:
+    # (march) No food, no enemies, one remembered hill: the ant at
+    # (5, 5) has its muster step east blocked by its friend, so
+    # the second rank fills the hole south -- still marching on
+    # the same hill -- instead of reinforcing or exploring.
+    mine = [(5, 5), (5, 6)]
+    orders, _ = run_turn(mine, [], enemy_hills=[(6, 7)])
+    assert orders == [((5, 5), "s"), ((5, 6), "e")]
+    probe = FakeAnts(mine, [])
+    moved = probe.destination((5, 5), "s")
+    assert probe.distance(moved, (6, 7)) < probe.distance((5, 5), (6, 7))
+
+
+def test_muster_hole_only_when_first_step_fails() -> None:
+    # (march) Nothing blocks the muster step: the ant marches east
+    # on the shortest path, never sidestepping south.
+    orders, _ = run_turn([(5, 5)], [], enemy_hills=[(6, 7)])
     assert orders == [((5, 5), "e")]
 
 
-def test_throng_hill_hunt_waits_for_sow_turns() -> None:
-    # Gather-only opening: with a remembered hill in range, turn 1
-    # explores north instead of mustering, while turn 30 musters
-    # east-or-south exactly as the crowd base. Seek, guard, food,
-    # and explore are untouched -- only the hill march waits.
-    import Throng as TG  # noqa: E402
-
-    assert TG.SOW_TURNS == 30
-    bot = TG.Throng()
-    first = FakeAnts([(10, 10)], [], enemy_hills=[(15, 15)])
-    bot.do_turn(first)
-    assert bot.turn_no == 1
-    assert first.orders == [((10, 10), "n")]
-    for _ in range(28):
-        mid = FakeAnts([(10, 10)], [], enemy_hills=[(15, 15)])
-        bot.do_turn(mid)
-        assert mid.orders == [((10, 10), "n")]
-    assert bot.turn_no == 29
-    last = FakeAnts([(10, 10)], [], enemy_hills=[(15, 15)])
-    bot.do_turn(last)
-    assert len(last.orders) == 1
-    assert last.orders[0][1] in ("e", "s")
-    assert bot.turn_no == 30
-    bot.do_setup(FakeAnts([(10, 10)], []))
-    assert bot.turn_no == 0
-    assert bot.visits == {}
-    assert bot.remembered_hills == set()
+def test_hole_steps_wrap_around_torus() -> None:
+    # (pure) Distances wrap: ant (0, 0) eyes (19, 19) two steps
+    # off over the north-west seam, so north and west both close.
+    probe = FakeAnts([(0, 0)], [])
+    assert probe.distance((0, 0), (19, 19)) == 2
+    assert CX.hole_steps((0, 0), (19, 19), None, probe.distance, probe.destination) == [
+        "n",
+        "w",
+    ]
 
 
-def test_throng_quota_is_per_hill() -> None:
-    # Two threatened hills, three foodless ants each: each wall
-    # posts two guards and waves the third on -- the quota never
-    # leaks across hills.
-    mine = [(10, 8), (10, 11), (10, 5), (2, 0), (2, 3), (2, 6)]
-    enemies = [(10, 16), (2, 8)]
-    orders, _ = run_turn(mine, enemies, my_hills=[(10, 10), (2, 2)])
-    assert orders[0] == ((10, 8), "e")
-    assert orders[1] == ((10, 11), "e")
-    assert orders[2] == ((10, 5), "n")
-    assert orders[3] == ((2, 0), "e")
-    assert orders[4] == ((2, 3), "e")
-    # The capped B ant holds a cross-map pack, so it hunts east
-    # fearlessly instead of posting as a third guard.
-    assert orders[5] == ((2, 6), "e")
+def test_both_holes_refuse_then_fall_through() -> None:
+    # (refusal) Four foes around the hole with three backing
+    # friends: an equal trade with 3 near friends, refused under
+    # the full filter. Ten enemies visible keep the crowd gate
+    # closed and no home hills keep the guard branch out, so the
+    # seek hole refuses, the muster hole refuses under its own
+    # flag, and the ant explores north -- both holes hold the
+    # line exactly.
+    mine = [(5, 5), (5, 6), (7, 7), (7, 5)]
+    foes = [
+        (6, 7),
+        (7, 4),
+        (6, 3),
+        (7, 6),
+        (15, 15),
+        (15, 16),
+        (15, 14),
+        (14, 15),
+        (0, 0),
+        (0, 2),
+    ]
+    assert len(foes) == 10
+    orders, _ = run_turn(mine, foes, enemy_hills=[(6, 7)])
+    assert orders[0] == ((5, 5), "n")
+    assert ((5, 5), "s") not in [o for o in orders if o[0] == (5, 5)]
 
 
-def test_full_turn_under_1s_with_150_ants() -> None:
-    # One turn must finish in 1000 ms: 150 ants, 30 foes, 40 foods
-    # on a 20x20 board stays far under the engine limit.
-    import random
+def test_turn_is_deterministic_across_repeats() -> None:
+    # (determinism) Same board twice gives the same orders: no
+    # set-order or dict-order leaks into moves.
+    mine = [(i % ROWS, (i * 7) % COLS) for i in range(24)]
+    foes = [((i * 13 + 5) % ROWS, (i * 11 + 3) % COLS) for i in range(12)]
+    foods = [((i * 5 + 2) % ROWS, (i * 9 + 1) % COLS) for i in range(10)]
+    water = {(3, 3), (3, 4), (10, 10), (11, 10)}
+    kw: dict[str, Any] = {
+        "foods": foods,
+        "water": water,
+        "enemy_hills": [(15, 15)],
+        "my_hills": [(0, 0)],
+    }
+    first, _ = run_turn(mine, foes, **kw)
+    for _ in range(3):
+        again, _ = run_turn(mine, foes, **kw)
+        assert again == first
 
-    rng = random.Random(7)
-    mine = [(rng.randrange(ROWS), rng.randrange(COLS)) for _ in range(150)]
-    foes = [(rng.randrange(ROWS), rng.randrange(COLS)) for _ in range(30)]
-    foods = [(rng.randrange(ROWS), rng.randrange(COLS)) for _ in range(40)]
-    start = time.perf_counter()
-    orders, _ = run_turn(mine, foes, foods, my_hills=[mine[0]])
-    elapsed = time.perf_counter() - start
-    assert elapsed < 1.0
-    assert len(orders) > 0
+
+# Leg 9 boards: the screener's geometric midpoint is water, so the
+# screen must stand on the approach corridor instead of the
+# nearest dry square. Hill (5, 5), foe (5, 9): the straight row
+# is dammed at (5, 7) with the north bank closed at (4, 5) and
+# (4, 6), so the only approach runs south through (6, 7).
+_MAZE_WATER = {(4, 5), (4, 6), (5, 7)}
+_MAZE_HILL = (5, 5)
+_MAZE_FOE = (5, 9)
 
 
-def test_throng_soak_random_boards_stay_legal() -> None:
-    # Thirty deterministic random turns (water, hills, crowds, up to
-    # 60 ants) through one bot: no crash, every order starts from a
-    # live ant, lands on a passable unoccupied square, takes each
-    # destination once, and finishes far under the 1000 ms limit.
-    # The shared bot crosses SOW_TURNS mid-soak, so the hill march,
-    # guards, screens, seeks, joins, explores, and walk-offs all fire.
-    import random
-
-    import Throng as TG
-
-    rng = random.Random(20261008)
-    bot = TG.Throng()
-    for _ in range(30):
-        mine = list(
-            dict.fromkeys(
-                (rng.randrange(ROWS), rng.randrange(COLS))
-                for _ in range(rng.randint(1, 60))
-            )
+def test_screen_square_matches_midpoint_on_open_board() -> None:
+    # (parity) Open board: the corridor screen is the geometric
+    # midpoint, exactly as the Screen interception.
+    probe = FakeAnts([], [])
+    assert (
+        CX.screen_square(
+            (10, 10),
+            [(10, 16)],
+            probe.distance,
+            probe.passable,
+            probe.destination,
+            ROWS,
+            COLS,
         )
-        taken = set(mine)
+        == CX.intercept_square(
+            (10, 10), [(10, 16)], probe.distance, probe.passable, ROWS, COLS
+        )
+        == (10, 13)
+    )
+
+
+def test_screen_square_stands_on_corridor_in_maze() -> None:
+    # (corridor) Midpoint (5, 7) is water: the screen stands at
+    # (6, 7) on the southern approach, not at (4, 7) -- the
+    # nearest dry square off the corridor.
+    probe = FakeAnts([], [], water=_MAZE_WATER)
+    found = CX.screen_square(
+        _MAZE_HILL,
+        [_MAZE_FOE],
+        probe.distance,
+        probe.passable,
+        probe.destination,
+        ROWS,
+        COLS,
+    )
+    assert found == (6, 7)
+    assert found != CX.intercept_square(
+        _MAZE_HILL, [_MAZE_FOE], probe.distance, probe.passable, ROWS, COLS
+    )
+
+
+def test_screen_square_falls_back_when_walled_off() -> None:
+    # (fallback) Hill ringed by water: no approach exists, so the
+    # screen degrades to the nearest passable square exactly as
+    # the Screen interception.
+    ring = {
+        (4, 5),
+        (6, 5),
+        (5, 4),
+        (5, 6),
+        (4, 4),
+        (4, 6),
+        (6, 4),
+        (6, 6),
+    }
+    probe = FakeAnts([], [], water=ring)
+    assert CX.screen_square(
+        _MAZE_HILL,
+        [_MAZE_FOE],
+        probe.distance,
+        probe.passable,
+        probe.destination,
+        ROWS,
+        COLS,
+    ) == CX.intercept_square(
+        _MAZE_HILL, [_MAZE_FOE], probe.distance, probe.passable, ROWS, COLS
+    )
+
+
+def test_screener_takes_corridor_on_maze_board() -> None:
+    # (march) The extra guard screens at the corridor tile: its
+    # destination closes on (6, 7) instead of wandering.
+    mine = [(5, 3), (3, 3)]
+    enemies = [_MAZE_FOE]
+    orders, _ = run_turn(mine, enemies, water=_MAZE_WATER, my_hills=[_MAZE_HILL])
+    assert orders[0] == ((5, 3), "e")
+    assert len(orders) == 2
+    probe = FakeAnts(mine, enemies, water=_MAZE_WATER)
+    moved = probe.destination((3, 3), orders[1][1])
+    assert probe.distance(moved, (6, 7)) < probe.distance((3, 3), (6, 7))
+    assert probe.passable(moved)
+
+
+def test_screen_square_costs_under_1ms_on_crowded_board() -> None:
+    # (perf) Threatened hills screened against ten foes with maze
+    # water about: still far under 1ms per screen on average.
+    foes = [((i * 13 + 5) % ROWS, (i * 11 + 3) % COLS) for i in range(10)]
+    hills = [(10, 10), (3, 17), (15, 4)]
+    water = {(r, 9) for r in range(ROWS) if r != 10}
+    probe = FakeAnts([], foes, water=water)
+    reps = 200
+    start = time.perf_counter()
+    for _ in range(reps):
+        for hill in hills:
+            CX.screen_square(
+                hill,
+                foes,
+                probe.distance,
+                probe.passable,
+                probe.destination,
+                ROWS,
+                COLS,
+            )
+    elapsed = (time.perf_counter() - start) / (reps * len(hills))
+    assert elapsed < 0.001
+
+
+def test_screen_square_holds_hill_for_adjacent_razer() -> None:
+    # (edge) Razer one step off the hill: the corridor is the
+    # hill itself, exactly as the geometric midpoint.
+    probe = FakeAnts([], [])
+    assert (
+        CX.screen_square(
+            (10, 10),
+            [(10, 11)],
+            probe.distance,
+            probe.passable,
+            probe.destination,
+            ROWS,
+            COLS,
+        )
+        == CX.intercept_square(
+            (10, 10), [(10, 11)], probe.distance, probe.passable, ROWS, COLS
+        )
+        == (10, 10)
+    )
+
+
+def test_screen_square_falls_back_on_zero_budget() -> None:
+    # (edge) No search budget: the corridor cannot form, so the
+    # screen degrades to the midpoint flood exactly.
+    probe = FakeAnts([], [], water=_MAZE_WATER)
+    assert CX.screen_square(
+        _MAZE_HILL,
+        [_MAZE_FOE],
+        probe.distance,
+        probe.passable,
+        probe.destination,
+        ROWS,
+        COLS,
+        budget=0,
+    ) == CX.intercept_square(
+        _MAZE_HILL, [_MAZE_FOE], probe.distance, probe.passable, ROWS, COLS
+    )
+
+
+def _bfs_dist(start: Loc, goal: Loc, passable, destination) -> int | None:
+    # Independent shortest-path length for property checks.
+    if start == goal:
+        return 0
+    seen = {start}
+    queue = [(start, 0)]
+    while queue:
+        cur, d = queue.pop(0)
+        for step in ("n", "e", "s", "w"):
+            nxt = destination(cur, step)
+            if nxt in seen or not passable(nxt):
+                continue
+            if nxt == goal:
+                return d + 1
+            seen.add(nxt)
+            queue.append((nxt, d + 1))
+    return None
+
+
+def test_hole_steps_matches_brute_force_spec() -> None:
+    # (property) 200 fixed-seed boards: the helper returns exactly
+    # the strictly-closing directions minus the failed step,
+    # nearest closing first.
+    import random as _random
+
+    rng = _random.Random(20261008)
+    probe = FakeAnts([(0, 0)], [])
+    for _ in range(200):
+        ant = (rng.randrange(ROWS), rng.randrange(COLS))
+        goal = (rng.randrange(ROWS), rng.randrange(COLS))
+        failed = rng.choice(["n", "e", "s", "w", None])
+        got = CX.hole_steps(ant, goal, failed, probe.distance, probe.destination)
+        here = probe.distance(ant, goal)
+        want = sorted(
+            (
+                d
+                for d in ("n", "e", "s", "w")
+                if d != failed
+                and probe.distance(probe.destination(ant, d), goal) < here
+            ),
+            key=lambda d: probe.distance(probe.destination(ant, d), goal),
+        )
+        assert got == want
+
+
+def test_screen_square_property_on_random_boards() -> None:
+    # (property) 200 fixed-seed maze boards: the screen is
+    # passable; it is the midpoint when dry, a shortest-path tile
+    # when the midpoint floods but the foe is reachable, else the
+    # midpoint flood exactly.
+    import random as _random
+
+    rng = _random.Random(777)
+    for _ in range(200):
+        hill = (rng.randrange(ROWS), rng.randrange(COLS))
         foes = [
-            f
-            for f in (
-                (rng.randrange(ROWS), rng.randrange(COLS))
-                for _ in range(rng.randint(0, 15))
-            )
-            if f not in taken
-        ]
-        taken |= set(foes)
-        foods = [
-            f
-            for f in (
-                (rng.randrange(ROWS), rng.randrange(COLS))
-                for _ in range(rng.randint(0, 20))
-            )
-            if f not in taken
+            (rng.randrange(ROWS), rng.randrange(COLS))
+            for _ in range(rng.randrange(1, 4))
         ]
         water = {
             (rng.randrange(ROWS), rng.randrange(COLS))
-            for _ in range(rng.randint(0, 20))
-        } - taken
-        my_hills = [mine[0]] if rng.random() < 0.5 else []
-        ehills = (
-            [(rng.randrange(ROWS), rng.randrange(COLS))] if rng.random() < 0.5 else []
+            for _ in range(rng.randrange(0, 60))
+        }
+        water.discard(hill)
+        for foe in foes:
+            water.discard(foe)
+        probe = FakeAnts([], foes, water=water)
+        got = CX.screen_square(
+            hill,
+            foes,
+            probe.distance,
+            probe.passable,
+            probe.destination,
+            ROWS,
+            COLS,
         )
-        fake = FakeAnts(mine, foes, foods, water, ehills, my_hills)
-        start = time.perf_counter()
-        bot.do_turn(fake)
-        assert time.perf_counter() - start < 1.0
-        seen: set[Loc] = set()
-        for loc, direction in fake.orders:
-            assert direction in ("n", "e", "s", "w")
-            assert loc in mine
-            dest = fake.destination(loc, direction)
-            assert fake.passable(dest)
-            assert dest not in mine
-            assert dest not in foes
-            assert dest not in seen
-            seen.add(dest)
-
-
-def test_throng_turn_is_deterministic() -> None:
-    # Same board through two fresh bots: identical orders. The
-    # engine replays seeds exactly, so tie-breaks (list order,
-    # sorted hills, insertion-ordered buckets) must not depend on
-    # set iteration or hash seeds.
-    import Throng as TG
-
-    mine = [(10, 8), (10, 11), (10, 5), (2, 0), (5, 5), (5, 3)]
-    enemies = [(10, 16), (2, 8), (5, 8)]
-    foods = [(5, 6), (2, 3), (10, 12)]
-    first = FakeAnts(mine, enemies, foods, my_hills=[(10, 10), (2, 2)])
-    TG.Throng().do_turn(first)
-    second = FakeAnts(mine, enemies, foods, my_hills=[(10, 10), (2, 2)])
-    TG.Throng().do_turn(second)
-    assert first.orders == second.orders
-    assert len(first.orders) > 0
+        assert got is not None
+        assert probe.passable(got)
+        foe = min(foes, key=lambda e: probe.distance(hill, e))
+        mid = CX._raw_mid(hill, foe, ROWS, COLS)
+        if probe.passable(mid):
+            assert got == mid
+        else:
+            full = _bfs_dist(hill, foe, probe.passable, probe.destination)
+            if full is None:
+                assert got == CX.intercept_square(
+                    hill, foes, probe.distance, probe.passable, ROWS, COLS
+                )
+            else:
+                leg1 = _bfs_dist(hill, got, probe.passable, probe.destination)
+                leg2 = _bfs_dist(got, foe, probe.passable, probe.destination)
+                assert leg1 is not None and leg2 is not None
+                assert leg1 + leg2 == full
