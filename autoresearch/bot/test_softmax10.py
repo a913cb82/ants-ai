@@ -165,10 +165,7 @@ def test_denial_cluster_still_draws_two_claims() -> None:
     far = (0, 19)
     foes = [(10, 9), (9, 10), (11, 10)]
     target = SM10.assign_food_targets(mine, cluster + [far], foes, _dist, ROWS, COLS)
-    claims = sorted(target.values())
-    assert claims == sorted(cluster) or set(claims) == set(cluster + [far])
-    cluster_claims = [f for f in target.values() if f in cluster]
-    assert len(cluster_claims) == 2
+    assert target == {2: (10, 11), 1: (10, 10), 0: (0, 19)}
 
 
 def test_explore_order_prefers_unvisited() -> None:
