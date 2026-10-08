@@ -1,158 +1,65 @@
 #!/usr/bin/env python
-"""Codetiger precomputed-resolution combat (Tables entry).
+"""Softmax entry: champion economy with nhaehnle soft 1-ply combat.
 
-Faithful port of the codetiger Python datapoint
-(autoresearch/docs/RESEARCH.md, "codetiger Python time datapoint"):
-full battle search is infeasible in Python under the turn limit, so
-local battle outcomes are PRECOMPUTED once at setup into lookup
-tables derived from the engine's focus-battle rules (an ant dies
-iff its minimum enemy nearby-count is <= its own nearby-count).
-Per-turn contact decisions
-are pure table lookups -- the turn loop never resolves a battle
-live per ant. Friendless 1v1 sacrifices (mutual-death trades) are
-allowed ONLY within radius 14 of a held home hill, hiding the
-replacement cost; elsewhere they always refuse.
+Economy (clustered denial food), threatened-hill guard with
+off-hill screening, muster, reinforce, explore, and walk-off are
+the champion Crowd logic byte-identical apart from the class name
+and the removed combat import. Only the combat core is replaced.
 
-Board economy (clustered denial food claims), threatened-hill
-detection, guard (hold plus off-hill screen), muster, reinforce,
-explore, and walk-off match champion Crowd; only the combat core
-(majority filter, committed join, grinder army gate,
-crowd-fearless, influence) is replaced by the table lookup plus
-the hill-gated trade rule. Self-contained: stdlib plus ants.py
-only, never combat.py.
+Nhaehnle tactical combat (top 20, RESEARCH.md row "nhaehnle
+tactical 1-ply max-min"):
+- Carve combat submaps (connected components linked within
+  COMBAT_LINK steps), no lookahead beyond this turn.
+- 1-ply max-min over SAMPLED enemy move combos (seeded RNG,
+  N_ENEMY_SAMPLES per fight), not exhaustive best-reply and not
+  a1k0n-style provisional sampling. Each own joint move scores
+  its worst case over the samples; the argmax issues.
+- Overvalue own ants by default: OWN_ANT_WEIGHT = 1.5, so an
+  equal 1-for-1 scores 1 - 1.5 = -0.5.
+- Aggressive mode fires probabilistically with the exact
+  logistic p = 1/(1+exp(-(a*ln(own/enemy)+b))), a = LOGISTIC_A =
+  2.0, b = LOGISTIC_B = 0.0. Hence 1v1 -> 0.5, 2v1 -> 0.8,
+  1v2 -> 0.2. Aggressive accepts equal trades (worst score >=
+  1 - OWN_ANT_WEIGHT); passive refuses them (requires score > 0)
+  while still refusing strictly losing fights in both modes.
+- Nhaehnle tried a1k0n sampling and found it worse than this
+  tactical code; the min-over-samples rule below is the pinned
+  distinction (robust max-min, never first-sample or average).
 """
 
+import math
+import random
 from collections import deque
 from collections.abc import Callable
+from itertools import product
 
 from ants import Ants
 
 Loc = tuple[int, int]
 DistFn = Callable[[Loc, Loc], int]
+PassFn = Callable[[Loc], bool]
+DestFn = Callable[[Loc, str], Loc]
 
 CLUSTER_R = 8
 DENIAL_ENEMIES = 3
 DENIAL_CLAIMS = 2
 _CELL = CLUSTER_R + 1
 
-# Codetiger combat core: precomputed battle-resolution tables.
-SEEK_RANGE = 8
-HILL_SACRIFICE_RADIUS = 14
-TABLE_MAX = 32
-
-# Outcome classes for one planned contact step, keyed by
-# (own ants in attack radius including the mover, enemy ants in
-# attack radius). Derived once from the focus-battle rule under
-# mutual contact (each side's nearby-count is the other side's
-# ant count):
-# we die iff OURS <= THEIRS, they die iff THEIRS <= OURS.
-SAFE = "SAFE"
-WIN = "WIN"
-TRADE = "TRADE"
-LOSE = "LOSE"
-
-
-def build_battle_table(max_side: int = TABLE_MAX) -> dict[tuple[int, int], str]:
-    """Precompute local battle outcomes for every count pair.
-
-    Runs once at setup: (ours, theirs) with ours including the
-    moving ant. No enemies means no battle (SAFE); otherwise more
-    ants wins clean (WIN), equal counts die together (TRADE), and
-    fewer dies alone (LOSE). Pure: integer compares, no board.
-    """
-    table: dict[tuple[int, int], str] = {}
-    for ours in range(max_side + 1):
-        for theirs in range(max_side + 1):
-            if theirs == 0:
-                table[(ours, theirs)] = SAFE
-            elif ours > theirs:
-                table[(ours, theirs)] = WIN
-            elif ours == theirs:
-                table[(ours, theirs)] = TRADE
-            else:
-                table[(ours, theirs)] = LOSE
-    return table
-
-
-def lookup_verdict(table: dict[tuple[int, int], str], ours: int, theirs: int) -> str:
-    """Outcome class for one contact: a pure dict lookup.
-
-    Counts clamp to the table span so crowded boards never raise
-    KeyError; the clamped verdict still follows the rule (capped
-    equal stays TRADE, capped superiority stays WIN). Pure: dict
-    lookup plus clamps, far under 0.1ms.
-    """
-    ours = min(max(ours, 0), TABLE_MAX)
-    theirs = min(max(theirs, 0), TABLE_MAX)
-    return table[(ours, theirs)]
-
-
-def _nearest_seek_enemy(
-    ant_loc: Loc, enemy_locs: list[Loc], distance: DistFn
-) -> Loc | None:
-    """Nearest visible enemy within SEEK_RANGE steps, else None.
-
-    Ties keep the first enemy in list order so the branch is
-    deterministic. Pure: no board state, no side effects.
-    """
-    best: Loc | None = None
-    best_d = SEEK_RANGE + 1
-    for foe in enemy_locs:
-        d = distance(ant_loc, foe)
-        if d <= SEEK_RANGE and d < best_d:
-            best_d = d
-            best = foe
-    return best
-
-
-def _intercept_square(
-    hill: Loc,
-    enemy_locs: list[Loc],
-    distance: DistFn,
-    passable: Callable[[Loc], bool],
-    rows: int,
-    cols: int,
-) -> Loc | None:
-    """Off-hill intercept for one threatened home hill.
-
-    Screens the razer instead of piling onto the hill: take the
-    nearest enemy to the hill, halve the toroidal approach, and
-    return the nearest passable square to that midpoint (the
-    midpoint itself when open). Ties keep the first enemy in list
-    order so the branch is deterministic. No enemies -- or no
-    passable square on the whole board -- returns None so the
-    caller holds the champion fallback. Pure: no board state, no
-    side effects.
-    """
-    if not enemy_locs or rows <= 0 or cols <= 0:
-        return None
-    foe = min(enemy_locs, key=lambda e: distance(hill, e))
-    dr = foe[0] - hill[0]
-    if dr > rows // 2:
-        dr -= rows
-    elif dr < -(rows // 2):
-        dr += rows
-    dc = foe[1] - hill[1]
-    if dc > cols // 2:
-        dc -= cols
-    elif dc < -(cols // 2):
-        dc += cols
-    mid = ((hill[0] + int(dr / 2)) % rows, (hill[1] + int(dc / 2)) % cols)
-    if passable(mid):
-        return mid
-    seen = {mid}
-    queue: deque[Loc] = deque([mid])
-    while queue:
-        cur = queue.popleft()
-        for step in ((-1, 0), (0, 1), (1, 0), (0, -1)):
-            nxt = ((cur[0] + step[0]) % rows, (cur[1] + step[1]) % cols)
-            if nxt in seen:
-                continue
-            seen.add(nxt)
-            if passable(nxt):
-                return nxt
-            queue.append(nxt)
-    return None
+# Own-ant overvaluation: each own death costs this much against
+# one enemy kill. > 1 preserves forces; equal trades score
+# negative so passive play refuses them.
+OWN_ANT_WEIGHT = 1.5
+# Logistic aggression gate in ln(own/enemy): p covers 1v1 at 0.5,
+# 2v1 at 0.8, 1v2 at 0.2 with a=2, b=0.
+LOGISTIC_A = 2.0
+LOGISTIC_B = 0.0
+# Sampled enemy joint moves evaluated per fight (seeded).
+N_ENEMY_SAMPLES = 8
+# Submap carve radius: own/enemy ants linked within this many
+# steps belong to one fight.
+COMBAT_LINK = 6
+_DIRS = ("n", "e", "s", "w")
+_AIM = {"n": (-1, 0), "e": (0, 1), "s": (1, 0), "w": (0, -1)}
 
 
 def _scan_board(
@@ -388,25 +295,314 @@ def assign_food_targets(
     return target
 
 
+def aggressive_probability(
+    own: int,
+    enemy: int,
+    a: float = LOGISTIC_A,
+    b: float = LOGISTIC_B,
+) -> float:
+    """Exact logistic gate in ln(own/enemy): 1/(1+exp(-(a*ln+b)))."""
+    if enemy <= 0:
+        return 1.0
+    if own <= 0:
+        return 0.0
+    return 1.0 / (1.0 + math.exp(-(a * math.log(own / enemy) + b)))
+
+
+def roll_aggressive(
+    own: int,
+    enemy: int,
+    rng: random.Random,
+    a: float = LOGISTIC_A,
+    b: float = LOGISTIC_B,
+) -> bool:
+    """Probabilistic aggression: one logistic coin flip per fight."""
+    return rng.random() < aggressive_probability(own, enemy, a, b)
+
+
+def toroidal_sq(a: Loc, b: Loc, rows: int, cols: int) -> int:
+    """Squared toroidal distance, same wrap as Ants.distance."""
+    dr = abs(a[0] - b[0])
+    dr = min(dr, rows - dr) if rows else dr
+    dc = abs(a[1] - b[1])
+    dc = min(dc, cols - dc) if cols else dc
+    return dr * dr + dc * dc
+
+
+def resolve_exchange(
+    own_after: list[Loc],
+    enemy_after: list[Loc],
+    attack_r2: int,
+    rows: int,
+    cols: int,
+) -> tuple[int, int]:
+    """Symmetric 1-turn resolution: an ant dies iff any foe is near.
+
+    Each own ant dies iff some enemy lands within attackradius2 of
+    it, and vice versa, so a lone pair kills both (focus 1v1).
+    Pure: no board state, no side effects.
+    """
+    own_dead = 0
+    for o in own_after:
+        for e in enemy_after:
+            if toroidal_sq(o, e, rows, cols) <= attack_r2:
+                own_dead += 1
+                break
+    enemy_dead = 0
+    for e in enemy_after:
+        for o in own_after:
+            if toroidal_sq(o, e, rows, cols) <= attack_r2:
+                enemy_dead += 1
+                break
+    return own_dead, enemy_dead
+
+
+def exchange_score(
+    own_dead: int, enemy_dead: int, own_weight: float = OWN_ANT_WEIGHT
+) -> float:
+    """Overvalued trade score: enemy kills minus weighted own dead."""
+    return float(enemy_dead) - own_weight * float(own_dead)
+
+
+def should_accept(
+    own_dead: int, enemy_dead: int, aggressive: bool, own_weight: float = OWN_ANT_WEIGHT
+) -> bool:
+    """Trade gate: aggressive takes equal trades, passive refuses.
+
+    Passive needs a strictly positive overvalued score; aggressive
+    accepts any worst case down to the equal-trade score
+    (1 - own_weight), still refusing strictly losing fights.
+    Pure: integer counts plus compare, no side effects.
+    """
+    score = exchange_score(own_dead, enemy_dead, own_weight)
+    if aggressive:
+        return score >= (1.0 - own_weight) - 1e-9
+    return score > 0.0
+
+
+def legal_dests(loc: Loc, rows: int, cols: int, passable: PassFn) -> list[Loc]:
+    """Stay plus passable orthogonal steps, deterministic order."""
+    out = [loc]
+    for d in _DIRS:
+        dr, dc = _AIM[d]
+        nxt = ((loc[0] + dr) % rows, (loc[1] + dc) % cols)
+        if passable(nxt):
+            out.append(nxt)
+    return out
+
+
+def all_enemy_joints(
+    enemy_locs: list[Loc], rows: int, cols: int, passable: PassFn, destination: DestFn
+) -> list[list[Loc]]:
+    """Exhaustive enemy joint moves (best-reply reference for tests)."""
+    _ = destination
+    options = [legal_dests(e, rows, cols, passable) for e in enemy_locs]
+    if not options:
+        return []
+    return [list(joint) for joint in product(*options)]
+
+
+def sample_enemy_joints(
+    enemy_locs: list[Loc],
+    rows: int,
+    cols: int,
+    passable: PassFn,
+    destination: DestFn,
+    rng: random.Random,
+    k: int = N_ENEMY_SAMPLES,
+) -> list[list[Loc]]:
+    """K seeded enemy joint moves, uniform per ant over legal steps."""
+    _ = destination
+    options = [legal_dests(e, rows, cols, passable) for e in enemy_locs]
+    joints: list[list[Loc]] = []
+    for _ in range(k):
+        joints.append([rng.choice(opts) for opts in options])
+    return joints
+
+
+def worst_score_for_own(
+    own_joint: list[Loc],
+    enemy_samples: list[list[Loc]],
+    attack_r2: int,
+    rows: int,
+    cols: int,
+    own_weight: float = OWN_ANT_WEIGHT,
+) -> float:
+    """Min over the samples (robust max-min), never mean or first."""
+    if not enemy_samples:
+        return 0.0
+    worst = math.inf
+    for sample in enemy_samples:
+        own_dead = 0
+        for o in own_joint:
+            ors = o[0]
+            ocs = o[1]
+            for e in sample:
+                dr = ors - e[0]
+                if dr < 0:
+                    dr = -dr
+                if rows:
+                    dr = min(dr, rows - dr)
+                dc = ocs - e[1]
+                if dc < 0:
+                    dc = -dc
+                if cols:
+                    dc = min(dc, cols - dc)
+                if dr * dr + dc * dc <= attack_r2:
+                    own_dead += 1
+                    break
+        enemy_dead = 0
+        for e in sample:
+            ers = e[0]
+            ecs = e[1]
+            for o in own_joint:
+                dr = ers - o[0]
+                if dr < 0:
+                    dr = -dr
+                if rows:
+                    dr = min(dr, rows - dr)
+                dc = ecs - o[1]
+                if dc < 0:
+                    dc = -dc
+                if cols:
+                    dc = min(dc, cols - dc)
+                if dr * dr + dc * dc <= attack_r2:
+                    enemy_dead += 1
+                    break
+        score = float(enemy_dead) - own_weight * float(own_dead)
+        if score < worst:
+            worst = score
+    return worst
+
+
+def choose_own_joint(
+    own_locs: list[Loc],
+    enemy_locs: list[Loc],
+    attack_r2: int,
+    rows: int,
+    cols: int,
+    passable: PassFn,
+    destination: DestFn,
+    enemy_samples: list[list[Loc]],
+    own_weight: float = OWN_ANT_WEIGHT,
+) -> tuple[list[Loc], float]:
+    """Argmax own joint over the min-over-samples score, 1-ply only.
+
+    Exhaustive joint enumeration at 4 or fewer own ants (distinct
+    destinations only); sequential greedy fixing above that, so
+    crowded fights stay far under budget. Ties keep the first
+    joint, so play is deterministic. No lookahead.
+    """
+    _ = destination
+    _ = enemy_locs
+    options = [legal_dests(o, rows, cols, passable) for o in own_locs]
+    if not options:
+        return [], 0.0
+    if len(options) <= 4:
+        best: list[Loc] | None = None
+        best_score = -math.inf
+        for joint in product(*options):
+            candidate = list(joint)
+            if len(set(candidate)) < len(candidate):
+                continue
+            score = worst_score_for_own(
+                candidate, enemy_samples, attack_r2, rows, cols, own_weight
+            )
+            if score > best_score:
+                best_score = score
+                best = candidate
+        if best is None:
+            best = list(own_locs)
+            best_score = worst_score_for_own(
+                best, enemy_samples, attack_r2, rows, cols, own_weight
+            )
+        return best, best_score
+    current = list(own_locs)
+    current_score = worst_score_for_own(
+        current, enemy_samples, attack_r2, rows, cols, own_weight
+    )
+    for i, opts in enumerate(options):
+        placed = current[:]
+        local_best = current[i]
+        local_score = current_score
+        for cand in opts:
+            trial = current[:]
+            trial[i] = cand
+            if len(set(trial)) < len(trial):
+                continue
+            score = worst_score_for_own(
+                trial, enemy_samples, attack_r2, rows, cols, own_weight
+            )
+            if score > local_score:
+                local_score = score
+                local_best = cand
+        placed[i] = local_best
+        current = placed
+        current_score = worst_score_for_own(
+            current, enemy_samples, attack_r2, rows, cols, own_weight
+        )
+    return current, current_score
+
+
+def carve_fights(
+    own_locs: list[Loc],
+    enemy_locs: list[Loc],
+    distance: DistFn,
+    link: int = COMBAT_LINK,
+) -> list[tuple[list[Loc], list[Loc]]]:
+    """Connected components over own+enemy ants linked within link.
+
+    Two ants join one fight when their distance is link or less,
+    transitively, so isolated duels solve alone and crowds solve
+    together. Pure: no board state, no side effects.
+    """
+    nodes: list[tuple[str, int]] = [("o", i) for i in range(len(own_locs))]
+    nodes += [("e", i) for i in range(len(enemy_locs))]
+    parent = list(range(len(nodes)))
+
+    def find(a: int) -> int:
+        while parent[a] != a:
+            parent[a] = parent[parent[a]]
+            a = parent[a]
+        return a
+
+    def union(a: int, b: int) -> None:
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[max(ra, rb)] = min(ra, rb)
+
+    def loc_of(node: tuple[str, int]) -> Loc:
+        kind, i = node
+        return own_locs[i] if kind == "o" else enemy_locs[i]
+
+    for i in range(len(nodes)):
+        for j in range(i + 1, len(nodes)):
+            if distance(loc_of(nodes[i]), loc_of(nodes[j])) <= link:
+                union(i, j)
+    groups: dict[int, tuple[list[Loc], list[Loc]]] = {}
+    for idx, node in enumerate(nodes):
+        root = find(idx)
+        entry = groups.setdefault(root, ([], []))
+        kind, i = node
+        if kind == "o":
+            entry[0].append(own_locs[i])
+        else:
+            entry[1].append(enemy_locs[i])
+    fights = [(o, e) for o, e in groups.values() if o and e]
+    fights.sort(key=lambda fight: (sorted(fight[0]), sorted(fight[1])))
+    return fights
+
+
 # define a class with a do_turn method
 # the Ants.run method will parse and update bot input
 # it will also run the do_turn method for us
-class Tables:
+class Softmax:
     def __init__(self):
         # define class level variables, will be remembered between turns
         self.visits: dict[tuple[int, int], int] = {}
         self.remembered_hills: set[tuple[int, int]] = set()
         self.prev_enemies: list[tuple[int, int]] = []
-        # Precomputed battle-resolution tables (codetiger): built
-        # once here so tests driving do_turn directly get lookups.
-        self.battle_table = build_battle_table()
-        # Cached per-turn board state for contact_verdict.
-        self._ants_list: list[Loc] = []
-        self._enemy_locs: list[Loc] = []
-        self._home_hills: list[Loc] = []
-        self._attack_r2: int = 5
-        self._rows: int = 0
-        self._cols: int = 0
+        self._turn = 0
 
     # do_setup is run once at the start of the game
     # after the bot has received the game settings
@@ -416,58 +612,19 @@ class Tables:
         self.visits = {}
         self.remembered_hills = set()
         self.prev_enemies = []
-        self.battle_table = build_battle_table()
-        self._ants_list = []
-        self._enemy_locs = []
-        self._home_hills = []
-        self._attack_r2 = 5
-        self._rows = 0
-        self._cols = 0
-
-    def _sq(self, a: Loc, b: Loc) -> int:
-        # Squared toroidal distance for attack-range checks.
-        rows, cols = self._rows, self._cols
-        if rows <= 0 or cols <= 0:
-            return 10**9
-        dr = abs(a[0] - b[0])
-        dr = min(dr, rows - dr)
-        dc = abs(a[1] - b[1])
-        dc = min(dc, cols - dc)
-        return dr * dr + dc * dc
-
-    def contact_verdict(self, dest: Loc, self_loc: Loc) -> str:
-        """Outcome class for stepping onto dest: a pure table lookup.
-
-        Counts own (excluding the mover) and enemy ants within
-        attack radius of dest, then looks the pair up in the
-        setup-precomputed battle table. Never re-derives battle
-        math live: dict-lookup scale, far under 0.1ms per call.
-        """
-        foes = 0
-        for e in self._enemy_locs:
-            if self._sq(dest, e) <= self._attack_r2:
-                foes += 1
-        if foes == 0:
-            return SAFE
-        pals = 0
-        for f in self._ants_list:
-            if f == self_loc:
-                continue
-            if self._sq(dest, f) <= self._attack_r2:
-                pals += 1
-        return lookup_verdict(self.battle_table, pals + 1, foes)
+        self._turn = 0
 
     # do turn is run once per turn
     # the ants class has the game state and is updated by the Ants.run method
     # it also has several helper methods to use
     def do_turn(self, ants: Ants):
-        # Tables: champion Crowd's economy, muster, guard, explore,
-        # and walk-off, with the combat core replaced by codetiger
-        # precomputed battle tables. WIN and empty squares advance;
-        # mutual TRADE sacrifices go through only under home-hill
-        # cover (within HILL_SACRIFICE_RADIUS); LOSE and open-field
-        # trades fall through to the next branch. Food, guard,
-        # muster, reinforce, explore, and walk-off are champion.
+        # Softmax: champion economy/muster/guard/explore with an
+        # nhaehnle tactical combat core. Fights are carved into
+        # submaps once per turn; each fight runs 1-ply max-min over
+        # K seeded enemy samples with overvalued own ants, and a
+        # logistic aggression coin flip decides whether equal
+        # trades may issue. Food, guard, muster, reinforce,
+        # explore, and walk-off are champion.
         foods = ants.food()
         ants_list = ants.my_ants()
         my_set = set(ants_list)
@@ -517,30 +674,78 @@ class Tables:
         ]
         attack_r2 = ants.attackradius2 or 5
         rows, cols = ants.rows, ants.cols
-        # Cache turn state so contact_verdict stays a bare lookup.
-        self._ants_list = ants_list
-        self._enemy_locs = enemy_locs
-        self._home_hills = my_hills
-        self._attack_r2 = attack_r2
-        self._rows = rows
-        self._cols = cols
+        self._turn += 1
+        # Tactical plan: one max-min per carved fight over seeded
+        # enemy samples. Rejected (losing/equal-passive) fights map
+        # to no plan so those ants fall through to muster/explore.
+        fight_plan: dict[tuple[int, int], tuple[int, int]] = {}
+        if enemy_locs:
+            enemy_set = set(enemy_locs)
 
-        def near_home(nloc: tuple[int, int]) -> bool:
-            # Hill cover: the sacrifice hides inside the spawn flow
-            # only within HILL_SACRIFICE_RADIUS of a held home hill.
-            return any(
-                ants.distance(nloc, h) <= HILL_SACRIFICE_RADIUS for h in my_hills
-            )
+            def plan_passable(loc: tuple[int, int]) -> bool:
+                return ants.passable(loc) and loc not in enemy_set
 
-        def square_safe(nloc: tuple[int, int], self_loc: tuple[int, int]) -> bool:
-            # Table-backed safety: WIN and empty squares pass, LOSE
-            # refuses, and TRADE passes only under hill cover.
-            verdict = self.contact_verdict(nloc, self_loc)
-            if verdict in (SAFE, WIN):
+            fights = carve_fights(ants_list, enemy_locs, ants.distance)
+            for fi, (own_group, foe_group) in enumerate(fights):
+                rng = random.Random(self._turn * 100003 + fi * 7919 + len(ants_list))
+                samples = sample_enemy_joints(
+                    foe_group, rows, cols, ants.passable, ants.destination, rng
+                )
+                joint, _ = choose_own_joint(
+                    own_group,
+                    foe_group,
+                    attack_r2,
+                    rows,
+                    cols,
+                    plan_passable,
+                    ants.destination,
+                    samples,
+                )
+                aggressive = roll_aggressive(len(own_group), len(foe_group), rng)
+                worst_dead = (0, 0)
+                worst_score = math.inf
+                for sample in samples:
+                    cand_dead = resolve_exchange(joint, sample, attack_r2, rows, cols)
+                    cand_score = exchange_score(*cand_dead)
+                    if cand_score < worst_score:
+                        worst_score = cand_score
+                        worst_dead = cand_dead
+                if not samples:
+                    continue
+                if should_accept(worst_dead[0], worst_dead[1], aggressive):
+                    for start, goal in zip(own_group, joint, strict=True):
+                        fight_plan[start] = goal
+
+        def sq_dist(a: tuple[int, int], b: tuple[int, int]) -> int:
+            dr = abs(a[0] - b[0])
+            dr = min(dr, rows - dr) if rows else dr
+            dc = abs(a[1] - b[1])
+            dc = min(dc, cols - dc) if cols else dc
+            return dr * dr + dc * dc
+
+        def is_safe(nloc: tuple[int, int], self_loc: tuple[int, int]) -> bool:
+            enemies = 0
+            for e in enemy_locs:
+                if sq_dist(nloc, e) <= attack_r2:
+                    enemies += 1
+                    if enemies >= len(ants_list):
+                        break
+            if enemies == 0:
                 return True
-            if verdict == LOSE:
-                return False
-            return near_home(nloc)
+            friends = 0
+            near = 0
+            for f in ants_list:
+                if f == self_loc:
+                    continue
+                if sq_dist(nloc, f) <= attack_r2:
+                    friends += 1
+                if ants.distance(nloc, f) <= 10:
+                    near += 1
+            if friends + 1 > enemies:
+                return True
+            # Odds: EQUAL_TRADE_NEAR (10) near friends accept equal
+            # trades, down from champion's tuned 14.
+            return near >= 10 and friends + 1 >= enemies
 
         def first_step(
             start: tuple[int, int], goal: tuple[int, int], budget: int = 250
@@ -579,21 +784,7 @@ class Tables:
                 new_loc not in destinations
                 and ants.passable(new_loc)
                 and ants.unoccupied(new_loc)
-                and (not safe or square_safe(new_loc, ant_loc))
-            ):
-                ants.issue_order((ant_loc, direction))
-                destinations.add(new_loc)
-                return True
-            return False
-
-        def try_move(ant_loc: tuple[int, int], direction: str) -> bool:
-            # The table already cleared this step: only passable,
-            # occupancy, and destination clashes check here.
-            new_loc = ants.destination(ant_loc, direction)
-            if (
-                new_loc not in destinations
-                and ants.passable(new_loc)
-                and ants.unoccupied(new_loc)
+                and (not safe or is_safe(new_loc, ant_loc))
             ):
                 ants.issue_order((ant_loc, direction))
                 destinations.add(new_loc)
@@ -641,22 +832,16 @@ class Tables:
                 if step is not None and try_step(ant_loc, step):
                     moved = True
             if not moved and enemy_locs:
-                # Tables: advance on the nearest foe within range;
-                # the precomputed table clears the step. WIN and
-                # empty squares go fearlessly; TRADE sacrifices go
-                # only under home-hill cover; LOSE and open-field
-                # trades fall through to muster/reinforce/explore.
-                foe = _nearest_seek_enemy(ant_loc, enemy_locs, ants.distance)
-                if foe is not None:
-                    step = first_step(ant_loc, foe)
-                    if step is not None:
-                        nloc = ants.destination(ant_loc, step)
-                        verdict = self.contact_verdict(nloc, ant_loc)
-                        cleared = verdict in (SAFE, WIN) or (
-                            verdict == TRADE and near_home(nloc)
-                        )
-                        if cleared and try_move(ant_loc, step):
-                            moved = True
+                # Softmax: no food or guard move; the fight plan
+                # holds the max-min joint move for this ant. Holds
+                # and rejected fights fall through to muster.
+                dest = fight_plan.get(ant_loc)
+                if dest is not None and dest != ant_loc:
+                    for d in ("n", "e", "s", "w"):
+                        if ants.destination(ant_loc, d) == dest:
+                            if try_step(ant_loc, d, safe=False):
+                                moved = True
+                            break
             if not moved and hills:
                 # Flood: the group marches on one target, the hill
                 # nearest the army as a whole. Hunt always; fearless
@@ -689,7 +874,7 @@ class Tables:
                         new_loc not in destinations
                         and ants.passable(new_loc)
                         and ants.unoccupied(new_loc)
-                        and square_safe(new_loc, ant_loc)
+                        and is_safe(new_loc, ant_loc)
                     ):
                         ants.issue_order((ant_loc, direction))
                         destinations.add(new_loc)
@@ -709,6 +894,46 @@ class Tables:
                         break
 
 
+def _intercept_square(
+    hill: Loc,
+    enemy_locs: list[Loc],
+    distance: DistFn,
+    passable: PassFn,
+    rows: int,
+    cols: int,
+) -> Loc | None:
+    """Off-hill intercept: nearest passable square to the midpoint."""
+    if not enemy_locs or rows <= 0 or cols <= 0:
+        return None
+    foe = min(enemy_locs, key=lambda e: distance(hill, e))
+    dr = foe[0] - hill[0]
+    if dr > rows // 2:
+        dr -= rows
+    elif dr < -(rows // 2):
+        dr += rows
+    dc = foe[1] - hill[1]
+    if dc > cols // 2:
+        dc -= cols
+    elif dc < -(cols // 2):
+        dc += cols
+    mid = ((hill[0] + int(dr / 2)) % rows, (hill[1] + int(dc / 2)) % cols)
+    if passable(mid):
+        return mid
+    seen = {mid}
+    queue: deque[Loc] = deque([mid])
+    while queue:
+        cur = queue.popleft()
+        for step in ((-1, 0), (0, 1), (1, 0), (0, -1)):
+            nxt = ((cur[0] + step[0]) % rows, (cur[1] + step[1]) % cols)
+            if nxt in seen:
+                continue
+            seen.add(nxt)
+            if passable(nxt):
+                return nxt
+            queue.append(nxt)
+    return None
+
+
 if __name__ == "__main__":
     # psyco will speed up python a little, but is not needed
     try:
@@ -722,6 +947,6 @@ if __name__ == "__main__":
         # if run is passed a class with a do_turn method, it will do the work
         # this is not needed, in which case you will need to write your own
         # parsing function and your own game state class
-        Ants.run(Tables())
+        Ants.run(Softmax())
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
