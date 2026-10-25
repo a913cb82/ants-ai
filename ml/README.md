@@ -195,6 +195,16 @@ persists via archive/critic.json (training apparatus, not the agent;
 actor still restarts from champion, evals use policy only). 15-gen
 continuity probe (seed 99, turns 60, defaults) next.
 
+## Critic continuity (2026-10-25): partial win
+
+15-gen probe (seed 99, turns 60, shaping + batch-norm + continuity):
+v floor 1.00 -> ~0.77 (gen 13: 0.762), oscillating with
+exploiter-gen bumps; train returns flat 0.09-0.21; eval 0W/300D,
+0 promotions. The baseline now accumulates and the critic
+converges slowly — but 15 gens didn't convert to policy wins.
+Closing experiment: 30-gen combo (continuity + vf_coef 4.0 +
+shaping + batch-norm, seed 123) running in /tmp/azcombo.
+
 ## Critic-fittability test (2026-10-25, /tmp/criticfit.py)
 
 Supervised value-only fit on 1547 random-policy rows: whole-net
