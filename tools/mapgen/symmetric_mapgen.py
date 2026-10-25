@@ -16,7 +16,7 @@ def lcm(a, b):
     if a == 0 and b == 0:
         return 0
     else:
-        return abs(a * b) / gcd(a, b)
+        return abs(a * b) // gcd(a, b)
 
 
 # map class
@@ -85,12 +85,12 @@ class SymmetricMap:
             row_p = random.randint(1, no_players - 1)
             while gcd(row_p, no_players) != 1:
                 row_p = random.randint(1, no_players - 1)
-            self.row_t = (self.rows / no_players) * row_p
+            self.row_t = (self.rows // no_players) * row_p
 
             col_p = random.randint(1, no_players - 1)
             while gcd(col_p, no_players) != 1:
                 col_p = random.randint(1, no_players - 1)
-            self.col_t = (self.cols / no_players) * col_p
+            self.col_t = (self.cols // no_players) * col_p
 
             if self.is_valid_start():
                 break

@@ -16,7 +16,7 @@ def lcm(a, b):
     if a == 0 and b == 0:
         return 0
     else:
-        return abs(a * b) / gcd(a, b)
+        return abs(a * b) // gcd(a, b)
 
 
 # map class
@@ -82,14 +82,14 @@ class AsymmetricMap:
                 self.col_t = random.randint(3, self.cols - 3)
 
                 # makes sure no two players start in the same row or column
-                if self.rows / gcd(self.row_t, self.rows) == self.cols / gcd(
+                if self.rows // gcd(self.row_t, self.rows) == self.cols // gcd(
                     self.col_t, self.cols
                 ):
                     break
 
             self.no_players = lcm(
-                self.rows / gcd(self.row_t, self.rows),
-                self.cols / gcd(self.col_t, self.cols),
+                self.rows // gcd(self.row_t, self.rows),
+                self.cols // gcd(self.col_t, self.cols),
             )
 
             # forces a valid number of players all starting at a valid distance
