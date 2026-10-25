@@ -161,3 +161,14 @@ penalty washes out; only return variance trains. Landed: exploiter
 generations (every 3rd gen fresh-inits vs champion, same rule;
 live-fire validated) + score-margin logging (draws hide progress;
 margins show it first).
+
+## Next: decisive-weighted PFSP (designed, not built)
+
+Plain win-rate PFSP is constant under 95% draws. The fix needs real
+draw counts, but record_result folds draws into 0.5/0.5, so the matrix
+stores only [wA, wB]. Design: extend matrix entries to [w, l, d],
+migrate old archives (d = 0 preserves current behavior), weight
+opponents by (1 - draw_rate) x f(win_rate) with fallback to
+lowest-draw-rate when all win-rates tie. Touches record_result,
+payoff_matrix, nash_mixture, win_rates + a migration; sizeable,
+so it waits until exploiters show whether fresh blood suffices.
