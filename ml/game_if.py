@@ -7,7 +7,6 @@ plain dicts and lists. Deterministic when seeds are given.
 
 from __future__ import annotations
 
-import glob
 import json
 import os
 import shutil
@@ -108,9 +107,19 @@ def play(
 
 
 def _read_records(side: Path) -> list:
+    """Bot decision rows; skips corrupt lines (a bad row must not kill
+    a paid-for game)."""
     rows = []
-    for path in sorted(glob.glob(str(side / "records" / "*.jsonl"))):
-        rows.extend(json.loads(line) for line in open(path) if line.strip())
+    for path in sorted(side.glob("records/*.jsonl")):
+        with open(path) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rows.append(json.loads(line))
+                except ValueError:
+                    continue
     return rows
 
 

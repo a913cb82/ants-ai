@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-ACTIONS = ("n", "e", "s", "w", "stay")
-
-OFFSETS = {"n": (-1, 0), "e": (0, 1), "s": (1, 0), "w": (0, -1), "stay": (0, 0)}
-
+# NOTE: no ACTIONS/OFFSETS table here on purpose. The bot owns the
+# action space (features.ACTIONS); the engine owns order names.
 # AIM in tools/ants.py has no "-" or "stay": unknown orders fall back here.
 VECTORS = {"n": (-1, 0), "e": (0, 1), "s": (1, 0), "w": (0, -1), "-": (0, 0)}
 

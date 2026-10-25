@@ -33,7 +33,7 @@ def default_config() -> dict:
         "train_games": 4,
         "eval_games": 20,
         "temperature": 1.0,
-        "lr": 1e-3,
+        "lr": 3e-4,
         "epochs": 3,
         "promote_threshold": 0.5,
         "seed": 0,
@@ -85,33 +85,22 @@ def _random_weights(seed: int) -> dict:
 
 def append_history(base: Path, entry: dict) -> None:
     """Append one generation summary; the dashboard reads this for curves."""
-    archive.init(base)
-    with open(base / "history.jsonl", "a") as f:
-        f.write(json.dumps(entry) + "\n")
+    archive.append_jsonl(base / "history.jsonl", entry)
 
 
 def read_history(base: Path) -> list[dict]:
     """Generation summaries; skips malformed lines like list_games."""
-    path = base / "history.jsonl"
-    if not path.exists():
-        return []
-    out = []
-    for line in path.read_text().splitlines():
-        if not line.strip():
-            continue
-        try:
-            row = json.loads(line)
-        except ValueError:
-            continue
-        if isinstance(row, dict):
-            out.append(row)
+    return archive.read_jsonl(
+        base / "history.jsonl",
+        lambda row: isinstance(row, dict),
+    )
     return out
 
 
 def publish(base: Path, report: dict, commit: bool) -> None:
     """Champion pointer + rated weights + optional git commit."""
     archive.set_champion(base, report["challenger"])
-    BOT_WEIGHTS.write_text(json.dumps(report["challenger_weights"]))
+    archive.atomic_write_json(BOT_WEIGHTS, report["challenger_weights"])
     if commit:
         subprocess.run(["git", "-C", str(ROOT), "add", str(BOT_WEIGHTS)], check=True)
         subprocess.run(
@@ -149,7 +138,7 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
         "promoted": promoted,
         "config": cfg,
     }
-    (base / "last_report.json").write_text(json.dumps(report, indent=1))
+    archive.atomic_write_json(base / "last_report.json", report)
     append_history(base, {k: v for k, v in report.items()
                            if k != "challenger_weights"})
     if promoted:

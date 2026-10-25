@@ -37,6 +37,15 @@ VIS_DIR = ROOT / "tools" / "visualizer"
 TEMPLATE = (VIS_DIR / "replay.html.template").read_text()
 
 _nash_cache: dict = {}
+def _memo(cache: dict, key, thunk):
+    """One-slot memo: recompute only when the key changes."""
+    if cache.get("key") != key:
+        cache.clear()
+        cache["key"] = key
+        cache["value"] = thunk()
+    return cache["value"]
+
+
 _games_cache: dict = {}
 
 
@@ -47,21 +56,13 @@ def cached_games(base: Path) -> list[dict]:
     path = base / "games.jsonl"
     try:
         st = path.stat()
-        key = (str(base.resolve()), st.st_mtime_ns, st.st_size)
     except OSError:
         return []
-    if _games_cache.get("key") != key:
-        _games_cache.clear()
-        _games_cache["key"] = key
-        _games_cache["rows"] = archive.list_games(base)
-    return _games_cache["rows"]
-
-
-def _rows_for(base: Path, member: str | None) -> list[dict]:
-    rows = cached_games(base)
-    if member is not None:
-        rows = [r for r in rows if r["a"] == member or r["b"] == member]
-    return rows
+    return _memo(
+        _games_cache,
+        (str(base.resolve()), st.st_mtime_ns, st.st_size),
+        lambda: archive.list_games(base),
+    )
 
 
 def _eval_digest(base: Path) -> tuple:
@@ -76,11 +77,7 @@ def _eval_digest(base: Path) -> tuple:
 def _nash_cached(base: Path) -> dict:
     """Fictitious play is O(iters*n^2): redo only when eval data changes."""
     key = (str(base.resolve()), _eval_digest(base))
-    if _nash_cache.get("key") != key:
-        _nash_cache.clear()
-        _nash_cache["key"] = key
-        _nash_cache["mix"] = archive.nash_mixture(base)
-    return _nash_cache["mix"]
+    return _memo(_nash_cache, key, lambda: archive.nash_mixture(base))
 
 
 # ---------------------------------------------------------------- DATA
@@ -159,10 +156,19 @@ def snapshot(base: Path) -> dict:
             "reason": reason,
         })
     gens.reverse()
+    losses = []
+    for h in history:
+        ls = ((h.get("train", {}) or {}).get("losses", []) or [])
+        losses.append(sum(ls) / len(ls) if ls else None)
+    curves = {
+        "loss": losses,
+        "ret": [((h.get("train", {}) or {}).get("mean_return", 0.0)) for h in history],
+        "ids": [h.get("challenger", "") or "" for h in history],
+    }
     return {
         "champion": champ,
         "members": members,
-        "history": history,
+        "curves": curves,
         "generations": gens,
         "games": games[:50],
         "game_total": len(games),
@@ -234,7 +240,10 @@ def make_handler(base: Path):
                         offset = max(int(q.get("offset", ["0"])[0]), 0)
                     except ValueError:
                         offset = 0
-                    rows = _rows_for(base, member)
+                    rows = cached_games(base)
+                    if member is not None:
+                        rows = [r for r in rows
+                                if r["a"] == member or r["b"] == member]
                     total = len(rows)
                     offset = min(offset, total)
                     _json(self, {"total": total,
@@ -463,9 +472,9 @@ function renderHeader(){
   $("updated").textContent="updated "+ago(lastTick)+" · "+(live?"live":"paused");
 }
 function renderCurves(){
-  const byGen=S.history.map(h=>{const l=((h.train||{}).losses||[]);return l.length?l.reduce((a,b)=>a+b,0)/l.length:null;});
-  const rets=S.history.map(h=>((h.train||{}).mean_return||0));
-  const ids=S.history.map(h=>h.challenger||"");
+  const byGen=S.curves.loss;
+  const rets=S.curves.ret;
+  const ids=S.curves.ids;
   const nz=byGen.filter(v=>v!==null);
   plot("ch-loss",byGen,"#C4322B","rgba(196,50,43,.12)",ids,"mean loss, "+ids.length+" generations");
   plot("ch-ret",rets,"#18794E","rgba(24,121,78,.12)",ids,"mean return, "+ids.length+" generations");

@@ -42,7 +42,8 @@ class AlphaZeroBot:
         self.policy.load_state_dict(
             model.lists_to_state_dict(
                 json.loads(Path(weights_path or WEIGHTS_PATH).read_text())
-            )
+            ),
+            strict=False,  # pre-value-head champions lack the value keys
         )
         self.policy.eval()
         temperature = os.environ.get(TEMPERATURE_ENV)

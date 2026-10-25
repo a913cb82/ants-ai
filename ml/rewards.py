@@ -232,6 +232,6 @@ def decompose(game, me, records):
     }
     for _turn, shares, _scope, kind in awards:
         mass[kind] += sum(shares.values())
-    kind = "win" if end_value > 0 else ("loss" if end_value < 0 else "draw")
-    mass[kind] += abs(end_value) * len(records)
+    mass["win" if end_value > 0 else "loss"] += end_value * len(records)
+    del mass["draw"]
     return mass

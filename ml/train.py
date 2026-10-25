@@ -17,7 +17,6 @@ sys.path.insert(0, str(ROOT / "bots" / "alphastarzero"))
 import algorithm
 import archive
 import game_if
-import model
 import rewards
 
 
@@ -26,7 +25,7 @@ def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict) -> tup
     chal_id = archive.save_checkpoint(base, copy.deepcopy(champ_w), "challenger", champ_id)
     chal_w = copy.deepcopy(champ_w)
     batch: list = []
-    policy = model.CNNPolicy()
+    policy = algorithm.new_policy(chal_w)
     opt = algorithm.make_optimizer(policy, lr=cfg["lr"])
     for g in range(cfg["train_games"]):
         opp_id = archive.sample_opponents(base, champ_id, 1, seed=cfg["seed"] + g)[0]
@@ -51,7 +50,7 @@ def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict) -> tup
             game = out["game"]
             rows = out["records_a"] if slot == 0 else out["records_b"]
             rets = rewards.compute_returns(game, slot, rows)
-            batch.extend(algorithm.to_batch(rows, rets))
+            batch.extend(algorithm.collect(policy, rows, rets))
             sa, sb = game["score"][0], game["score"][1]
             first, second = (chal_id, opp_id) if slot == 0 else (opp_id, chal_id)
             archive.record_result(base, first, second, sa, sb, kind="train")
@@ -63,15 +62,16 @@ def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict) -> tup
                 "last_mean_return": sum(rets) / len(rets) if rets else 0.0,
                 "last_game": rel,
             })
-    policy.load_state_dict(model.lists_to_state_dict(chal_w))
     losses, entropies = [], []
     for _ in range(cfg["epochs"]):
         stats = algorithm.train_epoch(policy, opt, batch)
         losses.append(stats["loss"])
         entropies.append(stats["entropy"])
-    chal_w = model.state_dict_to_lists(policy)
+    chal_w = algorithm.policy_weights(policy)
     archive.store(base, chal_id, chal_w)
-    mean_return = sum(r for _w, _a, r, _m in batch) / len(batch) if batch else 0.0
+    mean_return = (
+        sum(r for _w, _a, r, _m, _o in batch) / len(batch) if batch else 0.0
+    )
     return chal_id, chal_w, {
         "rows": len(batch),
         "losses": losses,

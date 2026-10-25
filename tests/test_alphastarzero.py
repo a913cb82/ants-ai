@@ -551,7 +551,11 @@ def test_weights_file_loads_into_cnn():
 
     wpath = ROOT / "bots" / "alphastarzero" / "weights.json"
     policy = model.CNNPolicy()
-    policy.load_state_dict(model.lists_to_state_dict(json.loads(wpath.read_text())))
+    # Old champions predate the value head: strict=False keeps their
+    # policy weights and leaves the value head zero-initialized.
+    policy.load_state_dict(
+        model.lists_to_state_dict(json.loads(wpath.read_text())), strict=False
+    )
     assert policy(torch.zeros(1, 6, 9, 9)).shape == (1, 5)
 
 
@@ -568,17 +572,20 @@ def test_act_ranked_lists_best_first_and_respects_blocked():
     assert ranked_blocked[0] != top
 
 
-def _train_batch(returns=(1.0, 2.0, 3.0)):
+def _train_batch(returns=(1.0, 2.0, 3.0), logps=None):
     import torch
 
     windows = torch.zeros(len(returns), 6, 9, 9)
     windows[:, 1, 4, 4] = 1.0
+    if logps is None:
+        logps = [0.0] * len(returns)
     return [
-        (windows[i], i % 5, float(r), [True] * 5) for i, r in enumerate(returns)
+        (windows[i], i % 5, float(r), [True] * 5, float(o))
+        for i, (r, o) in enumerate(zip(returns, logps))
     ]
 
 
-def test_reinforce_raises_chosen_logprob():
+def test_ppo_raises_advantaged_logprob():
     import torch
 
     import model
@@ -593,16 +600,27 @@ def test_reinforce_raises_chosen_logprob():
     assert algorithm.masked_log_probs(policy, batch)[0][0].item() > before
 
 
-def test_advantages_standardize_batch():
+def test_ppo_value_head_starts_at_zero_and_learns():
+    import torch
+
+    import model
     import algorithm
 
-    adv = algorithm.advantages([1.0, 2.0, 3.0])
-    assert abs(sum(adv)) < 1e-9
-    assert abs(sum(a * a for a in adv) / 3 - 1.0) < 1e-9
-    assert adv[0] < adv[1] < adv[2]
+    torch.manual_seed(0)
+    policy = model.CNNPolicy()
+    assert torch.equal(
+        policy.values(torch.zeros(2, 6, 9, 9)), torch.zeros(2)
+    )
+    opt = algorithm.make_optimizer(policy, lr=1e-2)
+    batch = _train_batch(returns=(0.0, 1.0, 2.0, 3.0))
+    first = algorithm.train_epoch(policy, opt, batch, entropy_beta=0.0)
+    assert first["v_loss"] > 0.0
+    for _ in range(30):
+        last = algorithm.train_epoch(policy, opt, batch, entropy_beta=0.0)
+    assert last["v_loss"] < first["v_loss"]
 
 
-def test_train_epoch_noop_on_equal_returns():
+def test_train_epoch_policy_noop_on_equal_returns():
     import torch
 
     import model
@@ -611,12 +629,12 @@ def test_train_epoch_noop_on_equal_returns():
     torch.manual_seed(0)
     policy = model.CNNPolicy()
     opt = algorithm.make_optimizer(policy, lr=1e-2)
-    before = [p.detach().clone() for p in policy.parameters()]
+    head_before = [p.detach().clone() for p in [policy.head.weight, policy.head.bias]]
     stats = algorithm.train_epoch(
         policy, opt, _train_batch((2.0, 2.0, 2.0)), entropy_beta=0.0
     )
-    assert stats["loss"] == 0.0
-    for b, p in zip(before, policy.parameters(), strict=True):
+    assert stats["pg_loss"] == 0.0  # equal returns, zero baseline -> no signal
+    for b, p in zip(head_before, [policy.head.weight, policy.head.bias], strict=True):
         assert torch.equal(b, p)
 
 
@@ -627,7 +645,7 @@ def test_train_epoch_empty_batch_is_noop():
     policy = model.CNNPolicy()
     opt = algorithm.make_optimizer(policy)
     stats = algorithm.train_epoch(policy, opt, [])
-    assert stats == {"loss": 0.0, "mean_return": 0.0, "entropy": 0.0}
+    assert stats["loss"] == 0.0 and stats["mean_return"] == 0.0
 
 
 def test_train_epoch_ignores_masked_logits():
@@ -643,7 +661,7 @@ def test_train_epoch_ignores_masked_logits():
     w = torch.zeros(6, 9, 9)
     w[1, 4, 4] = 1.0
     mask = [True, True, False, False, False]
-    batch = [(w, 0, 1.0, mask), (w, 1, 0.0, mask)]
+    batch = [(w, 0, 1.0, mask, 0.0), (w, 1, 0.0, mask, 0.0)]
     before = [p.detach().clone() for p in policy.parameters()]
     algorithm.train_epoch(policy, opt, batch)
     after = [p.detach().clone() for p in policy.parameters()]
@@ -720,7 +738,7 @@ def test_to_batch_converts_rows_and_returns():
             "legal": [False, False, False, False, True],
         },
     ]
-    batch = algorithm.to_batch(records, [1.0, -1.0])
+    batch = algorithm.to_batch(records, [1.0, -1.0], [0.0, 0.0])
     assert len(batch) == 2
     assert batch[0][0].shape == torch.Size([6, 9, 9])
     assert batch[0][1] == 1 and batch[1][1] == 4
@@ -1024,3 +1042,35 @@ def test_read_history_and_members_skip_bad_lines(tmp_path):
         f.write('{"gen": 0}\n{nope\n[1,2]\n')
     assert [m["id"] for m in archive.members(base)] == ["g000"]
     assert selfplay.read_history(base) == [{"gen": 0}]
+
+
+def test_collect_attaches_behavior_logps():
+    import torch
+
+    import model
+    import algorithm
+
+    torch.manual_seed(0)
+    policy = model.CNNPolicy()
+    records = [
+        {"window": torch.zeros(6, 9, 9).tolist(), "action": "e"},
+        {"window": torch.zeros(6, 9, 9).tolist(), "action": "stay"},
+    ]
+    batch = algorithm.collect(policy, records, [1.0, -1.0])
+    assert len(batch[0]) == 5
+    live, _ = algorithm.masked_log_probs(policy, batch)
+    assert all(abs(a - b) < 1e-6 for a, b in zip([i[4] for i in batch], live.tolist()))
+
+
+def test_new_policy_roundtrip_and_lr_default():
+    import torch
+
+    import model
+    import algorithm
+
+    torch.manual_seed(0)
+    policy = algorithm.new_policy()
+    assert isinstance(policy, model.CNNPolicy)
+    w = algorithm.policy_weights(policy)
+    assert algorithm.new_policy(w).value.weight.shape == policy.value.weight.shape
+    assert algorithm.make_optimizer(policy).param_groups[0]["lr"] == 3e-4

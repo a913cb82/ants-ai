@@ -9,25 +9,38 @@ from features import ACTIONS
 
 
 class CNNPolicy(torch.nn.Module):
-    """Small convnet: (6, H, W) window -> 5 action logits.
+    """Small convnet: (6, H, W) window -> 5 action logits + 1 value.
 
     Adaptive pooling keeps it radius-agnostic: any odd-sized window in,
     5 logits out. ~6k params; microseconds per forward on CPU.
+    The value head shares the trunk (+129 params, zero-initialized so
+    early value estimates start at 0).
     """
 
-    def __init__(self, channels: int = 6) -> None:
+    def __init__(self, channels: int | None = None) -> None:
         super().__init__()
+        channels = len(features.CHANNELS) if channels is None else channels
         self.conv1 = torch.nn.Conv2d(channels, 16, kernel_size=3, padding=1)
         self.conv2 = torch.nn.Conv2d(16, 32, kernel_size=3, padding=1)
         self.pool = torch.nn.AdaptiveAvgPool2d((2, 2))
         self.head = torch.nn.Linear(32 * 4, len(ACTIONS))
+        self.value = torch.nn.Linear(32 * 4, 1)
+        torch.nn.init.zeros_(self.value.weight)
+        torch.nn.init.zeros_(self.value.bias)
+
+    def trunk(self, x: torch.Tensor) -> torch.Tensor:
+        """x: (B, C, H, W) -> shared features (B, 128)."""
+        x = torch.relu(self.conv1(x))
+        x = torch.relu(self.conv2(x))
+        return self.pool(x).flatten(start_dim=1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """x: (B, 6, H, W) -> logits (B, 5)."""
-        x = torch.relu(self.conv1(x))
-        x = torch.relu(self.conv2(x))
-        x = self.pool(x).flatten(start_dim=1)
-        return self.head(x)
+        return self.head(self.trunk(x))
+
+    def values(self, x: torch.Tensor) -> torch.Tensor:
+        """x: (B, 6, H, W) -> state values (B,)."""
+        return self.value(self.trunk(x)).squeeze(-1)
 
 
 def legal_mask(
@@ -63,6 +76,13 @@ def masked_logits(
         return _apply_mask(policy(window.unsqueeze(0)).flatten(), window, blocked)
 
 
+def _with_stay(masks: torch.Tensor) -> torch.Tensor:
+    """Empty rows (nothing legal) fall back to stay instead of NaN."""
+    fallback = torch.zeros_like(masks)
+    fallback[..., ACTIONS.index("stay")] = True
+    return torch.where(masks.any(dim=-1, keepdim=True), masks, fallback)
+
+
 def masked_log_softmax(
     policy: CNNPolicy,
     windows: torch.Tensor,
@@ -74,21 +94,16 @@ def masked_log_softmax(
     scores actions under exactly the distribution the bot acted with.
     """
     logits = policy(windows)
-    fallback = torch.zeros_like(masks)
-    fallback[:, ACTIONS.index("stay")] = True
-    use = torch.where(masks.any(dim=1, keepdim=True), masks, fallback)
     return torch.log_softmax(
-        torch.where(use, logits, torch.tensor(-1e9)), dim=1
+        torch.where(_with_stay(masks), logits, torch.tensor(-1e9)), dim=1
     )
 
 
 def _apply_mask(
     logits: torch.Tensor, window: torch.Tensor, blocked: frozenset
 ) -> torch.Tensor:
-    mask = legal_mask(window, blocked)
-    if not bool(mask.any()):
-        mask = torch.tensor([a == "stay" for a in ACTIONS], dtype=torch.bool)
-    return torch.where(mask, logits, torch.tensor(-1e9))
+    use = _with_stay(legal_mask(window, blocked).unsqueeze(0)).flatten()
+    return torch.where(use, logits, torch.tensor(-1e9))
 
 
 def act_ranked(
@@ -99,15 +114,24 @@ def act_ranked(
     return [ACTIONS[int(i)] for i in order]
 
 
+def _probs_tensor(
+    policy: CNNPolicy,
+    window: torch.Tensor,
+    temperature: float,
+    blocked: frozenset = frozenset(),
+) -> torch.Tensor:
+    return torch.softmax(
+        masked_logits(policy, window, blocked) / temperature, dim=0
+    )
+
+
 def act_probs(
     policy: CNNPolicy,
     window: torch.Tensor,
     temperature: float = 1.0,
     blocked: frozenset = frozenset(),
 ) -> dict[str, float]:
-    p = torch.softmax(
-        masked_logits(policy, window, blocked) / temperature, dim=0
-    )
+    p = _probs_tensor(policy, window, temperature, blocked)
     return {a: float(v) for a, v in zip(ACTIONS, p.tolist(), strict=True)}
 
 
@@ -123,10 +147,7 @@ def sample(
     temperature: float,
     blocked: frozenset = frozenset(),
 ) -> str:
-    p = torch.softmax(
-        masked_logits(policy, window, blocked) / temperature, dim=0
-    )
-    return ACTIONS[int(torch.multinomial(p, 1))]
+    return ACTIONS[int(torch.multinomial(_probs_tensor(policy, window, temperature, blocked), 1))]
 
 
 def state_dict_to_lists(policy: CNNPolicy) -> dict:

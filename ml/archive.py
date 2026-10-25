@@ -45,7 +45,7 @@ def get_champion(base: Path = DEFAULT_DIR) -> str | None:
     return json.loads(champ.read_text())["id"]
 
 
-def _atomic_write_json(path: Path, obj: object) -> None:
+def atomic_write_json(path: Path, obj: object) -> None:
     """Write JSON atomically: readers see old-or-new, never torn."""
     fd, tmp = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
     try:
@@ -62,14 +62,14 @@ def _atomic_write_json(path: Path, obj: object) -> None:
 
 def set_champion(base: Path, cid: str) -> None:
     init(base)
-    _atomic_write_json(_paths(base)["dir"] / "champion.json", {"id": cid})
+    atomic_write_json(_paths(base)["dir"] / "champion.json", {"id": cid})
 
 
 def store(base: Path, cid: str, weights: dict) -> None:
     """Persist a member's weights. Train-matrix entries logged under an
     id describe work-in-progress play, never final strength; the eval
     matrix (promotion, PFSP, Nash) only ever sees frozen weights."""
-    _atomic_write_json(_paths(base)["checkpoints"] / f"{cid}.json", weights)
+    atomic_write_json(_paths(base)["checkpoints"] / f"{cid}.json", weights)
 
 
 def members(base: Path = DEFAULT_DIR) -> list[dict]:
@@ -78,17 +78,10 @@ def members(base: Path = DEFAULT_DIR) -> list[dict]:
     p = _paths(base)
     if not p["manifest"].exists():
         return []
-    out = []
-    for line in p["manifest"].read_text().splitlines():
-        if not line.strip():
-            continue
-        try:
-            row = json.loads(line)
-        except ValueError:
-            continue
-        if isinstance(row, dict) and isinstance(row.get("id"), str):
-            out.append(row)
-    return out
+    return read_jsonl(
+        p["manifest"],
+        lambda row: isinstance(row, dict) and isinstance(row.get("id"), str),
+    )
 
 
 def _next_id(base: Path) -> str:
@@ -116,6 +109,36 @@ def load_checkpoint(base: Path, cid: str) -> dict:
     return json.loads((_paths(base)["checkpoints"] / f"{cid}.json").read_text())
 
 
+def append_jsonl(path: Path, row: dict) -> None:
+    """One JSON line appended. Shared by games index and history log."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "a") as f:
+        f.write(json.dumps(row) + "\n")
+
+
+def read_jsonl(path: Path, valid) -> list[dict]:
+    """Tolerant line reader: skips blanks, bad JSON, rejected rows."""
+    if not path.exists():
+        return []
+    out = []
+    for line in path.read_text().splitlines():
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        if valid(row):
+            out.append(row)
+    return out
+
+
+def _key(a: str, b: str) -> str:
+    """Single constructor for matchup keys (built here, parsed nowhere:
+    _head_to_head derives both orders from one key)."""
+    return f"{a} vs {b}"
+
+
 def record_result(
     base: Path, a: str, b: str, score_a: float, score_b: float, kind: str = "eval"
 ) -> None:
@@ -131,7 +154,7 @@ def record_result(
     for cid in (a, b):
         if cid not in data["ids"]:
             data["ids"].append(cid)
-    key = f"{a} vs {b}"
+    key = _key(a, b)
     wins = data[kind].get(key, [0.0, 0.0])
     if score_a > score_b:
         wins[0] += 1
@@ -141,7 +164,7 @@ def record_result(
         wins[0] += 0.5
         wins[1] += 0.5
     data[kind][key] = wins
-    _atomic_write_json(p["matrix"], data)
+    atomic_write_json(p["matrix"], data)
 
 
 def log_game(
@@ -150,17 +173,16 @@ def log_game(
 ) -> None:
     """Append one game to the dashboard index (replay path archive-relative)."""
     init(base)
-    with open(_paths(base)["dir"] / "games.jsonl", "a") as f:
-        f.write(json.dumps({
-            "gen": gen, "kind": kind, "a": a, "b": b,
-            "score_a": score_a, "score_b": score_b, "replay": replay,
-        }) + "\n")
+    append_jsonl(_paths(base)["dir"] / "games.jsonl", {
+        "gen": gen, "kind": kind, "a": a, "b": b,
+        "score_a": score_a, "score_b": score_b, "replay": replay,
+    })
 
 
 def write_status(base: Path, status: dict) -> None:
     """Live progress for the dashboard (overwritten as a generation runs)."""
     init(base)
-    _atomic_write_json(_paths(base)["dir"] / "status.json", status)
+    atomic_write_json(_paths(base)["dir"] / "status.json", status)
 
 
 def read_status(base: Path) -> dict:
@@ -174,29 +196,21 @@ def read_status(base: Path) -> dict:
     return row if isinstance(row, dict) else {}
 
 
+def _game_row(row: object) -> bool:
+    required = {"gen", "kind", "a", "b", "score_a", "score_b", "replay"}
+    return (
+        isinstance(row, dict)
+        and required <= set(row)
+        and isinstance(row["score_a"], (int, float))
+        and isinstance(row["score_b"], (int, float))
+    )
+
+
 def list_games(base: Path, member: str | None = None) -> list[dict]:
     """Newest first; optionally only games involving member.
 
     Skips malformed lines/rows: one bad line must not brick the page."""
-    path = _paths(base)["dir"] / "games.jsonl"
-    if not path.exists():
-        return []
-    required = {"gen", "kind", "a", "b", "score_a", "score_b", "replay"}
-    rows = []
-    for line in path.read_text().splitlines():
-        if not line.strip():
-            continue
-        try:
-            row = json.loads(line)
-        except ValueError:
-            continue
-        if not isinstance(row, dict) or not required <= set(row):
-            continue
-        if not isinstance(row["score_a"], (int, float)) or not isinstance(
-            row["score_b"], (int, float)
-        ):
-            continue
-        rows.append(row)
+    rows = read_jsonl(_paths(base)["dir"] / "games.jsonl", _game_row)
     rows.reverse()
     if member is not None:
         rows = [r for r in rows if r["a"] == member or r["b"] == member]
