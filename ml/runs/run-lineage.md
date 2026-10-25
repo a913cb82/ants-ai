@@ -30,5 +30,18 @@ No branch caps, no prune rules (doctrine).
   0 promotions with flat peace -> the stall is elsewhere (actor?).
 - Pool: same 8 boards (comparison stability). Graduation still
   deferred (rung 3 needs drill-reservation first).
-- Results: pending.
-- Verdict: pending.
+- Results (g217-g231): ONE PROMOTION — g222 (EXPLOITER,
+  kill-heavy) over g212, wr 0.625. First exploiter promotion ever.
+  Main gens: best wr 0.60 (g230, below Wilson bar), no promotion.
+  Champ g212 -> g222. Teeth vindicated: the valley is crossable by
+  invasion (exploiter joined the podium, not just the population).
+- Lineage mechanics CONFIRMED: parent chains depth 13 -> 21+ in
+  manifest (chains, not stars). No rot: worst eval wr 0.375, draws
+  throughout, v healthy. Accumulation NOT yet evident: main returns
+  noisy (.52 -> 1.50 -> .33 ... spikes only), no monotonic climb —
+  10 main gens is a short sample for a compounding effect.
+- Boards: funnels still the battlegrounds (gap 0.00-0.13 peace,
+  caves low); opens peaceful (0.5-0.8). Pattern stable 2 rounds.
+- Verdict: lineage KEPT as infrastructure (chains + no-rot proven).
+  Round 15 = continuation on same pool: accumulation needs a longer
+  sample; no new variable while the slow effect is mid-read.
