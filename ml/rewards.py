@@ -209,12 +209,15 @@ def compute_returns(game, me, records):
                 if scope == "team" or (keys[i] is not None and keys[j] == keys[i]):
                     rets[j] += share * (GAMMA ** (event_turn - t))
 
-    # terminal outcome discounted back to every decision. DRAW stays 0:
-    # under the batch-mean baseline a uniform draw batch is already
+    # terminal outcome broadcast to every decision, UNDISCOUNTED. A win
+    # belongs to the opening move as much as the final one: discounting
+    # by time says early moves mattered less, which is false — time
+    # distance is not causal distance. DRAW stays 0: under the
+    # batch-mean baseline a uniform draw batch is already
     # advantage-neutral, matching promotion's half-win treatment.
     if end_value:
-        for i, t in enumerate(turns):
-            rets[i] += end_value * (GAMMA ** (length - t))
+        for i, _t in enumerate(turns):
+            rets[i] += end_value
 
     return rets
 

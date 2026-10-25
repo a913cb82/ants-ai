@@ -286,13 +286,13 @@ def test_hill_loss_splits_across_team():
     assert rets == [rewards.HILL_LOST / 2, rewards.HILL_LOST / 2]
 
 
-def test_outcome_win_adds_terminal_bonus_discounted():
+def test_outcome_win_belongs_to_every_move_equally():
     import rewards
 
     game = _game(score=[10, 4])
     records = [{"turn": 9, "loc": [1, 1], "dest": [1, 1], "action": "stay"}]
     rets = rewards.compute_returns(game, 0, records)
-    assert rets[0] == rewards.WIN * (rewards.GAMMA ** (10 - 9))
+    assert rets[0] == rewards.WIN
 
 
 def test_outcome_loss_and_draw():
