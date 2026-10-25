@@ -34,6 +34,17 @@ whenever a round ends.
 - Bold triggers: 2 quiet rounds -> try something different;
 40 gens on a rung -> diagnose, don't advance blind.
 
+## Exam integrity (evals never train)
+
+Eval games are judgment, not data — their records are discarded by
+design. Training on them would (a) break the on-policy math (greedy
+argmax actions aren't samples; reinforcing them collapses entropy
+into imitate-the-argmax), (b) teach to the test (overfit the
+promotion metric until it stops measuring), (c) narrow the
+distribution (champ-only mirrors vs PFSP diversity). AlphaStar
+likewise never trains on its measurement games. Want more training
+data? Play more train games (costs wall time), never reuse evals.
+
 ## Reference design (AlphaStar is the baseline)
 
 League: one main training continuously (never resets), periodic
