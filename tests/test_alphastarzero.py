@@ -1479,3 +1479,89 @@ def test_eval_reports_score_margins(tmp_path, monkeypatch):
     # Slot 0: chal is A (3-1 -> +2). Slot 1: chal is B (1-1 -> 0).
     assert ev["margins"] == [2, 0] or sorted(ev["margins"]) == [0, 2]
     assert ev["mean_margin"] == 1.0
+
+
+def _mocked_generation(monkeypatch, captured):
+    import copy
+
+    import archive
+    import evaluate
+    import train
+
+    def fake_train(cfg, base, champ_id, champ_w, role="challenger"):
+        captured["role"] = role
+        captured["init_w"] = copy.deepcopy(champ_w)
+        cid = archive.save_checkpoint(base, copy.deepcopy(champ_w), role, champ_id)
+        return cid, copy.deepcopy(champ_w), {"rows": 0}
+
+    def fake_eval(cfg, base, chal_id, chal_w, champ_id, champ_w):
+        return {"wins": 0, "draws": 0, "games": 0, "win_rate": 0.0,
+                "margins": [], "mean_margin": 0.0}
+
+    monkeypatch.setattr(train, "train_generation", fake_train)
+    monkeypatch.setattr(evaluate, "evaluate", fake_eval)
+    monkeypatch.setattr(evaluate, "should_promote", lambda *a: False)
+
+
+def _exploiter_cfg():
+    return {"seed": 0, "arch": "base", "gamma": 0.97,
+            "promote_threshold": 0.5}
+
+
+@pytest.mark.parametrize("hist_len,expected", [
+    (0, False), (1, False), (2, True), (3, False), (4, False), (5, True),
+])
+def test_exploiter_triggers_every_third_generation(tmp_path, monkeypatch, hist_len, expected):
+    import archive
+    import selfplay
+
+    captured: dict = {}
+    _mocked_generation(monkeypatch, captured)
+    base = tmp_path / "archive"
+    cfg = _exploiter_cfg()
+    archive.init(base)
+    champ = archive.save_checkpoint(base, {"w": [1.0]}, "main", None)
+    archive.set_champion(base, champ)
+    for i in range(hist_len):
+        selfplay.append_history(base, {"gen": i})
+    assert len(selfplay.read_history(base)) % 3 == 2 or not expected
+    assert (hist_len % 3 == 2) is expected
+    rep = selfplay.run_generation(cfg, base, commit=False)
+    assert rep["exploiter"] is expected
+    assert captured["role"] == ("exploiter" if expected else "challenger")
+    assert archive.members(base)[-1]["role"] == captured["role"]
+    assert archive.read_status(base)["exploiter"] is expected
+
+
+def test_exploiter_starts_from_fresh_weights(tmp_path, monkeypatch):
+    import archive
+    import selfplay
+
+    captured: dict = {}
+    _mocked_generation(monkeypatch, captured)
+    base = tmp_path / "archive"
+    cfg = _exploiter_cfg()
+    selfplay.run_generation(cfg, base, commit=False)
+    selfplay.append_history(base, {"gen": 97})  # history len 2 -> exploiter
+    champ_id = archive.get_champion(base)
+    champ_w = archive.load_checkpoint(base, champ_id)
+    rep = selfplay.run_generation(cfg, base, commit=False)
+    assert rep["exploiter"] is True
+    assert captured["init_w"] != champ_w  # fresh random init, not a copy
+
+
+def test_non_exploiter_copies_champion(tmp_path, monkeypatch):
+    import archive
+    import selfplay
+
+    captured: dict = {}
+    _mocked_generation(monkeypatch, captured)
+    base = tmp_path / "archive"
+    cfg = _exploiter_cfg()
+    rep = selfplay.run_generation(cfg, base, commit=False)
+    assert rep["exploiter"] is False
+    champ_id = archive.get_champion(base)
+    champ_w = archive.load_checkpoint(base, champ_id)
+    assert captured["init_w"] == champ_w
+    assert captured["role"] == "challenger"
+

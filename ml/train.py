@@ -57,9 +57,9 @@ def _play_one(args) -> dict:
     return {"rows": rows, "rets": rets}
 
 
-def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict) -> tuple[str, dict, dict]:
+def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict, role: str = "challenger") -> tuple[str, dict, dict]:
     """Self-play training games -> (challenger id, weights, train stats)."""
-    chal_id = archive.save_checkpoint(base, copy.deepcopy(champ_w), "challenger", champ_id)
+    chal_id = archive.save_checkpoint(base, copy.deepcopy(champ_w), role, champ_id)
     chal_w = copy.deepcopy(champ_w)
     batch: list = []
     policy = algorithm.new_policy(chal_w)

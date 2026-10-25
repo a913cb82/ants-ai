@@ -146,3 +146,17 @@ turns=150 ends 79% of pro games early; 250 covers 58%, 300 covers
 71%. Default turns 150 -> 250: the majority of real games now fit
 inside a training game, and the 300+ tail stays periodic-eval
 territory.
+
+## A/B: base vs deep + 10-gen signal run (paired seed 21, 250 turns)
+
+No separation: base ret 0.14->~0.17 plateau, deep 0.17->0.14 drift;
+both ~95% draws, no promotions, KL healthy both sides. 10-gen base:
+returns flat at 0.16-0.20, eval 3W/97D. The loop is mechanically
+perfect (full batches, falling in-gen loss, sane KL) and
+strategically stagnant. Per research (AlphaStar league, Hide-and-
+Seek, chess variants): the fixes are exploiters, decisive-weighted
+PFSP, and shorter curricula. Draw-as-loss was considered and
+REJECTED: under per-minibatch standardization a constant draw
+penalty washes out; only return variance trains. Landed: exploiter
+generations (every 3rd gen fresh-inits vs champion, same rule) +
+score-margin logging (draws hide progress; margins show it first).

@@ -178,7 +178,15 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
         archive.set_champion(base, champ_id)
     else:
         champ_w = archive.load_checkpoint(base, champ_id)
-    chal_id, chal_w, train_stats = train.train_generation(cfg, base, champ_id, champ_w)
+    gen_index = len(read_history(base))
+    exploiter = gen_index % 3 == 2
+    start_w = (
+        _random_weights(cfg["seed"] + gen_index, cfg.get("arch", "base"))
+        if exploiter else champ_w
+    )
+    chal_id, chal_w, train_stats = train.train_generation(
+        cfg, base, champ_id, start_w,
+        role="exploiter" if exploiter else "challenger")
     ev = evaluate.evaluate(cfg, base, chal_id, chal_w, champ_id, champ_w)
     mix = archive.nash_mixture(base)
     promoted = evaluate.should_promote(
@@ -193,6 +201,7 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
         "eval": ev,
         "nash": mix,
         "promoted": promoted,
+        "exploiter": exploiter,
         "config": cfg,
     }
     archive.atomic_write_json(base / "last_report.json", report)
@@ -204,6 +213,7 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
         "phase": "done", "challenger": chal_id,
         "champion": archive.get_champion(base),
         "promoted": promoted,
+        "exploiter": exploiter,
     })
     return report
 
