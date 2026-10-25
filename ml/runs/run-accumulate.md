@@ -13,5 +13,10 @@ same code, longer sample for the slow effect.
 - Failure criteria: main wr flat-or-falling across 25 gens with
   no promotion -> accumulation falsified; move to symmetrization
   (next variable) and treat lineage as neutral plumbing.
-- Results: pending.
-- Verdict: pending.
+- Results (g232-g246): THREE PROMOTIONS — g236 over g222 (0.675,
+  main), g245 over g236 (0.65, main), g246 over g245 (0.70,
+  EXPLOITER takes the crown — second exploiter champ). Champ
+  g222 -> g246. Main wr trend UP (.42-.60 -> .50-.65, ends .65);
+  first-5 main mean 0.505 vs last-5 0.615. Chains depth 33/34.
+- Verdict: accumulation CONFIRMED. Lineage joins teeth as live
+  infrastructure. Next variable: symmetrization (round 16).

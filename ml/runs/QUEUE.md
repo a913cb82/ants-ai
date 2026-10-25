@@ -13,83 +13,45 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 12: tiebreak reverted, back to rung 2 (round-9 rewards).
-  Pool 10 boards (rung 1 + rung2a-d/f/g/h/i/j, all train).
-  Tests whether removing the pacifism incentive + duds restores
-  promotions on proven small ground with new textures.
+- Round 16: exact D4 symmetrization (probe 100%, bias gone).
+  Tests whether removing the orientation lottery converts to wins.
 
-## open (ordered)
+## open (ordered — rethought every round boundary; a priority
+list, not a schedule. Skip-the-queue rules in runs README.)
 
-- Wider receptive field + visibility channel (round 16 candidate):
-  grow the window (radius 4 -> 5/6, still inside legal union vision)
-  and add a channel marking per-tile visibility (mine / teammate's /
-  unseen). Enables beyond-own-LoS decisions the engine already
-  allows: approaching when a friendly holds the far side, reading
-  nearby teammates for coordination. Still fully local (no globals,
-  no communication) — the field widens, the doctrine holds. Needs
-  weight-shape migration (conv1 input channels change; old weights
-  don't load — branch the model version). Acceptance: decisiveness
-  up on big/scouting boards, promotions continue.
-- Parked explicitly: per-ant MEMORY of last-seen tiles (the full
-  version of beyond-LoS knowledge). Stateful bot + stateful training
-  is a new architecture, not an upgrade. Revisit only if union
-  vision + visibility channel prove insufficient.
+- Round 16: exact D4 symmetrization in forward(). Smallest
+  architectural change with a guaranteed property (probe: 41%
+  agreement, east bias). Weight-compatible, train=act coherent.
+  Acceptance 100% by construction + promotion rate vs rounds 12-15.
+- Round 17: KL anchor to supervised base (g000). Bounds 100+ gen
+  drift; AlphaStar-fine-tune practice. Small (one loss term).
+  Acceptance: promotions continue with less drift; falsified if it
+  shackles adaptation (margins freeze).
+- Round 18: wider receptive field + visibility channel (radius
+  4 -> 5/6, visibility marking mine/teammate's/unseen). Needs model
+  version branch (input shape changes). Acceptance: decisiveness up
+  on scouting boards. Per-ant MEMORY stays parked (new architecture).
+- Conditional: rung 3 = full real pool (148 maps). Needs 2-in-10 on
+  current pool PLUS drill-reservation code first. Held-out evals
+  return at 13+ same-rung boards. Graduation re-decided every round.
+- Conditional: kill/death removal, pure-outcome ablations — only if
+  dense stalls 40+ gens. Hill-approach — only if invaders stop
+  biting.
+- Watch items (symptoms first): three-role asymmetry (cycles in
+  matrix), Nash-main selection (Wilson promotes collapsing
+  specialists), remaining generator survey (pool has room to 12).
 
 Each experiment ships with acceptance/falsification criteria in its
 plan file before launch. See Discard bar below for what it takes
 to drop one.
 
-- BC-base + kill-heavy exploiters (round 13 TRYING): AlphaStar base
-  reset + TStar-school role shaping (attribution corrected — the
-  shaping is not AlphaStar's; they keep one reward). Acceptance:
-  exploiters win duels / promotion / champ margins compress.
-- Continuous main lineage (AlphaStar baseline, round 14 candidate):
-  ONE main that trains continuously and never resets — parent chains
-  fall out automatically, no branch caps, no prune rules. Round-13
-  manifest proved the need: 19/20 members parented to g160, one-step
-  mutations from one point cannot walk away from it. Periodic
-  exploiters (supervised reset, live) + PFSP-lite (live) complete the
-  shape. Deviations need justification + a path back (doctrine).
-  Acceptance: promotion rate up vs reset-regime on same pool;
-  falsified if the main rots (eval floor falls over gens).
-- KL anchor to supervised base: penalty toward g000 weights during
-  training (AlphaStar bounds main drift; ours drifted 100+ gens
-  unleashed). Acceptance: promotions continue past current stall
-  with less drift; falsified if it shackles adaptation (margins
-  freeze).
-- Three-role asymmetry: exploiters face mains only, never each
-  other; beaten mains join a permanent league sampled by PFSP
-  (AlphaStar ME/LE). Only if cycles appear (rock-paper-scissors
-  in the matrix: A beats B beats C beats A). Watch item, not live.
-- Nash-main selection: promote the least-exploitable (Nash mixture
-  weight) instead of Wilson-vs-champ. Only if Wilson promotes
-  specialists that later collapse. Watch item.
-
-- BC-base exploiters (round 13 candidate): exploiter gens spawn
-  from BC-from-pros weights instead of random init (AlphaStar:
-  exploiters reset to the supervised base). Fresh eyes, competent
-  hands — turns 0-7 target practice into selection pressure.
-  One-line change; small and safe.
-- Exact D4 symmetrization in forward(): average all 8 dihedral
-  orientations inside the model (probe: 41% agreement, east bias).
-  Weight-compatible, train=act coherent. Acceptance 100% by
-  construction + promotion rate vs control.
-- Asymmetric league matchmaking: exploiters face mains only, never
-  each other (AlphaStar ME/LE structure). Only if cycles appear.
-- Hill-approach shaping: reward closing distance to the enemy hill.
-  Only if exploiters don't bite.
-- Kill/death removal ablation: HILL + outcome only. Queued behind
-  the food verdict (food proved load-bearing; kills untested).
-- Rung 3 = full real pool (148 maps): needs 2-in-10 on rung 2,
-  then train-slot reservation for curriculum drills (each board
-  trains every ~37 gens otherwise) + held-out evals return (13+
-  same-rung boards earn the split back).
-- Remaining generator survey: symmetric_mapgen small-2p driver,
-  McMaps verdict (likely skip — image-based), random/heightmap
-  drivers, Java Test run. Parked until round 12 lands; winners
-  displace, pool caps at 12 (no split).
-
 ## done
+
+- Rounds 13-15: exploiters with teeth (BC base + kill-heavy) +
+  continuous main lineage. 6 promotions in 45 gens (g208, g212,
+  g236, g245 + 2 exploiter crowns g222, g246); chains depth 34;
+  main wr trends up; no rot. Both live as infrastructure.
+  Funnel pattern: water boards fight, opens turtle.
 
 - Rung-2 extended pool (rounds 11-12): rung 1 + rung2a-d, then
   f/g/h/i/j staged in. Gap twin-bars, pond twin lakes, 2d back to

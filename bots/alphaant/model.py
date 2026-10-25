@@ -7,6 +7,27 @@ import torch
 import features
 from features import ACTIONS
 
+# Dihedral action permutations (mirror ml/algorithm.py ROT_PERM, which
+# maps a CCW-rotated frame back: n->w->s->e). UNROT[k] gathers logits
+# from the k-turns-CCW frame into the canonical frame. UNFLIP mirrors
+# a left-right flip (e<->w) back. Both are their own bookkeeping:
+# the game is symmetric, the network need not learn to be.
+ROT_PERM = (3, 0, 1, 2, 4)
+UNFLIP = (0, 3, 2, 1, 4)
+
+
+def _unrot(k: int) -> tuple:
+    # r_k is k CCW turns of x; canonical-a is r_k-ROT_PERM^k[a]
+    # (matches algorithm._rotate_item: (R(w), ROT_PERM[a]) is one
+    # decision). Gather canonical out of the rotated logits with it.
+    perm = tuple(range(5))
+    for _ in range(k % 4):
+        perm = tuple(ROT_PERM[i] for i in perm)
+    return perm
+
+
+UNROT = {k: _unrot(k) for k in range(4)}
+
 
 class CNNPolicy(torch.nn.Module):
     """Small convnet: (6, H, W) window -> 5 action logits + 1 value.
@@ -75,13 +96,50 @@ class CNNPolicy(torch.nn.Module):
             x = torch.relu(self.vconv4(x))
         return self.pool(x).flatten(start_dim=1)
 
+    def _d4_logits(self, x: torch.Tensor) -> torch.Tensor:
+        """Mean logits over the 8 dihedral orientations, mapped back.
+
+        Each orientation is a legal view of the same position (rotations
+        and mirrors preserve the game), so their mapped-back logits are
+        8 estimates of one distribution. The mean is exactly equivariant
+        by group closure: no orientation is privileged, including at
+        act time. Costs 8x the forward; the net is tiny."""
+        rots = [x]
+        for _ in range(3):
+            rots.append(torch.rot90(rots[-1], 1, (2, 3)))
+        total = None
+        count = 0
+        for k, r in enumerate(rots):
+            for flipped, t in ((False, r), (True, torch.flip(r, (3,)))):
+                out = self.head(self.trunk(t))
+                if flipped:
+                    out = out[:, list(UNFLIP)]
+                out = out[:, list(UNROT[k])]
+                total = out if total is None else total + out
+                count += 1
+        return total / count
+
+    def _d4_values(self, x: torch.Tensor) -> torch.Tensor:
+        """Mean value over orientations: invariant by construction."""
+        rots = [x]
+        for _ in range(3):
+            rots.append(torch.rot90(rots[-1], 1, (2, 3)))
+        total = None
+        count = 0
+        for r in rots:
+            for t in (r, torch.flip(r, (3,))):
+                out = self.value(self.vtrunk(t))
+                total = out if total is None else total + out
+                count += 1
+        return total / count
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """x: (B, 6, H, W) -> logits (B, 5)."""
-        return self.head(self.trunk(x))
+        """x: (B, 6, H, W) -> logits (B, 5). D4-symmetrized."""
+        return self._d4_logits(x)
 
     def values(self, x: torch.Tensor) -> torch.Tensor:
-        """x: (B, 6, H, W) -> state values (B,)."""
-        return self.value(self.vtrunk(x)).squeeze(-1)
+        """x: (B, 6, H, W) -> state values (B,). D4-invariant."""
+        return self._d4_values(x).squeeze(-1)
 
 
 CRITIC_PREFIXES = ("value.", "vconv")

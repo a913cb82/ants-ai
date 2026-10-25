@@ -518,6 +518,58 @@ def test_cnn_forward_shape():
     assert policy(torch.zeros(1, 6, 9, 9)).shape == (1, 5)
 
 
+def _probs(policy, w):
+    import torch
+
+    policy.eval()
+    with torch.no_grad():
+        return torch.softmax(policy(w), dim=1)
+
+
+def test_forward_is_rotation_equivariant():
+    import torch
+
+    import model
+
+    torch.manual_seed(3)
+    policy = model.CNNPolicy()
+    w = torch.rand(4, 6, 9, 9)
+    base = _probs(policy, w)
+    for k in (1, 2, 3):
+        got = _probs(policy, torch.rot90(w, k, (2, 3)))
+        back = got[:, list(model.UNROT[k])]
+        assert torch.allclose(base, back, atol=1e-5), k
+
+
+def test_forward_is_flip_equivariant():
+    import torch
+
+    import model
+
+    torch.manual_seed(5)
+    policy = model.CNNPolicy()
+    w = torch.rand(4, 6, 9, 9)
+    base = _probs(policy, w)
+    got = _probs(policy, torch.flip(w, (3,)))
+    assert torch.allclose(base, got[:, list(model.UNFLIP)], atol=1e-5)
+
+
+def test_values_are_rotation_invariant():
+    import torch
+
+    import model
+
+    torch.manual_seed(7)
+    policy = model.CNNPolicy()
+    policy.eval()
+    with torch.no_grad():
+        w = torch.rand(4, 6, 9, 9)
+        base = policy.values(w)
+        for k in (1, 2, 3):
+            assert torch.allclose(
+                base, policy.values(torch.rot90(w, k, (2, 3))), atol=1e-5)
+
+
 def test_cnn_radius_agnostic():
     import torch
 
