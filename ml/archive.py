@@ -139,30 +139,40 @@ def _key(a: str, b: str) -> str:
     return f"{a} vs {b}"
 
 
+def outcome_of(score_a: float, score_b: float) -> float:
+    """Duel outcome from A's view: 1.0 win, 0.5 draw, 0.0 loss.
+
+    Single constructor for the score->outcome mapping (B3: it used to
+    live in three places with three spellings)."""
+    if score_a > score_b:
+        return 1.0
+    if score_b > score_a:
+        return 0.0
+    return 0.5
+
+
 def record_result(
     base: Path, a: str, b: str, score_a: float, score_b: float, kind: str = "eval"
 ) -> None:
     """Log a duel: 1/0.5/0 from each side's perspective.
 
-    kind="eval": greedy, canonical, feeds promotion/PFSP/Nash.
-    kind="train": exploratory, diagnostic only.
+    kind="eval": greedy, canonical, feeds promotion/PFSP/Nash and
+    registers population members. kind="train": exploratory,
+    diagnostic only (logged under keys, never as members).
     """
     assert kind in ("eval", "train")
     init(base)
     p = _paths(base)
     data = json.loads(p["matrix"].read_text())
-    for cid in (a, b):
-        if cid not in data["ids"]:
-            data["ids"].append(cid)
+    if kind == "eval":
+        for cid in (a, b):
+            if cid not in data["ids"]:
+                data["ids"].append(cid)
     key = _key(a, b)
     wins = data[kind].get(key, [0.0, 0.0])
-    if score_a > score_b:
-        wins[0] += 1
-    elif score_b > score_a:
-        wins[1] += 1
-    else:
-        wins[0] += 0.5
-        wins[1] += 0.5
+    out = outcome_of(score_a, score_b)
+    wins[0] += out
+    wins[1] += 1.0 - out
     data[kind][key] = wins
     atomic_write_json(p["matrix"], data)
 
@@ -220,8 +230,8 @@ def list_games(base: Path, member: str | None = None) -> list[dict]:
 def _head_to_head(data: dict, kind: str, a: str, b: str) -> tuple[float, float]:
     """(a's wins, b's wins) across both slot orders, with a +1/+1
     Laplace prior: unplayed reads as 0.5 and small samples shrink to it."""
-    w_ab = data[kind].get(f"{a} vs {b}", [0.0, 0.0])
-    w_ba = data[kind].get(f"{b} vs {a}", [0.0, 0.0])
+    w_ab = data[kind].get(_key(a, b), [0.0, 0.0])
+    w_ba = data[kind].get(_key(b, a), [0.0, 0.0])
     return (w_ab[0] + w_ba[1] + 1.0, w_ab[1] + w_ba[0] + 1.0)
 
 

@@ -612,10 +612,13 @@ def test_ppo_value_head_starts_at_zero_and_learns():
         policy.values(torch.zeros(2, 6, 9, 9)), torch.zeros(2)
     )
     opt = algorithm.make_optimizer(policy, lr=1e-2)
-    batch = _train_batch(returns=(0.0, 1.0, 2.0, 3.0))
+    windows = torch.zeros(4, 6, 9, 9)
+    for i in range(4):
+        windows[i, 1, 4, 4] = float(i + 1)  # distinct states, fittable values
+    batch = [(windows[i], i % 5, float(i), [True] * 5, 0.0) for i in range(4)]
     first = algorithm.train_epoch(policy, opt, batch, entropy_beta=0.0)
     assert first["v_loss"] > 0.0
-    for _ in range(30):
+    for _ in range(50):
         last = algorithm.train_epoch(policy, opt, batch, entropy_beta=0.0)
     assert last["v_loss"] < first["v_loss"]
 
@@ -645,7 +648,7 @@ def test_train_epoch_empty_batch_is_noop():
     policy = model.CNNPolicy()
     opt = algorithm.make_optimizer(policy)
     stats = algorithm.train_epoch(policy, opt, [])
-    assert stats["loss"] == 0.0 and stats["mean_return"] == 0.0
+    assert stats["loss"] == 0.0 and stats["mean_return"] == 0.0 and stats["steps"] == 0
 
 
 def test_train_epoch_ignores_masked_logits():
@@ -770,7 +773,9 @@ def test_matrices_separate_train_and_eval(tmp_path):
     a = archive.save_checkpoint(base, {}, role="main", parent=None)
     b = archive.save_checkpoint(base, {}, role="main", parent=None)
     archive.record_result(base, a, b, 1, 0, kind="train")
-    assert archive.win_rates(base, a)[b] == 0.5  # train is diagnostic only
+    assert b not in archive.win_rates(base, a)  # train registers no members
+    _, mat = archive.payoff_matrix(base)
+    assert mat.size == 0  # no eval games yet, no population
     archive.record_result(base, a, b, 1, 0, kind="eval")
     assert archive.win_rates(base, a)[b] < 0.5
 
@@ -795,8 +800,23 @@ def test_decompose_reports_category_mass():
     ]
     mass = rewards.decompose(game, 0, records)
     assert mass["food"] == rewards.FOOD
-    assert mass["win"] == rewards.WIN * 2
+    assert mass["terminal"] == rewards.WIN  # per-record, not xN
+    assert mass["result"] == "win"
     assert mass["kill"] == 0.0
+    assert "draw" not in mass
+
+
+def test_decompose_draw_and_loss():
+    import rewards
+
+    game = _game(score=[1, 1])
+    mass = rewards.decompose(game, 0, [{"turn": 0, "loc": [0, 0],
+                                         "dest": [0, 0], "action": "stay"}])
+    assert mass["terminal"] == 0.0 and mass["result"] == "draw"
+    game = _game(score=[0, 5])
+    mass = rewards.decompose(game, 0, [{"turn": 0, "loc": [0, 0],
+                                         "dest": [0, 0], "action": "stay"}])
+    assert mass["terminal"] == -rewards.WIN and mass["result"] == "loss"
 
 
 def test_legal_mask_blocks_food_tiles():
@@ -1073,4 +1093,30 @@ def test_new_policy_roundtrip_and_lr_default():
     assert isinstance(policy, model.CNNPolicy)
     w = algorithm.policy_weights(policy)
     assert algorithm.new_policy(w).value.weight.shape == policy.value.weight.shape
-    assert algorithm.make_optimizer(policy).param_groups[0]["lr"] == 3e-4
+    assert algorithm.make_optimizer(policy).param_groups[0]["lr"] == 1e-3
+
+
+def test_train_epoch_no_nan_on_singleton_tail():
+    import torch
+
+    import model
+    import algorithm
+
+    torch.manual_seed(0)
+    policy = model.CNNPolicy()
+    opt = algorithm.make_optimizer(policy, lr=1e-3)
+    batch = _train_batch(tuple([float(i % 7 - 3) for i in range(65)]))
+    stats = algorithm.train_epoch(policy, opt, batch, minibatch=64)
+    assert stats["steps"] == 5  # adaptive floor: max(16, 65 // 4)
+    for key in ("loss", "pg_loss", "v_loss", "entropy", "kl"):
+        assert stats[key] == stats[key], key  # no NaN
+    for p in policy.parameters():
+        assert torch.isfinite(p).all()
+
+
+def test_outcome_of_mapping():
+    import archive
+
+    assert archive.outcome_of(3, 1) == 1.0
+    assert archive.outcome_of(1, 1) == 0.5
+    assert archive.outcome_of(0, 2) == 0.0

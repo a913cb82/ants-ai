@@ -219,19 +219,22 @@ def compute_returns(game, me, records):
 
 
 def decompose(game, me, records):
-    """Undiscounted same-turn return mass by category.
+    """Undiscounted return mass by category, for tuning magnitudes.
 
-    Evidence for tuning magnitudes before tuning them: shares in one
-    award sum to the event amount, so totals show what each category
-    actually paid out.
+    Dense shares conserve the event amount (one food totals FOOD),
+    but the terminal outcome is broadcast to every record by
+    compute_returns — so it is reported separately as a PER-RECORD
+    value ("terminal"), never multiplied by the row count. Comparing
+    "terminal" against the dense totals shows the true scale ratio.
     """
     awards, end_value, _length, _turns, _keys = _awards(game, me, records)
     mass: dict[str, float] = {
-        "food": 0.0, "kill": 0.0, "death": 0.0,
-        "hill": 0.0, "win": 0.0, "loss": 0.0, "draw": 0.0,
+        "food": 0.0, "kill": 0.0, "death": 0.0, "hill": 0.0,
     }
     for _turn, shares, _scope, kind in awards:
         mass[kind] += sum(shares.values())
-    mass["win" if end_value > 0 else "loss"] += end_value * len(records)
-    del mass["draw"]
+    mass["terminal"] = end_value
+    mass["result"] = (
+        "win" if end_value > 0 else ("loss" if end_value < 0 else "draw")
+    )
     return mass

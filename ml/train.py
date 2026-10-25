@@ -64,7 +64,12 @@ def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict) -> tup
             })
     losses, entropies = [], []
     for _ in range(cfg["epochs"]):
-        stats = algorithm.train_epoch(policy, opt, batch)
+        stats = algorithm.train_epoch(
+            policy, opt, batch,
+            clip=cfg["clip"], vf_coef=cfg["vf_coef"],
+            entropy_beta=cfg["entropy_beta"], max_norm=cfg["max_norm"],
+            minibatch=cfg["minibatch"],
+        )
         losses.append(stats["loss"])
         entropies.append(stats["entropy"])
     chal_w = algorithm.policy_weights(policy)
