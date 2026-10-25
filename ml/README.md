@@ -84,3 +84,23 @@ no GAE — see `ml/algorithm.py`). First automated generations ran
 clean (trained, evaluated, correctly held the champion on sub-bar
 evals). Open: learning-signal validation over several generations,
 exploiter phases, GAE if the value baseline proves insufficient.
+
+## Experiment log
+
+2026-10-25, 1-hour perf + hyperparameter budget (4 arms x 4 gens,
+60 turns, train 4 / eval 10, seed 7, paired):
+- Wave 1 was VOID: parallel games caused turn-1 engine timeouts
+  (`game_length 0`, both sides `timeout`), which log zero rows and
+  score 0-0. Empty batches trained on nothing; "draws" were timeouts.
+- Fix: engine `--turntime` 1s->5s, `--loadtime` 3s->15s (free when
+  healthy), one automatic retry on `game_length 0` (`game_if.play`
+  returns a `retried` flag), default workers 12->8. Wave 2:
+  zero double-timeouts, full batches (800-1100 rows/gen).
+- KL landed at ~0.01/epoch for lr=1e-3 (healthy band) and ~0.01 for
+  lr=3e-3: both safe, 1e-3 stays the default. lr=3e-3 showed the
+  fastest critic learning (v_loss 1.0->0.74); no eval separation.
+- Headline bottleneck: mirror evals on tutorial1 draw ~90%
+  (0W/10D typical), so n=10 evals cannot separate knobs or promote.
+  Next levers are draw-rate, not step size: longer turns, second map,
+  or score-margin eval metric. gamma=0.99 raised train returns
+  (+50%) with no eval change — consistent with draws, not learning.
