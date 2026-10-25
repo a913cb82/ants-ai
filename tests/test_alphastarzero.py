@@ -302,39 +302,6 @@ def test_outcome_loss_and_draw():
     assert rewards.outcome(_game(score=[5, 5]), 0) == rewards.DRAW
 
 
-def _ants_game(score, mine_alive, opp_alive, length=10):
-    ants = (
-        [[0, 0, 0, length + 1, 0, "n" * length]] * mine_alive
-        + [[9, 9, 0, length + 1, 1, "s" * length]] * opp_alive
-    )
-    g = _game(score=score)
-    g["replaydata"]["ants"] = ants
-    return g
-
-
-def test_draw_tiebreak_rewards_more_ants_alive():
-    import rewards
-
-    recs = [
-        {"turn": 1, "loc": [1, 1], "dest": [1, 1], "action": "stay"},
-        {"turn": 9, "loc": [2, 2], "dest": [2, 2], "action": "stay"},
-    ]
-    rets = rewards.compute_returns(_ants_game([5, 5], 3, 1), 0, recs)
-    assert rets[0] == rets[-1] == rewards.TIEBREAK
-    rets = rewards.compute_returns(_ants_game([5, 5], 1, 3), 0, recs)
-    assert rets[0] == rets[-1] == -rewards.TIEBREAK
-    rets = rewards.compute_returns(_ants_game([5, 5], 2, 2), 0, recs)
-    assert rets == [0.0, 0.0]
-
-
-def test_decisive_game_gets_no_tiebreak():
-    import rewards
-
-    recs = [{"turn": 9, "loc": [1, 1], "dest": [1, 1], "action": "stay"}]
-    rets = rewards.compute_returns(_ants_game([10, 4], 5, 1), 0, recs)
-    assert rets[0] == rewards.WIN
-
-
 def test_bot_records_turn_rows_when_env_set(tmp_path, monkeypatch):
     import AlphaAnt
 

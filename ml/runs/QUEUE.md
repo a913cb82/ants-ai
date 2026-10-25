@@ -12,12 +12,10 @@ and the round itself is the scored exam.
 
 ## trying
 
-- Draw tiebreak by material (round 11 revised): drawn games pay
-  +1.0 to the side with more ants alive, -1.0 to fewer, 0 equal.
-  Draw-only, binary, undecayed. Tests whether material tiebreaks
-  un-dud big peaceful boards without reopening the farming trap
-  (comparative, mirrors zero it). Single experimental variable;
-  the pool rebuild below is prerequisite, not variable.
+- Round 12: tiebreak reverted, back to rung 2 (round-9 rewards).
+  Pool 10 boards (rung 1 + rung2a-d/f/g/h/i/j, all train).
+  Tests whether removing the pacifism incentive + duds restores
+  promotions on proven small ground with new textures.
 
 ## open
 
@@ -63,6 +61,15 @@ mid-round). Then re-audit any 10b promotion board-by-board.
   Kept.
 
 ## dropped
+
+- Material tiebreak (round 11): mechanism worked (draws separated
+  -1.28..+1.65) but the incentive is perverse — survivors get paid,
+  so not-fighting pays twice (no death -1 AND tiebreak +1). Rung-1
+  peace rose 0.68 -> 0.75 even where combat is trivial; previously
+  decisive boards (rung2a/d) went quiet. 0 promotions in 15 gens.
+  Reverted. Lesson: price winning, never survival.
+- gen2p boards (round 11): 3.3% and 5.1% decisive — cut per the
+  demotion bar.
 
 - Generated rung 3 (rung3a-d): wrong direction — rung 3 is real
   boards. Pond had a dry toroidal route; gap same flaw. Proven

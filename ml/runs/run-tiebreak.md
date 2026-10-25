@@ -28,5 +28,14 @@ contact). gen2p boards both draw — passengers under test
 - Failure criteria: real boards zero-decisive AND zero-margin ->
   cut them (rung 2 stays curriculum); tiebreak with no promotions
   and no margin separation -> drop it.
-- Results: pending.
-- Verdict: pending.
+- Results (g172-g186): ZERO promotions, champion g160 holds.
+  Tiebreak mechanism WORKED (draw-heavy train sets separate
+  -1.28..+1.65 by material) but the INCENTIVE is perverse: surviving
+  pays, so not-fighting pays twice (dodge death -1 AND bank +1).
+  Rung-1 peace ROSE 0.68 -> 0.75 despite training again; previously
+  decisive rung2a/d went quiet (0.65-0.80). Pacifism-farming, the
+  food trap in a new shape. gen2p_00/05: 3.3%/5.1% decisive ->
+  CUT per the demotion bar. Exploiters 5/5 crushed (target
+  practice, not selection pressure).
+- Verdict: tiebreak REVERTED (price winning, never survival).
+  Round 12 retreats to rung 2 on round-9 rewards.

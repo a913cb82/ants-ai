@@ -34,6 +34,28 @@ rung-1 held-only forgot combat, peace 0.68 — skills rot without
 practice). At full-pool scale, reserve train slots for curriculum
 drills (each board trains every ~37 gens otherwise).
 
+## Pool promotion and demotion
+
+Boards move, not just rungs.
+
+- Board promotion (staged -> pool): playable_2p, hills placed, one
+clean smoke (runs end to end, no crash) -> joins the next round
+as a passenger. Stays if its train-game decisive rate exceeds 10%
+over that round.
+- Board demotion (pool -> cut): decisive rate under 10% over a
+full round -> cut, no second chances for real boards (gen2p_00
+3.3% and gen2p_05 5.1% in round 11: cut). Curriculum boards get
+one fix attempt first (the toroidal flaw class is repairable),
+then the same bar.
+- Rung promotion: two promotions in any ten-gen window (above).
+- Rung demotion (retreat): a full round under 10% decisive
+rung-wide means signal collapse -> retreat one rung and diagnose
+before re-advancing (round-10 random_walk at 0%: rebuilt, same
+spirit).
+- Rung 1 never demotes: it is the contact drill. If even rung 1
+goes peaceful, the disease is in the rewards, not the maps —
+diagnose rewards, don't touch the pool.
+
 ## Notes
 
 - Rung 1 -> rung 2 is MAP SIZE, not hill distance: bigger ground

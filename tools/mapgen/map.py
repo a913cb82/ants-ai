@@ -138,7 +138,7 @@ class Map:
 
     def get_distances(self, start_loc, end_locs, size=None):
         "get a list of distances from 1 location to a bunch of others"
-        end_locs = end_locs[:]
+        end_locs = list(end_locs)
         if size is None:
             rows, cols = len(self.map), len(self.map[0])
         else:
