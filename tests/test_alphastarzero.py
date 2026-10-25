@@ -57,54 +57,6 @@ class FakeAnts:
         return list(self._enemy_hills)
 
 
-def test_features_cover_all_five_actions():
-    import features
-
-    ants = FakeAnts()
-    feats = features.ant_features(ants, (4, 4))
-    assert set(feats) == {"n", "e", "s", "w", "stay"}
-    for a, vec in feats.items():
-        assert set(vec) == {"passable", "food", "threat", "crowd"}
-        assert all(isinstance(v, (int, float)) for v in vec.values())
-
-
-def test_features_flag_water_as_impassable():
-    import features
-
-    ants = FakeAnts()
-    ants._mine = [(2, 1)]  # east step lands on water (2,2)
-    feats = features.ant_features(ants, (2, 1))
-    assert feats["e"]["passable"] == 0
-    assert feats["n"]["passable"] == 1
-
-
-def test_model_picks_passable_food_step():
-    import features
-    import model
-
-    ants = FakeAnts()
-    weights = {"passable": 5.0, "food": 1.0, "threat": -2.0, "crowd": -1.0}
-    feats = features.ant_features(ants, (4, 4))
-    action = model.choose(feats, weights, occupied=set())
-    # (4,4) -> food at (5,5): south or east both improve; must be passable.
-    assert action in ("s", "e")
-    dest = ants.destination((4, 4), action) if action != "stay" else (4, 4)
-    assert ants.passable(dest)
-
-
-def test_model_never_picks_water():
-    import features
-    import model
-
-    ants = FakeAnts()
-    ants._mine = [(2, 1)]
-    ants._food = [(2, 5)]  # food lies east, past the water tile
-    weights = {"passable": 5.0, "food": 1.0, "threat": -2.0, "crowd": -1.0}
-    feats = features.ant_features(ants, (2, 1))
-    action = model.choose(feats, weights, occupied=set())
-    assert action != "e"
-
-
 def test_window_shape_channels_dtype():
     import features
 
@@ -397,8 +349,9 @@ def test_bot_records_turn_rows_when_env_set(tmp_path, monkeypatch):
     row = json.loads(files[0].read_text().strip().splitlines()[-1])
     assert row["turn"] == 1
     assert row["action"] in ("n", "e", "s", "w", "stay")
-    assert "dest" in row and "cues" in row
+    assert "dest" in row and "legal" in row
     assert len(row["window"]) == 6 and len(row["window"][0]) == 9
+    assert len(row["legal"]) == 5
 
 
 def test_bot_samples_with_temperature(tmp_path, monkeypatch):
@@ -620,7 +573,9 @@ def _train_batch(returns=(1.0, 2.0, 3.0)):
 
     windows = torch.zeros(len(returns), 6, 9, 9)
     windows[:, 1, 4, 4] = 1.0
-    return [(windows[i], i % 5, float(r)) for i, r in enumerate(returns)]
+    return [
+        (windows[i], i % 5, float(r), [True] * 5) for i, r in enumerate(returns)
+    ]
 
 
 def test_reinforce_raises_chosen_logprob():
@@ -631,19 +586,23 @@ def test_reinforce_raises_chosen_logprob():
 
     torch.manual_seed(0)
     policy = model.CNNPolicy()
+    opt = algorithm.make_optimizer(policy, lr=1e-2)
     batch = _train_batch(returns=(1.0, 0.0))
-    before = algorithm.logprob(policy, batch[0][0], batch[0][1])
-    algorithm.reinforce_step(policy, batch, lr=1e-2)
-    assert algorithm.logprob(policy, batch[0][0], batch[0][1]) > before
+    before = algorithm.masked_log_probs(policy, batch)[0][0].item()
+    algorithm.train_epoch(policy, opt, batch)
+    assert algorithm.masked_log_probs(policy, batch)[0][0].item() > before
 
 
-def test_advantages_center_on_batch_mean():
+def test_advantages_standardize_batch():
     import algorithm
 
-    assert algorithm.advantages([1.0, 2.0, 3.0]) == [-1.0, 0.0, 1.0]
+    adv = algorithm.advantages([1.0, 2.0, 3.0])
+    assert abs(sum(adv)) < 1e-9
+    assert abs(sum(a * a for a in adv) / 3 - 1.0) < 1e-9
+    assert adv[0] < adv[1] < adv[2]
 
 
-def test_train_step_noop_on_equal_returns():
+def test_train_epoch_noop_on_equal_returns():
     import torch
 
     import model
@@ -651,11 +610,50 @@ def test_train_step_noop_on_equal_returns():
 
     torch.manual_seed(0)
     policy = model.CNNPolicy()
+    opt = algorithm.make_optimizer(policy, lr=1e-2)
     before = [p.detach().clone() for p in policy.parameters()]
-    stats = algorithm.reinforce_step(policy, _train_batch((2.0, 2.0, 2.0)), lr=1e-2)
+    stats = algorithm.train_epoch(
+        policy, opt, _train_batch((2.0, 2.0, 2.0)), entropy_beta=0.0
+    )
     assert stats["loss"] == 0.0
     for b, p in zip(before, policy.parameters(), strict=True):
         assert torch.equal(b, p)
+
+
+def test_train_epoch_empty_batch_is_noop():
+    import model
+    import algorithm
+
+    policy = model.CNNPolicy()
+    opt = algorithm.make_optimizer(policy)
+    stats = algorithm.train_epoch(policy, opt, [])
+    assert stats == {"loss": 0.0, "mean_return": 0.0, "entropy": 0.0}
+
+
+def test_train_epoch_ignores_masked_logits():
+    import torch
+
+    import model
+    import algorithm
+
+    torch.manual_seed(0)
+    policy = model.CNNPolicy()
+    opt = algorithm.make_optimizer(policy, lr=1e-2)
+    # Actions 2-4 are illegal; the gradient must not touch their mass.
+    w = torch.zeros(6, 9, 9)
+    w[1, 4, 4] = 1.0
+    mask = [True, True, False, False, False]
+    batch = [(w, 0, 1.0, mask), (w, 1, 0.0, mask)]
+    before = [p.detach().clone() for p in policy.parameters()]
+    algorithm.train_epoch(policy, opt, batch)
+    after = [p.detach().clone() for p in policy.parameters()]
+    assert any(not torch.equal(b, a) for b, a in zip(before, after))
+    logp = model.masked_log_softmax(
+        policy,
+        torch.stack([w, w]),
+        torch.tensor([mask, mask], dtype=torch.bool),
+    )
+    assert bool((logp[:, 2:].exp() < 1e-6).all())
 
 
 def test_archive_save_load_roundtrip(tmp_path):
@@ -689,6 +687,8 @@ def test_nash_crowns_dominant_strategy(tmp_path):
     a = archive.save_checkpoint(base, {}, role="main", parent=None)
     b = archive.save_checkpoint(base, {}, role="main", parent=None)
     archive.record_result(base, a, b, 5, 0)
+    archive.record_result(base, a, b, 3, 0)
+    archive.record_result(base, a, b, 7, 2)
     mix = archive.nash_mixture(base)
     assert mix[a] > 0.9 and mix[b] < 0.1
 
@@ -714,21 +714,83 @@ def test_to_batch_converts_rows_and_returns():
 
     records = [
         {"window": torch.zeros(6, 9, 9).tolist(), "action": "e"},
-        {"window": torch.zeros(6, 9, 9).tolist(), "action": "stay"},
+        {
+            "window": torch.zeros(6, 9, 9).tolist(),
+            "action": "stay",
+            "legal": [False, False, False, False, True],
+        },
     ]
     batch = algorithm.to_batch(records, [1.0, -1.0])
     assert len(batch) == 2
     assert batch[0][0].shape == torch.Size([6, 9, 9])
     assert batch[0][1] == 1 and batch[1][1] == 4
     assert batch[0][2] == 1.0 and batch[1][2] == -1.0
+    assert batch[0][3] == [True] * 5
+    assert batch[1][3] == [False, False, False, False, True]
 
 
-def test_promote_rule_needs_threshold_and_nash():
-    import selfplay
+def test_promote_rule_needs_wilson_and_nash():
+    import evaluate
 
-    assert selfplay.should_promote(0.60, 0.5, 0.4, 0.55)
-    assert not selfplay.should_promote(0.50, 0.5, 0.4, 0.55)
-    assert not selfplay.should_promote(0.80, 0.2, 0.4, 0.55)
+    assert evaluate.should_promote(7, 0, 10, 0.5, 0.4)
+    assert not evaluate.should_promote(4, 0, 10, 0.5, 0.4)
+    assert not evaluate.should_promote(10, 0, 10, 0.2, 0.4)
+
+
+def test_wilson_lower_bounds():
+    import archive
+
+    assert archive.wilson_lower(0, 0) == 0.0
+    assert archive.wilson_lower(6, 6) > 0.7
+    assert archive.wilson_lower(3, 6) < 0.5
+
+
+def test_matrices_separate_train_and_eval(tmp_path):
+    import archive
+
+    base = tmp_path / "archive"
+    a = archive.save_checkpoint(base, {}, role="main", parent=None)
+    b = archive.save_checkpoint(base, {}, role="main", parent=None)
+    archive.record_result(base, a, b, 1, 0, kind="train")
+    assert archive.win_rates(base, a)[b] == 0.5  # train is diagnostic only
+    archive.record_result(base, a, b, 1, 0, kind="eval")
+    assert archive.win_rates(base, a)[b] < 0.5
+
+
+def test_kill_credit_excludes_zero_distance():
+    import rewards
+
+    game = _game()
+    game["replaydata"]["ants"] = [[5, 5, 1, 3, 1, "--"]]  # enemy dies on (5,5)
+    records = [{"turn": 3, "loc": [5, 4], "dest": [5, 5], "action": "s"}]
+    assert rewards.compute_returns(game, 0, records) == [0.0]
+
+
+def test_decompose_reports_category_mass():
+    import rewards
+
+    game = _game(score=[10, 4])
+    game["replaydata"]["food"] = [[5, 5, 1, 3, 0]]
+    records = [
+        {"turn": 3, "loc": [5, 3], "dest": [5, 4], "action": "e"},
+        {"turn": 3, "loc": [0, 0], "dest": [0, 0], "action": "stay"},
+    ]
+    mass = rewards.decompose(game, 0, records)
+    assert mass["food"] == rewards.FOOD
+    assert mass["win"] == rewards.WIN * 2
+    assert mass["kill"] == 0.0
+
+
+def test_legal_mask_blocks_food_tiles():
+    import torch
+
+    import model
+
+    policy = model.CNNPolicy()
+    w = _cnn_window()
+    w[5, 4, 5] = 1.0  # food east of center
+    mask = model.legal_mask(w)
+    assert mask.tolist() == [True, False, True, True, True]
 
 
 @pytest.mark.slow
@@ -741,12 +803,14 @@ def test_game_if_mirror_plays_and_prices(tmp_path):
         sys.executable,
         json.loads((ROOT / "bots" / "alphastarzero" / "weights.json").read_text()),
         json.loads((ROOT / "bots" / "alphastarzero" / "weights.json").read_text()),
-        "tools/maps/example/tutorial1.map",
-        10,
+        game_if.GameConfig(
+            map="tools/maps/example/tutorial1.map",
+            turns=10,
+            temperature=1.0,
+            player_seed=0,
+            engine_seed=0,
+        ),
         tmp_path / "g0",
-        temperature=1.0,
-        player_seed=0,
-        engine_seed=0,
     )
     assert out["game"]["game_length"] == 10
     assert out["records_a"] and out["records_b"]

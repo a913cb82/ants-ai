@@ -1,16 +1,18 @@
-"""Population store: frozen checkpoints, payoff matrix, matchmaking.
+"""Population store: frozen checkpoints, payoff matrices, matchmaking.
 
 Everything learned lives here, outside git: checkpoints as weight
-lists, one manifest line per member, one payoff entry per duel. From
-the matrix come both training-opponent sampling (PFSP-lite: practice
-mostly against what beats you, plus mirror self-play) and promotion
-ranking (Nash mass over the empirical game, unfarmable by design).
+lists, one manifest line per member, one payoff entry per duel. Two
+matrices: train (diagnostic, exploratory games) and eval (canonical,
+greedy games). Opponent sampling (PFSP-lite) and promotion ranking
+(Nash mass over the empirical game) read the eval matrix only, so
+exploration noise never ranks or teaches.
 Pure files + numpy; knows nothing about torch or the engine.
 """
 
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import numpy as np
@@ -31,7 +33,7 @@ def init(base: Path = DEFAULT_DIR) -> None:
     p = _paths(base)
     p["checkpoints"].mkdir(parents=True, exist_ok=True)
     if not p["matrix"].exists():
-        p["matrix"].write_text(json.dumps({"ids": [], "wins": {}}))
+        p["matrix"].write_text(json.dumps({"ids": [], "eval": {}, "train": {}}))
 
 
 def get_champion(base: Path = DEFAULT_DIR) -> str | None:
@@ -47,7 +49,9 @@ def set_champion(base: Path, cid: str) -> None:
 
 
 def store(base: Path, cid: str, weights: dict) -> None:
-    """Overwrite a member's frozen weights (trained challenger)."""
+    """Persist a member's weights. Train-matrix entries logged under an
+    id describe work-in-progress play, never final strength; the eval
+    matrix (promotion, PFSP, Nash) only ever sees frozen weights."""
     (_paths(base)["checkpoints"] / f"{cid}.json").write_text(json.dumps(weights))
 
 
@@ -58,13 +62,22 @@ def members(base: Path = DEFAULT_DIR) -> list[dict]:
     return [json.loads(line) for line in p["manifest"].read_text().splitlines() if line.strip()]
 
 
+def _next_id(base: Path) -> str:
+    """Monotonic member id; survives manifest truncation (max + 1)."""
+    taken = [
+        int(m.group(1))
+        for m in (re.fullmatch(r"g(\d+)", m["id"]) for m in members(base))
+        if m is not None
+    ]
+    return f"g{(max(taken) + 1) if taken else 0:03d}"
+
+
 def save_checkpoint(base: Path, weights: dict, role: str, parent: str | None) -> str:
     """Freeze new population member. Returns its id ("g000", ...)."""
     init(base)
     p = _paths(base)
-    n = len(members(base))
-    cid = f"g{n:03d}"
-    (p["checkpoints"] / f"{cid}.json").write_text(json.dumps(weights))
+    cid = _next_id(base)
+    store(base, cid, weights)
     with open(p["manifest"], "a") as f:
         f.write(json.dumps({"id": cid, "role": role, "parent": parent}) + "\n")
     return cid
@@ -74,8 +87,15 @@ def load_checkpoint(base: Path, cid: str) -> dict:
     return json.loads((_paths(base)["checkpoints"] / f"{cid}.json").read_text())
 
 
-def record_result(base: Path, a: str, b: str, score_a: float, score_b: float) -> None:
-    """Log a duel: 1/0.5/0 from each side's perspective."""
+def record_result(
+    base: Path, a: str, b: str, score_a: float, score_b: float, kind: str = "eval"
+) -> None:
+    """Log a duel: 1/0.5/0 from each side's perspective.
+
+    kind="eval": greedy, canonical, feeds promotion/PFSP/Nash.
+    kind="train": exploratory, diagnostic only.
+    """
+    assert kind in ("eval", "train")
     init(base)
     p = _paths(base)
     data = json.loads(p["matrix"].read_text())
@@ -83,39 +103,45 @@ def record_result(base: Path, a: str, b: str, score_a: float, score_b: float) ->
         if cid not in data["ids"]:
             data["ids"].append(cid)
     key = f"{a} vs {b}"
+    wins = data[kind].get(key, [0.0, 0.0])
     if score_a > score_b:
-        data["wins"][key] = data["wins"].get(key, [0.0, 0.0])
-        data["wins"][key][0] += 1
+        wins[0] += 1
     elif score_b > score_a:
-        data["wins"][key] = data["wins"].get(key, [0.0, 0.0])
-        data["wins"][key][1] += 1
+        wins[1] += 1
     else:
-        data["wins"][key] = data["wins"].get(key, [0.0, 0.0])
-        data["wins"][key][0] += 0.5
-        data["wins"][key][1] += 0.5
+        wins[0] += 0.5
+        wins[1] += 0.5
+    data[kind][key] = wins
     p["matrix"].write_text(json.dumps(data))
 
 
-def win_rates(base: Path, student: str) -> dict[str, float]:
-    """Opponent -> opponent's win rate against student (unplayed = 0.5)."""
+def _head_to_head(data: dict, kind: str, a: str, b: str) -> tuple[float, float]:
+    """(a's wins, b's wins) across both slot orders, with a +1/+1
+    Laplace prior: unplayed reads as 0.5 and small samples shrink to it."""
+    w_ab = data[kind].get(f"{a} vs {b}", [0.0, 0.0])
+    w_ba = data[kind].get(f"{b} vs {a}", [0.0, 0.0])
+    return (w_ab[0] + w_ba[1] + 1.0, w_ab[1] + w_ba[0] + 1.0)
+
+
+def win_rates(
+    base: Path, student: str, kind: str = "eval"
+) -> dict[str, float]:
+    """Opponent -> opponent's win rate against student (eval matrix)."""
     data = json.loads(_paths(base)["matrix"].read_text())
     rates = {}
     for cid in data["ids"]:
         if cid == student:
             continue
-        w_ab = data["wins"].get(f"{student} vs {cid}", [0.0, 0.0])
-        w_ba = data["wins"].get(f"{cid} vs {student}", [0.0, 0.0])
-        mine = w_ab[0] + w_ba[1]
-        theirs = w_ab[1] + w_ba[0]
-        total = mine + theirs
-        rates[cid] = theirs / total if total else 0.5
+        mine, theirs = _head_to_head(data, kind, student, cid)
+        rates[cid] = theirs / (mine + theirs)
     return rates
 
 
 def sample_opponents(
     base: Path, student: str, k: int, self_play_frac: float = 0.35, seed: int = 0
 ) -> list[str]:
-    """PFSP-lite: mostly the opponents that beat you, some mirror self."""
+    """PFSP-lite on the eval matrix: mostly the opponents that beat you,
+    some mirror self."""
     rng = np.random.default_rng(seed)
     rates = win_rates(base, student)
     picks = []
@@ -129,8 +155,8 @@ def sample_opponents(
     return picks
 
 
-def payoff_matrix(base: Path) -> tuple[list[str], np.ndarray]:
-    """Symmetric zero-sum utility matrix from logged duels."""
+def payoff_matrix(base: Path, kind: str = "eval") -> tuple[list[str], np.ndarray]:
+    """Symmetric zero-sum utility matrix from logged eval duels."""
     data = json.loads(_paths(base)["matrix"].read_text())
     ids = data["ids"]
     n = len(ids)
@@ -139,12 +165,10 @@ def payoff_matrix(base: Path) -> tuple[list[str], np.ndarray]:
         for j, b in enumerate(ids):
             if i == j:
                 continue
-            w_ab = data["wins"].get(f"{a} vs {b}", [0.0, 0.0])
-            w_ba = data["wins"].get(f"{b} vs {a}", [0.0, 0.0])
-            mine = w_ab[0] + w_ba[1]
-            total = mine + w_ab[1] + w_ba[0]
-            mat[i, j] = mine / total if total else 0.0
-    return ids, mat - 0.5
+            mine, _theirs = _head_to_head(data, kind, a, b)
+            total = mine + _theirs
+            mat[i, j] = mine / total - 0.5
+    return ids, mat  # diagonal stays 0: self-play is neutral, not a loss
 
 
 def nash_mixture(base: Path, iters: int = 2000, seed: int = 0) -> dict[str, float]:
@@ -156,7 +180,6 @@ def nash_mixture(base: Path, iters: int = 2000, seed: int = 0) -> dict[str, floa
     ids, mat = payoff_matrix(base)
     if not ids:
         return {}
-    rng = np.random.default_rng(seed)
     n = len(ids)
     avg_r = np.full(n, 1.0 / n)
     avg_c = np.full(n, 1.0 / n)
@@ -171,3 +194,14 @@ def nash_mixture(base: Path, iters: int = 2000, seed: int = 0) -> dict[str, floa
         avg_c = strat_c / strat_c.sum()
     mix = (avg_r + avg_c) / 2
     return {cid: float(mix[i]) for i, cid in enumerate(ids)}
+
+
+def wilson_lower(wins: float, games: int, z: float = 1.0) -> float:
+    """Lower bound on the true win rate (draws pre-counted as half)."""
+    if games <= 0:
+        return 0.0
+    p = wins / games
+    denom = 1 + z * z / games
+    center = p + z * z / (2 * games)
+    spread = z * ((p * (1 - p) + z * z / (4 * games)) / games) ** 0.5
+    return (center - spread) / denom

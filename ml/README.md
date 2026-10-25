@@ -1,90 +1,84 @@
 # AlphaStarZero: self-play loop
 
-Train an Ants bot the AlphaZero way: the bot plays itself, the trainer
-learns from the games, the challenger replaces the champion only when
-it wins. Three phases per generation, borrowed from the autoresearch
-loop (fixed budget, recorded score, keep-the-winner).
+Train an Ants bot the AlphaZero way: mirror self-play, policy-gradient
+updates, scripted promotion. No external opponents, no human judgment.
 
 ## Why not vanilla AlphaZero
 
 | AlphaZero assumption | Ants reality | Adaptation |
 |---|---|---|
-| small discrete actions | `5^N` joint moves | factorized per-ant policy, shared weights |
-| full observability | fog of war, simultaneous moves | local cues + memory-less greedy; history/LSTM later |
-| fast simulator + MCTS | 1000 ms turn, subprocess engine | MCTS over *abstract* orders (raid hill, gather food), not moves; neural net proposes, symbolic resolver disposes |
-| win/loss reward | score + survival + hills | terminal outcome + dense shaping, both in `ml/rewards.py` (landed); learned value head later |
+| small discrete actions | `5^N` joint moves | factorized per-ant policy, shared weights, symbolic collision resolution |
+| full observability | fog of war, simultaneous moves | local 6-channel window, masked to the ant's sight circle |
+| fast simulator + MCTS | 1000 ms turn, subprocess engine | no search; CNN proposes, masks dispose |
+| win/loss reward | score + survival + hills | dense shaping + terminal outcome, both discounted (`ml/rewards.py`) |
 
-## Generation loop (each generation = one commit)
+## Architecture (clean split)
 
-1. **Self-play.** Champion + challenger play K games through
-   `league/play.py` (logged to `league/games.jsonl`, so ratings stay
-   honest). Positions, sampled actions, and returns go to a replay
-   buffer; keep several past generations to avoid cycles (league pool
-   gives opponents for free).
-2. **Train.** Policy-gradient step on `LinearPolicy` (REINFORCE with a
-   running baseline now; value head + PPO when the encoder grows).
-   Rewrites `bots/alphastarzero/weights.json` — nothing else.
-3. **Promote.** Challenger vs champion duel set. Win-rate above
-   threshold → challenger becomes champion (commit). Else keep
-   champion, try new hyperparams. Same keep-the-winner rule as
-   `autoresearch/docs/PROGRAM.md`.
+| Layer | Owns | Must not know |
+|---|---|---|
+| `bots/alphastarzero/model.py` | network shape, masking, act/sample, save/load | game, training |
+| `bots/alphastarzero/features.py` | actions/offsets, window encoding | policy, training |
+| `ml/grid.py` | toroidal math (stdlib only) | everything else |
+| `ml/game_if.py` | engine games, staging, replay/record formats | torch |
+| `ml/rewards.py` | (game, records) → discounted returns | torch, engine |
+| `ml/algorithm.py` | REINFORCE step on masked log-probs | ants, replays |
+| `ml/archive.py` | population, payoff matrices, PFSP, Nash, Wilson | torch, engine |
+| `ml/train.py` / `ml/evaluate.py` | training loop / eval duels | promotion, files |
+| `ml/selfplay.py` | wiring + scripted promotion | (thin) |
 
-## Scaling path
+Policy shape swaps touch exactly one file (`model.py`); algorithm
+swaps touch one file; the game interface never imports torch.
 
-- v0 (this branch): linear over 4 cues, REINFORCE, food-seeking +
-  collision-free baseline. Proves data → train → promote turns.
-  (status: CNN policy + full loop landed; first automated generation
-  ran clean — trained, evaluated, correctly held the champion on a
-  0.50 eval below the 0.55 bar)
-- v1: local window encoder (e.g. 9x9 x channels: water, food, own,
-  enemy, hill, pheromone) + small CNN, value head.
-  (encoder landed: `features.local_window`, radius 4 default; CNN head next)
-- v2: MCTS over abstract group orders with the value head guiding
-  search; per-ant policy executes the chosen assignment.
+## Generation loop (each generation = fully automated)
 
-## Reward system (`ml/rewards.py`, landed)
-
-Pure function of the engine replay plus the bot's decision log:
-
-- **Source of truth**: the replay records food pickups (gatherer +
-  turn), every ant's full order string, and hill raze turns.
-- **Decisions**: the bot appends `{turn, loc, dest, action, cues}`
-  per ant per turn, only when `AZ0_RECORD_DIR` is set (self-play
-  only; outside the bot tree so league hashing stays clean).
-- **Credit** (`compute_returns`): food goes to ants ending the turn
-  *adjacent* to the tile (`0 < d2 <= spawnradius2` — the engine's
-  `nearby_ants` excludes distance 0, so standing ON food gathers
-  nothing); kills to ants within `attackradius2` of the death;
-  deaths hit the dead ant; a raze credits the single ant ON the
-  hill (`do_raze_hills`); a lost hill splits across the team that
-  turn. Every event is split across all its credited ants — one
-  food is worth `FOOD` total, never `FOOD` each.
-- **Discount** (`GAMMA=0.99`): everything, not just the outcome. A
-  decision at turn `t` credited for an event at `T >= t` receives
-  `amount * GAMMA**(T-t)`. Dense events walk back along the
-  credited ant's own replay path (records join to trajectories by
-  consecutive pre/post-move tiles); team events walk back to every
-  earlier decision. Same-turn credit is the `GAMMA**0 = 1` case.
-  Horizon caveat: 0.99 barely decays over 30-turn games, so short
-  games spread credit almost uniformly — retune per game length
-  when the trainer lands.
-- **Trajectories**: rebuilt from initial tile + order string, so no
-  simulator is needed for credit assignment.
-
-Try it: run a wired self-play game with `AZ0_RECORD_DIR` set, then
-price its decisions with `rewards.compute_returns(game, 0, records)`.
-
-## Environment
-
-Training needs torch in the repo venv (CPU is fine; inference is one
-linear layer):
+1. **Sample opponents** from the eval matrix, PFSP-lite: mostly the
+   opponents that beat the champion, plus a mirror fraction. Never
+   anything outside the population.
+2. **Train.** Challenger (champion copy) plays both slots, records
+   `{turn, loc, dest, action, window, legal}`, prices with
+   `rewards.compute_returns`, REINFORCE step (standardized
+   advantages, persistent Adam, grad clip, entropy bonus).
+3. **Evaluate.** Greedy duels, alternating slots. Promotion needs
+   both: Wilson lower bound on the win rate clears 0.5 AND Nash mass
+   ≥ champion's. Draws count half. Train games never vote.
+4. **Publish** (only on promotion): champion pointer, rated
+   `weights.json`, git commit.
 
 ```sh
-uv pip install --python .venv/bin/python numpy torch \
-  --index-url https://download.pytorch.org/whl/cpu
+.venv/bin/python ml/selfplay.py --train-games 4 --eval-games 20 \
+  --turns 50 --archive ml/archive --no-commit   # dry run
 ```
 
-Runtime inference uses the same venv interpreter: league `bind()`
-rewrites a leading `python` token to it, so `import torch` works in
-rated play. (Raw `tools/playgame.py` calls need an absolute
-interpreter path for the same reason.)
+`ml/archive/` (gitignored) holds every checkpoint, both matrices, and
+the last report. `bots/alphastarzero/weights.json` holds only the
+current champion — the rated phenotype, and the only weights in git.
+
+## Reward system (landed)
+
+- **Source of truth**: the replay (food gatherer + turn, full order
+  strings, hill raze turns) plus the bot's decision log.
+- **Credit**: food → adjacent ants (`0 < d2 <= spawnradius2`; the ant
+  ON food gathers nothing per `nearby_ants`); kills → ants within
+  attack radius (`0 < d2`); deaths → the dead ant; raze → the ant on
+  the hill; lost hill → team-shared. Every event splits across its
+  credited ants; one food is worth `FOOD` total.
+- **Discount** (`GAMMA=0.97`, `WIN/LOSS=±5`): everything, uniformly —
+  dense awards walk back along the credited ant's replay path, team
+  awards and outcome reach every earlier decision.
+- **Diagnose**: `rewards.decompose(game, me, records)` shows
+  undiscounted mass per category — read it before tuning magnitudes.
+
+## Population (AlphaStar-shaped, our scale)
+
+- Frozen checkpoints + manifest; train matrix (diagnostic) vs eval
+  matrix (canonical). Laplace prior: unplayed reads as 0.5.
+- PFSP-lite sampling and Nash mixture read eval only.
+- Every Nth generation can be an exploiter (fresh init, trains only
+  against the champion) instead of a champion copy.
+
+## Status
+
+CNN policy + full loop landed; first automated generation ran clean
+(trained, evaluated, correctly held the champion on a sub-bar eval).
+Open: learning-signal validation over several generations, exploiter
+phases, value head / PPO when REINFORCE plateaus.

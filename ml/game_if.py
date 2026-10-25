@@ -10,11 +10,29 @@ from __future__ import annotations
 import glob
 import json
 import os
+import shutil
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 
 BOT_DIR = Path(__file__).resolve().parents[1] / "bots" / "alphastarzero"
-BOT_FILES = ("MLBot.py", "ants.py", "features.py", "model.py")
+
+
+@dataclass
+class GameConfig:
+    """One engine game. Seeds make temperature-0 games reproducible."""
+
+    map: str
+    turns: int
+    temperature: float = 0.0
+    player_seed: int = 0
+    engine_seed: int = 0
+    timeout: int = 600
+
+
+def _bot_files() -> list[str]:
+    """Every bot module, derived from the bot dir: new files ride along."""
+    return sorted(p.name for p in BOT_DIR.glob("*.py"))
 
 
 def stage_side(base: Path, weights: dict, tag: str) -> Path:
@@ -23,12 +41,10 @@ def stage_side(base: Path, weights: dict, tag: str) -> Path:
     Copies, not symlinks: the engine resolves realpath for the working
     directory, and symlinks would land both sides back in the real bot
     dir (wrong weights, wrong record dir)."""
-    import shutil
-
     side = base / tag
     side.mkdir(parents=True, exist_ok=True)
     (side / "records").mkdir(exist_ok=True)
-    for name in BOT_FILES:
+    for name in _bot_files():
         shutil.copy(BOT_DIR / name, side / name)
     (side / "weights.json").write_text(json.dumps(weights))
     return side
@@ -39,18 +55,15 @@ def play(
     python: str,
     weights_a: dict,
     weights_b: dict,
-    map_rel: str,
-    turns: int,
+    cfg: GameConfig,
     outdir: Path,
-    temperature: float = 0.0,
-    player_seed: int = 0,
-    engine_seed: int = 0,
 ) -> dict:
     """Mirror-capable game. Returns {"game", "records_a", "records_b"}.
 
     Records land in each side's own dir: AZ0_RECORD_DIR is relative,
     so it resolves under the side's working directory. Attribution by
-    side is exact, and nothing touches the real bot tree.
+    side is exact, and nothing touches the real bot tree. Staged sides
+    are removed before return; the replay logs stay.
     """
     outdir = Path(outdir)
     log_dir = outdir / "logs"
@@ -58,31 +71,40 @@ def play(
     side_b = stage_side(outdir, weights_b, "side_b")
     env = dict(os.environ)
     env["AZ0_RECORD_DIR"] = "records"
-    env["AZ0_TEMPERATURE"] = str(temperature)
+    env["AZ0_TEMPERATURE"] = str(cfg.temperature)
     cmd = [
         python,
         str(root / "tools" / "playgame.py"),
         "--map_file",
-        map_rel,
+        cfg.map,
         "--nolaunch",
         "--turns",
-        str(turns),
+        str(cfg.turns),
         "--player_seed",
-        str(player_seed),
+        str(cfg.player_seed),
         "--engine_seed",
-        str(engine_seed),
+        str(cfg.engine_seed),
         "--log_dir",
         str(log_dir),
         f"{python} {side_a / 'MLBot.py'}",
         f"{python} {side_b / 'MLBot.py'}",
     ]
-    subprocess.run(cmd, cwd=root, check=True, capture_output=True, env=env)
+    try:
+        proc = subprocess.run(
+            cmd, cwd=root, capture_output=True, env=env, timeout=cfg.timeout
+        )
+        proc.check_returncode()
+    except subprocess.TimeoutExpired as exc:
+        raise TimeoutError(f"engine game timed out after {cfg.timeout}s") from exc
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError(
+            f"engine failed: {exc.stderr.decode()[-2000:]}"
+        ) from exc
+    finally:
+        records_a, records_b = _read_records(side_a), _read_records(side_b)
+        cleanup(outdir)
     game = json.loads((log_dir / "0.replay").read_text())
-    return {
-        "game": game,
-        "records_a": _read_records(side_a),
-        "records_b": _read_records(side_b),
-    }
+    return {"game": game, "records_a": records_a, "records_b": records_b}
 
 
 def _read_records(side: Path) -> list:
@@ -94,7 +116,5 @@ def _read_records(side: Path) -> list:
 
 def cleanup(outdir: Path) -> None:
     """Drop staged side dirs after pricing; keep the replay logs."""
-    import shutil
-
     for tag in ("side_a", "side_b"):
         shutil.rmtree(Path(outdir) / tag, ignore_errors=True)
