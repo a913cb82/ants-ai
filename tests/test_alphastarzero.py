@@ -1699,6 +1699,32 @@ def _exploiter_cfg():
             "promote_threshold": 0.5}
 
 
+def test_critic_warm_starts_baseline_and_persists(tmp_path, monkeypatch):
+    import archive
+    import json
+    import selfplay
+
+    captured = {}
+    _mocked_generation(monkeypatch, captured)
+    base = tmp_path / "archive"
+    cfg = _exploiter_cfg()
+    w = selfplay._random_weights(cfg["seed"], cfg.get("arch", "base"))
+    champ = archive.save_checkpoint(base, w, role="main", parent=None)
+    archive.set_champion(base, champ)
+    critic = {"value.weight": [[7.0] * 128], "value.bias": [7.0]}
+    (base / "critic.json").write_text(json.dumps(critic))
+    selfplay.run_generation(cfg, base, commit=False)
+    init = captured["init_w"]
+    # actor restarts from champion...
+    assert init["conv1.weight"] == w["conv1.weight"]
+    # ...but the baseline warm-starts from last gen's critic.
+    assert init["value.bias"] == [7.0]
+    # ...and the trained critic is banked for the next generation.
+    saved = json.loads((base / "critic.json").read_text())
+    assert saved["value.bias"] == [7.0]
+    assert all(k.startswith("value.") for k in saved)
+
+
 @pytest.mark.parametrize("hist_len,expected", [
     (0, False), (1, False), (2, True), (3, False), (4, False), (5, True),
 ])

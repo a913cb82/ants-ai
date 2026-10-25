@@ -139,6 +139,20 @@ def _random_weights(seed: int, arch: str) -> dict:
     return model.state_dict_to_lists(model.CNNPolicy(arch=arch))
 
 
+def _load_critic(base: Path) -> dict:
+    """Last generation's value-head weights, or {}.
+
+    The critic is training apparatus, not the agent: the actor always
+    restarts from the champion (honest league comparison; evals use
+    the policy only), but the baseline persists across generations
+    instead of re-learning from zeros every 3 epochs."""
+    try:
+        data = json.loads((base / "critic.json").read_text())
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
 def append_history(base: Path, entry: dict) -> None:
     """Append one generation summary; the dashboard reads this for curves."""
     archive.append_jsonl(base / "history.jsonl", entry)
@@ -186,11 +200,19 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
         _random_weights(cfg["seed"] + gen_index, cfg.get("arch", "base"))
         if exploiter else champ_w
     )
+    critic = _load_critic(base)
+    if critic:
+        # warm-start the baseline only; actor keys stay champ (or fresh).
+        start_w = {**start_w,
+                   **{k: v for k, v in critic.items() if k in start_w}}
     chal_id, chal_w, train_stats = train.train_generation(
         cfg, base, champ_id, start_w,
         role="exploiter" if exploiter else "challenger")
     ev = evaluate.evaluate(cfg, base, chal_id, chal_w, champ_id, champ_w,
                              map_offset=gen_index)
+    archive.atomic_write_json(
+        base / "critic.json",
+        {k: v for k, v in chal_w.items() if k.startswith("value.")})
     mix = archive.nash_mixture(base)
     promoted = evaluate.should_promote(
         ev["wins"], ev["draws"], ev["games"],
