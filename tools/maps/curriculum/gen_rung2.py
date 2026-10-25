@@ -41,10 +41,11 @@ def emit(name, rows, cols, hills, waters, header):
 
 HDR = ["# Rung 2 pool: small symmetric boards; hills beyond sight."]
 
-# b: wide central pond (2x12 band, self-symmetric). North-south movement
-# must route around the ends; the direct hill-to-hill line is wet.
+# b: tall central lake (8x2, self-symmetric). It sits on the direct
+# hill-to-hill line, so east-west movement must route around its
+# northern or southern end.
 emit("rung2b_pond.map", 16, 24, [(7, 4), (8, 19)],
-     [(r, c) for r in (7, 8) for c in range(6, 18)], HDR)
+     [(r, c) for r in range(4, 12) for c in (11, 12)], HDR)
 
 # c: water bar with a central gap (chokepoint). Battles happen at the gap.
 bar = [(r, c) for r in list(range(2, 7)) + list(range(9, 14))
