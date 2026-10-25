@@ -12,15 +12,12 @@ and the round itself is the scored exam.
 
 ## trying
 
-- Draw tiebreak by material (round 11): drawn games pay +1.0 to the
-  side with more ants alive at the final turn, -1.0 to the other,
-  zero on equal counts. Draw-only, binary, undecayed. Tests whether
-  material tiebreaks un-dud big peaceful boards (gathering becomes
-  a contest) without reopening the farming trap (comparative, so
-  mirrors zero it). Single experimental variable of round 11.
-- Rebuilt rung 3 (round 11 prerequisite): generated mid-size boards
-  1000-2000 tiles (gap between rung2d 560 and rw 3000), same 4 water
-  shapes, symmetry asserted, smoke-validated decisive.
+- Draw tiebreak by material (round 11 revised): drawn games pay
+  +1.0 to the side with more ants alive, -1.0 to fewer, 0 equal.
+  Draw-only, binary, undecayed. Tests whether material tiebreaks
+  un-dud big peaceful boards without reopening the farming trap
+  (comparative, mirrors zero it). Single experimental variable;
+  the pool rebuild below is prerequisite, not variable.
 
 ## open
 
@@ -43,9 +40,11 @@ mid-round). Then re-audit any 10b promotion board-by-board.
 
 ## done
 
-- Rung-3 scale-up (round 10): 14 random-walk boards, 12 train +
-  2 held-out. Tests whether rung-2 promoters generalize to scale
-  and variety.
+- Rung 2 extended (round 11 revised prerequisite): rung 1 +
+  rung2a-e (gap full-span, lakes on-corridor + edge pair, pond twin
+  lakes, e = proven open) + 2 smallest real boards (gen2p_00,
+  tutorial1 — drew asymmetric smoke, passengers under test).
+  Tests the pool, not the variable.
 
 - BC-from-pros init (round: bc-30): gen-1 starts where 10 random
   gens couldn't reach. Kept.
@@ -65,6 +64,9 @@ mid-round). Then re-audit any 10b promotion board-by-board.
 
 ## dropped
 
+- Generated rung 3 (rung3a-d): wrong direction — rung 3 is real
+  boards. Pond had a dry toroidal route; gap same flaw. Proven
+  open map survives as rung2e; rest + generator deleted.
 - Rung 3 as random_walk pool (round 10): every rw board
   zero-decisive at 150 turns — too big to meet, zero signal.
   Parked for rung 4 with longer turns/tiebreaks; rung 3 rebuilt

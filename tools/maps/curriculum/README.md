@@ -3,39 +3,46 @@
 Graduated boards for the self-play league. Each rung adds one kind
 of difficulty. Graduate on mastery, not on a schedule.
 
+## Toroidal water rule
+
+The board wraps on BOTH axes: every hill-to-hill route exists
+twice (each direction around the torus), and columns wrap too —
+a single vertical bar only blocks eastward, the westward route
+slips around untouched. So: mid-board water must wet both
+toroidal routes (central feature plus its wrap-edge twin), or a
+barrier must span the full axis WITH its edge twin, sharing one
+dry latitude. This rule is asserted by symmetry checks, not by
+eyeballing — but dry-short-route review stays mandatory for every
+new board.
+
 ## The ladder
 
 | Rung | Maps | Tiles | New skill | Status |
 |------|------|-------|-----------|--------|
-| 1 | rung1_open (tiny + water, hills in sight) | 192 | contact: meet, fight, win | done, mastered |
-| 2 | rung2a/b/c/d (open, pond, gap, lakes; hills beyond sight) | 384–560 | scouting + water routing | in play |
-| 3 | 14 random_walk boards + rung 1 + rung 2 pool (19 total) | 192–5200 | scale + variety, no forgetting | queued |
-| 4 | full pool (148 maps, mazes included) | up to 24k | corridors, chokepoints, full generalization | queued |
+| 1 | rung1_open (tiny + water, hills in sight) | 192 | contact: meet, fight, win | done, mastered, stays in pool |
+| 2 | rung 1 + rung2a/b/c/d + 2 small real boards (gen2p_00, gen2p_05) | 192–1600 | scouting, water routing, slightly bigger ground | in play (round 11) |
+| 3 | full pool: all 148 real 2p maps | up to 24k | corridors, mazes, full variety, no forgetting | queued (needs 2-in-10 on rung 2) |
 
 ## Graduation rule
 
 Advance when two promotions land inside any ten-generation window
-(mastery: a challenger repeatedly proves stronger on this rung), or
-after forty generations on a rung regardless (anti-stall cap: if the
-rung stops teaching, diagnose instead of advancing blind). A rung
-that loses peace (back to all-draws) or stops promoting is a signal
-to diagnose the rewards, not to graduate. Graduation is manual per
-round for now; automate once the ladder stops changing.
-
-## Rung 3 map list (9 boards, all train)
-
-Rung 1 + rung2a-d (early skills keep training every ~2 gens via
-rotation) + 4 generated mid-boards: rung3a open 24x40 (960),
-rung3b twin 5x5 lakes, rung3c chokepoint gap 28x44, rung3d twin
-6x6 lakes 32x52 (1664). Under 13 maps: no held-out split, evals
-run the train pool (promotion judges mastery; graduation to rung
-4 tests transfer). Random_walk boards parked for rung 4 — 3k+
-tiles never meet in 150 turns (round 10: zero decisive).
+(mastery), or after forty generations on a rung regardless
+(anti-stall cap: diagnose, don't advance blind). A rung that loses
+peace or stops promoting is a signal to diagnose the rewards, not
+to graduate. Early rungs stay in the pool forever (round 10:
+rung-1 held-only forgot combat, peace 0.68 — skills rot without
+practice). At full-pool scale, reserve train slots for curriculum
+drills (each board trains every ~37 gens otherwise).
 
 ## Notes
 
-- Every curriculum board is 180-degree rotationally symmetric
-  (players swapped), asserted by gen_rung2.py for rung 2.
-- Rung 1 history: plain open board first, then symmetric hills plus
-  four single water tiles (v2). Rung 2 pond grew 2x2 to 8x2 tall
-  lake, lakes 3x3 to 4x4, on review.
+- Every curriculum board is 180-degree rotationally symmetric,
+  asserted by the generators. Real pool boards are asymmetric by
+  design — asymmetry is the skill rung 3 teaches.
+- Generated mid-size rung 3 (rung3a-d) DELETED: wrong direction —
+  rung 3 is real boards; the one proven map (rung3a open,
+  decisive 3-0) survives as rung2e. Generator script removed with
+  it; gen_rung2.py remains for rung 2.
+- Smallest real boards (~1600 tiles: gen2p_00, tutorial1) draw
+  BC-vs-random at 150 turns — passengers under test in round 11,
+  judged by the per-map table (decisive or material-margin, else cut).

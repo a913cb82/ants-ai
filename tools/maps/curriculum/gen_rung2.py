@@ -49,12 +49,22 @@ emit("rung2b_pond.map", 16, 24, [(7, 4), (8, 19)],
      [(r, c) for r in range(4, 12) for c in (11, 12)]
      + [(r, c) for r in range(4, 12) for c in (0, 23)], HDR)
 
-# c: water bar with a central gap (chokepoint). Battles happen at the gap.
-bar = [(r, c) for r in list(range(2, 7)) + list(range(9, 14))
+# c: twin full-span bars with a shared dry latitude (rows 7-8).
+# Columns wrap, so one bar only blocks eastward: the westward route
+# slips around via cols 0-4/19-23 untouched. The edge twin (cols
+# 0+23, adjacent toroidally) closes it. Both bars run the full
+# height except rows 7-8, so every hill-to-hill route crosses water
+# somewhere — the only dry crossings are at the gap latitude, and
+# battles happen on that band. Hills sit on the dry latitude.
+bar = [(r, c) for r in list(range(0, 7)) + list(range(9, 16))
        for c in (11, 12)]
+bar += [(r, c) for r in list(range(0, 7)) + list(range(9, 16))
+        for c in (0, 23)]
 emit("rung2c_gap.map", 16, 24, [(7, 4), (8, 19)], bar, HDR)
 
-# d: twin lakes (4x4). Wide routing, pocketed ground.
+# d: twin 4x4 lakes (texture/scouting variety). Off the corridor by
+# design: not every board must funnel movement.
+# (Corridor-blocking already taught by pond; no duplicates.)
 lake_a = [(r, c) for r in range(3, 7) for c in range(4, 8)]
 lake_b = [(r, c) for r in range(13, 17) for c in range(20, 24)]
 emit("rung2d_lakes.map", 20, 28, [(9, 6), (10, 21)],
