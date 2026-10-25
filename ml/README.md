@@ -175,6 +175,16 @@ Probes/fixes, simplest first: 60-turn horizon (gamma contrast ~330x)
 -> whole-batch advantage norm (preserve event magnitude) -> denser
 shaping only if those fail.
 
+## Shaping design (for the next run if the 60-turn probe stays flat)
+
+Potential-based food approach, training-only (policy stays ant-local):
+Phi(s) = -dist(ant, nearest visible food)/scale, reward F = GAMMA*Phi(s')
+- Phi(s), computed offline in rewards.py from replay food positions +
+record trajectories (Ng et al., policy-invariant). Fires every step the
+ant moves relative to food; the critic can learn it from windows
+(food is IN the window), breaking the chicken-and-egg: approach ->
+more pickups -> sparse food signal grows. ~20 lines + tests.
+
 ## Launching a run (dashboard progress)
 
 Write `ml/archive/run_plan.json` before starting, e.g.
