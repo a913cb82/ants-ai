@@ -1,11 +1,9 @@
-"""Symmetric 2-player map generator.
+"""Symmetric 2-player map generator + pool validation.
 
-The repo's real grid-map pool is 3 maps (tutorial1, maze_02p_02,
-random_walk_02p_02); the maze/cell_maze/random_walk dirs otherwise hold
-generator PARAMS, not playable grids. This generates real playable grids
-in the engine's `m`-row format: 180-degree rotational symmetry (fair for
-slot-alternated mirror games), guaranteed land connectivity, margined
-hills, symmetric food. Deterministic per seed.
+Supplements the upstream pool (148 playable 2p grids across maze /
+random_walk / cell_maze / tutorial) with generated 180-degree symmetric,
+guaranteed-connected grids for rotation variety. Deterministic per seed;
+generated maps live in tools/maps/generated/.
 """
 
 from __future__ import annotations
@@ -120,6 +118,47 @@ def _sprinkle(
 def write(path: str, seed: int) -> None:
     with open(path, "w") as f:
         f.write("\n".join(generate(seed)) + "\n")
+
+
+def is_playable_2p(path: str) -> bool:
+    """A real 2-player grid: parseable header, full grid, a hill each.
+
+    Comment lines (#) precede headers in most upstream maps, hills are
+    digits (0/1) or ant+hills (A/B), and hill-only maps are fine — hills
+    spawn ants on turn 1, which is why maze_02p_02 plays with no 'a'/'b'.
+    """
+    rows = cols = players = 0
+    grid: list[str] = []
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if line.startswith("rows "):
+                rows = int(line.split()[1])
+            elif line.startswith("cols "):
+                cols = int(line.split()[1])
+            elif line.startswith("players "):
+                players = int(line.split()[1])
+            elif line.startswith("m "):
+                grid.append(line[2:])
+    if players != 2 or len(grid) != rows or rows == 0:
+        return False
+    if any(len(r) != cols for r in grid):
+        return False
+    flat = "".join(grid)
+    if set(flat) - set(".%*abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"):
+        return False
+    return any(c in "0A" for c in flat) and any(c in "1B" for c in flat)
+
+
+def default_pool() -> list[str]:
+    """Every playable 2p grid under tools/maps, sorted, deterministic."""
+    import glob as _glob
+
+    return sorted(
+        f for f in _glob.glob("tools/maps/*/*.map") if is_playable_2p(f)
+    )
 
 
 if __name__ == "__main__":

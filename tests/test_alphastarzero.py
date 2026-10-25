@@ -1343,15 +1343,15 @@ def test_bot_loads_deep_weights(tmp_path):
 def test_default_maps_exist_and_turns_cover_endgames():
     import os
 
+    import mapgen
     import selfplay
 
     cfg = selfplay.default_config()
     assert cfg["maps"] == selfplay.default_map_pool()
-    assert len(cfg["maps"]) >= 10  # real grids + generated set
-    import os
-
+    assert len(cfg["maps"]) >= 100  # the full upstream 2p pool + generated
     for m in cfg["maps"]:
         assert os.path.exists(m), m
+        assert mapgen.is_playable_2p(m), m
     assert cfg["turns"] >= 150  # pro games resolve at 130-165 turns
 
 
