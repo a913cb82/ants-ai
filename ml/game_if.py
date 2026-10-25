@@ -90,3 +90,11 @@ def _read_records(side: Path) -> list:
     for path in sorted(glob.glob(str(side / "records" / "*.jsonl"))):
         rows.extend(json.loads(line) for line in open(path) if line.strip())
     return rows
+
+
+def cleanup(outdir: Path) -> None:
+    """Drop staged side dirs after pricing; keep the replay logs."""
+    import shutil
+
+    for tag in ("side_a", "side_b"):
+        shutil.rmtree(Path(outdir) / tag, ignore_errors=True)

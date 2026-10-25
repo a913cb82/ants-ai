@@ -752,3 +752,54 @@ def test_game_if_mirror_plays_and_prices(tmp_path):
     assert out["records_a"] and out["records_b"]
     r = rewards.compute_returns(out["game"], 0, out["records_a"])
     assert len(r) == len(out["records_a"])
+
+
+def test_cli_defaults_match_default_config():
+    import selfplay
+
+    cfg = selfplay.parse_args([])
+    assert cfg == selfplay.default_config()
+
+
+def test_cli_overrides():
+    import selfplay
+
+    cfg = selfplay.parse_args(
+        ["--train-games", "2", "--turns", "20", "--no-commit",
+         "--maps", "tools/maps/example/tutorial1.map"]
+    )
+    assert cfg["train_games"] == 2
+    assert cfg["turns"] == 20
+    assert cfg["commit"] is False
+    assert cfg["maps"] == ["tools/maps/example/tutorial1.map"]
+
+
+def test_game_if_cleanup_keeps_replay_drops_sides(tmp_path):
+    import game_if
+
+    outdir = tmp_path / "g0"
+    (outdir / "side_a" / "records").mkdir(parents=True)
+    (outdir / "side_b").mkdir(parents=True)
+    (outdir / "logs").mkdir(parents=True)
+    (outdir / "logs" / "0.replay").write_text("{}")
+    game_if.cleanup(outdir)
+    assert (outdir / "logs" / "0.replay").exists()
+    assert not (outdir / "side_a").exists()
+    assert not (outdir / "side_b").exists()
+
+
+@pytest.mark.slow
+def test_first_generation_runs_and_reports(tmp_path):
+    import selfplay
+
+    cfg = selfplay.default_config()
+    cfg.update({"turns": 10, "train_games": 1, "eval_games": 1,
+                "epochs": 1, "seed": 1})
+    rep = selfplay.run_generation(cfg, tmp_path / "archive", commit=False)
+    assert rep["train"]["rows"] > 0
+    assert set(rep["train"]) >= {"rows", "losses", "mean_return"}
+    assert rep["eval"]["games"] == 1
+    assert isinstance(rep["promoted"], bool)
+    assert rep["config"]["turns"] == 10
+    leftovers = [p for p in (tmp_path / "archive" / "games").rglob("side_a")]
+    assert leftovers == []

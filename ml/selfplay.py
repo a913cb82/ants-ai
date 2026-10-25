@@ -40,6 +40,42 @@ def default_config() -> dict:
         "epochs": 3,
         "promote_threshold": 0.55,
         "seed": 0,
+        "archive": "ml/archive",
+        "commit": True,
+    }
+
+
+def parse_args(argv: list[str] | None = None) -> dict:
+    import argparse
+
+    defaults = default_config()
+    p = argparse.ArgumentParser(description="Run one automated generation.")
+    p.add_argument("--maps", nargs="+", default=defaults["maps"])
+    p.add_argument("--turns", type=int, default=defaults["turns"])
+    p.add_argument("--train-games", type=int, default=defaults["train_games"])
+    p.add_argument("--eval-games", type=int, default=defaults["eval_games"])
+    p.add_argument("--temperature", type=float, default=defaults["temperature"])
+    p.add_argument("--lr", type=float, default=defaults["lr"])
+    p.add_argument("--epochs", type=int, default=defaults["epochs"])
+    p.add_argument("--promote-threshold", type=float,
+                   default=defaults["promote_threshold"])
+    p.add_argument("--seed", type=int, default=defaults["seed"])
+    p.add_argument("--archive", default=defaults["archive"])
+    p.add_argument("--commit", action=argparse.BooleanOptionalAction,
+                   default=defaults["commit"])
+    args = p.parse_args(argv)
+    return {
+        "maps": args.maps,
+        "turns": args.turns,
+        "train_games": args.train_games,
+        "eval_games": args.eval_games,
+        "temperature": args.temperature,
+        "lr": args.lr,
+        "epochs": args.epochs,
+        "promote_threshold": args.promote_threshold,
+        "seed": args.seed,
+        "archive": args.archive,
+        "commit": args.commit,
     }
 
 
@@ -77,16 +113,21 @@ def _train_weights(cfg: dict, base: Path, champ_id: str, champ_w: dict) -> tuple
             rows = out["records_a"] if slot == 0 else out["records_b"]
             rets = rewards.compute_returns(game, slot, rows)
             batch.extend(algorithm.to_batch(rows, rets))
+            game_if.cleanup(base / "games" / f"train{g}_slot{slot}")
             sa, sb = game["score"][0], game["score"][1]
             archive.record_result(base, chal_id if slot == 0 else opp_id,
                                   opp_id if slot == 0 else chal_id, sa, sb)
     policy = model.CNNPolicy()
     policy.load_state_dict(model.lists_to_state_dict(chal_w))
+    losses = []
     for _ in range(cfg["epochs"]):
-        algorithm.reinforce_step(policy, batch, lr=cfg["lr"])
+        stats = algorithm.reinforce_step(policy, batch, lr=cfg["lr"])
+        losses.append(stats["loss"])
     chal_w = model.state_dict_to_lists(policy)
     archive.store(base, chal_id, chal_w)
-    return chal_id, chal_w, len(batch)
+    mean_return = sum(r for _w, _a, r in batch) / len(batch) if batch else 0.0
+    return chal_id, chal_w, {"rows": len(batch), "losses": losses,
+                             "mean_return": mean_return}
 
 
 def _evaluate(cfg: dict, base: Path, chal_id: str, chal_w: dict,
@@ -105,6 +146,7 @@ def _evaluate(cfg: dict, base: Path, chal_id: str, chal_w: dict,
         sa, sb = game["score"][0], game["score"][1]
         archive.record_result(base, chal_id if slot == 0 else champ_id,
                               champ_id if slot == 0 else chal_id, sa, sb)
+        game_if.cleanup(base / "games" / f"eval{g}")
         chal_score, champ_score = (sa, sb) if slot == 0 else (sb, sa)
         wins += chal_score > champ_score
         draws += chal_score == champ_score
@@ -127,7 +169,7 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
         archive.set_champion(base, champ_id)
     else:
         champ_w = archive.load_checkpoint(base, champ_id)
-    chal_id, chal_w, rows = _train_weights(cfg, base, champ_id, champ_w)
+    chal_id, chal_w, train_stats = _train_weights(cfg, base, champ_id, champ_w)
     ev = _evaluate(cfg, base, chal_id, chal_w, champ_id, champ_w)
     mix = archive.nash_mixture(base)
     promoted = should_promote(ev["win_rate"], mix.get(chal_id, 0.0),
@@ -145,7 +187,18 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
                  f"(win-rate {ev['win_rate']:.2f}, nash {mix.get(chal_id, 0.0):.2f})"],
                 check=True,
             )
-    report = {"champion": champ_id, "challenger": chal_id, "rows": rows,
-              "eval": ev, "nash": mix, "promoted": promoted}
+    report = {"champion": champ_id, "challenger": chal_id,
+              "train": train_stats, "eval": ev, "nash": mix,
+              "promoted": promoted, "config": cfg}
     (base / "last_report.json").write_text(json.dumps(report, indent=1))
     return report
+
+
+def main(argv: list[str] | None = None) -> dict:
+    cfg = parse_args(argv)
+    return run_generation(cfg, Path(cfg["archive"]), commit=cfg["commit"])
+
+
+if __name__ == "__main__":
+    report = main()
+    print(json.dumps({k: v for k, v in report.items() if k != "nash"}, indent=1))
