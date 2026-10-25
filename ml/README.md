@@ -178,7 +178,11 @@ returns are unpredictable from windows. Landed instead:
 per approach, offline training-only; every step now carries signal
 the critic can learn from windows), (b) batch-level advantage norm
 (no second standardization; noise minibatches stay small next to
-event minibatches). Stacked probe (turns-60 + both, seed 99) next.
+event minibatches). Stacked probe v1 (turns-60 + both, seed 99):
+STILL FLAT (v 0.96-1.00, 120/120 draws). Diagnosis: the walk-back
+smeared shaping's immediate contingency with future-movement noise.
+Fix: approach awards are same-turn ONLY (food still walks back).
+Stacked probe v2 next.
 
 ## Shaping design (superseded: implemented + probed, see above)
 
