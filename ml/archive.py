@@ -114,7 +114,17 @@ def record_result(
         wins[0] += 0.5
         wins[1] += 0.5
     data[kind][key] = wins
-    p["matrix"].write_text(json.dumps(data))
+    tmp_fd, tmp_path = tempfile.mkstemp(dir=str(p["matrix"].parent), suffix=".tmp")
+    try:
+        with os.fdopen(tmp_fd, "w") as f:
+            f.write(json.dumps(data))
+        os.replace(tmp_path, p["matrix"])
+    except BaseException:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
 
 def log_game(
@@ -157,11 +167,28 @@ def read_status(base: Path) -> dict:
 
 
 def list_games(base: Path, member: str | None = None) -> list[dict]:
-    """Newest first; optionally only games involving member."""
+    """Newest first; optionally only games involving member.
+
+    Skips malformed lines/rows: one bad line must not brick the page."""
     path = _paths(base)["dir"] / "games.jsonl"
     if not path.exists():
         return []
-    rows = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+    required = {"gen", "kind", "a", "b", "score_a", "score_b", "replay"}
+    rows = []
+    for line in path.read_text().splitlines():
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(row, dict) or not required <= set(row):
+            continue
+        if not isinstance(row["score_a"], (int, float)) or not isinstance(
+            row["score_b"], (int, float)
+        ):
+            continue
+        rows.append(row)
     rows.reverse()
     if member is not None:
         rows = [r for r in rows if r["a"] == member or r["b"] == member]

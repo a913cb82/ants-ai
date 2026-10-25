@@ -39,16 +39,21 @@ TEMPLATE = (VIS_DIR / "replay.html.template").read_text()
 _nash_cache: dict = {}
 
 
-def _nash_cached(base: Path) -> dict:
-    """Fictitious play is O(iters*n^2): redo only when the matrix changes."""
-    mpath = base / "matrix.json"
+def _eval_digest(base: Path) -> tuple:
+    """Cache key that ignores train-only churn (Nash reads eval only)."""
     try:
-        mtime = mpath.stat().st_mtime_ns
-    except OSError:
-        return {}
-    if _nash_cache.get("mtime") != mtime:
+        data = json.loads((base / "matrix.json").read_text())
+    except (OSError, ValueError):
+        return (None, None)
+    return (tuple(data.get("ids", [])), json.dumps(data.get("eval", {}), sort_keys=True))
+
+
+def _nash_cached(base: Path) -> dict:
+    """Fictitious play is O(iters*n^2): redo only when eval data changes."""
+    key = (str(base.resolve()), _eval_digest(base))
+    if _nash_cache.get("key") != key:
         _nash_cache.clear()
-        _nash_cache["mtime"] = mtime
+        _nash_cache["key"] = key
         _nash_cache["mix"] = archive.nash_mixture(base)
     return _nash_cache["mix"]
 
@@ -72,19 +77,18 @@ def snapshot(base: Path) -> dict:
     mix = _nash_cached(base)
     games = archive.list_games(base)
     history = selfplay.read_history(base)
+    tally: dict[str, list[int]] = {}
+    for g in games:
+        if g["kind"] != "eval":
+            continue
+        sides = ((g["a"], g["score_a"], g["score_b"]), (g["b"], g["score_b"], g["score_a"]))
+        for cid, mine, theirs in sides:
+            w, d, l = tally.get(cid, [0, 0, 0])
+            tally[cid] = [w + (mine > theirs), d + (mine == theirs), l + (mine < theirs)]
     members = []
     for m in archive.members(base):
         cid = m["id"]
-        w = d = l = 0
-        for g in games:
-            if g["kind"] != "eval":
-                continue
-            if g["a"] != cid and g["b"] != cid:
-                continue
-            r = _outcome(g["a"], g["score_a"], g["b"], g["score_b"], cid)
-            w += r == "win"
-            d += r == "draw"
-            l += r == "loss"
+        w, d, l = tally.get(cid, [0, 0, 0])
         members.append({
             "id": cid, "role": m["role"], "parent": m["parent"],
             "nash": round(mix.get(cid, 0.0), 4),
@@ -187,7 +191,7 @@ def make_handler(base: Path):
                     q = parse_qs(parsed.query)
                     member = q.get("member", [None])[0]
                     try:
-                        limit = min(int(q.get("limit", ["50"])[0]), 200)
+                        limit = max(0, min(int(q.get("limit", ["50"])[0]), 200))
                     except ValueError:
                         limit = 50
                     try:
@@ -215,7 +219,7 @@ def make_handler(base: Path):
                         self._send(target.read_bytes(), ctype)
                 else:
                     self.send_error(404, "unknown route")
-            except (OSError, ValueError) as e:
+            except (OSError, ValueError, KeyError, TypeError) as e:
                 _json(self, {"error": f"{type(e).__name__}: {e}"}, status=500)
 
     return Handler
@@ -227,8 +231,8 @@ def make_handler(base: Path):
 STYLES = """
 :root{
   --bg:#F6F7F9; --card:#FFFFFF; --border:#E3E6EA; --border-strong:#C9CFD6;
-  --ink:#16191D; --secondary:#5B6470; --muted:#8A94A0;
-  --accent:#2456E0; --success:#18794E; --danger:#C4322B; --warn:#B7791F;
+  --ink:#16191D; --secondary:#5B6470; --muted:#67707B;
+  --accent:#2456E0; --success:#18794E; --danger:#C4322B; --warn:#8A5A00;
   --eval-bg:#EAF0FE; --eval-ink:#2456E0; --train-bg:#EDEFF1; --train-ink:#5B6470;
   --grid:#E9EDF1; --chart-text:#6B7480;
 }
@@ -246,7 +250,8 @@ h1{font-size:20px; margin:0 0 4px;}
 .card{background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px 20px;}
 .stat-label{font-size:12px; color:var(--secondary);}
 .stat-value{font-size:28px; font-weight:700; font-variant-numeric:tabular-nums; margin-top:2px;}
-.stat-value .champ-star{color:var(--warn); font-size:20px;}
+.stat-value .champ-star{font-size:20px;}
+.champ-star{color:var(--warn); font-size:0.72em; vertical-align:1px;}
 .progress{height:8px; background:var(--border); border-radius:4px; margin-top:10px; overflow:hidden;}
 .progress>div{height:100%; background:var(--accent); border-radius:4px; transition:width .4s, background .4s;}
 .status-line{font-size:14px; margin-top:2px;}
@@ -280,14 +285,22 @@ td.num, th.num{text-align:right;}
 .nash-bar{flex:1; min-width:60px; height:6px; background:var(--border); border-radius:3px; overflow:hidden;}
 .nash-bar>div{height:100%; background:var(--accent);}
 .rate-wrap{display:flex; align-items:center; gap:8px;}
-.rate-bar{flex:1; min-width:70px; height:6px; background:var(--border); border-radius:3px; position:relative; overflow:hidden;}
+td.matchup, td.replay, .rate-text{white-space:nowrap;}
+.rate-bar{flex:1 1 70px; min-width:70px; height:6px; background:var(--border); border-radius:3px; position:relative; overflow:hidden;}
 .rate-bar>div{height:100%; background:var(--success);}
-.rate-bar .marker{position:absolute; top:-2px; bottom:-2px; width:2px; background:var(--ink);}
+.rate-bar{overflow:visible;}
+.rate-bar>div{border-radius:3px;}
+.rate-bar .marker{top:-3px;bottom:-3px;box-shadow:0 0 0 1px #fff;z-index:1;}
 .toolbar{display:flex; gap:10px; align-items:center; margin-bottom:10px; flex-wrap:wrap;}
 .toolbar label{font-size:13px; color:var(--secondary);}
 select{font-size:13px; padding:6px 10px; border:1px solid var(--border-strong); border-radius:8px; background:#fff;}
 .live-toggle{display:flex; align-items:center; gap:6px; font-size:13px; color:var(--secondary);}
+.pager{display:flex; gap:6px;}
 .updated{font-size:12px; color:var(--muted); margin-left:auto;}
+.pager button{font-size:12px; padding:5px 10px; border:1px solid var(--border-strong); border-radius:8px; background:#fff; cursor:pointer;}
+.pager button:disabled{opacity:.4; cursor:default;}
+#getting-started{margin-bottom:16px; font-size:14px;}
+#stats-row{margin-top:0;}
 #error{display:none; background:#FBEAE8; color:var(--danger); border:1px solid #F0C4C0;
   border-radius:8px; padding:10px 14px; margin-bottom:16px; font-size:13px;}
 .empty{padding:28px 20px; color:var(--secondary); font-size:14px;}
@@ -295,8 +308,10 @@ select{font-size:13px; padding:6px 10px; border:1px solid var(--border-strong); 
 a{color:var(--accent); text-decoration:none;}
 a:hover{text-decoration:underline;}
 .winner{font-weight:700;}
+a:focus-visible,select:focus-visible,input:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
 @media (max-width:900px){
   .stats{grid-template-columns:repeat(2,1fr);}
+  .stats>.card:nth-child(3){grid-column:span 2;}
   .status-wide{grid-column:span 2;}
   .cols{grid-template-columns:1fr;}
   body{padding:16px 16px 40px;}
@@ -346,6 +361,8 @@ function plot(id,series,color,fill,labels){
   ctx.fillText(x0,L,H-6);
   const w1=ctx.measureText(x1).width;
   ctx.fillText(x1,W-R-w1,H-6);
+  if(mn<0&&mx>0){ctx.save();ctx.setLineDash([4,3]);ctx.strokeStyle="#C9CFD6";
+    ctx.beginPath();ctx.moveTo(L,Y(0));ctx.lineTo(W-R,Y(0));ctx.stroke();ctx.restore();}
   if(fill){const gr=ctx.createLinearGradient(0,T,0,H-B);
     gr.addColorStop(0,fill);gr.addColorStop(1,"rgba(255,255,255,0)");
     ctx.beginPath();ctx.moveTo(X(0),Y(series[0]));
@@ -360,12 +377,13 @@ function plot(id,series,color,fill,labels){
 function deltaChip(vals,invert){
   if(vals.length<2) return '<span class="delta flat">—</span>';
   const d=vals[vals.length-1]-vals[vals.length-2];
-  if(Math.abs(d)<1e-9) return '<span class="delta flat">±0.00</span>';
+  if(Math.abs(d)<1e-9) return '<span class="delta flat">±0.000</span>';
   const good=invert?d<0:d>0;
   return `<span class="delta ${good?"up":"down"}">${d>0?"+":""}${d.toFixed(3)}</span>`;
 }
 function renderHeader(){
   $("st-champ").innerHTML=esc(S.champion||"—")+(S.champion?' <span class="champ-star">★</span>':"");
+  $("getting-started").style.display=S.counts.generations?"none":"block";
   $("st-gen").textContent=S.counts.generations;
   $("st-games").textContent=S.counts.games;
   const st=S.status||{},el=$("st-status"),bar=$("st-bar");
@@ -396,7 +414,7 @@ function renderCurves(){
   $("loss-delta").innerHTML=deltaChip(byGen,true);
   $("ret-delta").innerHTML=deltaChip(rets,false);
   $("loss-last").textContent=byGen.length?byGen[byGen.length-1].toFixed(3):"—";
-  $("ret-last").textContent=rets.length?rets[rets.length-1].toFixed(3):"—";
+  $("ret-last").textContent=rets.length?rets[rets.length-1].toFixed(2):"—";
 }
 function renderPopulation(){
   const rows=S.members.map(m=>`<tr><td>${esc(m.id)}${m.id===S.champion?' <span class="champ-star">★</span>':""}</td>`+
@@ -430,20 +448,22 @@ function renderMemberOptions(){
 }
 async function renderGames(my){
   const m=$("member").value;
-  history.replaceState(null,"",m?"#member="+encodeURIComponent(m):location.pathname);
+  if(m)history.replaceState(null,"","#member="+encodeURIComponent(m));
+  else if(!location.hash)history.replaceState(null,"",location.pathname);
+  if($("games-body").matches(":hover")||$("games-body").contains(document.activeElement)) return true; // reader busy: retry next poll
   const qparts=[];
   if(m)qparts.push("member="+encodeURIComponent(m));
-  qparts.push("limit=100");
+  qparts.push("limit=100","offset="+gamesOffset);
   let data;
   try{data=await fetchJSON("/api/games?"+qparts.join("&"));}
   catch(e){
     $("error").style.display="block";
     $("error").textContent="games feed failed ("+e.message+") — showing last good table. retrying…";
-    return;
+    return false;
   }
-  if(my!==seq) return; // a newer poll won
-  const h=JSON.stringify(data);
-  if(h===lastGames) return; // unchanged: keep focus, selection, scroll
+  if(my!==seq||$("member").value!==m) return true; // a newer poll or filter won
+  const h=m+"|"+gamesOffset+"|"+JSON.stringify(data);
+  if(h===lastGames) return true; // unchanged: keep focus, selection, scroll
   lastGames=h;
   const rows=data.rows.map(x=>{
     const ref=m||x.a;
@@ -453,10 +473,15 @@ async function renderGames(my){
     const wb=(bWon?'<span class="winner">':'')+esc(x.b)+(bWon?'</span>':'');
     const label=x.gen+" · "+shortReplay(x.replay);
     return `<tr><td>${esc(x.gen)}</td><td><span class="pill ${esc(x.kind)}">${esc(x.kind)}</span></td>`+
-    `<td title="engine score">${wa} ${x.score_a} vs ${wb} ${x.score_b}</td><td><span class="badge ${o.cls}">${o.label}</span></td>`+
-    `<td><a href="/replay?f=${encodeURIComponent(x.replay)}" target="_blank" rel="noopener" title="${esc(x.a)} vs ${esc(x.b)}, gen ${esc(x.gen)}">${esc(label)}</a></td></tr>`;}).join("");
+    `<td class="matchup" title="engine score">${wa} ${x.score_a} vs ${wb} ${x.score_b}</td><td><span class="badge ${o.cls}">${o.label}</span></td>`+
+    `<td class="replay"><a href="/replay?f=${encodeURIComponent(x.replay)}" target="az-replay" rel="noopener" title="${esc(x.a)} vs ${esc(x.b)}, gen ${esc(x.gen)} — opens in the replay tab">${esc(label)}<span aria-hidden="true"> ↗</span></a></td></tr>`;}).join("");
   $("games-body").innerHTML=rows||(m?`<tr><td colspan="5" class="empty">no games logged for ${esc(m)} yet</td></tr>`:'<tr><td colspan="5" class="empty">no games logged yet — they appear here as each finishes</td></tr>');
-  $("games-count").textContent=`showing ${data.rows.length} of ${data.total}`;
+  const pages=Math.max(1,Math.ceil(data.total/100));
+  const page=Math.floor(gamesOffset/100)+1;
+  $("games-count").textContent=`showing ${data.rows.length} of ${data.total} · page ${Math.min(page,pages)} of ${pages}`;
+  $("pg-prev").disabled=gamesOffset<=0;
+  $("pg-next").disabled=gamesOffset+100>=data.total;
+  return true;
 }
 async function load(){
   if(!live) return;
@@ -470,22 +495,30 @@ async function load(){
     if(h!==lastHash){lastHash=h;S=snap;
       renderHeader();renderCurves();renderPopulation();renderGenerations();renderMemberOptions();}
     else renderHeader();
-    await renderGames(my);
-    $("updated").textContent="updated "+ago(lastTick)+" · live";
+    const ok=await renderGames(my);
+    $("updated").textContent="updated "+ago(lastTick)+" · "+(ok?"live":"games feed stale · live snapshot");
   }catch(e){
     $("error").style.display="block";
-    $("error").textContent="connection lost ("+e.message+") — showing last good data from "+ago(lastTick)+". retrying…";
+    $("error").textContent=lastTick?"connection lost ("+e.message+") — showing last good data from "+ago(lastTick)+". retrying…"
+      :"connection lost ("+e.message+") — no data yet. retrying…";
   }
 }
 function activePhase(){const p=S&&S.status&&S.status.phase;return p==="train"||p==="eval";}
 function tick(){load().finally(()=>setTimeout(tick,live?(activePhase()?5000:15000):15000));}
-$("member").addEventListener("change",()=>renderGames(seq));
+let gamesOffset=0;
+$("member").addEventListener("change",()=>{gamesOffset=0;++seq;renderGames(seq);});
+$("pg-prev").addEventListener("click",()=>{gamesOffset=Math.max(0,gamesOffset-100);renderGames(++seq);});
+$("pg-next").addEventListener("click",()=>{gamesOffset+=100;renderGames(++seq);});
 $("live-toggle").addEventListener("change",e=>{live=e.target.checked;
+  if(!live)seq++; // invalidate in-flight polls
+  $("live-label").textContent=live?"live":"paused";
   $("updated").textContent="updated "+ago(lastTick)+" · "+(live?"live":"paused");load();});
-window.addEventListener("resize",()=>{if(S)renderCurves();});
-load().then(()=>{const m=location.hash.replace("#member=","");
-  if(m){const sel=$("member");const opt=[...sel.options].find(o=>o.text===decodeURIComponent(m));
-    if(opt){sel.value=opt.text;renderGames(seq);}}});
+let resizeT=0;
+window.addEventListener("resize",()=>{clearTimeout(resizeT);resizeT=setTimeout(()=>{if(S)renderCurves();},150);});
+load().then(()=>{const q=new URLSearchParams(location.hash.slice(1));const m=q.get("member");
+  if(m){const sel=$("member");const opt=[...sel.options].find(o=>o.text===m);
+    if(opt){sel.value=opt.text;sel.dispatchEvent(new Event("change"));}
+    else history.replaceState(null,"",location.pathname);}});
 tick();
 """
 
@@ -500,7 +533,10 @@ def render_page() -> str:
 <h1>AlphaStarZero training</h1>
 <p class="sub">mirror self-play · policy gradients · scripted promotion — nothing external, ever</p>
 <div id="error" role="alert"></div>
-<div class="stats">
+<div class="card" id="getting-started" style="display:none"><b>No generations yet.</b> Start one with:
+<code>.venv/bin/python ml/selfplay.py --train-games 4 --eval-games 6 --turns 50 --no-commit</code>
+— games, curves and population appear here as it runs.</div>
+<div class="stats" id="stats-row">
   <div class="card"><div class="stat-label">Champion</div><div class="stat-value" id="st-champ">—</div></div>
   <div class="card"><div class="stat-label">Generations</div><div class="stat-value" id="st-gen">0</div></div>
   <div class="card"><div class="stat-label">Games logged</div><div class="stat-value" id="st-games">0</div></div>
@@ -536,7 +572,8 @@ def render_page() -> str:
 <div class="toolbar">
 <label for="member">member</label>
 <select id="member"><option value="">all members</option></select>
-<label class="live-toggle"><input type="checkbox" id="live-toggle" checked> live</label>
+<label class="live-toggle"><input type="checkbox" id="live-toggle" checked> <span id="live-label">live</span></label>
+<span class="pager"><button id="pg-prev" type="button">← newer</button><button id="pg-next" type="button">older →</button></span>
 <span class="updated" id="updated"></span>
 </div>
 <div class="table-scroll" style="max-height:480px; overflow-y:auto;"><table>

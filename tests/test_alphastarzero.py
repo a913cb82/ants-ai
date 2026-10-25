@@ -969,3 +969,30 @@ def test_dashboard_http_api(tmp_path):
             assert "no-store" in r.headers.get("Cache-Control", "")
     finally:
         httpd.shutdown()
+
+
+def test_list_games_skips_malformed_rows(tmp_path):
+    import archive
+
+    base = tmp_path / "archive"
+    archive.init(base)
+    with open(base / "games.jsonl", "w") as f:
+        f.write("{not json\n")
+        f.write('{"gen":"g","kind":"eval","a":"x"}\n')  # missing keys
+        f.write('{"gen":"g","kind":"eval","a":"x","b":"y","score_a":null,"score_b":1,"replay":"r"}\n')
+        f.write('{"gen":"g","kind":"eval","a":"x","b":"y","score_a":2,"score_b":1,"replay":"r"}\n')
+    rows = archive.list_games(base)
+    assert len(rows) == 1 and rows[0]["score_a"] == 2
+
+
+def test_snapshot_survives_poisoned_index(tmp_path):
+    import archive
+    import dashboard
+
+    base = tmp_path / "archive"
+    a = archive.save_checkpoint(base, {}, role="main", parent=None)
+    archive.set_champion(base, a)
+    with open(base / "games.jsonl", "w") as f:
+        f.write('{"gen":"x","kind":"eval","a":"g000"}\n')
+    snap = dashboard.snapshot(base)
+    assert snap["game_total"] == 0
