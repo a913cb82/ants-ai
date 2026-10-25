@@ -19,6 +19,15 @@ and the round itself is the scored exam.
 
 ## open
 
+- Exact D4 symmetrization in forward() (round 13 candidate): average
+  all 8 dihedral orientations inside the model so training and acting
+  use the same exactly-equivariant policy (probe: 41% agreement, east
+  bias — defect proven by measurement). Weight-compatible (same
+  params, 8x forward averaging), train=act coherent, value head
+  invariant by the same averaging. Implement after round 12 lands
+  (no model.py edits mid-round); acceptance = probe agreement 100%
+  by construction + promotion rate vs round 12.
+
 - Eval redesign: promotion duels on the TRAIN pool (same boards,
   full 20-duel concentration); generalization as separate
   display-only probes on held/next-rung boards. Held-out promotion
@@ -38,11 +47,13 @@ mid-round). Then re-audit any 10b promotion board-by-board.
 
 ## done
 
-- Rung 2 extended (round 11 revised prerequisite): rung 1 +
-  rung2a-e (gap full-span, lakes on-corridor + edge pair, pond twin
-  lakes, e = proven open) + 2 smallest real boards (gen2p_00,
-  tutorial1 — drew asymmetric smoke, passengers under test).
-  Tests the pool, not the variable.
+- Eval on train pool (rounds 11-12): no split under 13 maps, evals
+  run the train boards with rotation. Held-out promotion evals stay
+  parked until a 13+ same-rung pool (full pool rung 3).
+
+- Rung-2 extended pool (rounds 11-12): rung 1 + rung2a-d, then
+  f/g/h/i/j staged in. Gap twin-bars, pond twin lakes, 2d back to
+  4x4 texture, generated rung 3 deleted, e cut as redundant.
 
 - BC-from-pros init (round: bc-30): gen-1 starts where 10 random
   gens couldn't reach. Kept.
