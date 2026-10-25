@@ -167,7 +167,11 @@ def read_status(base: Path) -> dict:
     path = base / "status.json"
     if not path.exists():
         return {}
-    return json.loads(path.read_text())
+    try:
+        row = json.loads(path.read_text())
+    except ValueError:
+        return {}
+    return row if isinstance(row, dict) else {}
 
 
 def list_games(base: Path, member: str | None = None) -> list[dict]:

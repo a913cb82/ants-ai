@@ -916,8 +916,9 @@ def test_replay_page_guards_traversal(tmp_path):
 
     base = tmp_path / "archive"
     (base / "games").mkdir(parents=True)
-    (base / "games" / "r.json").write_text("{}")
-    assert dashboard.replay_page(base, "games/r.json") is not None
+    (base / "games" / "0.replay").write_text("{}")
+    assert dashboard.replay_page(base, "games/0.replay") is not None
+    assert dashboard.replay_page(base, "games/r.json") is None  # not a replay
     assert dashboard.replay_page(base, "../../etc/passwd") is None
     assert dashboard.replay_page(base, "missing.json") is None
 

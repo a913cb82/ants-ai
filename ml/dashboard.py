@@ -98,8 +98,15 @@ def _outcome(a: str, sa: float, b: str, sb: float, ref: str) -> str:
 def snapshot(base: Path) -> dict:
     """Everything the page needs, in one JSON-able dict. One read per file."""
     archive.init(base)
-    champ = archive.get_champion(base)
-    mix = _nash_cached(base)
+    champ = None
+    try:
+        champ = archive.get_champion(base)
+    except (OSError, ValueError, KeyError, TypeError):
+        champ = None
+    try:
+        mix = _nash_cached(base)
+    except (OSError, ValueError, KeyError, TypeError):
+        mix = {}
     games = cached_games(base)
     history = selfplay.read_history(base)
     tally: dict[str, list[int]] = {}
@@ -166,7 +173,7 @@ def snapshot(base: Path) -> dict:
 
 def replay_page(base: Path, rel: str | None) -> str | None:
     """Visualizer HTML with the replay inlined. None if unsafe/missing."""
-    if not rel:
+    if not rel or not rel.endswith(".replay"):
         return None
     target = (base / rel).resolve()
     if not str(target).startswith(str(base.resolve())) or not target.is_file():
@@ -196,6 +203,8 @@ def _json(handler: BaseHTTPRequestHandler, obj: object, status: int = 200) -> No
 
 def make_handler(base: Path):
     class Handler(BaseHTTPRequestHandler):
+        server_version = "AZDash"
+
         def log_message(self, *args):
             pass
 
@@ -247,7 +256,7 @@ def make_handler(base: Path):
                             "image/png" if target.suffix == ".png" else "application/octet-stream")
                         self._send(target.read_bytes(), ctype)
                 else:
-                    self.send_error(404, "unknown route")
+                    _json(self, {"error": f"unknown route: {parsed.path}"}, status=404)
             except (OSError, ValueError, KeyError, TypeError, AttributeError) as e:
                 _json(self, {"error": f"{type(e).__name__}: {e}"}, status=500)
 
@@ -319,7 +328,7 @@ td.matchup, td.replay, .rate-text{white-space:nowrap;}
 .rate-bar>div{height:100%; background:var(--success);}
 .rate-bar{overflow:visible;}
 .rate-bar>div{border-radius:3px;}
-.rate-bar .marker{top:-3px;bottom:-3px;box-shadow:0 0 0 1px #fff;z-index:1;}
+.rate-bar .marker{position:absolute;left:0;width:2px;background:var(--ink);top:-3px;bottom:-3px;box-shadow:0 0 0 1px #fff;z-index:1;}
 .toolbar{display:flex; gap:10px; align-items:center; margin-bottom:10px; flex-wrap:wrap;}
 .toolbar label{font-size:13px; color:var(--secondary);}
 select{font-size:13px; padding:6px 10px; border:1px solid var(--border-strong); border-radius:8px; background:#fff;}
@@ -437,10 +446,10 @@ function renderHeader(){
   const st=S.status||{},el=$("st-status"),bar=$("st-bar");
   bar.style.width="0%";bar.style.background="var(--accent)";
   if(st.phase==="train"){
-    el.innerHTML=`training <b>${esc(st.challenger||"")}</b> · game ${st.done}/${st.total} · last mean return <b>${(+st.last_mean_return||0).toFixed(2)}</b>`;
+    el.innerHTML=`training <b>${esc(st.challenger||"")}</b> · game ${Math.max(0,+st.done||0)}/${Math.max(0,+st.total||0)} · last mean return <b>${(+st.last_mean_return||0).toFixed(2)}</b>`;
     bar.style.width=(100*st.done/Math.max(1,st.total))+"%";
   }else if(st.phase==="eval"){
-    el.innerHTML=`evaluating <b>${esc(st.challenger||"")}</b> · duel ${st.done}/${st.total} · <b>${st.wins||0}W ${st.draws||0}D</b> so far`;
+    el.innerHTML=`evaluating <b>${esc(st.challenger||"")}</b> · duel ${Math.max(0,+st.done||0)}/${Math.max(0,+st.total||0)} · <b>${Math.max(0,+st.wins||0)}W ${Math.max(0,+st.draws||0)}D</b> so far`;
     bar.style.width=(100*st.done/Math.max(1,st.total))+"%";
   }else if(st.phase==="done"){
     el.innerHTML=`last run finished: <b>${esc(st.challenger||"")}</b> `+
@@ -524,9 +533,9 @@ async function renderGames(my){
     const wb=(bWon?'<span class="winner">':'')+esc(x.b)+(bWon?'</span>':'');
     const label=x.gen+" · "+shortReplay(x.replay);
     return `<tr><td>${esc(x.gen)}</td><td><span class="pill ${esc(x.kind)}">${esc(x.kind)}</span></td>`+
-    `<td class="matchup" title="engine score">${wa} ${x.score_a} vs ${wb} ${x.score_b}</td><td><span class="badge ${o.cls}">${o.label}</span></td>`+
+    `<td class="matchup" title="engine score">${wa} ${x.score_a} – ${x.score_b} ${wb}</td><td><span class="badge ${o.cls}">${o.label}</span></td>`+
     `<td class="replay"><a href="/replay?f=${encodeURIComponent(x.replay)}" target="_blank" rel="noopener" title="${esc(x.a)} vs ${esc(x.b)}, gen ${esc(x.gen)} — opens in a new tab">${esc(label)}<span aria-hidden="true"> ↗</span></a></td></tr>`;}).join("");
-  $("games-body").innerHTML=rows||(total?`<tr><td colspan="5" class="empty">no games on this page — use the pager above</td></tr>`:(m?`<tr><td colspan="5" class="empty">no games logged for ${esc(m)} yet</td></tr>`:'<tr><td colspan="5" class="empty">no games logged yet — they appear here as each finishes</td></tr>'));
+  $("games-body").innerHTML=rows||(data.total?`<tr><td colspan="5" class="empty">no games on this page — use the pager above</td></tr>`:(m?`<tr><td colspan="5" class="empty">no games logged for ${esc(m)} yet</td></tr>`:'<tr><td colspan="5" class="empty">no games logged yet — they appear here as each finishes</td></tr>'));
   const pages=Math.max(1,Math.ceil(data.total/100));
   const page=Math.floor(gamesOffset/100)+1;
   $("games-count").textContent=`showing ${data.rows.length} of ${data.total} · page ${Math.min(page,pages)} of ${pages}`;
@@ -606,7 +615,7 @@ def render_page() -> str:
     <p class="chart-sub">discounted episode return, one point per generation</p><canvas id="ch-ret"></canvas></div>
 </div>
 <div class="section-title">Generations</div>
-<div class="legend">why each challenger was promoted or held — challenger W-D-L · score counts a draw as half a win · bar is the promotion threshold marker</div>
+<div class="legend">why each challenger was promoted or held — challenger W-D-L · score counts a draw as half a win · green fill is win rate, tick is the promotion threshold</div>
 <div class="card table-scroll" id="gen-card"><table>
 <tr><th>challenger</th><th class="num">train return</th><th class="num">train loss</th><th>eval vs champion</th><th>result</th></tr>
 <tbody id="gen-body"></tbody></table></div>
@@ -631,7 +640,7 @@ def render_page() -> str:
 <span class="updated" id="updated" title="page refresh time — data may be older while the run is idle"></span>
 </div>
 <div class="table-scroll" style="max-height:480px; overflow-y:auto;"><table>
-<caption class="legend" style="text-align:left; padding:0 0 6px">result is side A's view · switches to the filtered member when filtered</caption>
+<caption class="legend" style="text-align:left; padding:0 0 6px">result is the first-listed side's view · switches to the filtered member when filtered</caption>
 <tr><th>gen</th><th>kind</th><th>matchup</th><th>result</th><th>replay</th></tr>
 <tbody id="games-body"></tbody></table></div>
 </div>
