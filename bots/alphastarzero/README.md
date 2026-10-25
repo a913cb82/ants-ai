@@ -8,7 +8,7 @@ Engine-playable student. One shared linear policy, per ant, greedy.
 |---|---|
 | `main.bot` | manifest: `python MyBot.py` (league rebinds `python` to `.venv/bin/python`) |
 | `MyBot.py` | engine loop: reserve-then-order, 10 ms time guard |
-| `features.py` | per-ant cues: `passable, food, threat, crowd` |
+| `features.py` | per-ant cues (`ant_features`) + `local_window`: 6-channel relative 1-hot (water, own ant/hill, enemy ant/hill, food), default 9x9 |
 | `model.py` | `LinearPolicy` (torch) + greedy `choose()` |
 | `weights.json` | current student parameters (rewritten by the trainer) |
 | `ants.py` | protocol wrapper, copied from `bots/py3_starter` |

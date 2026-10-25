@@ -35,6 +35,7 @@ loop (fixed budget, recorded score, keep-the-winner).
   collision-free baseline. Proves data → train → promote turns.
 - v1: local window encoder (e.g. 9x9 x channels: water, food, own,
   enemy, hill, pheromone) + small CNN, value head.
+  (encoder landed: `features.local_window`, radius 4 default; CNN head next)
 - v2: MCTS over abstract group orders with the value head guiding
   search; per-ant policy executes the chosen assignment.
 

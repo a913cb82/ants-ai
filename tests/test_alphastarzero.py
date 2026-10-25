@@ -22,6 +22,8 @@ class FakeAnts:
         self._food = [(5, 5)]
         self._mine = [(4, 4)]
         self._enemy = [((4, 6), 1)]
+        self._my_hills = [(3, 3)]
+        self._enemy_hills = [((6, 6), 1)]
 
     def destination(self, loc, direction):
         d = {"n": (-1, 0), "e": (0, 1), "s": (1, 0), "w": (0, -1)}[direction]
@@ -43,6 +45,12 @@ class FakeAnts:
 
     def enemy_ants(self):
         return list(self._enemy)
+
+    def my_hills(self):
+        return list(self._my_hills)
+
+    def enemy_hills(self):
+        return list(self._enemy_hills)
 
 
 def test_features_cover_all_five_actions():
@@ -99,3 +107,81 @@ def test_weights_file_loads_and_matches_model_keys():
     wpath = ROOT / "bots" / "alphastarzero" / "weights.json"
     weights = json.loads(wpath.read_text())
     assert set(weights) == set(model.FEATURE_KEYS)
+
+
+def test_window_shape_channels_dtype():
+    import features
+
+    ants = FakeAnts()
+    w = features.local_window(ants, (4, 4), radius=2)
+    assert list(w.shape) == [6, 5, 5]
+    assert features.CHANNELS == (
+        "water",
+        "own_ant",
+        "own_hill",
+        "enemy_ant",
+        "enemy_hill",
+        "food",
+    )
+    assert set(w.flatten().tolist()) <= {0.0, 1.0}
+
+
+def test_window_center_marks_self():
+    import features
+
+    ants = FakeAnts()
+    w = features.local_window(ants, (4, 4), radius=2)
+    r = 2
+    assert w[features.CHANNELS.index("own_ant")][r][r] == 1.0
+    assert w[features.CHANNELS.index("water")][r][r] == 0.0
+
+
+def test_window_food_at_relative_offset():
+    import features
+
+    ants = FakeAnts()  # food at (5,5), ant at (4,4) -> offset (+1,+1)
+    w = features.local_window(ants, (4, 4), radius=2)
+    food = w[features.CHANNELS.index("food")]
+    assert food[3][3] == 1.0
+    assert food.sum() == 1.0
+
+
+def test_window_wraps_toroidally():
+    import features
+
+    ants = FakeAnts()
+    ants._mine = [(0, 0)]
+    ants._food = [(9, 9)]  # offset (-1,-1) with wrap on a 10x10 map
+    w = features.local_window(ants, (0, 0), radius=2)
+    food = w[features.CHANNELS.index("food")]
+    assert food[1][1] == 1.0
+    assert food.sum() == 1.0
+
+
+def test_window_water_masks_other_channels():
+    import features
+
+    ants = FakeAnts()  # water at (2,2); ant at (2,0) -> offset (0,+2)
+    ants._mine = [(2, 0)]
+    w = features.local_window(ants, (2, 0), radius=2)
+    assert w[features.CHANNELS.index("water")][2][4] == 1.0
+    for ch in ("own_ant", "enemy_ant", "food"):
+        assert w[features.CHANNELS.index(ch)][2][4] == 0.0
+
+
+def test_window_separates_ant_channels():
+    import features
+
+    ants = FakeAnts()  # enemy at (4,6); ant at (4,4) -> offset (0,+2)
+    w = features.local_window(ants, (4, 4), radius=2)
+    assert w[features.CHANNELS.index("enemy_ant")][2][4] == 1.0
+    assert w[features.CHANNELS.index("own_ant")][2][4] == 0.0
+
+
+def test_window_marks_both_hills():
+    import features
+
+    ants = FakeAnts()  # own hill (3,3) -> (-1,-1); enemy hill (6,6) -> (+2,+2)
+    w = features.local_window(ants, (4, 4), radius=3)
+    assert w[features.CHANNELS.index("own_hill")][2][2] == 1.0
+    assert w[features.CHANNELS.index("enemy_hill")][5][5] == 1.0

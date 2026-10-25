@@ -7,12 +7,20 @@ windows) plug in here later without changing the caller.
 
 from __future__ import annotations
 
+import torch
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ants import Ants
 
 ACTIONS = ("n", "e", "s", "w", "stay")
+
+# Third-dimension (channel) order of local_window: water, friendly ant,
+# friendly hill, enemy ant, enemy hill, food.
+CHANNELS = ("water", "own_ant", "own_hill", "enemy_ant", "enemy_hill", "food")
+
+# Default view radius in tiles: 9x9 window, matches the ml/README v1 plan.
+DEFAULT_RADIUS = 4
 
 # Threat radius in toroidal Manhattan distance. An enemy this close to the
 # destination can force an unfavorable 1-for-1 trade.
@@ -71,3 +79,41 @@ def ant_features(
             "crowd": 1.0 if (dest in reserved and dest != loc) else 0.0,
         }
     return feats
+
+
+def local_window(
+    ants: Ants, loc: tuple[int, int], radius: int = DEFAULT_RADIUS
+) -> torch.Tensor:
+    """Fully local, relative 1-hot state: (channels, height, width).
+
+    The ant sits at the window center; cell (radius+dr, radius+dc) holds
+    whatever is `dr, dc` tiles away with toroidal wrap. Channel order is
+    CHANNELS. Water is authoritative: a water tile never carries an ant,
+    hill, or food mark.
+    """
+    size = 2 * radius + 1
+    window = torch.zeros((len(CHANNELS), size, size), dtype=torch.float32)
+    r0, c0 = loc
+    own_ants = set(ants.my_ants())
+    own_hills = set(ants.my_hills())
+    enemy_ants = {pos for pos, _owner in ants.enemy_ants()}
+    enemy_hills = {pos for pos, _owner in ants.enemy_hills()}
+    foods = set(ants.food())
+    for dr in range(-radius, radius + 1):
+        for dc in range(-radius, radius + 1):
+            cell = ((r0 + dr) % ants.rows, (c0 + dc) % ants.cols)
+            i, j = dr + radius, dc + radius
+            if not ants.passable(cell):
+                window[0, i, j] = 1.0
+                continue
+            if cell in own_ants:
+                window[1, i, j] = 1.0
+            if cell in own_hills:
+                window[2, i, j] = 1.0
+            if cell in enemy_ants:
+                window[3, i, j] = 1.0
+            if cell in enemy_hills:
+                window[4, i, j] = 1.0
+            if cell in foods:
+                window[5, i, j] = 1.0
+    return window
