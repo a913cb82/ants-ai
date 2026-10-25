@@ -428,8 +428,7 @@ def test_food_credit_by_spawnradius_proximity():
     game = _game()
     game["replaydata"]["food"] = [[5, 5, 1, 3, 0]]  # spawnradius2=1: adjacent counts
     records = [
-        # gatherer stays: approach shaping fires only on movement,
-        # so this stays a pure food-channel test.
+        # gatherer stays: this stays a pure food-channel test.
         {"turn": 3, "loc": [5, 4], "dest": [5, 4], "action": "stay"},
         {"turn": 3, "loc": [0, 0], "dest": [0, 0], "action": "stay"},
     ]
@@ -444,7 +443,7 @@ def test_food_splits_one_pickup_across_all_adjacent_ants():
     game = _game()
     game["replaydata"]["food"] = [[5, 5, 1, 3, 0]]
     records = [
-        # both gatherers stay: pure split test, no approach term.
+        # both gatherers stay: pure split test.
         {"turn": 3, "loc": [5, 4], "dest": [5, 4], "action": "stay"},
         {"turn": 3, "loc": [5, 6], "dest": [5, 6], "action": "stay"},
         {"turn": 3, "loc": [0, 0], "dest": [0, 0], "action": "stay"},
@@ -464,10 +463,10 @@ def test_dense_reward_discounts_back_along_ant_path():
         {"turn": 2, "loc": [5, 4], "dest": [6, 4], "action": "s"},
     ]
     rets = rewards.compute_returns(game, 0, records)
-    # approach composes with food but does NOT walk back: +0.02 on the
-    # gather turn (same-turn), +0.06 on the approach turn (same-turn).
-    assert rets[1] == rewards.FOOD + 0.02
-    assert rets[0] == rewards.FOOD * rewards.GAMMA + 0.06
+    # food walks back along the path: full amount on the gather turn,
+    # discounted one step on the approach turn.
+    assert rets[1] == rewards.FOOD
+    assert rets[0] == rewards.FOOD * rewards.GAMMA
 
 
 def _cnn_window(water_dests=(), radius=4):
@@ -794,160 +793,6 @@ def test_kill_credit_excludes_zero_distance():
     assert rewards.compute_returns(game, 0, records) == [0.0]
 
 
-def test_approach_rewards_steps_toward_food():
-    import rewards
-
-    game = _game()
-    # food NOT gathered this turn (end=5): pure approach channel.
-    game["replaydata"]["food"] = [[5, 5, 1, 5, 0]]
-    records = [
-        {"turn": 3, "loc": [5, 7], "dest": [5, 6], "action": "n"},
-        {"turn": 3, "loc": [0, 0], "dest": [0, 0], "action": "stay"},
-    ]
-    rets = rewards.compute_returns(game, 0, records)
-    # d2 4 -> 1 on a 10x10 map: 1.0 * 3 / 50.
-    assert abs(rets[0] - 0.06) < 1e-12
-    assert rets[1] == 0.0
-
-
-def test_approach_punishes_steps_away():
-    import rewards
-
-    game = _game()
-    game["replaydata"]["food"] = [[5, 5, 1, 3, 0]]
-    records = [
-        {"turn": 3, "loc": [5, 7], "dest": [5, 8], "action": "s"},
-    ]
-    rets = rewards.compute_returns(game, 0, records)
-    assert abs(rets[0] - (-0.1)) < 1e-12
-
-
-def test_approach_ignores_onto_food_and_missing_food():
-    import rewards
-
-    game = _game()
-    game["replaydata"]["food"] = [[5, 5, 1, 3, 0]]
-    # stepping ONTO the tile (d2 == 0) earns no approach credit,
-    # matching the engine rule that co-located ants don't gather.
-    records = [{"turn": 3, "loc": [5, 6], "dest": [5, 5], "action": "n"}]
-    assert rewards.compute_returns(game, 0, records) == [0.0]
-    # no food present at all: silent.
-    game["replaydata"]["food"] = []
-    records = [{"turn": 3, "loc": [5, 7], "dest": [5, 6], "action": "n"}]
-    assert rewards.compute_returns(game, 0, records) == [0.0]
-
-
-def test_approach_does_not_walk_back():
-    import rewards
-
-    game = _game()
-    game["replaydata"]["ants"] = [[4, 4, 0, 99, 0, "ss"]]
-    game["replaydata"]["food"] = [[6, 6, 1, 5, 0]]  # never gathered
-    records = [
-        {"turn": 1, "loc": [4, 4], "dest": [5, 4], "action": "s"},
-        {"turn": 2, "loc": [5, 4], "dest": [6, 4], "action": "s"},
-    ]
-    rets = rewards.compute_returns(game, 0, records)
-    # same-turn only: turn 1 keeps its own +0.06, turn 2 its +0.02.
-    # With walk-back, turn 1 would also collect 0.02 * GAMMA.
-    assert abs(rets[0] - 0.06) < 1e-12
-    assert abs(rets[1] - 0.02) < 1e-12
-
-
-def test_engage_pays_approach_with_local_superiority():
-    import rewards
-
-    game = _game()
-    game["replaydata"]["ants"] = [
-        [5, 7, 1, 6, 0, "----"],  # recorded ant, holds (5,7)
-        [5, 3, 1, 6, 0, "----"],  # friend holds (5,3): 2v1
-        [5, 5, 1, 5, 1, "---"],  # foe holds (5,5)
-    ]
-    records = [{"turn": 3, "loc": [5, 7], "dest": [5, 6], "action": "n"}]
-    rets = rewards.compute_returns(game, 0, records)
-    # 2 friends vs 1 foe in sight: ENGAGE * 3 / 50.
-    assert abs(rets[0] - rewards.ENGAGE * 3 / 50) < 1e-12
-
-
-def test_engage_silent_when_even_or_outnumbered():
-    import rewards
-
-    mover = [5, 7, 1, 6, 0, "----"]
-    foe = [5, 5, 1, 5, 1, "---"]
-    records = [{"turn": 3, "loc": [5, 7], "dest": [5, 6], "action": "n"}]
-    # 1v1: even numbers get no signal, keep gathering.
-    game = _game()
-    game["replaydata"]["ants"] = [mover, foe]
-    assert rewards.compute_returns(game, 0, records) == [0.0]
-    # 1v2: outnumbered, no signal.
-    game = _game()
-    game["replaydata"]["ants"] = [mover, foe, [5, 4, 1, 5, 1, "---"]]
-    assert rewards.compute_returns(game, 0, records) == [0.0]
-    # no foes at all: silent.
-    game = _game()
-    game["replaydata"]["ants"] = [mover]
-    assert rewards.compute_returns(game, 0, records) == [0.0]
-
-
-def test_engage_charges_retreat_when_ahead():
-    import rewards
-
-    game = _game()
-    game["replaydata"]["ants"] = [
-        [5, 7, 1, 6, 0, "----"],
-        [5, 3, 1, 6, 0, "----"],
-        [5, 5, 1, 5, 1, "---"],
-    ]
-    records = [{"turn": 3, "loc": [5, 7], "dest": [5, 8], "action": "s"}]
-    rets = rewards.compute_returns(game, 0, records)
-    # ahead but backing off: symmetric charge, ENGAGE * -5 / 50.
-    assert abs(rets[0] - (-rewards.ENGAGE * 5 / 50)) < 1e-12
-    # stepping onto the foe (d2 == 0) earns nothing, like food.
-    records = [{"turn": 3, "loc": [5, 6], "dest": [5, 5], "action": "n"}]
-    assert rewards.compute_returns(game, 0, records) == [0.0]
-
-
-def test_engage_does_not_walk_back():
-    import rewards
-
-    game = _game()
-    game["replaydata"]["ants"] = [
-        [4, 4, 0, 99, 0, "ss"],
-        [5, 3, 0, 99, 0, "--"],  # friend holds (5,3): 2v1 both turns
-        [6, 6, 1, 99, 1, "--"],  # foe holds (6,6)
-    ]
-    records = [
-        {"turn": 1, "loc": [4, 4], "dest": [5, 4], "action": "s"},
-        {"turn": 2, "loc": [5, 4], "dest": [6, 4], "action": "s"},
-    ]
-    rets = rewards.compute_returns(game, 0, records)
-    # same-turn only: ENGAGE*3/50 then ENGAGE*1/50, no GAMMA carry.
-    assert abs(rets[0] - rewards.ENGAGE * 3 / 50) < 1e-12
-    assert abs(rets[1] - rewards.ENGAGE * 1 / 50) < 1e-12
-
-
-def test_approach_splits_crowded_food():
-    import rewards
-
-    game = _game()
-    # one food, two ants closing the same turn: each gets half.
-    game["replaydata"]["food"] = [[5, 5, 1, 5, 0]]
-    records = [
-        {"turn": 3, "loc": [5, 7], "dest": [5, 6], "action": "n"},
-        {"turn": 3, "loc": [5, 3], "dest": [5, 4], "action": "s"},
-    ]
-    rets = rewards.compute_returns(game, 0, records)
-    assert abs(rets[0] - 0.03) < 1e-12
-    assert abs(rets[1] - 0.03) < 1e-12
-    # lonely food still pays full: separate foods, separate shares.
-    game["replaydata"]["food"] = [[5, 5, 1, 5, 0], [0, 9, 1, 5, 0]]
-    records = [
-        {"turn": 3, "loc": [5, 7], "dest": [5, 6], "action": "n"},
-        {"turn": 3, "loc": [0, 7], "dest": [0, 8], "action": "e"},
-    ]
-    rets = rewards.compute_returns(game, 0, records)
-    assert abs(rets[0] - 0.06) < 1e-12
-    assert abs(rets[1] - rewards.APPROACH * 3 / 50) < 1e-12
 
 
 def test_decompose_reports_category_mass():

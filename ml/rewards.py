@@ -30,21 +30,6 @@ HILL_RAZE = 10.0
 HILL_LOST = -10.0
 WIN = 5.0
 LOSS = -5.0
-# Potential-based food approach (training-only shaping): each step toward
-# the nearest present food pays APPROACH * dd2/S2, steps away charge it.
-# Symmetric, so oscillating toward/away nets ~zero (no farming); bounded
-# by ~APPROACH per full approach, dwarfed by FOOD. Offline only: the
-# policy never sees food positions, only its egocentric window.
-APPROACH = 1.0
-# Potential-based enemy engagement (training-only shaping): each step
-# toward the nearest living enemy pays ENGAGE * dd2/S2, steps away
-# charge it. Same rules as food approach (symmetric, same-turn only,
-# bounded) at DOUBLE the food scale: gathering disperses ants while
-# engagement concentrates them, and 45 gens proved dispersion wins —
-# zero games in the archive ever reached margin 2. Contact is the
-# precondition for kills, kills are the only in-game score, and score
-# is the only selection signal. Priced by DEATH (-1) against suicide.
-ENGAGE = 2.0
 DRAW = 0.0
 GAMMA = 0.97
 
@@ -200,74 +185,6 @@ def _awards(game, me, records):
                     (end, {i: amount / len(mine) for i in mine}, "team", "hill")
                 )
 
-    # approach shaping: movement-only potential difference against the
-    # food present that turn. Stepping ONTO food (d2 == 0) earns nothing,
-    # matching the engine rule that co-located ants don't gather. One
-    # food feeds once no matter how many ants attend, so the payment
-    # SPLITS across my ants closing on the same food that turn (like
-    # the FOOD credit split): crowding dilutes, lonely food pays full,
-    # and the gradient spreads ants across food instead of piling them.
-    # Symmetric within each split (no farming), same-turn only.
-    spots = [
-        (r, c, s, e)
-        for r, c, s, e, *_ in replaydata.get("food", [])
-    ]
-    if spots:
-        norm = (rows * rows + cols * cols) / 4.0
-        claimed: dict[tuple, list] = {}
-        for i, (t, before, after) in enumerate(zip(turns, locs, dests)):
-            present = [(r, c, s, e) for (r, c, s, e) in spots
-                       if s <= t <= e]
-            if not present:
-                continue
-            target = min(present,
-                         key=lambda f: dist2(before, f[:2], rows, cols))
-            d_after = dist2(after, target[:2], rows, cols)
-            if d_after == 0:
-                continue
-            d_before = dist2(before, target[:2], rows, cols)
-            f = APPROACH * (d_before - d_after) / norm
-            if f:
-                claimed.setdefault((t, target), []).append((i, f))
-        for (t, _target), sharers in claimed.items():
-            for i, f in sharers:
-                awards.append((t, {i: f / len(sharers)}, "ant", "approach"))
-
-    # engage shaping: movement-only potential difference against the
-    # nearest living enemy that turn — but ONLY with local superiority
-    # (more friends than foes in sight, at least one foe). NvN fights
-    # are suicide without overwhelming numbers, so 1v1, 1v2 and lone
-    # ants get no signal: they should keep gathering. When ahead, the
-    # potential is symmetric (approach pays, retreat charges — no
-    # farming); the gate only selects whether it applies. Same-turn
-    # only (see compute_returns), bounded by ENGAGE per full approach.
-    sight2 = replaydata.get("viewradius2", 77)
-    my_at: dict[int, list] = {}
-    foe_at: dict[int, list] = {}
-    for (owner, _idx), traj in trajectories(replaydata).items():
-        for t, loc in traj:
-            (my_at if owner == me else foe_at).setdefault(t, []).append(
-                tuple(loc))
-    if foe_at:
-        norm = (rows * rows + cols * cols) / 4.0
-        for i, (t, before, after) in enumerate(zip(turns, locs, dests)):
-            foes = [f for f in foe_at.get(t, [])
-                    if dist2(before, f, rows, cols) <= sight2]
-            if not foes:
-                continue
-            friends = sum(
-                1 for m in my_at.get(t, [])
-                if dist2(before, m, rows, cols) <= sight2)
-            if friends <= len(foes):
-                continue  # even or outnumbered: keep gathering.
-            d_after = min(dist2(after, f, rows, cols) for f in foes)
-            if d_after == 0:
-                continue
-            d_before = min(dist2(before, f, rows, cols) for f in foes)
-            f = ENGAGE * (d_before - d_after) / norm
-            if f:
-                awards.append((t, {i: f}, "ant", "engage"))
-
     return awards, outcome(game, me), length, turns, keys
 
 
@@ -282,15 +199,10 @@ def compute_returns(game, me, records):
 
     # settle: same-turn credit plus GAMMA-discounted walk-back. "ant"
     # awards travel back along the credited ant's own path; "team"
-    # awards reach every earlier decision. "approach"/"engage" shaping
-    # same-turn ONLY: walking it back would smear the immediate
-    # step contingency with future-movement noise (the walk-back is
-    # what food/kill credit is for).
+    # awards reach every earlier decision.
     for event_turn, shares, scope, kind in awards:
         for i, share in shares.items():
             rets[i] += share
-            if kind in ("approach", "engage"):
-                continue
             for j, t in enumerate(turns):
                 if j == i or t >= event_turn:
                     continue
@@ -319,7 +231,6 @@ def decompose(game, me, records):
     awards, end_value, _length, _turns, _keys = _awards(game, me, records)
     mass: dict[str, float] = {
         "food": 0.0, "kill": 0.0, "death": 0.0, "hill": 0.0,
-        "approach": 0.0, "engage": 0.0,
     }
     for _turn, shares, _scope, kind in awards:
         mass[kind] += sum(shares.values())
