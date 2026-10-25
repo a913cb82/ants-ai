@@ -35,11 +35,13 @@ def default_config() -> dict:
         "temperature": 1.0,
         "lr": 1e-3,
         "epochs": 3,
+        "workers": 8,
         "clip": 0.2,
         "vf_coef": 0.5,
         "entropy_beta": 0.01,
         "max_norm": 1.0,
         "minibatch": 64,
+        "gamma": 0.97,
         "promote_threshold": 0.5,
         "seed": 0,
         "archive": "ml/archive",
@@ -59,11 +61,13 @@ def parse_args(argv: list[str] | None = None) -> dict:
     p.add_argument("--temperature", type=float, default=defaults["temperature"])
     p.add_argument("--lr", type=float, default=defaults["lr"])
     p.add_argument("--epochs", type=int, default=defaults["epochs"])
+    p.add_argument("--workers", type=int, default=defaults["workers"])
     p.add_argument("--clip", type=float, default=defaults["clip"])
     p.add_argument("--vf-coef", type=float, default=defaults["vf_coef"])
     p.add_argument("--entropy-beta", type=float, default=defaults["entropy_beta"])
     p.add_argument("--max-norm", type=float, default=defaults["max_norm"])
     p.add_argument("--minibatch", type=int, default=defaults["minibatch"])
+    p.add_argument("--gamma", type=float, default=defaults["gamma"])
     p.add_argument("--promote-threshold", type=float,
                    default=defaults["promote_threshold"])
     p.add_argument("--seed", type=int, default=defaults["seed"])
@@ -79,11 +83,13 @@ def parse_args(argv: list[str] | None = None) -> dict:
         "temperature": args.temperature,
         "lr": args.lr,
         "epochs": args.epochs,
+        "workers": args.workers,
         "clip": args.clip,
         "vf_coef": args.vf_coef,
         "entropy_beta": args.entropy_beta,
         "max_norm": args.max_norm,
         "minibatch": args.minibatch,
+        "gamma": args.gamma,
         "promote_threshold": args.promote_threshold,
         "seed": args.seed,
         "archive": args.archive,
@@ -127,7 +133,10 @@ def publish(base: Path, report: dict, commit: bool) -> None:
 
 
 def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
+    import rewards
+
     archive.init(base)
+    rewards.GAMMA = cfg.get("gamma", rewards.GAMMA)
     champ_id = archive.get_champion(base)
     if champ_id is None:
         champ_w = _random_weights(cfg["seed"])

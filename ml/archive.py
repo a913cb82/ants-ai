@@ -15,6 +15,7 @@ import json
 import os
 import re
 import tempfile
+import threading
 from pathlib import Path
 
 import numpy as np
@@ -151,6 +152,9 @@ def outcome_of(score_a: float, score_b: float) -> float:
     return 0.5
 
 
+_write_lock = threading.Lock()
+
+
 def record_result(
     base: Path, a: str, b: str, score_a: float, score_b: float, kind: str = "eval"
 ) -> None:
@@ -162,19 +166,20 @@ def record_result(
     """
     assert kind in ("eval", "train")
     init(base)
-    p = _paths(base)
-    data = json.loads(p["matrix"].read_text())
-    if kind == "eval":
-        for cid in (a, b):
-            if cid not in data["ids"]:
-                data["ids"].append(cid)
-    key = _key(a, b)
-    wins = data[kind].get(key, [0.0, 0.0])
-    out = outcome_of(score_a, score_b)
-    wins[0] += out
-    wins[1] += 1.0 - out
-    data[kind][key] = wins
-    atomic_write_json(p["matrix"], data)
+    with _write_lock:  # games run in a thread pool; keep read-modify-write safe
+        p = _paths(base)
+        data = json.loads(p["matrix"].read_text())
+        if kind == "eval":
+            for cid in (a, b):
+                if cid not in data["ids"]:
+                    data["ids"].append(cid)
+        key = _key(a, b)
+        wins = data[kind].get(key, [0.0, 0.0])
+        out = outcome_of(score_a, score_b)
+        wins[0] += out
+        wins[1] += 1.0 - out
+        data[kind][key] = wins
+        atomic_write_json(p["matrix"], data)
 
 
 def log_game(

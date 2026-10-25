@@ -27,6 +27,8 @@ class GameConfig:
     player_seed: int = 0
     engine_seed: int = 0
     timeout: int = 600
+    turntime_ms: int = 5000
+    loadtime_ms: int = 15000
 
 
 def _bot_files() -> list[str]:
@@ -83,27 +85,57 @@ def play(
         str(cfg.player_seed),
         "--engine_seed",
         str(cfg.engine_seed),
+        "--turntime",
+        str(cfg.turntime_ms),
+        "--loadtime",
+        str(cfg.loadtime_ms),
         "--log_dir",
         str(log_dir),
         f"{python} {side_a / 'MLBot.py'}",
         f"{python} {side_b / 'MLBot.py'}",
     ]
     try:
-        proc = subprocess.run(
-            cmd, cwd=root, capture_output=True, env=env, timeout=cfg.timeout
-        )
-        proc.check_returncode()
-    except subprocess.TimeoutExpired as exc:
-        raise TimeoutError(f"engine game timed out after {cfg.timeout}s") from exc
-    except subprocess.CalledProcessError as exc:
-        raise RuntimeError(
-            f"engine failed: {exc.stderr.decode()[-2000:]}"
-        ) from exc
+        _run_once(cmd, root, env, cfg.timeout)
     finally:
         records_a, records_b = _read_records(side_a), _read_records(side_b)
         cleanup(outdir)
     game = json.loads((log_dir / "0.replay").read_text())
-    return {"game": game, "records_a": records_a, "records_b": records_b}
+    retried = False
+    if game.get("game_length", 1) == 0:
+        # Turn-1 timeout under load: both sides log nothing and the game
+        # carries zero signal. One retry with a fresh engine seed; a
+        # double-timeout is reported, not hidden.
+        for tag in ("side_a", "side_b"):
+            shutil.rmtree(outdir / tag, ignore_errors=True)
+        shutil.rmtree(log_dir, ignore_errors=True)
+        side_a = stage_side(outdir, weights_a, "side_a")
+        side_b = stage_side(outdir, weights_b, "side_b")
+        at = cmd.index("--engine_seed") + 1
+        cmd_retry = cmd[:at] + [str(cfg.engine_seed + 7919)] + cmd[at + 1 :]
+        try:
+            _run_once(cmd_retry, root, env, cfg.timeout)
+        finally:
+            records_a, records_b = _read_records(side_a), _read_records(side_b)
+            cleanup(outdir)
+        game = json.loads((log_dir / "0.replay").read_text())
+        retried = True
+    return {"game": game, "records_a": records_a, "records_b": records_b,
+            "retried": retried}
+
+
+def _run_once(cmd: list, root: Path, env: dict, timeout: int) -> None:
+    """One engine invocation; raises TimeoutError/RuntimeError."""
+    try:
+        proc = subprocess.run(
+            cmd, cwd=root, capture_output=True, env=env, timeout=timeout
+        )
+        proc.check_returncode()
+    except subprocess.TimeoutExpired as exc:
+        raise TimeoutError(f"engine game timed out after {timeout}s") from exc
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError(
+            f"engine failed: {exc.stderr.decode()[-2000:]}"
+        ) from exc
 
 
 def _read_records(side: Path) -> list:

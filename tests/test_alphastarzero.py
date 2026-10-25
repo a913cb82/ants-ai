@@ -1120,3 +1120,20 @@ def test_outcome_of_mapping():
     assert archive.outcome_of(3, 1) == 1.0
     assert archive.outcome_of(1, 1) == 0.5
     assert archive.outcome_of(0, 2) == 0.0
+
+
+def test_config_plumbs_gamma_and_workers():
+    import selfplay
+
+    cfg = selfplay.parse_args(["--gamma", "0.99", "--workers", "3"])
+    assert cfg["gamma"] == 0.99 and cfg["workers"] == 3
+    assert selfplay.default_config()["gamma"] == 0.97
+    assert selfplay.default_config()["workers"] == 8
+
+
+def test_game_timeouts_raised_and_retry_flagged():
+    import game_if
+
+    cfg = game_if.GameConfig(map="m", turns=10)
+    assert cfg.turntime_ms == 5000 and cfg.loadtime_ms == 15000
+    assert game_if.GameConfig(map="m", turns=1).timeout == 600
