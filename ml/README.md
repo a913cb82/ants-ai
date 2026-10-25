@@ -184,6 +184,17 @@ smeared shaping's immediate contingency with future-movement noise.
 Fix: approach awards are same-turn ONLY (food still walks back).
 Stacked probe v2 next.
 
+## Critic-fittability test (2026-10-25, /tmp/criticfit.py)
+
+Supervised value-only fit on 1547 random-policy rows: whole-net
+v 1.27 -> 0.60 (fits, unstably); head-only stuck ~1.0. So the
+architecture CAN represent E[return|window] but the LINEAR head on
+a thrashed trunk cannot — and in PPO the shared trunk is thrashed
+by noise-dominated policy gradients (50x stronger than the value
+gradient). The critic never gets stable features, advantages stay
+noise, loop stalls. Testable fix: vf_coef 0.5 -> 4.0 (flag only).
+Probe v4 next.
+
 ## Shaping design (superseded: implemented + probed, see above)
 
 Potential-based food approach, training-only (policy stays ant-local):
