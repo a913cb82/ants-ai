@@ -149,11 +149,13 @@ territory.
 
 ## A/B: base vs deep + 10-gen signal run (paired seed 21, 250 turns)
 
-No separation: base ret 0.14->~0.17 plateau, deep 0.17->0.14 drift;
-both ~95% draws, no promotions, KL healthy both sides. 10-gen base:
-returns flat at 0.16-0.20, eval 3W/97D. The loop is mechanically
-perfect (full batches, falling in-gen loss, sane KL) and
-strategically stagnant. Per research (AlphaStar league, Hide-and-
+No separation at 3 gens; extended to 10v10. Base: 0.136->0.178
+(noisy +0.04), eval 3W/97D. Deep: 0.174->0.147 (drift -0.03),
+eval 2W/98D. Weak evidence for base on trend and level, but both
+inside noise with all-draw evals: the arch question stays open
+until margins/exploiters provide a working judge. The loop is
+mechanically perfect (full batches, falling in-gen loss, sane KL)
+and strategically stagnant. Per research (AlphaStar league, Hide-and-
 Seek, chess variants): the fixes are exploiters, decisive-weighted
 PFSP, and shorter curricula. Draw-as-loss was considered and
 REJECTED: under per-minibatch standardization a constant draw
