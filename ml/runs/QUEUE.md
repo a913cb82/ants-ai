@@ -18,6 +18,12 @@ and the round itself is the scored exam.
 
 ## open
 
+- Eval redesign: promotion duels on the TRAIN pool (same boards,
+  full 20-duel concentration); generalization as separate
+  display-only probes on held/next-rung boards. Held-out promotion
+evals are board-quirks lotteries at low variety and test the wrong
+skills across rungs. Implement after round 10b (no ml/*.py edits
+mid-round). Then re-audit any 10b promotion board-by-board.
 - Per-role exploiter rewards: kill-heavy shaping for exploiter gens
   only, main line untouched. Tests whether a killer-exploiter forces
   champion defense (arms race). Next structural idea if rung 3 stalls.
