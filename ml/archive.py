@@ -184,13 +184,14 @@ def record_result(
 
 def log_game(
     base: Path, gen: str, kind: str, a: str, b: str,
-    score_a: float, score_b: float, replay: str,
+    score_a: float, score_b: float, replay: str, map: str | None = None,
 ) -> None:
     """Append one game to the dashboard index (replay path archive-relative)."""
     init(base)
     append_jsonl(_paths(base)["dir"] / "games.jsonl", {
         "gen": gen, "kind": kind, "a": a, "b": b,
         "score_a": score_a, "score_b": score_b, "replay": replay,
+        "map": map,
     })
 
 

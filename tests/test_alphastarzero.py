@@ -974,6 +974,19 @@ def test_games_index_roundtrip_and_filter(tmp_path):
     assert mine[0]["replay"] == "games/g001/e0/logs/0.replay"
 
 
+def test_log_game_records_map_name(tmp_path):
+    import archive
+
+    base = tmp_path / "archive"
+    archive.log_game(base, "g001", "train", "g000", "g001", 3, 1,
+                     "games/g001/t0/logs/0.replay", map="rung2c_gap.map")
+    archive.log_game(base, "g001", "eval", "g001", "g002", 2, 2,
+                     "games/g001/e0/logs/0.replay")
+    rows = {r["replay"]: r for r in archive.list_games(base)}
+    assert rows["games/g001/t0/logs/0.replay"]["map"] == "rung2c_gap.map"
+    assert rows["games/g001/e0/logs/0.replay"]["map"] is None
+
+
 def test_history_append_and_read(tmp_path):
     import selfplay
 

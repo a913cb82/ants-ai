@@ -27,13 +27,14 @@ def _play_one(args) -> dict:
     (cfg, base, chal_id, opp_id, me_w, other_w, slot, g) = args
     rel = f"games/{chal_id}/train{g}_slot{slot}"
     first, second = (chal_id, opp_id) if slot == 0 else (opp_id, chal_id)
+    map_path = cfg["maps"][g % len(cfg["maps"])]
     out = game_if.play(
         ROOT,
         sys.executable,
         me_w,
         other_w,
         game_if.GameConfig(
-            map=cfg["maps"][g % len(cfg["maps"])],
+            map=map_path,
             turns=cfg["turns"],
             temperature=cfg["temperature"],
             player_seed=cfg["seed"] + g,
@@ -49,7 +50,7 @@ def _play_one(args) -> dict:
     sa, sb = game["score"][0], game["score"][1]
     archive.record_result(base, first, second, sa, sb, kind="train")
     archive.log_game(base, chal_id, "train", first, second, sa, sb,
-                     rel + "/logs/0.replay")
+                     rel + "/logs/0.replay", map=Path(map_path).name)
     archive.write_status(base, {
         "phase": "train", "challenger": chal_id,
         "done": g * 2 + slot + 1, "total": cfg["train_games"] * 2,

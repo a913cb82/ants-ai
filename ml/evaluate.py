@@ -42,13 +42,14 @@ def _play_duel(args) -> tuple[float, float]:
     pool = cfg.get("held_maps") or cfg["maps"]  # evals on unseen maps
     rel = f"games/{chal_id}/eval{g}"
     first, second = (chal_id, champ_id) if slot == 0 else (champ_id, chal_id)
+    map_path = pool[(offset + g) % len(pool)]
     out = game_if.play(
         ROOT,
         sys.executable,
         me_w,
         other_w,
         game_if.GameConfig(
-            map=pool[(offset + g) % len(pool)],
+            map=map_path,
             # exams run long: 60-turn games truncate before skill gaps
             # compound (all draws by turn limit). Train short for sharp
             # credit, judge long for resolution.
@@ -65,7 +66,7 @@ def _play_duel(args) -> tuple[float, float]:
     sa, sb = game["score"][0], game["score"][1]
     archive.record_result(base, first, second, sa, sb, kind="eval")
     archive.log_game(base, chal_id, "eval", first, second, sa, sb,
-                     rel + "/logs/0.replay")
+                     rel + "/logs/0.replay", map=Path(map_path).name)
     return sa, sb
 
 
