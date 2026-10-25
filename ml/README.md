@@ -195,6 +195,29 @@ persists via archive/critic.json (training apparatus, not the agent;
 actor still restarts from champion, evals use policy only). 15-gen
 continuity probe (seed 99, turns 60, defaults) next.
 
+## 30-gen combo verdict (2026-10-25): critic moves, policy doesn't
+
+/tmp/azcombo (seed 123, turns 60, vf_coef 4.0, shaping + batch-norm
++ continuity): v oscillates 0.67-0.98 around ~0.85 (floor keeps
+touching 0.67-0.77 but never holds); train returns flat 0.09-0.21;
+eval 1W/599D (lone win gen 10, margin 0.15, same gen v hit 0.67);
+0 promotions. Wins DO co-occur with v dips — the coupling is real —
+but the critic never locks below ~0.8 and the policy never converts
+sustained wins.
+
+Net of the hour: the failure chain is nailed (reset critic +
+noise-amplifying normalization + flat walk-back credit + random-init
+champion), three fixes shipped and verified (shaping fires, batch
+norm preserves event magnitude, critic persists), and the critic
+moved 1.00 -> ~0.85 with flickers to 0.67. But gradient-only
+bootstrap from random is still unproven: the policy has not learned
+anything measurable in 100+ generations across 6 probes.
+Ranked next: (1) separate value network (unshared trunk — the
+critic-fit test proved the shared trunk is the blockage); (2)
+BC-from-pros supervised init (breaks chicken-and-egg with certainty,
+AlphaStar recipe); (3) longer combo runs (cheap, tests compounding).
+Decisive-PFSP stays queued (matters once someone CAN win).
+
 ## Critic continuity (2026-10-25): partial win
 
 15-gen probe (seed 99, turns 60, shaping + batch-norm + continuity):
