@@ -854,6 +854,56 @@ def test_approach_does_not_walk_back():
     assert abs(rets[1] - 0.02) < 1e-12
 
 
+def test_engage_rewards_closing_on_living_enemy():
+    import rewards
+
+    game = _game()
+    game["replaydata"]["ants"] = [[5, 5, 1, 5, 1, "---"]]  # foe holds (5,5)
+    records = [
+        {"turn": 3, "loc": [5, 7], "dest": [5, 6], "action": "n"},
+        {"turn": 3, "loc": [0, 0], "dest": [0, 0], "action": "stay"},
+    ]
+    rets = rewards.compute_returns(game, 0, records)
+    # d2 4 -> 1 on a 10x10 map at half scale: 0.5 * 3 / 50.
+    assert abs(rets[0] - 0.03) < 1e-12
+    assert rets[1] == 0.0
+
+
+def test_engage_punishes_retreat_and_ignores_missing_foes():
+    import rewards
+
+    game = _game()
+    game["replaydata"]["ants"] = [[5, 5, 1, 5, 1, "---"]]
+    records = [{"turn": 3, "loc": [5, 7], "dest": [5, 8], "action": "s"}]
+    rets = rewards.compute_returns(game, 0, records)
+    assert abs(rets[0] - (-0.05)) < 1e-12
+    # stepping onto the foe (d2 == 0) earns nothing, like food.
+    records = [{"turn": 3, "loc": [5, 6], "dest": [5, 5], "action": "n"}]
+    assert rewards.compute_returns(game, 0, records) == [0.0]
+    # no living enemies that turn: silent.
+    game["replaydata"]["ants"] = []
+    records = [{"turn": 3, "loc": [5, 7], "dest": [5, 6], "action": "n"}]
+    assert rewards.compute_returns(game, 0, records) == [0.0]
+
+
+def test_engage_does_not_walk_back():
+    import rewards
+
+    game = _game()
+    game["replaydata"]["ants"] = [
+        [4, 4, 0, 99, 0, "ss"],
+        [6, 6, 1, 99, 1, "--"],  # foe holds (6,6)
+    ]
+    records = [
+        {"turn": 1, "loc": [4, 4], "dest": [5, 4], "action": "s"},
+        {"turn": 2, "loc": [5, 4], "dest": [6, 4], "action": "s"},
+    ]
+    rets = rewards.compute_returns(game, 0, records)
+    # same-turn only: 0.5*3/50 then 0.5*1/50, no GAMMA carry.
+    assert abs(rets[0] - 0.03) < 1e-12
+    assert abs(rets[1] - 0.01) < 1e-12
+
+
 def test_decompose_reports_category_mass():
     import rewards
 
@@ -1671,6 +1721,37 @@ def test_eval_map_offset_rotates_held_pool(tmp_path, monkeypatch):
     assert seen == ["h2.map", "h3.map"]
 
 
+def test_eval_turns_overrides_training_turns(tmp_path, monkeypatch):
+    import evaluate
+    import game_if
+
+    base = tmp_path / "archive"
+    w = {"a": [1.0]}
+    seen = []
+
+    def fake_play(root, python, wa, wb, gcfg, outdir, **kwargs):
+        seen.append(gcfg.turns)
+        (outdir / "logs").mkdir(parents=True, exist_ok=True)
+        (outdir / "logs" / "0.replay").write_text(
+            '{"game_length": 10, "score": [1, 1], "replaydata": {}}'
+        )
+        return {"game": {"game_length": 10, "score": [1, 1],
+                            "replaydata": {}},
+                "records_a": [], "records_b": []}
+
+    monkeypatch.setattr(game_if, "play", fake_play)
+    cfg = {"eval_games": 2, "maps": ["t.map"], "turns": 60,
+           "eval_turns": 250, "temperature": 0.0, "seed": 0,
+           "workers": 1}
+    evaluate.evaluate(cfg, base, "chal", w, "champ", w)
+    assert seen == [250, 250]
+    # unset falls back to training turns.
+    seen.clear()
+    cfg["eval_turns"] = None
+    evaluate.evaluate(cfg, base, "chal", w, "champ", w)
+    assert seen == [60, 60]
+
+
 def _mocked_generation(monkeypatch, captured):
     import copy
 
@@ -1711,18 +1792,21 @@ def test_critic_warm_starts_baseline_and_persists(tmp_path, monkeypatch):
     w = selfplay._random_weights(cfg["seed"], cfg.get("arch", "base"))
     champ = archive.save_checkpoint(base, w, role="main", parent=None)
     archive.set_champion(base, champ)
-    critic = {"value.weight": [[7.0] * 128], "value.bias": [7.0]}
+    critic = {"value.weight": [[7.0] * 128], "value.bias": [7.0],
+              "vconv1.weight": [[[[7.0]]]]}
     (base / "critic.json").write_text(json.dumps(critic))
     selfplay.run_generation(cfg, base, commit=False)
     init = captured["init_w"]
     # actor restarts from champion...
     assert init["conv1.weight"] == w["conv1.weight"]
-    # ...but the baseline warm-starts from last gen's critic.
+    # ...but the whole baseline warm-starts (trunk AND head) ...
     assert init["value.bias"] == [7.0]
+    assert init["vconv1.weight"] == [[[[7.0]]]]
     # ...and the trained critic is banked for the next generation.
     saved = json.loads((base / "critic.json").read_text())
     assert saved["value.bias"] == [7.0]
-    assert all(k.startswith("value.") for k in saved)
+    assert "vconv1.weight" in saved
+    assert all(k.startswith(("value.", "vconv")) for k in saved)
 
 
 def test_init_weights_seed_gen_zero_champion(tmp_path, monkeypatch):

@@ -84,6 +84,20 @@ class CNNPolicy(torch.nn.Module):
         return self.value(self.vtrunk(x)).squeeze(-1)
 
 
+CRITIC_PREFIXES = ("value.", "vconv")
+
+
+def is_critic_key(key: str) -> bool:
+    """True for value-trunk/head keys (training apparatus, not the agent).
+
+    The critic persists across generations (archive/critic.json) while
+    the actor restarts from the champion. After the trunk split the
+    critic owns vconv* as well as value.* — banking must include both,
+    or continuity silently degrades to head-only (random trunk, v ~1.0
+    every gen start)."""
+    return key.startswith(CRITIC_PREFIXES)
+
+
 def infer_arch(weights: dict) -> str:
     """Which arch a weight dict belongs to, by key presence.
 

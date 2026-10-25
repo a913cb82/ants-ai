@@ -36,6 +36,14 @@ LOSS = -5.0
 # by ~APPROACH per full approach, dwarfed by FOOD. Offline only: the
 # policy never sees food positions, only its egocentric window.
 APPROACH = 1.0
+# Potential-based enemy engagement (training-only shaping): each step
+# toward the nearest living enemy pays ENGAGE * dd2/S2, steps away
+# charge it. Same rules as food approach (symmetric, same-turn only,
+# bounded) at half the scale: fighting is riskier than gathering, so
+# gathering stays the primary drive. Converts gathering superiority
+# into wars: both sides close in, the bigger army wins the kills, and
+# score finally separates (kills are the only in-game score).
+ENGAGE = 0.5
 DRAW = 0.0
 GAMMA = 0.97
 
@@ -212,6 +220,30 @@ def _awards(game, me, records):
             if f:
                 awards.append((t, {i: f}, "ant", "approach"))
 
+    # engage shaping: movement-only potential difference against the
+    # nearest living enemy that turn. Mirrors the food approach block:
+    # symmetric (no farming), same-turn only (see compute_returns),
+    # bounded by ENGAGE per full approach.
+    foe_at: dict[int, list] = {}
+    for (owner, _idx), traj in trajectories(replaydata).items():
+        if owner == me:
+            continue
+        for t, loc in traj:
+            foe_at.setdefault(t, []).append(tuple(loc))
+    if foe_at:
+        norm = (rows * rows + cols * cols) / 4.0
+        for i, (t, before, after) in enumerate(zip(turns, locs, dests)):
+            foes = foe_at.get(t)
+            if not foes:
+                continue
+            d_after = min(dist2(after, f, rows, cols) for f in foes)
+            if d_after == 0:
+                continue
+            d_before = min(dist2(before, f, rows, cols) for f in foes)
+            f = ENGAGE * (d_before - d_after) / norm
+            if f:
+                awards.append((t, {i: f}, "ant", "engage"))
+
     return awards, outcome(game, me), length, turns, keys
 
 
@@ -226,14 +258,14 @@ def compute_returns(game, me, records):
 
     # settle: same-turn credit plus GAMMA-discounted walk-back. "ant"
     # awards travel back along the credited ant's own path; "team"
-    # awards reach every earlier decision. "approach" shaping is
+    # awards reach every earlier decision. "approach"/"engage" shaping
     # same-turn ONLY: walking it back would smear the immediate
     # step contingency with future-movement noise (the walk-back is
     # what food/kill credit is for).
     for event_turn, shares, scope, kind in awards:
         for i, share in shares.items():
             rets[i] += share
-            if kind == "approach":
+            if kind in ("approach", "engage"):
                 continue
             for j, t in enumerate(turns):
                 if j == i or t >= event_turn:
@@ -263,7 +295,7 @@ def decompose(game, me, records):
     awards, end_value, _length, _turns, _keys = _awards(game, me, records)
     mass: dict[str, float] = {
         "food": 0.0, "kill": 0.0, "death": 0.0, "hill": 0.0,
-        "approach": 0.0,
+        "approach": 0.0, "engage": 0.0,
     }
     for _turn, shares, _scope, kind in awards:
         mass[kind] += sum(shares.values())

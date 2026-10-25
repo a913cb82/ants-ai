@@ -72,6 +72,7 @@ def default_config() -> dict:
         "promote_threshold": 0.5,
         "seed": 0,
         "init_weights": None,
+        "eval_turns": None,
         "archive": "ml/archive",
         "commit": True,
     }
@@ -103,6 +104,9 @@ def parse_args(argv: list[str] | None = None) -> dict:
     p.add_argument("--init-weights", default=defaults["init_weights"],
                      help="JSON weights seeding the gen-0 champion "
                      "(e.g. BC-from-pros); fresh archives only")
+    p.add_argument("--eval-turns", type=int, default=defaults["eval_turns"],
+                     help="exam game length (default: --turns); longer "
+                     "than training so wars have time to resolve")
     p.add_argument("--archive", default=defaults["archive"])
     p.add_argument("--commit", action=argparse.BooleanOptionalAction,
                    default=defaults["commit"])
@@ -132,6 +136,7 @@ def parse_args(argv: list[str] | None = None) -> dict:
         "promote_threshold": args.promote_threshold,
         "seed": args.seed,
         "init_weights": args.init_weights,
+        "eval_turns": args.eval_turns,
         "archive": args.archive,
         "commit": args.commit,
     }
@@ -215,7 +220,8 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
     if critic:
         # warm-start the baseline only; actor keys stay champ (or fresh).
         start_w = {**start_w,
-                   **{k: v for k, v in critic.items() if k in start_w}}
+                   **{k: v for k, v in critic.items()
+                      if k in start_w and model.is_critic_key(k)}}
     chal_id, chal_w, train_stats = train.train_generation(
         cfg, base, champ_id, start_w,
         role="exploiter" if exploiter else "challenger")
@@ -223,7 +229,7 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
                              map_offset=gen_index)
     archive.atomic_write_json(
         base / "critic.json",
-        {k: v for k, v in chal_w.items() if k.startswith("value.")})
+        {k: v for k, v in chal_w.items() if model.is_critic_key(k)})
     mix = archive.nash_mixture(base)
     promoted = evaluate.should_promote(
         ev["wins"], ev["draws"], ev["games"],

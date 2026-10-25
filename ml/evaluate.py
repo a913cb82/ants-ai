@@ -46,7 +46,10 @@ def _play_duel(args) -> tuple[float, float]:
         other_w,
         game_if.GameConfig(
             map=pool[(offset + g) % len(pool)],
-            turns=cfg["turns"],
+            # exams run long: 60-turn games truncate before skill gaps
+            # compound (all draws by turn limit). Train short for sharp
+            # credit, judge long for resolution.
+            turns=cfg.get("eval_turns") or cfg["turns"],
             temperature=0.0,
             player_seed=5000 + g,
             engine_seed=9000 + g,
