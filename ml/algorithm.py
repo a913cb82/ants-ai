@@ -52,7 +52,12 @@ def new_policy(
     if weights is not None:
         # strict=False: pre-value-head checkpoints lack the value keys
         # (they stay zero-initialized, i.e. no baseline yet).
-        policy.load_state_dict(model.lists_to_state_dict(weights), strict=False)
+        # pad_in_channels: pre-widening checkpoints lack the new input
+        # channels (they load zero-padded: identical outputs, lineage
+        # continues instead of resetting).
+        state = model.pad_in_channels(model.lists_to_state_dict(weights),
+                                      policy)
+        policy.load_state_dict(state, strict=False)
     return policy
 
 

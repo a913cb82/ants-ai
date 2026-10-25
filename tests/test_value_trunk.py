@@ -8,9 +8,15 @@ targets on its own trunk.
 import sys
 from pathlib import Path
 
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "bots" / "alphaant"))
 sys.path.insert(0, str(ROOT / "ml"))
+
+import features
+
+_C = len(features.CHANNELS)
+_S = 2 * features.DEFAULT_RADIUS + 1
 
 
 def _vkeys(policy):
@@ -24,7 +30,7 @@ def test_values_output_shape_both_arches():
 
     for arch in ("base", "deep"):
         policy = model.CNNPolicy(arch=arch)
-        assert policy.values(torch.zeros(3, 6, 9, 9)).shape == (3,)
+        assert policy.values(torch.zeros(3, _C, _S, _S)).shape == (3,)
 
 
 def test_state_dict_has_separate_value_trunk_keys():
@@ -78,12 +84,12 @@ def test_old_actor_only_weights_load_and_values_runs():
         fresh.load_state_dict(
             model.lists_to_state_dict(old), strict=False
         )
-        assert fresh.values(torch.zeros(2, 6, 9, 9)).shape == (2,)
+        assert fresh.values(torch.zeros(2, _C, _S, _S)).shape == (2,)
         # actor weights survived the partial load
-        assert torch.equal(fresh(torch.zeros(1, 6, 9, 9)), policy(torch.zeros(1, 6, 9, 9)))
+        assert torch.equal(fresh(torch.zeros(1, _C, _S, _S)), policy(torch.zeros(1, _C, _S, _S)))
         # algorithm entry point agrees (old champions lack critic keys)
         via_algo = algorithm.new_policy(old)
-        assert via_algo.values(torch.zeros(1, 6, 9, 9)).shape == (1,)
+        assert via_algo.values(torch.zeros(1, _C, _S, _S)).shape == (1,)
 
 
 def test_infer_arch_unchanged_by_split():
@@ -107,7 +113,7 @@ def test_actor_path_ignores_value_trunk():
 
     torch.manual_seed(0)
     policy = model.CNNPolicy()
-    x = torch.randn(2, 6, 9, 9)
+    x = torch.randn(2, _C, _S, _S)
     before = policy(x).detach().clone()
     with torch.no_grad():
         for n, p in policy.named_parameters():
@@ -123,7 +129,7 @@ def test_value_only_fit_decreases_loss():
 
     torch.manual_seed(0)
     policy = model.CNNPolicy()
-    x = torch.zeros(32, 6, 9, 9)
+    x = torch.zeros(32, _C, _S, _S)
     for i in range(32):
         x[i, 1, 4, 4] = float(i + 1) / 32.0  # distinct states, fittable targets
     target = (x[:, 1, 4, 4] * 4.0 - 2.0).detach()

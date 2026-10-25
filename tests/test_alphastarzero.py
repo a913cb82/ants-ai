@@ -10,9 +10,15 @@ from pathlib import Path
 
 import pytest
 
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "bots" / "alphaant"))
 sys.path.insert(0, str(ROOT / "ml"))
+
+import features
+
+_C = len(features.CHANNELS)
+_S = 2 * features.DEFAULT_RADIUS + 1
 
 
 class FakeAnts:
@@ -62,7 +68,7 @@ def test_window_shape_channels_dtype():
 
     ants = FakeAnts()
     w = features.local_window(ants, (4, 4), radius=2)
-    assert list(w.shape) == [6, 5, 5]
+    assert list(w.shape) == [_C, 5, 5]
     assert features.CHANNELS == (
         "water",
         "own_ant",
@@ -70,6 +76,7 @@ def test_window_shape_channels_dtype():
         "enemy_ant",
         "enemy_hill",
         "food",
+        "own_sight",
     )
     assert set(w.flatten().tolist()) <= {0.0, 1.0}
 
@@ -135,7 +142,7 @@ def test_window_marks_both_hills():
     assert w[features.CHANNELS.index("enemy_hill")][5][5] == 1.0
 
 
-def test_window_masks_cells_outside_los_circle():
+def test_window_shows_union_content_beyond_own_circle():
     import features
 
     ants = FakeAnts()
@@ -144,8 +151,10 @@ def test_window_masks_cells_outside_los_circle():
     ants._food = [(7, 4), (6, 4)]  # offsets (+3,0) d2=9, (+2,0) d2=4
     w = features.local_window(ants, (4, 4), radius=3)
     food = w[features.CHANNELS.index("food")]
-    assert food[6][3] == 0.0  # outside the sight circle: masked
-    assert food[5][3] == 1.0  # inside: visible
+    sight = w[features.CHANNELS.index("own_sight")]
+    assert food[6][3] == 1.0  # union vision: a teammate sees it
+    assert sight[6][3] == 0.0  # but not actionable by me right now
+    assert food[5][3] == 1.0 and sight[5][3] == 1.0  # own circle: both
 
 
 def test_window_los_boundary_is_inclusive():
@@ -159,7 +168,7 @@ def test_window_los_boundary_is_inclusive():
     assert w[features.CHANNELS.index("food")][5][5] == 1.0
 
 
-def test_window_masks_own_ants_outside_circle():
+def test_window_shows_far_teammate_with_sight_flag():
     import features
 
     ants = FakeAnts()
@@ -167,8 +176,10 @@ def test_window_masks_own_ants_outside_circle():
     ants._mine = [(4, 4), (7, 4)]  # second ant at offset (+3,0), d2=9
     w = features.local_window(ants, (4, 4), radius=3)
     own = w[features.CHANNELS.index("own_ant")]
+    sight = w[features.CHANNELS.index("own_sight")]
     assert own[3][3] == 1.0  # self still marked
-    assert own[6][3] == 0.0  # far own ant outside this ant's circle
+    assert own[6][3] == 1.0  # far teammate visible via union ...
+    assert sight[6][3] == 0.0  # ... flagged as beyond my own circle
 
 
 def test_window_full_radius_inside_default_sight():
@@ -179,6 +190,8 @@ def test_window_full_radius_inside_default_sight():
     assert w.sum() > 0.0
     # water tile (2,2) is offset (-2,-2), d2=8 <= 77: still reported
     assert w[features.CHANNELS.index("water")][2][2] == 1.0
+    sight = w[features.CHANNELS.index("own_sight")]
+    assert sight.min() == 1.0  # whole small window inside own circle
 
 
 def _game(**kw):
@@ -372,7 +385,8 @@ def test_bot_records_turn_rows_when_env_set(tmp_path, monkeypatch):
     assert row["turn"] == 1
     assert row["action"] in ("n", "e", "s", "w", "stay")
     assert "dest" in row and "legal" in row
-    assert len(row["window"]) == 6 and len(row["window"][0]) == 9
+    assert len(row["window"]) == len(features.CHANNELS)
+    assert len(row["window"][0]) == 2 * features.DEFAULT_RADIUS + 1
     assert len(row["legal"]) == 5
 
 
@@ -441,7 +455,7 @@ def test_bot_weights_path_override(tmp_path):
     alt = tmp_path / "alt.json"
     alt.write_text(json.dumps(model.state_dict_to_lists(model.CNNPolicy())))
     bot = AlphaAnt.AlphaAntBot(weights_path=str(alt))
-    assert bot.policy(torch.zeros(1, 6, 9, 9)).shape == (1, 5)
+    assert bot.policy(torch.zeros(1, _C, _S, _S)).shape == (1, 5)
 
 
 def test_food_credit_by_spawnradius_proximity():
@@ -501,7 +515,7 @@ def _cnn_window(water_dests=(), radius=4):
 
     from features import CHANNELS
 
-    w = torch.zeros(6, 2 * radius + 1, 2 * radius + 1)
+    w = torch.zeros(_C, 2 * radius + 1, 2 * radius + 1)
     w[CHANNELS.index("own_ant")][radius][radius] = 1.0
     for action in water_dests:
         dr, dc = {"n": (-1, 0), "e": (0, 1), "s": (1, 0), "w": (0, -1), "stay": (0, 0)}[action]
@@ -515,7 +529,7 @@ def test_cnn_forward_shape():
     import model
 
     policy = model.CNNPolicy()
-    assert policy(torch.zeros(1, 6, 9, 9)).shape == (1, 5)
+    assert policy(torch.zeros(1, _C, _S, _S)).shape == (1, 5)
 
 
 def _probs(policy, w):
@@ -533,7 +547,7 @@ def test_forward_is_rotation_equivariant():
 
     torch.manual_seed(3)
     policy = model.CNNPolicy()
-    w = torch.rand(4, 6, 9, 9)
+    w = torch.rand(4, _C, _S, _S)
     base = _probs(policy, w)
     for k in (1, 2, 3):
         got = _probs(policy, torch.rot90(w, k, (2, 3)))
@@ -548,7 +562,7 @@ def test_forward_is_flip_equivariant():
 
     torch.manual_seed(5)
     policy = model.CNNPolicy()
-    w = torch.rand(4, 6, 9, 9)
+    w = torch.rand(4, _C, _S, _S)
     base = _probs(policy, w)
     got = _probs(policy, torch.flip(w, (3,)))
     assert torch.allclose(base, got[:, list(model.UNFLIP)], atol=1e-5)
@@ -563,7 +577,7 @@ def test_anchor_kl_zero_for_identical_policies():
     pol = algorithm.new_policy({})
     anchor = algorithm.new_policy(algorithm.policy_weights(pol))
     opt = algorithm.make_optimizer(pol, lr=0.0)  # frozen: KL stays exact
-    recs = [{"window": torch.rand(6, 9, 9), "action": "n",
+    recs = [{"window": torch.rand(_C, _S, _S), "action": "n",
              "legal": [True] * 5} for _ in range(32)]
     batch = algorithm.collect(pol, recs, [1.0] * 32)
     stats = algorithm.train_epoch(pol, opt, batch, anchor=anchor,
@@ -582,7 +596,7 @@ def test_anchor_pulls_policy_toward_it():
     anchor = algorithm.new_policy({})
     anchor.head.bias.data = torch.tensor([5.0, 0, 0, 0, 0])
     anchor.eval()
-    probe = [torch.rand(6, 9, 9) for _ in range(64)]
+    probe = [torch.rand(_C, _S, _S) for _ in range(64)]
 
     def agree(p):
         p.eval()
@@ -610,13 +624,33 @@ def test_anchor_pulls_policy_toward_it():
     before = agree(pol)
     mass_before = mass(pol)
     opt = algorithm.make_optimizer(pol)
-    recs = [{"window": torch.rand(6, 9, 9), "action": "n",
+    recs = [{"window": torch.rand(_C, _S, _S), "action": "n",
              "legal": [True] * 5} for _ in range(64)]
     batch = algorithm.collect(pol, recs, [1.0] * 64)
     algorithm.train_epoch(pol, opt, batch, vf_coef=0.0,
                           entropy_beta=0.0, anchor=anchor,
                           kl_anchor_beta=0.5)
     assert agree(pol) >= before and mass(pol) > mass_before
+
+
+def test_padded_old_weights_give_identical_outputs():
+    import torch
+
+    import algorithm
+    import model
+
+    torch.manual_seed(23)
+    old = model.CNNPolicy(channels=6)
+    old.eval()
+    blob = algorithm.policy_weights(old)
+    new = algorithm.new_policy(blob)
+    new.eval()
+    with torch.no_grad():
+        w6 = torch.rand(3, 6, _S, _S)
+        pad = torch.zeros(3, 1, _S, _S)
+        assert torch.equal(old(w6), new(torch.cat([w6, pad], dim=1)))
+        assert torch.equal(old.values(w6),
+                           new.values(torch.cat([w6, pad], dim=1)))
 
 
 def test_values_are_rotation_invariant():
@@ -628,7 +662,7 @@ def test_values_are_rotation_invariant():
     policy = model.CNNPolicy()
     policy.eval()
     with torch.no_grad():
-        w = torch.rand(4, 6, 9, 9)
+        w = torch.rand(4, _C, _S, _S)
         base = policy.values(w)
         for k in (1, 2, 3):
             assert torch.allclose(
@@ -641,7 +675,7 @@ def test_cnn_radius_agnostic():
     import model
 
     policy = model.CNNPolicy()
-    assert policy(torch.zeros(1, 6, 5, 5)).shape == (1, 5)
+    assert policy(torch.zeros(1, _C, 5, 5)).shape == (1, 5)
 
 
 def test_cnn_water_mask_forces_stay():
@@ -686,7 +720,7 @@ def test_cnn_state_dict_json_roundtrip(tmp_path):
     path.write_text(json.dumps(model.state_dict_to_lists(policy)))
     policy2 = model.CNNPolicy()
     policy2.load_state_dict(model.lists_to_state_dict(json.loads(path.read_text())))
-    x = torch.zeros(1, 6, 9, 9)
+    x = torch.zeros(1, _C, _S, _S)
     assert torch.equal(policy(x), policy2(x))
 
 
@@ -699,12 +733,17 @@ def test_weights_file_loads_into_cnn():
 
     wpath = ROOT / "bots" / "alphaant" / "weights.json"
     policy = model.CNNPolicy()
-    # Old champions predate the value head: strict=False keeps their
-    # policy weights and leaves the value head zero-initialized.
+    # Old champions predate the value head (strict=False keeps policy
+    # weights, value head stays zero-initialized) and the widening
+    # (pad_in_channels: new input channels load zeroed, old behavior
+    # preserved exactly, lineage continues).
     policy.load_state_dict(
-        model.lists_to_state_dict(json.loads(wpath.read_text())), strict=False
+        model.pad_in_channels(
+            model.lists_to_state_dict(json.loads(wpath.read_text())),
+            policy),
+        strict=False,
     )
-    assert policy(torch.zeros(1, 6, 9, 9)).shape == (1, 5)
+    assert policy(torch.zeros(1, _C, _S, _S)).shape == (1, 5)
 
 
 def test_act_ranked_lists_best_first_and_respects_blocked():
@@ -723,7 +762,7 @@ def test_act_ranked_lists_best_first_and_respects_blocked():
 def _train_batch(returns=(1.0, 2.0, 3.0), logps=None):
     import torch
 
-    windows = torch.zeros(len(returns), 6, 9, 9)
+    windows = torch.zeros(len(returns), _C, _S, _S)
     windows[:, 1, 4, 4] = 1.0
     if logps is None:
         logps = [0.0] * len(returns)
@@ -757,10 +796,10 @@ def test_ppo_value_head_starts_at_zero_and_learns():
     torch.manual_seed(0)
     policy = model.CNNPolicy()
     assert torch.equal(
-        policy.values(torch.zeros(2, 6, 9, 9)), torch.zeros(2)
+        policy.values(torch.zeros(2, _C, _S, _S)), torch.zeros(2)
     )
     opt = algorithm.make_optimizer(policy, lr=1e-2)
-    windows = torch.zeros(4, 6, 9, 9)
+    windows = torch.zeros(4, _C, _S, _S)
     for i in range(4):
         windows[i, 1, 4, 4] = float(i + 1)  # distinct states, fittable values
     batch = [(windows[i], i % 5, float(i), [True] * 5, 0.0) for i in range(4)]
@@ -809,7 +848,7 @@ def test_train_epoch_ignores_masked_logits():
     policy = model.CNNPolicy()
     opt = algorithm.make_optimizer(policy, lr=1e-2)
     # Actions 2-4 are illegal; the gradient must not touch their mass.
-    w = torch.zeros(6, 9, 9)
+    w = torch.zeros(_C, _S, _S)
     w[1, 4, 4] = 1.0
     mask = [True, True, False, False, False]
     batch = [(w, 0, 1.0, mask, 0.0), (w, 1, 0.0, mask, 0.0)]
@@ -882,16 +921,16 @@ def test_to_batch_converts_rows_and_returns():
     import algorithm
 
     records = [
-        {"window": torch.zeros(6, 9, 9).tolist(), "action": "e"},
+        {"window": torch.zeros(_C, _S, _S).tolist(), "action": "e"},
         {
-            "window": torch.zeros(6, 9, 9).tolist(),
+            "window": torch.zeros(_C, _S, _S).tolist(),
             "action": "stay",
             "legal": [False, False, False, False, True],
         },
     ]
     batch = algorithm.to_batch(records, [1.0, -1.0], [0.0, 0.0])
     assert len(batch) == 2
-    assert batch[0][0].shape == torch.Size([6, 9, 9])
+    assert batch[0][0].shape == torch.Size([_C, _S, _S])
     assert batch[0][1] == 1 and batch[1][1] == 4
     assert batch[0][2] == 1.0 and batch[1][2] == -1.0
     assert batch[0][3] == [True] * 5
@@ -963,17 +1002,17 @@ def test_rotate_item_turns_window_action_mask_together():
     import algorithm
     import torch
 
-    w = torch.zeros(6, 9, 9)
-    w[0, 0, 4] = 1.0  # north-center marker
+    w = torch.zeros(_C, _S, _S)
+    w[0, 0, _S // 2] = 1.0  # north-center marker
     item = (w, 0, 1.0, [True, False, False, False, True], 0.0)
     rw, ra, rr, rm, _ = algorithm._rotate_item(item, 1)
-    assert rw.shape == (6, 9, 9)
-    assert rw[0, 4, 0] == 1.0 and rw.sum() == 1.0  # west-center now
+    assert rw.shape == (_C, _S, _S)
+    assert rw[0, _S // 2, 0] == 1.0 and rw.sum() == 1.0  # west-center
     assert ra == 3  # n became w
     assert rr == 1.0  # return untouched
     assert rm == [False, False, False, True, True]  # legal n became legal w
     # stay is invariant under any rotation.
-    sw = torch.zeros(6, 9, 9)
+    sw = torch.zeros(_C, _S, _S)
     s = (sw, 4, 0.5, [False, False, False, False, True], 0.0)
     for k in (1, 2, 3):
         _, sa, _, sm, _ = algorithm._rotate_item(s, k)
@@ -1187,7 +1226,7 @@ def test_batch_norm_keeps_event_magnitude_over_noise():
     policy = model.CNNPolicy()
     n = 64
     rets = [0.1] * (n - 1) + [5.0]
-    windows = torch.zeros(n, 6, 9, 9)
+    windows = torch.zeros(n, _C, _S, _S)
     values = policy.values(windows)
     all_ret = torch.tensor(rets)
     adv = algorithm._advantages(
@@ -1346,8 +1385,8 @@ def test_collect_attaches_behavior_logps():
     torch.manual_seed(0)
     policy = model.CNNPolicy()
     records = [
-        {"window": torch.zeros(6, 9, 9).tolist(), "action": "e"},
-        {"window": torch.zeros(6, 9, 9).tolist(), "action": "stay"},
+        {"window": torch.zeros(_C, _S, _S).tolist(), "action": "e"},
+        {"window": torch.zeros(_C, _S, _S).tolist(), "action": "stay"},
     ]
     batch = algorithm.collect(policy, records, [1.0, -1.0])
     assert len(batch[0]) == 5
@@ -1521,7 +1560,7 @@ def test_optimizer_state_roundtrip():
 
     pol = algorithm.new_policy({})
     opt = algorithm.make_optimizer(pol)
-    loss = pol(torch.randn(1, 6, 9, 9)).sum()
+    loss = pol(torch.randn(1, _C, _S, _S)).sum()
     opt.zero_grad()
     loss.backward()
     opt.step()
@@ -1584,9 +1623,9 @@ def test_deep_arch_shapes_and_value_zero_init():
 
     torch.manual_seed(0)
     policy = model.CNNPolicy(arch="deep")
-    assert policy(torch.zeros(2, 6, 9, 9)).shape == (2, 5)
+    assert policy(torch.zeros(2, _C, _S, _S)).shape == (2, 5)
     assert torch.equal(
-        policy.values(torch.zeros(2, 6, 9, 9)), torch.zeros(2)
+        policy.values(torch.zeros(2, _C, _S, _S)), torch.zeros(2)
     )
 
 
@@ -1595,7 +1634,7 @@ def test_deep_arch_stays_in_param_budget():
 
     base = _count_params(model.CNNPolicy(arch="base"))
     deep = _count_params(model.CNNPolicy(arch="deep"))
-    assert base == 11814  # +1 conv stack: separate value trunk (vconv*)
+    assert base == 12102  # +1 channel: own_sight widens conv1/vconv1
     assert 9000 < deep < 14000  # same order, no budget blowout
 
 
@@ -1611,9 +1650,9 @@ def test_deep_arch_sees_full_window_where_base_cannot():
                 if isinstance(mod, torch.nn.Conv2d):
                     mod.weight.fill_(1.0)
                     mod.bias.zero_()
-        north = torch.zeros(1, 6, 9, 9)
+        north = torch.zeros(1, _C, _S, _S)
         north[0, 5, 0, 4] = 1.0  # food 4 north
-        south = torch.zeros(1, 6, 9, 9)
+        south = torch.zeros(1, _C, _S, _S)
         south[0, 5, 8, 4] = 1.0  # food 4 south
         with torch.no_grad():
             return (

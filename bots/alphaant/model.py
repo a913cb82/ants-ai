@@ -168,6 +168,29 @@ def infer_arch(weights: dict) -> str:
 _action_index: dict[int, tuple[torch.Tensor, torch.Tensor]] = {}
 
 
+def pad_in_channels(state: dict[str, torch.Tensor],
+                    policy: CNNPolicy) -> dict[str, torch.Tensor]:
+    """Zero-pad narrow input channels so old checkpoints keep working.
+
+    Widening the window adds input channels (own_sight); archived
+    weights predate them. Padding with zeros keeps every old output
+    bit-identical (the new channels contribute 0) and lets training
+    grow them from a live lineage instead of a reset. No-op when the
+    shapes already match."""
+    own_shapes = dict(policy.named_parameters())
+    own_shapes.update(dict(policy.named_buffers()))
+    for key, ref in own_shapes.items():
+        if (key in state and state[key].shape != ref.shape
+                and len(ref.shape) == 4
+                and state[key].shape[0] == ref.shape[0]
+                and state[key].shape[2:] == ref.shape[2:]):
+            missing = ref.shape[1] - state[key].shape[1]
+            if missing > 0:
+                pad = torch.zeros(ref.shape[0], missing, *ref.shape[2:])
+                state[key] = torch.cat([state[key], pad], dim=1)
+    return state
+
+
 def legal_mask(
     window: torch.Tensor, blocked: frozenset = frozenset()
 ) -> torch.Tensor:

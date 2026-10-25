@@ -7,9 +7,15 @@ order-char -> ACTIONS label mapping, and one supervised step.
 import sys
 from pathlib import Path
 
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "bots" / "alphaant"))
 sys.path.insert(0, str(ROOT / "ml"))
+
+import features
+
+_C = len(features.CHANNELS)
+_S = 2 * features.DEFAULT_RADIUS + 1
 
 
 def _synthetic_replaydata():
@@ -81,19 +87,19 @@ def test_window_rebuild_channels():
     rows = bc.extract_rows(_synthetic_replaydata())
     row = next(r for r in rows if r.owner == 0 and r.turn == 1)
     w = row.window
-    assert isinstance(w, torch.Tensor) and w.shape == (6, 9, 9)
+    assert isinstance(w, torch.Tensor) and w.shape == (_C, _S, _S)
     ch = features.CHANNELS
     wi, fi = ch.index("water"), ch.index("food")
     oi, ei = ch.index("own_ant"), ch.index("enemy_ant")
     # ant A decides from (5,5): own mark at window center.
-    assert w[oi, 4, 4] == 1.0
+    assert w[oi, 7, 7] == 1.0
     # water at (5,4) is west of center -> water mark, suppresses rest.
-    assert w[wi, 4, 3] == 1.0
-    assert w[oi, 4, 3] == 0.0
+    assert w[wi, 7, 6] == 1.0
+    assert w[oi, 7, 6] == 0.0
     # food at (5,6) present turn 1 (1<=1<=2) -> east of center.
-    assert w[fi, 4, 5] == 1.0
-    # enemy ant B at (3,3): dr=-2, dc=-2 -> (2,2) in window.
-    assert w[ei, 2, 2] == 1.0
+    assert w[fi, 7, 8] == 1.0
+    # enemy ant B at (3,3): dr=-2, dc=-2 -> (5,5) in window.
+    assert w[ei, 5, 5] == 1.0
 
 
 def test_window_food_presence_convention():
@@ -117,7 +123,7 @@ def test_supervised_step_decreases_loss():
     torch.manual_seed(0)
     policy = model.CNNPolicy()
     batch = [
-        (torch.randn(6, 9, 9), i % 5) for i in range(16)
+        (torch.randn(_C, _S, _S), i % 5) for i in range(16)
     ]
     before = bc.batch_loss(policy, batch)
     opt = torch.optim.Adam(policy.parameters(), lr=1e-3)

@@ -48,7 +48,8 @@ class AlphaAntBot:
         raw = json.loads(Path(weights_path or WEIGHTS_PATH).read_text())
         self.policy = model.CNNPolicy(arch=model.infer_arch(raw))
         self.policy.load_state_dict(
-            model.lists_to_state_dict(raw),
+            model.pad_in_channels(model.lists_to_state_dict(raw),
+                                  self.policy),
             strict=False,  # pre-value-head champions lack the value keys
         )
         self.policy.eval()

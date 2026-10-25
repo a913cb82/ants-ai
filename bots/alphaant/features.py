@@ -19,28 +19,33 @@ ACTIONS = ("n", "e", "s", "w", "stay")
 OFFSETS = {"n": (-1, 0), "e": (0, 1), "s": (1, 0), "w": (0, -1), "stay": (0, 0)}
 
 # Third-dimension (channel) order of local_window: water, friendly ant,
-# friendly hill, enemy ant, enemy hill, food.
-CHANNELS = ("water", "own_ant", "own_hill", "enemy_ant", "enemy_hill", "food")
+# friendly hill, enemy ant, enemy hill, food, own-sight flag.
+CHANNELS = ("water", "own_ant", "own_hill", "enemy_ant", "enemy_hill",
+            "food", "own_sight")
 
 WATER_CHANNEL = 0
 FOOD_CHANNEL = 5
+OWN_SIGHT_CHANNEL = 6
 
 
-_sight_offsets: dict[tuple[int, int], list[tuple[int, int, int, int]]] = {}
+_sight_offsets: dict[tuple[int, int], list[tuple[int, int, int, int, bool]]] = {}
 
 
-def _offsets_for(radius: int, sight2: int) -> list[tuple[int, int, int, int]]:
-    """(dr, dc, i, j) cells inside the sight circle, computed once.
+def _offsets_for(radius: int, sight2: int) -> list[tuple[int, int, int, int, bool]]:
+    """(dr, dc, i, j, in_circle): the whole square, computed once.
 
-    The circle never changes mid-game, so the per-cell sight check in
-    local_window becomes a cached iteration list."""
+    Cells inside the ant's own sight circle carry authoritative
+    content; cells outside it (corners of a wide window) carry
+    union-vision content — what teammates see — flagged by the
+    own_sight channel. The circle never changes mid-game, so the
+    per-cell check in local_window becomes a cached iteration list."""
     key = (radius, sight2)
     if key not in _sight_offsets:
         _sight_offsets[key] = [
-            (dr, dc, dr + radius, dc + radius)
+            (dr, dc, dr + radius, dc + radius,
+             dr * dr + dc * dc <= sight2)
             for dr in range(-radius, radius + 1)
             for dc in range(-radius, radius + 1)
-            if dr * dr + dc * dc <= sight2
         ]
     return _sight_offsets[key]
 
@@ -76,8 +81,10 @@ def snapshot(ants, water=None) -> View:
     """Read the whole board once; see View."""
     return View(ants, water)
 
-# Default view radius in tiles: 9x9 window.
-DEFAULT_RADIUS = 4
+# Default view radius in tiles: 15x15 window. Corners (d2=98) sit
+# outside the sight circle (77), so they carry union-vision content —
+# what teammates see — flagged by the own_sight channel.
+DEFAULT_RADIUS = 7
 
 
 def dest_of(ants: Ants, loc: tuple[int, int], action: str) -> tuple[int, int]:
@@ -97,11 +104,15 @@ def local_window(
     CHANNELS. Water is authoritative: a water tile never carries an ant,
     hill, or food mark.
 
-    Engine line of sight: only cells with dr*dr+dc*dc <= viewradius2
-    (the ant's own sight circle, cf. tools/ants.py neighbourhood_offsets)
-    are filled. Cells outside the circle stay all-zero, matching what the
-    engine actually reveals to the bot. viewradius2 comes from the game
-    settings and defaults to 77 when the wrapper does not provide it.
+    Two vision tiers: cells inside the ant's own sight circle
+    (dr*dr+dc*dc <= viewradius2) are filled authoritatively, including
+    water. Cells outside the circle but inside the window carry
+    union-vision content — entities visible to any teammate — with
+    water left unknown (0); the own_sight channel (1/0) tells the
+    tiers apart. Far-side friendlies and distant hills are visible;
+    whether they are actionable now is marked. viewradius2 comes from
+    the game settings and defaults to 77 when the wrapper does not
+    provide it.
     """
     size = 2 * radius + 1
     grid = _np.zeros((len(CHANNELS), size, size), dtype=_np.float32)
@@ -113,9 +124,12 @@ def local_window(
     enemy_ants = view.enemy_ants
     enemy_hills, foods = view.enemy_hills, view.foods
     water = view.water
-    for dr, dc, i, j in _offsets_for(radius, view.sight2):
+    for dr, dc, i, j, in_circle in _offsets_for(radius, view.sight2):
+        if in_circle:
+            grid[OWN_SIGHT_CHANNEL, i, j] = 1.0
         cell = ((r0 + dr) % rows, (c0 + dc) % cols)
-        if (cell in water) if water is not None else (not ants.passable(cell)):
+        if in_circle and ((cell in water) if water is not None
+                           else (not ants.passable(cell))):
             grid[0, i, j] = 1.0
             continue
         if cell in own_ants:
