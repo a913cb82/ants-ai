@@ -14,7 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "ml"))
-sys.path.insert(0, str(ROOT / "bots" / "alphastarzero"))
+sys.path.insert(0, str(ROOT / "bots" / "alphaant"))
 
 import algorithm
 import archive
@@ -26,6 +26,7 @@ def _play_one(args) -> dict:
     """One train game: play, price, record. Thread-safe via archive lock."""
     (cfg, base, chal_id, opp_id, me_w, other_w, slot, g) = args
     rel = f"games/{chal_id}/train{g}_slot{slot}"
+    first, second = (chal_id, opp_id) if slot == 0 else (opp_id, chal_id)
     out = game_if.play(
         ROOT,
         sys.executable,
@@ -39,12 +40,13 @@ def _play_one(args) -> dict:
             engine_seed=1000 + g,
         ),
         base / rel,
+        name_a=first,
+        name_b=second,
     )
     game = out["game"]
     rows = out["records_a"] if slot == 0 else out["records_b"]
     rets = rewards.compute_returns(game, slot, rows)
     sa, sb = game["score"][0], game["score"][1]
-    first, second = (chal_id, opp_id) if slot == 0 else (opp_id, chal_id)
     archive.record_result(base, first, second, sa, sb, kind="train")
     archive.log_game(base, chal_id, "train", first, second, sa, sb,
                      rel + "/logs/0.replay")

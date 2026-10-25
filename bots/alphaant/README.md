@@ -1,4 +1,4 @@
-# AlphaStarZero bot (runtime)
+# AlphaAnt bot (runtime)
 
 Engine-playable student. One shared CNN policy, per ant, greedy in
 rated play and temperature-sampled in self-play.
@@ -7,8 +7,8 @@ rated play and temperature-sampled in self-play.
 
 | File | Role |
 |---|---|
-| `MLBot.bot` | manifest: `python MLBot.py` (league rebinds `python` to `.venv/bin/python`) |
-| `MLBot.py` | engine loop: `MLBot.py [weights]` override, `AZ0_TEMPERATURE` sampling, `AZ0_RECORD_DIR` logging |
+| `AlphaAnt.bot` | manifest: `python AlphaAnt.py` (league rebinds `python` to `.venv/bin/python`) |
+| `AlphaAnt.py` | engine loop: `AlphaAnt.py [weights]` override, `AA_TEMPERATURE` sampling, `AA_RECORD_DIR` logging |
 | `features.py` | actions/offsets, `local_window` (6-channel relative 1-hot, LoS-masked) |
 | `model.py` | `CNNPolicy` (6ch window → 5 logits, ~6k params), water/food masking, act/sample, save/load |
 | `weights.json` | champion parameters (rated phenotype; rewritten only on promotion) |

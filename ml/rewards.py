@@ -1,4 +1,4 @@
-"""Rewards for AlphaStarZero: game replay + bot decisions -> returns.
+"""Rewards for AlphaAnt: game replay + bot decisions -> returns.
 
 The engine replay already records everything the reward needs: food
 pickups carry their gatherer and turn, every ant carries its full order

@@ -14,7 +14,14 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-BOT_DIR = Path(__file__).resolve().parents[1] / "bots" / "alphastarzero"
+BOT_DIR = Path(__file__).resolve().parents[1] / "bots" / "alphaant"
+MAIN_BOT = "AlphaAnt.py"
+
+
+def _safe_name(name: str) -> str:
+    """Checkpoint ids are filename-safe; sanitize anything else."""
+    safe = "".join(c for c in str(name) if c.isalnum() or c in ("-", "_"))
+    return safe or "side"
 
 
 @dataclass
@@ -45,25 +52,29 @@ def _bot_env(cfg: GameConfig) -> dict:
     game time under parallel load (measured 21.7s -> 7.0s on 8 games).
     Training (driver process) keeps default threads."""
     env = dict(os.environ)
-    env["AZ0_RECORD_DIR"] = "records"
-    env["AZ0_TEMPERATURE"] = str(cfg.temperature)
+    env["AA_RECORD_DIR"] = "records"
+    env["AA_TEMPERATURE"] = str(cfg.temperature)
     env["OMP_NUM_THREADS"] = "1"
     env["MKL_NUM_THREADS"] = "1"
     env["OPENBLAS_NUM_THREADS"] = "1"
     return env
 
 
-def stage_side(base: Path, weights: dict, tag: str) -> Path:
+def stage_side(base: Path, weights: dict, tag: str, name: str = "side") -> Path:
     """A runnable bot dir: copies of code plus this side's weights.
 
+    The main bot file is staged as <name>.py so replays carry the
+    checkpoint id (g004.py) instead of the same bot name every game.
     Copies, not symlinks: the engine resolves realpath for the working
     directory, and symlinks would land both sides back in the real bot
     dir (wrong weights, wrong record dir)."""
     side = base / tag
     side.mkdir(parents=True, exist_ok=True)
     (side / "records").mkdir(exist_ok=True)
-    for name in _bot_files():
-        shutil.copy(BOT_DIR / name, side / name)
+    safe = _safe_name(name)
+    for fname in _bot_files():
+        dest = f"{safe}.py" if fname == MAIN_BOT else fname
+        shutil.copy(BOT_DIR / fname, side / dest)
     (side / "weights.json").write_text(json.dumps(weights))
     return side
 
@@ -75,18 +86,20 @@ def play(
     weights_b: dict,
     cfg: GameConfig,
     outdir: Path,
+    name_a: str = "A",
+    name_b: str = "B",
 ) -> dict:
     """Mirror-capable game. Returns {"game", "records_a", "records_b"}.
 
-    Records land in each side's own dir: AZ0_RECORD_DIR is relative,
+    Records land in each side's own dir: AA_RECORD_DIR is relative,
     so it resolves under the side's working directory. Attribution by
     side is exact, and nothing touches the real bot tree. Staged sides
     are removed before return; the replay logs stay.
     """
     outdir = Path(outdir)
     log_dir = outdir / "logs"
-    side_a = stage_side(outdir, weights_a, "side_a")
-    side_b = stage_side(outdir, weights_b, "side_b")
+    side_a = stage_side(outdir, weights_a, "side_a", name_a)
+    side_b = stage_side(outdir, weights_b, "side_b", name_b)
     env = _bot_env(cfg)
     cmd = [
         python,
@@ -106,8 +119,8 @@ def play(
         str(cfg.loadtime_ms),
         "--log_dir",
         str(log_dir),
-        f"{python} {side_a / 'MLBot.py'}",
-        f"{python} {side_b / 'MLBot.py'}",
+        f"{python} {side_a / (_safe_name(name_a) + '.py')}",
+        f"{python} {side_b / (_safe_name(name_b) + '.py')}",
     ]
     try:
         _run_once(cmd, root, env, cfg.timeout)
@@ -123,8 +136,8 @@ def play(
         for tag in ("side_a", "side_b"):
             shutil.rmtree(outdir / tag, ignore_errors=True)
         shutil.rmtree(log_dir, ignore_errors=True)
-        side_a = stage_side(outdir, weights_a, "side_a")
-        side_b = stage_side(outdir, weights_b, "side_b")
+        side_a = stage_side(outdir, weights_a, "side_a", name_a)
+        side_b = stage_side(outdir, weights_b, "side_b", name_b)
         at = cmd.index("--engine_seed") + 1
         cmd_retry = cmd[:at] + [str(cfg.engine_seed + 7919)] + cmd[at + 1 :]
         try:

@@ -12,18 +12,19 @@ import copy
 import json
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "ml"))
-sys.path.insert(0, str(ROOT / "bots" / "alphastarzero"))
+sys.path.insert(0, str(ROOT / "bots" / "alphaant"))
 
 import archive
 import evaluate
 import model
 import train
 
-BOT_WEIGHTS = ROOT / "bots" / "alphastarzero" / "weights.json"
+BOT_WEIGHTS = ROOT / "bots" / "alphaant" / "weights.json"
 
 
 def default_map_pool() -> list[str]:
@@ -169,6 +170,7 @@ def publish(base: Path, report: dict, commit: bool) -> None:
 def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
     import rewards
 
+    started = time.time()
     archive.init(base)
     rewards.GAMMA = cfg.get("gamma", rewards.GAMMA)
     champ_id = archive.get_champion(base)
@@ -194,6 +196,7 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
         ev["wins"], ev["draws"], ev["games"],
         mix.get(chal_id, 0.0), mix.get(champ_id, 0.0), cfg["promote_threshold"],
     )
+    finished = time.time()
     report = {
         "champion": champ_id,
         "challenger": chal_id,
@@ -203,6 +206,9 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
         "nash": mix,
         "promoted": promoted,
         "exploiter": exploiter,
+        "started_at": started,
+        "finished_at": finished,
+        "duration_s": round(finished - started, 1),
         "config": cfg,
     }
     archive.atomic_write_json(base / "last_report.json", report)

@@ -1,4 +1,4 @@
-"""Observation encoding for the AlphaStarZero bot.
+"""Observation encoding for the AlphaAnt bot.
 
 Owns the action space (ACTIONS + OFFSETS) and the two things the bot
 sees: dest_of for movement, local_window for the 6-channel relative

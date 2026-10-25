@@ -1,4 +1,4 @@
-# AlphaStarZero: self-play loop
+# AlphaAnt: self-play loop
 
 Train an Ants bot the AlphaZero way: mirror self-play, policy-gradient
 updates, scripted promotion. No external opponents, no human judgment.
@@ -16,8 +16,8 @@ updates, scripted promotion. No external opponents, no human judgment.
 
 | Layer | Owns | Must not know |
 |---|---|---|
-| `bots/alphastarzero/model.py` | network shape, masking, act/sample, save/load | game, training |
-| `bots/alphastarzero/features.py` | actions/offsets, window encoding | policy, training |
+| `bots/alphaant/model.py` | network shape, masking, act/sample, save/load | game, training |
+| `bots/alphaant/features.py` | actions/offsets, window encoding | policy, training |
 | `ml/grid.py` | toroidal math (stdlib only) | everything else |
 | `ml/game_if.py` | engine games, staging, replay/record formats | torch |
 | `ml/rewards.py` | (game, records) → discounted returns | torch, engine |
@@ -50,7 +50,7 @@ swaps touch one file; the game interface never imports torch.
 ```
 
 `ml/archive/` (gitignored) holds every checkpoint, both matrices, and
-the last report. `bots/alphastarzero/weights.json` holds only the
+the last report. `bots/alphaant/weights.json` holds only the
 current champion — the rated phenotype, and the only weights in git.
 
 ## Reward system (landed)
@@ -129,7 +129,7 @@ Long games, all rank-stabilized endings, none hitting turn budgets:
 - xathis 3-0 fourmidable, tutorial1, 165 turns.
 - greentea 3-0 lazarant, generated gen2p_05, 135 turns.
 - flagcapper 3-0 starter, tutorial1, 24 turns (fast C bot).
-- xathis 3-0 AZ0 (early champion), tutorial1, 30 turns.
+- xathis 3-0 AlphaAnt (early champion), tutorial1, 30 turns.
 - pas11 is broken as an opponent: crashes on first enemy contact
   (3-arg destination call its bundled ants.py lacks); also too slow
   (~1000ms/turn, timed out twice). Not a sparring partner.
@@ -147,6 +147,16 @@ turns=150 ends 79% of pro games early; 250 covers 58%, 300 covers
 71%. Default turns 150 -> 250: the majority of real games now fit
 inside a training game, and the 300+ tail stays periodic-eval
 territory.
+
+## Launching a run (dashboard progress)
+
+Write `ml/archive/run_plan.json` before starting, e.g.
+`{"target_gens": 30, "label": "seed 7 baseline"}`: the dashboard
+Run card then shows gen N of target, average pace over the last 5
+gens, and ETA. Generation history lines carry started/finished
+timestamps and per-gen duration. Replays name the bots after their
+checkpoints (`g004.py` vs `g000.py`), staged per side. The bot is
+AlphaAnt (`bots/alphaant`, `AlphaAnt.py` + `AlphaAnt.bot`).
 
 ## 30-gen training run, seed 7, defaults (2026-10-25)
 

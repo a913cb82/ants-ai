@@ -1,12 +1,12 @@
 #!/usr/bin/env python
-"""AlphaStarZero: per-ant CNN policy bot (self-play student).
+"""AlphaAnt: per-ant CNN policy bot (self-play student).
 
 Inference runs the torch CNNPolicy from model.py over the 6-channel
 local window, one ant at a time. Water and visible food are hard-masked
 from the window (the engine ignores moves into both); the live
 reservation set blocks already-claimed tiles so two ants never take the
 same square. weights.json holds the champion parameters; the trainer
-rewrites it only on promotion. `MLBot.py [weights]` points the bot at
+rewrites it only on promotion. `AlphaAnt.py [weights]` points the bot at
 another file for self-play games.
 """
 
@@ -33,17 +33,17 @@ import model
 WEIGHTS_PATH = Path(__file__).resolve().parent / "weights.json"
 
 # When set, every decision is appended as one JSON row per ant per turn
-# to $AZ0_RECORD_DIR/az0-<pid>.jsonl. Unset (rated play): zero overhead,
+# to $AA_RECORD_DIR/aa-<pid>.jsonl. Unset (rated play): zero overhead,
 # zero behavior change. The log dir must live outside the bot tree so
 # league pool hashing and the dirty-tree guard never see it.
-RECORD_ENV = "AZ0_RECORD_DIR"
+RECORD_ENV = "AA_RECORD_DIR"
 
 # When set to a float > 0, sample from the softmax instead of acting
 # greedily. Self-play exploration only; rated play leaves it unset.
-TEMPERATURE_ENV = "AZ0_TEMPERATURE"
+TEMPERATURE_ENV = "AA_TEMPERATURE"
 
 
-class AlphaZeroBot:
+class AlphaAntBot:
     def __init__(self, weights_path: str | Path | None = None) -> None:
         raw = json.loads(Path(weights_path or WEIGHTS_PATH).read_text())
         self.policy = model.CNNPolicy(arch=model.infer_arch(raw))
@@ -58,7 +58,7 @@ class AlphaZeroBot:
         self._water = None  # impassable set, cached in do_setup
         record_dir = os.environ.get(RECORD_ENV)
         self._record_path = (
-            Path(record_dir) / f"az0-{os.getpid()}.jsonl" if record_dir else None
+            Path(record_dir) / f"aa-{os.getpid()}.jsonl" if record_dir else None
         )
 
     def do_setup(self, ants: Ants) -> None:
@@ -143,7 +143,7 @@ class AlphaZeroBot:
 if __name__ == "__main__":
     try:
         override = sys.argv[1] if len(sys.argv) > 1 else None
-        Ants.run(AlphaZeroBot(weights_path=override))
+        Ants.run(AlphaAntBot(weights_path=override))
     except KeyboardInterrupt:
         print("ctrl-c, leaving ...")
     except Exception:

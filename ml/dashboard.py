@@ -161,8 +161,27 @@ def snapshot(base: Path) -> dict:
             "mean_margin": ev.get("mean_margin", 0.0),
             "margins": ev.get("margins", []),
             "exploiter": bool(h.get("exploiter")),
+            "started_at": h.get("started_at"),
+            "finished_at": h.get("finished_at"),
+            "duration_s": h.get("duration_s"),
         })
     gens.reverse()
+    durs = [h.get("duration_s") for h in history
+            if isinstance(h.get("duration_s"), (int, float))]
+    recent = durs[-5:]
+    avg = sum(recent) / len(recent) if recent else None
+    plan = {}
+    try:
+        plan = json.loads((base / "run_plan.json").read_text())
+    except (OSError, ValueError):
+        plan = {}
+    target = plan.get("target_gens")
+    run = {
+        "finished": len(history),
+        "target": target if isinstance(target, int) else None,
+        "avg_s": round(avg, 1) if avg else None,
+        "last_finished_at": history[-1].get("finished_at") if history else None,
+    }
     losses = []
     for h in history:
         ls = ((h.get("train", {}) or {}).get("losses", []) or [])
@@ -175,6 +194,7 @@ def snapshot(base: Path) -> dict:
     return {
         "champion": champ,
         "members": members,
+        "run": run,
         "curves": curves,
         "generations": gens,
         "games": games[:50],
@@ -320,6 +340,8 @@ h1{font-size:20px; margin:0 0 4px;}
 canvas{width:100%; height:220px; display:block;}
 .cols{display:grid; grid-template-columns:1fr 1.4fr; gap:16px; align-items:start;}
 .table-scroll{overflow-x:auto;}
+.table-tall{max-height:480px; overflow-y:auto;}
+.table-tall thead th{position:sticky; top:0; z-index:1;}
 table{border-collapse:collapse; width:100%; font-size:13.5px; font-variant-numeric:tabular-nums;}
 th{background:#F1F3F5; text-align:left; font-size:12px; color:var(--secondary); font-weight:600;}
 th,td{padding:9px 10px; border-bottom:1px solid var(--border);}
@@ -454,11 +476,19 @@ function deltaChip(vals,invert){
   const good=invert?d<0:d>0;
   return `<span class="delta ${good?"up":"down"}" title="vs previous generation">${d>0?"+":""}${d.toFixed(3)}</span>`;
 }
+function clock(ts){const d=new Date(ts*1000);return d.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});}
 function renderHeader(){
   $("st-champ").innerHTML=esc(S.champion||"—")+(S.champion?' <span class="champ-star">★</span>':"");
   $("getting-started").style.display=S.counts.generations?"none":"block";
   $("st-gen").textContent=S.counts.generations;
   $("st-games").textContent=S.counts.games;
+  const r=S.run||{};
+  $("st-run").textContent=r.target?`gen ${r.finished} / ${r.target}`:`gen ${r.finished||0}`;
+  const bits=[];
+  if(r.last_finished_at) bits.push("last finished "+clock(r.last_finished_at));
+  if(r.avg_s) bits.push(`avg ${r.avg_s}s/gen`);
+  if(r.target&&r.avg_s&&r.target>r.finished) bits.push(`ETA ${clock(Date.now()/1000+(r.target-r.finished)*r.avg_s)}`);
+  $("st-eta").textContent=bits.join(" · ")||"no timing data yet";
   const st=S.status||{},el=$("st-status"),bar=$("st-bar");
   bar.style.width="0%";bar.style.background="var(--accent)";
   if(st.phase==="train"){
@@ -502,7 +532,7 @@ function renderPopulation(){
 function renderGenerations(){
   const rows=S.generations.map(g=>{
     const pct=g.eval_games?100*(g.win_rate):0;
-    return `<tr><td>${esc(g.id)}</td><td class="num">${g.train_return.toFixed(2)}</td>`+
+    return `<tr><td>${esc(g.id)}${g.finished_at?`<div class="legend">${clock(g.finished_at)}</div>`:""}${g.duration_s?`<div class="legend">${g.duration_s}s</div>`:""}</td><td class="num">${g.train_return.toFixed(2)}</td>`+
     `<td class="num">${g.train_loss.toFixed(3)}</td>`+
     `<td><span class="rate-wrap rate-text" title="Wilson lower bound (z=1.0) ${g.wilson_lower.toFixed(2)} vs promotion threshold ${g.threshold.toFixed(2)}"><span class="rate-bar"><div style="width:${pct.toFixed(0)}%"></div>`+
     `<span class="marker" style="left:${(g.threshold*100).toFixed(0)}%"></span></span>`+
@@ -606,10 +636,10 @@ def render_page() -> str:
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AlphaStarZero training</title>
+<title>AlphaAnt training</title>
 <style>{STYLES}</style></head>
 <body><a class="skip" href="#games-card">skip to games</a><a class="skip" href="#gen-card">skip to generations</a><div class="wrap">
-<h1>AlphaStarZero training</h1>
+<h1>AlphaAnt training</h1>
 <p class="sub">mirror self-play · policy gradients · scripted promotion — nothing external, ever</p>
 <div id="error" role="alert"></div>
 <div class="card" id="getting-started" style="display:none"><b>No generations yet.</b> Start one with:
@@ -619,6 +649,7 @@ def render_page() -> str:
   <div class="card"><div class="stat-label">Champion</div><div class="stat-value" id="st-champ">—</div></div>
   <div class="card"><div class="stat-label">Generations</div><div class="stat-value" id="st-gen">0</div></div>
   <div class="card"><div class="stat-label">Games logged (train + eval)</div><div class="stat-value" id="st-games">0</div></div>
+  <div class="card"><div class="stat-label">Run</div><div class="stat-value" id="st-run">—</div><div class="legend" id="st-eta"></div></div>
   <div class="card status-wide"><div class="stat-label">Status</div>
     <div class="status-line" id="st-status">loading…</div>
     <div class="progress"><div id="st-bar" style="width:0%"></div></div></div>
@@ -633,14 +664,14 @@ def render_page() -> str:
 </div>
 <div class="section-title">Generations</div>
 <div class="legend">why each challenger was promoted or held — challenger W-D-L · score counts a draw as half a win · green fill is win rate, tick is the promotion threshold</div>
-<div class="card table-scroll" id="gen-card"><table>
+<div class="card table-scroll table-tall" id="gen-card"><table>
 <tr><th>challenger</th><th class="num">train return</th><th class="num">train loss</th><th>eval vs champion</th><th>result</th><th class="num">config</th></tr>
 <tbody id="gen-body"></tbody></table></div>
 <div class="cols">
 <div>
 <div class="section-title">Population</div>
 <div class="legend">nash = share of the training mixture · W-D-L counts eval duels only</div>
-<div class="card table-scroll"><table>
+<div class="card table-scroll table-tall"><table>
 <tr><th>id</th><th>role</th><th>parent</th><th>nash</th><th class="num">W-D-L (eval)</th></tr>
 <tbody id="pop-body"></tbody></table></div>
 </div>

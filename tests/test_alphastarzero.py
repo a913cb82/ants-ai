@@ -1,4 +1,4 @@
-"""AlphaStarZero v0: per-ant linear policy, stdlib only.
+"""AlphaAnt v0: per-ant linear policy, stdlib only.
 
 TDD seed: features + model must be importable without numpy/torch,
 decide a legal move in microseconds, and never suggest water.
@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "bots" / "alphastarzero"))
+sys.path.insert(0, str(ROOT / "bots" / "alphaant"))
 sys.path.insert(0, str(ROOT / "ml"))
 
 
@@ -303,9 +303,9 @@ def test_outcome_loss_and_draw():
 
 
 def test_bot_records_turn_rows_when_env_set(tmp_path, monkeypatch):
-    import MLBot
+    import AlphaAnt
 
-    monkeypatch.setenv("AZ0_RECORD_DIR", str(tmp_path))
+    monkeypatch.setenv("AA_RECORD_DIR", str(tmp_path))
 
     class StubAnts:
         rows, cols = 10, 10
@@ -341,7 +341,7 @@ def test_bot_records_turn_rows_when_env_set(tmp_path, monkeypatch):
         def time_remaining(self):
             return 1000
 
-    bot = MLBot.AlphaZeroBot()
+    bot = AlphaAnt.AlphaAntBot()
     bot.do_setup(StubAnts())
     bot.do_turn(StubAnts())
     files = list(tmp_path.glob("*.jsonl"))
@@ -357,10 +357,10 @@ def test_bot_records_turn_rows_when_env_set(tmp_path, monkeypatch):
 def test_bot_samples_with_temperature(tmp_path, monkeypatch):
     import torch
 
-    import MLBot
+    import AlphaAnt
 
-    monkeypatch.setenv("AZ0_RECORD_DIR", str(tmp_path))
-    monkeypatch.setenv("AZ0_TEMPERATURE", "3.0")
+    monkeypatch.setenv("AA_RECORD_DIR", str(tmp_path))
+    monkeypatch.setenv("AA_TEMPERATURE", "3.0")
 
     class SymmetricStub:
         rows, cols = 10, 10
@@ -397,7 +397,7 @@ def test_bot_samples_with_temperature(tmp_path, monkeypatch):
             return 1000
 
     torch.manual_seed(0)
-    bot = MLBot.AlphaZeroBot()
+    bot = AlphaAnt.AlphaAntBot()
     bot.do_setup(SymmetricStub())
     seen = set()
     for _ in range(200):
@@ -413,12 +413,12 @@ def test_bot_weights_path_override(tmp_path):
     import torch
 
     import model
-    import MLBot
+    import AlphaAnt
 
     torch.manual_seed(123)
     alt = tmp_path / "alt.json"
     alt.write_text(json.dumps(model.state_dict_to_lists(model.CNNPolicy())))
-    bot = MLBot.AlphaZeroBot(weights_path=str(alt))
+    bot = AlphaAnt.AlphaAntBot(weights_path=str(alt))
     assert bot.policy(torch.zeros(1, 6, 9, 9)).shape == (1, 5)
 
 
@@ -549,7 +549,7 @@ def test_weights_file_loads_into_cnn():
 
     import model
 
-    wpath = ROOT / "bots" / "alphastarzero" / "weights.json"
+    wpath = ROOT / "bots" / "alphaant" / "weights.json"
     policy = model.CNNPolicy()
     # Old champions predate the value head: strict=False keeps their
     # policy weights and leaves the value head zero-initialized.
@@ -839,8 +839,8 @@ def test_game_if_mirror_plays_and_prices(tmp_path):
     out = game_if.play(
         ROOT,
         sys.executable,
-        json.loads((ROOT / "bots" / "alphastarzero" / "weights.json").read_text()),
-        json.loads((ROOT / "bots" / "alphastarzero" / "weights.json").read_text()),
+        json.loads((ROOT / "bots" / "alphaant" / "weights.json").read_text()),
+        json.loads((ROOT / "bots" / "alphaant" / "weights.json").read_text()),
         game_if.GameConfig(
             map="tools/maps/example/tutorial1.map",
             turns=10,
@@ -967,6 +967,30 @@ def test_snapshot_flags_exploiter_generations(tmp_path):
     snap = dashboard.snapshot(base)
     assert snap["generations"][0]["exploiter"] is True
     assert snap["generations"][0]["margins"] == [0, 0]
+
+
+def test_snapshot_carries_run_timing_and_plan(tmp_path):
+    import dashboard
+    import selfplay
+
+    base = tmp_path / "archive"
+    for i, dur in enumerate([40.0, 44.0]):
+        selfplay.append_history(base, {
+            "challenger": f"c{i}", "champion": "m", "promoted": False,
+            "started_at": 1000.0 * i, "finished_at": 1000.0 * i + dur,
+            "duration_s": dur,
+            "train": {"losses": [0.5], "mean_return": 0.1},
+            "eval": {"wins": 0, "draws": 2, "games": 2, "win_rate": 0.5,
+                     "margins": [0, 0], "mean_margin": 0.0},
+            "config": {},
+        })
+    (base / "run_plan.json").write_text('{"target_gens": 10}')
+    snap = dashboard.snapshot(base)
+    assert snap["generations"][0]["duration_s"] == 44.0  # newest first
+    assert snap["generations"][0]["finished_at"] == 1044.0
+    run = snap["run"]
+    assert run == {"finished": 2, "target": 10, "avg_s": 42.0,
+                   "last_finished_at": 1044.0}
 
 
 def test_replay_page_guards_traversal(tmp_path):
@@ -1259,8 +1283,8 @@ def test_bot_env_is_single_threaded():
     assert env["OMP_NUM_THREADS"] == "1"
     assert env["MKL_NUM_THREADS"] == "1"
     assert env["OPENBLAS_NUM_THREADS"] == "1"
-    assert env["AZ0_TEMPERATURE"] == "0.5"
-    assert env["AZ0_RECORD_DIR"] == "records"
+    assert env["AA_TEMPERATURE"] == "0.5"
+    assert env["AA_RECORD_DIR"] == "records"
 
 
 def _count_params(policy) -> int:
@@ -1347,7 +1371,7 @@ def test_config_default_arch_and_cli_override():
 def test_bot_loads_deep_weights(tmp_path):
     import json
 
-    import MLBot
+    import AlphaAnt
     import model
 
     alt = tmp_path / "deep.json"
@@ -1356,7 +1380,7 @@ def test_bot_loads_deep_weights(tmp_path):
             model.state_dict_to_lists(model.CNNPolicy(arch="deep"))
         )
     )
-    bot = MLBot.AlphaZeroBot(weights_path=str(alt))
+    bot = AlphaAnt.AlphaAntBot(weights_path=str(alt))
     assert bot.policy.arch == "deep"
 
 
@@ -1455,7 +1479,7 @@ def test_eval_uses_held_maps_only(tmp_path, monkeypatch):
     class FakeGame:
         pass
 
-    def fake_play(root, python, wa, wb, gcfg, outdir):
+    def fake_play(root, python, wa, wb, gcfg, outdir, **kwargs):
         seen.append(gcfg.map)
         (outdir / "logs").mkdir(parents=True, exist_ok=True)
         (outdir / "logs" / "0.replay").write_text(
@@ -1481,7 +1505,7 @@ def test_eval_reports_score_margins(tmp_path, monkeypatch):
     champ = archive.save_checkpoint(base, w, role="main", parent=None)
     scores = iter([(3, 1), (1, 1)])
 
-    def fake_play(root, python, wa, wb, gcfg, outdir):
+    def fake_play(root, python, wa, wb, gcfg, outdir, **kwargs):
         sa, sb = next(scores)
         (outdir / "logs").mkdir(parents=True, exist_ok=True)
         (outdir / "logs" / "0.replay").write_text(
@@ -1500,6 +1524,41 @@ def test_eval_reports_score_margins(tmp_path, monkeypatch):
     assert ev["mean_margin"] == 1.0
 
 
+def test_stage_side_names_main_file(tmp_path):
+    import game_if
+
+    side = game_if.stage_side(tmp_path / "out", {}, "side_a", "g004")
+    assert (side / "g004.py").exists()
+    assert not (side / game_if.MAIN_BOT).exists()
+    assert (side / "ants.py").exists()  # support modules ride along
+    assert (side / "weights.json").exists()
+
+
+def test_play_stages_checkpoint_names(tmp_path, monkeypatch):
+    import game_if
+
+    seen = {}
+
+    def fake_run(cmd, root, env, timeout):
+        seen["bots"] = [c for c in cmd if c.endswith(".py") and "playgame" not in c]
+        logdir = tmp_path / "g0" / "logs"
+        logdir.mkdir(parents=True, exist_ok=True)
+        (logdir / "0.replay").write_text(
+            '{"game_length": 10, "score": [1, 1], "replaydata": {}}'
+        )
+
+    monkeypatch.setattr(game_if, "_run_once", fake_run)
+    w = {"a": [1.0]}
+    out = game_if.play(
+        tmp_path, "python", w, w,
+        game_if.GameConfig(map="m.map", turns=10),
+        tmp_path / "g0", name_a="g004", name_b="g000",
+    )
+    assert out["game"]["game_length"] == 10
+    assert seen["bots"][0].endswith("side_a/g004.py")
+    assert seen["bots"][1].endswith("side_b/g000.py")
+
+
 def test_eval_map_offset_rotates_held_pool(tmp_path, monkeypatch):
     import archive
     import evaluate
@@ -1510,7 +1569,7 @@ def test_eval_map_offset_rotates_held_pool(tmp_path, monkeypatch):
     champ = archive.save_checkpoint(base, w, role="main", parent=None)
     seen = []
 
-    def fake_play(root, python, wa, wb, gcfg, outdir):
+    def fake_play(root, python, wa, wb, gcfg, outdir, **kwargs):
         seen.append(gcfg.map)
         (outdir / "logs").mkdir(parents=True, exist_ok=True)
         (outdir / "logs" / "0.replay").write_text(

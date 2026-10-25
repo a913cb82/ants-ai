@@ -38,6 +38,7 @@ def _play_duel(args) -> tuple[float, float]:
     (cfg, base, chal_id, champ_id, me_w, other_w, slot, g, offset) = args
     pool = cfg.get("held_maps", cfg["maps"])  # evals on unseen maps
     rel = f"games/{chal_id}/eval{g}"
+    first, second = (chal_id, champ_id) if slot == 0 else (champ_id, chal_id)
     out = game_if.play(
         ROOT,
         sys.executable,
@@ -51,10 +52,11 @@ def _play_duel(args) -> tuple[float, float]:
             engine_seed=9000 + g,
         ),
         base / rel,
+        name_a=first,
+        name_b=second,
     )
     game = out["game"]
     sa, sb = game["score"][0], game["score"][1]
-    first, second = (chal_id, champ_id) if slot == 0 else (champ_id, chal_id)
     archive.record_result(base, first, second, sa, sb, kind="eval")
     archive.log_game(base, chal_id, "eval", first, second, sa, sb,
                      rel + "/logs/0.replay")
