@@ -45,23 +45,50 @@ def get_champion(base: Path = DEFAULT_DIR) -> str | None:
     return json.loads(champ.read_text())["id"]
 
 
+def _atomic_write_json(path: Path, obj: object) -> None:
+    """Write JSON atomically: readers see old-or-new, never torn."""
+    fd, tmp = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(json.dumps(obj))
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
 def set_champion(base: Path, cid: str) -> None:
     init(base)
-    (_paths(base)["dir"] / "champion.json").write_text(json.dumps({"id": cid}))
+    _atomic_write_json(_paths(base)["dir"] / "champion.json", {"id": cid})
 
 
 def store(base: Path, cid: str, weights: dict) -> None:
     """Persist a member's weights. Train-matrix entries logged under an
     id describe work-in-progress play, never final strength; the eval
     matrix (promotion, PFSP, Nash) only ever sees frozen weights."""
-    (_paths(base)["checkpoints"] / f"{cid}.json").write_text(json.dumps(weights))
+    _atomic_write_json(_paths(base)["checkpoints"] / f"{cid}.json", weights)
 
 
 def members(base: Path = DEFAULT_DIR) -> list[dict]:
+    """Manifest entries; skips malformed lines (one bad line must not
+    brick the page)."""
     p = _paths(base)
     if not p["manifest"].exists():
         return []
-    return [json.loads(line) for line in p["manifest"].read_text().splitlines() if line.strip()]
+    out = []
+    for line in p["manifest"].read_text().splitlines():
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(row, dict) and isinstance(row.get("id"), str):
+            out.append(row)
+    return out
 
 
 def _next_id(base: Path) -> str:
@@ -114,17 +141,7 @@ def record_result(
         wins[0] += 0.5
         wins[1] += 0.5
     data[kind][key] = wins
-    tmp_fd, tmp_path = tempfile.mkstemp(dir=str(p["matrix"].parent), suffix=".tmp")
-    try:
-        with os.fdopen(tmp_fd, "w") as f:
-            f.write(json.dumps(data))
-        os.replace(tmp_path, p["matrix"])
-    except BaseException:
-        try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
-        raise
+    _atomic_write_json(p["matrix"], data)
 
 
 def log_game(
@@ -141,22 +158,9 @@ def log_game(
 
 
 def write_status(base: Path, status: dict) -> None:
-    """Live progress for the dashboard (overwritten as a generation runs).
-
-    Atomic rename: readers never see a half-written file mid-poll."""
+    """Live progress for the dashboard (overwritten as a generation runs)."""
     init(base)
-    target = _paths(base)["dir"] / "status.json"
-    fd, tmp = tempfile.mkstemp(dir=str(target.parent), suffix=".tmp")
-    try:
-        with os.fdopen(fd, "w") as f:
-            f.write(json.dumps(status))
-        os.replace(tmp, target)
-    except BaseException:
-        try:
-            os.unlink(tmp)
-        except OSError:
-            pass
-        raise
+    _atomic_write_json(_paths(base)["dir"] / "status.json", status)
 
 
 def read_status(base: Path) -> dict:
@@ -261,6 +265,8 @@ def nash_mixture(base: Path, iters: int = 2000, seed: int = 0) -> dict[str, floa
     if not ids:
         return {}
     n = len(ids)
+    if not np.any(mat):
+        return {cid: round(1.0 / n, 4) for cid in ids}  # all draws: split evenly
     avg_r = np.full(n, 1.0 / n)
     avg_c = np.full(n, 1.0 / n)
     strat_r = np.zeros(n)

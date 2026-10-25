@@ -996,3 +996,30 @@ def test_snapshot_survives_poisoned_index(tmp_path):
         f.write('{"gen":"x","kind":"eval","a":"g000"}\n')
     snap = dashboard.snapshot(base)
     assert snap["game_total"] == 0
+
+
+def test_nash_splits_evenly_on_all_draws(tmp_path):
+    import archive
+
+    base = tmp_path / "archive"
+    a = archive.save_checkpoint(base, {}, role="main", parent=None)
+    b = archive.save_checkpoint(base, {}, role="challenger", parent=a)
+    archive.record_result(base, a, b, 1, 1)
+    mix = archive.nash_mixture(base)
+    assert abs(mix[a] - 0.5) < 1e-6 and abs(mix[b] - 0.5) < 1e-6
+
+
+def test_read_history_and_members_skip_bad_lines(tmp_path):
+    import archive
+    import selfplay
+
+    base = tmp_path / "archive"
+    archive.init(base)
+    with open(base / "manifest.jsonl", "w") as f:
+        f.write('{"id": "g000", "role": "main", "parent": null}\n')
+        f.write("{broken\n")
+        f.write('{"id": 42}\n')
+    with open(base / "history.jsonl", "w") as f:
+        f.write('{"gen": 0}\n{nope\n[1,2]\n')
+    assert [m["id"] for m in archive.members(base)] == ["g000"]
+    assert selfplay.read_history(base) == [{"gen": 0}]

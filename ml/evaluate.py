@@ -60,14 +60,14 @@ def evaluate(
         archive.record_result(base, first, second, sa, sb, kind="eval")
         archive.log_game(base, chal_id, "eval", first, second, sa, sb,
                          rel + "/logs/0.replay")
+        chal_score, champ_score = (sa, sb) if slot == 0 else (sb, sa)
+        wins += chal_score > champ_score
+        draws += chal_score == champ_score
         archive.write_status(base, {
             "phase": "eval", "challenger": chal_id,
             "done": g + 1, "total": cfg["eval_games"],
             "wins": wins, "draws": draws, "last_game": rel,
         })
-        chal_score, champ_score = (sa, sb) if slot == 0 else (sb, sa)
-        wins += chal_score > champ_score
-        draws += chal_score == champ_score
     return {
         "wins": wins,
         "draws": draws,

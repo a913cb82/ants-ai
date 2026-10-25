@@ -91,10 +91,21 @@ def append_history(base: Path, entry: dict) -> None:
 
 
 def read_history(base: Path) -> list[dict]:
+    """Generation summaries; skips malformed lines like list_games."""
     path = base / "history.jsonl"
     if not path.exists():
         return []
-    return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+    out = []
+    for line in path.read_text().splitlines():
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(row, dict):
+            out.append(row)
+    return out
 
 
 def publish(base: Path, report: dict, commit: bool) -> None:
@@ -139,14 +150,15 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
         "config": cfg,
     }
     (base / "last_report.json").write_text(json.dumps(report, indent=1))
-    archive.write_status(base, {
-        "phase": "done", "challenger": chal_id, "champion": champ_id,
-        "promoted": promoted,
-    })
     append_history(base, {k: v for k, v in report.items()
                            if k != "challenger_weights"})
     if promoted:
         publish(base, report, commit)
+    archive.write_status(base, {
+        "phase": "done", "challenger": chal_id,
+        "champion": archive.get_champion(base),
+        "promoted": promoted,
+    })
     return report
 
 

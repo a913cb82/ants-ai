@@ -9,7 +9,7 @@ generations.
 
 Routes: / (page), /api/snapshot (everything as JSON),
 /api/games?member=&limit=&offset= (game index slice + total),
-/replay?f=<archive-relative replay> (visualizer page, named tab),
+/replay?f=<archive-relative replay> (visualizer page, new tab per link),
 /static/v/<path> (visualizer js/data/img).
 """
 
@@ -37,6 +37,31 @@ VIS_DIR = ROOT / "tools" / "visualizer"
 TEMPLATE = (VIS_DIR / "replay.html.template").read_text()
 
 _nash_cache: dict = {}
+_games_cache: dict = {}
+
+
+def cached_games(base: Path) -> list[dict]:
+    """Parsed games.jsonl, re-parsed only when the file changes.
+
+    snapshot() and /api/games share one parse per poll cycle."""
+    path = base / "games.jsonl"
+    try:
+        st = path.stat()
+        key = (str(base.resolve()), st.st_mtime_ns, st.st_size)
+    except OSError:
+        return []
+    if _games_cache.get("key") != key:
+        _games_cache.clear()
+        _games_cache["key"] = key
+        _games_cache["rows"] = archive.list_games(base)
+    return _games_cache["rows"]
+
+
+def _rows_for(base: Path, member: str | None) -> list[dict]:
+    rows = cached_games(base)
+    if member is not None:
+        rows = [r for r in rows if r["a"] == member or r["b"] == member]
+    return rows
 
 
 def _eval_digest(base: Path) -> tuple:
@@ -75,7 +100,7 @@ def snapshot(base: Path) -> dict:
     archive.init(base)
     champ = archive.get_champion(base)
     mix = _nash_cached(base)
-    games = archive.list_games(base)
+    games = cached_games(base)
     history = selfplay.read_history(base)
     tally: dict[str, list[int]] = {}
     for g in games:
@@ -104,14 +129,16 @@ def snapshot(base: Path) -> dict:
         ngames = ev.get("games", 0)
         wr = ev.get("win_rate", 0.0)
         lower = archive.wilson_lower(ev.get("wins", 0) + 0.5 * draws, ngames)
+        nash_chal = mix.get(h.get("challenger", ""), 0.0)
+        nash_champ = mix.get(h.get("champion", ""), 0.0)
         if not ev:
             reason = "held: waiting on first eval"
         elif h.get("promoted"):
-            reason = f"promoted: lower {lower:.2f} clears bar {thr:.2f}"
-        elif ngames:
-            reason = f"held: lower {lower:.2f} vs bar {thr:.2f}"
+            reason = f"promoted: lower {lower:.2f} clears threshold {thr:.2f}"
+        elif lower <= thr:
+            reason = f"held: lower {lower:.2f} vs threshold {thr:.2f}"
         else:
-            reason = f"held: win-rate {wr:.2f} vs bar {thr:.2f}"
+            reason = f"held: nash {nash_chal:.2f} < champ {nash_champ:.2f}"
         gens.append({
             "id": h.get("challenger", h.get("id", "?")),
             "champion": h.get("champion"),
@@ -198,8 +225,10 @@ def make_handler(base: Path):
                         offset = max(int(q.get("offset", ["0"])[0]), 0)
                     except ValueError:
                         offset = 0
-                    rows = archive.list_games(base, member)
-                    _json(self, {"total": len(rows),
+                    rows = _rows_for(base, member)
+                    total = len(rows)
+                    offset = min(offset, total)
+                    _json(self, {"total": total,
                                  "rows": rows[offset:offset + limit]})
                 elif parsed.path == "/replay":
                     rel = parse_qs(parsed.query).get("f", [None])[0]
@@ -219,7 +248,7 @@ def make_handler(base: Path):
                         self._send(target.read_bytes(), ctype)
                 else:
                     self.send_error(404, "unknown route")
-            except (OSError, ValueError, KeyError, TypeError) as e:
+            except (OSError, ValueError, KeyError, TypeError, AttributeError) as e:
                 _json(self, {"error": f"{type(e).__name__}: {e}"}, status=500)
 
     return Handler
@@ -301,6 +330,8 @@ select{font-size:13px; padding:6px 10px; border:1px solid var(--border-strong); 
 .pager button:disabled{opacity:.4; cursor:default;}
 #getting-started{margin-bottom:16px; font-size:14px;}
 #stats-row{margin-top:0;}
+.skip{position:absolute; left:-9999px; top:0; background:var(--ink); color:#fff; padding:8px 14px; z-index:99; border-radius:0 0 8px 0;}
+.skip:focus{left:0; color:#fff;}
 #error{display:none; background:#FBEAE8; color:var(--danger); border:1px solid #F0C4C0;
   border-radius:8px; padding:10px 14px; margin-bottom:16px; font-size:13px;}
 .empty{padding:28px 20px; color:var(--secondary); font-size:14px;}
@@ -323,8 +354,16 @@ let S=null, seq=0, lastHash="", lastGames="", live=true, lastTick=0;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 async function fetchJSON(url){
-  const r=await fetch(url);
-  if(!r.ok) throw new Error("HTTP "+r.status+" on "+url);
+  let r;
+  try{r=await fetch(url);}
+  catch(e){throw new Error("connection lost: "+e.message);}
+  if(!r.ok){
+    let detail="";
+    try{const body=await r.json();if(body&&body.error)detail=": "+String(body.error).slice(0,140);}
+    catch(e){}
+    const kind=r.status>=500?"dashboard error":"request failed";
+    throw new Error(kind+" HTTP "+r.status+detail+" on "+url);
+  }
   return r.json();
 }
 function ago(ts){const s=Math.max(0,Math.round((Date.now()-ts)/1000));
@@ -337,14 +376,19 @@ function outcome(a,sa,b,sb){
   return {cls:"draw",label:"draw"};
 }
 /* Charts: titled card, gridlines, min/max labels, headroom, HiDPI. */
-function plot(id,series,color,fill,labels){
+function plot(id,series,color,fill,labels,desc){
   const cv=$(id),ctx=cv.getContext("2d");
+  cv.setAttribute("role","img");
+  if(desc)cv.setAttribute("aria-label",desc+": "+series.filter(v=>v!==null).join(", "));
   const dpr=window.devicePixelRatio||1,W=cv.clientWidth,H=cv.clientHeight;
   cv.width=W*dpr;cv.height=H*dpr;ctx.scale(dpr,dpr);
   ctx.clearRect(0,0,W,H);
   if(!series.length){ctx.fillStyle="#8A94A0";ctx.font="12px system-ui";
     ctx.fillText("no generations yet",12,20);return;}
-  let mn=Math.min(...series),mx=Math.max(...series);
+  const vals=series.filter(v=>v!==null&&Number.isFinite(v));
+  if(!vals.length){ctx.fillStyle="#8A94A0";ctx.font="12px system-ui";
+    ctx.fillText("no data yet",12,20);return;}
+  let mn=Math.min(...vals),mx=Math.max(...vals);
   if(mx-mn<1e-9){mn-=1;mx+=1;}
   const pad=(mx-mn)*0.12;mn-=pad;mx+=pad;
   const prec=(mx-mn)<0.5?3:2;
@@ -363,23 +407,27 @@ function plot(id,series,color,fill,labels){
   ctx.fillText(x1,W-R-w1,H-6);
   if(mn<0&&mx>0){ctx.save();ctx.setLineDash([4,3]);ctx.strokeStyle="#C9CFD6";
     ctx.beginPath();ctx.moveTo(L,Y(0));ctx.lineTo(W-R,Y(0));ctx.stroke();ctx.restore();}
+  const segs=[];let cur=[];
+  series.forEach((v,i)=>{if(v===null||!Number.isFinite(v)){if(cur.length)segs.push(cur),cur=[];}else cur.push(i);});
+  if(cur.length)segs.push(cur);
   if(fill){const gr=ctx.createLinearGradient(0,T,0,H-B);
     gr.addColorStop(0,fill);gr.addColorStop(1,"rgba(255,255,255,0)");
-    ctx.beginPath();ctx.moveTo(X(0),Y(series[0]));
-    series.forEach((v,i)=>ctx.lineTo(X(i),Y(v)));
-    ctx.lineTo(X(series.length-1),H-B);ctx.lineTo(X(0),H-B);ctx.closePath();
-    ctx.fillStyle=gr;ctx.fill();}
-  ctx.strokeStyle=color;ctx.lineWidth=2;ctx.lineJoin="round";ctx.beginPath();
-  series.forEach((v,i)=>i?ctx.lineTo(X(i),Y(v)):ctx.moveTo(X(i),Y(v)));ctx.stroke();
-  const lx=X(series.length-1),ly=Y(series[series.length-1]);
-  ctx.fillStyle=color;ctx.beginPath();ctx.arc(lx,ly,3.5,0,7);ctx.fill();
+    ctx.fillStyle=gr;
+    for(const s of segs){ctx.beginPath();ctx.moveTo(X(s[0]),Y(series[s[0]]));
+      s.forEach(i=>ctx.lineTo(X(i),Y(series[i])));
+      ctx.lineTo(X(s[s.length-1]),H-B);ctx.lineTo(X(s[0]),H-B);ctx.closePath();ctx.fill();}}
+  ctx.strokeStyle=color;ctx.lineWidth=2;ctx.lineJoin="round";
+  for(const s of segs){ctx.beginPath();
+    s.forEach((i,k)=>k?ctx.lineTo(X(i),Y(series[i])):ctx.moveTo(X(i),Y(series[i])));ctx.stroke();}
+  const li=segs.length?segs[segs.length-1].slice(-1)[0]:0;
+  ctx.fillStyle=color;ctx.beginPath();ctx.arc(X(li),Y(series[li]),3.5,0,7);ctx.fill();
 }
 function deltaChip(vals,invert){
   if(vals.length<2) return '<span class="delta flat">—</span>';
   const d=vals[vals.length-1]-vals[vals.length-2];
   if(Math.abs(d)<1e-9) return '<span class="delta flat">±0.000</span>';
   const good=invert?d<0:d>0;
-  return `<span class="delta ${good?"up":"down"}">${d>0?"+":""}${d.toFixed(3)}</span>`;
+  return `<span class="delta ${good?"up":"down"}" title="vs previous generation">${d>0?"+":""}${d.toFixed(3)}</span>`;
 }
 function renderHeader(){
   $("st-champ").innerHTML=esc(S.champion||"—")+(S.champion?' <span class="champ-star">★</span>':"");
@@ -406,15 +454,18 @@ function renderHeader(){
   $("updated").textContent="updated "+ago(lastTick)+" · "+(live?"live":"paused");
 }
 function renderCurves(){
-  const byGen=S.history.map(h=>{const l=((h.train||{}).losses||[]);return l.length?l.reduce((a,b)=>a+b,0)/l.length:0;});
+  const byGen=S.history.map(h=>{const l=((h.train||{}).losses||[]);return l.length?l.reduce((a,b)=>a+b,0)/l.length:null;});
   const rets=S.history.map(h=>((h.train||{}).mean_return||0));
   const ids=S.history.map(h=>h.challenger||"");
-  plot("ch-loss",byGen,"#C4322B","rgba(196,50,43,.12)",ids);
-  plot("ch-ret",rets,"#18794E","rgba(24,121,78,.12)",ids);
-  $("loss-delta").innerHTML=deltaChip(byGen,true);
+  const nz=byGen.filter(v=>v!==null);
+  plot("ch-loss",byGen,"#C4322B","rgba(196,50,43,.12)",ids,"mean loss, "+ids.length+" generations");
+  plot("ch-ret",rets,"#18794E","rgba(24,121,78,.12)",ids,"mean return, "+ids.length+" generations");
+  $("loss-delta").innerHTML=deltaChip(nz,true);
   $("ret-delta").innerHTML=deltaChip(rets,false);
-  $("loss-last").textContent=byGen.length?byGen[byGen.length-1].toFixed(3):"—";
+  $("loss-last").textContent=nz.length?nz[nz.length-1].toFixed(3):"no data";
+  $("loss-last").title=nz.length?"mean loss "+nz[nz.length-1].toFixed(5):"";
   $("ret-last").textContent=rets.length?rets[rets.length-1].toFixed(2):"—";
+  $("ret-last").title=rets.length?"mean return "+rets[rets.length-1].toFixed(4):"";
 }
 function renderPopulation(){
   const rows=S.members.map(m=>`<tr><td>${esc(m.id)}${m.id===S.champion?' <span class="champ-star">★</span>':""}</td>`+
@@ -428,16 +479,16 @@ function renderGenerations(){
     const pct=g.eval_games?100*(g.win_rate):0;
     return `<tr><td>${esc(g.id)}</td><td class="num">${g.train_return.toFixed(2)}</td>`+
     `<td class="num">${g.train_loss.toFixed(3)}</td>`+
-    `<td><span class="rate-wrap" title="Wilson lower bound ${g.wilson_lower.toFixed(2)} vs promotion bar ${g.threshold.toFixed(2)}"><span class="rate-bar"><div style="width:${pct.toFixed(0)}%"></div>`+
+    `<td><span class="rate-wrap rate-text" title="Wilson lower bound (z=1.0) ${g.wilson_lower.toFixed(2)} vs promotion threshold ${g.threshold.toFixed(2)}"><span class="rate-bar"><div style="width:${pct.toFixed(0)}%"></div>`+
     `<span class="marker" style="left:${(g.threshold*100).toFixed(0)}%"></span></span>`+
-    `${g.eval_w}-${g.eval_d}-${g.eval_games-g.eval_w-g.eval_d} · ${(g.win_rate*100).toFixed(0)}% · lower ${g.wilson_lower.toFixed(2)}</span></td>`+
+    `${g.eval_w}-${g.eval_d}-${Math.max(0,g.eval_games-g.eval_w-g.eval_d)} · ${(g.win_rate*100).toFixed(0)}% (draw=&#189;) · lower ${g.wilson_lower.toFixed(2)}</span></td>`+
     `<td>${g.promoted?'<span class="badge promoted">promoted ★</span>':'<span class="badge held">held</span>'}`+
     `<div class="legend" style="margin:4px 0 0">${esc(g.reason)}</div></td></tr>`;}).join("");
   $("gen-body").innerHTML=rows||'<tr><td colspan="5" class="empty">no completed generations yet</td></tr>';
 }
 function memberIds(){return S.members.map(m=>m.id);}
 function renderMemberOptions(){
-  const sel=$("member"),cur=sel.value||location.hash.replace("#member=","");
+  const sel=$("member"),cur=sel.value||new URLSearchParams(location.hash.slice(1)).get("member")||"";
   const ids=memberIds();
   if(sel.options.length-1===ids.length && ids.every((id,i)=>sel.options[i+1].text===id)){
     if(cur&&ids.includes(cur)) sel.value=cur;
@@ -449,7 +500,7 @@ function renderMemberOptions(){
 async function renderGames(my){
   const m=$("member").value;
   if(m)history.replaceState(null,"","#member="+encodeURIComponent(m));
-  else if(!location.hash)history.replaceState(null,"",location.pathname);
+  else history.replaceState(null,"",location.pathname);
   if($("games-body").matches(":hover")||$("games-body").contains(document.activeElement)) return true; // reader busy: retry next poll
   const qparts=[];
   if(m)qparts.push("member="+encodeURIComponent(m));
@@ -474,8 +525,8 @@ async function renderGames(my){
     const label=x.gen+" · "+shortReplay(x.replay);
     return `<tr><td>${esc(x.gen)}</td><td><span class="pill ${esc(x.kind)}">${esc(x.kind)}</span></td>`+
     `<td class="matchup" title="engine score">${wa} ${x.score_a} vs ${wb} ${x.score_b}</td><td><span class="badge ${o.cls}">${o.label}</span></td>`+
-    `<td class="replay"><a href="/replay?f=${encodeURIComponent(x.replay)}" target="az-replay" rel="noopener" title="${esc(x.a)} vs ${esc(x.b)}, gen ${esc(x.gen)} — opens in the replay tab">${esc(label)}<span aria-hidden="true"> ↗</span></a></td></tr>`;}).join("");
-  $("games-body").innerHTML=rows||(m?`<tr><td colspan="5" class="empty">no games logged for ${esc(m)} yet</td></tr>`:'<tr><td colspan="5" class="empty">no games logged yet — they appear here as each finishes</td></tr>');
+    `<td class="replay"><a href="/replay?f=${encodeURIComponent(x.replay)}" target="_blank" rel="noopener" title="${esc(x.a)} vs ${esc(x.b)}, gen ${esc(x.gen)} — opens in a new tab">${esc(label)}<span aria-hidden="true"> ↗</span></a></td></tr>`;}).join("");
+  $("games-body").innerHTML=rows||(total?`<tr><td colspan="5" class="empty">no games on this page — use the pager above</td></tr>`:(m?`<tr><td colspan="5" class="empty">no games logged for ${esc(m)} yet</td></tr>`:'<tr><td colspan="5" class="empty">no games logged yet — they appear here as each finishes</td></tr>'));
   const pages=Math.max(1,Math.ceil(data.total/100));
   const page=Math.floor(gamesOffset/100)+1;
   $("games-count").textContent=`showing ${data.rows.length} of ${data.total} · page ${Math.min(page,pages)} of ${pages}`;
@@ -495,6 +546,11 @@ async function load(){
     if(h!==lastHash){lastHash=h;S=snap;
       renderHeader();renderCurves();renderPopulation();renderGenerations();renderMemberOptions();}
     else renderHeader();
+    if(!hashSeeded){hashSeeded=true;
+      const hm=new URLSearchParams(location.hash.slice(1)).get("member");
+      if(hm){const sel=$("member");
+        if([...sel.options].some(o=>o.text===hm)){sel.value=hm;gamesOffset=0;}
+        else history.replaceState(null,"",location.pathname);}}
     const ok=await renderGames(my);
     $("updated").textContent="updated "+ago(lastTick)+" · "+(ok?"live":"games feed stale · live snapshot");
   }catch(e){
@@ -505,7 +561,7 @@ async function load(){
 }
 function activePhase(){const p=S&&S.status&&S.status.phase;return p==="train"||p==="eval";}
 function tick(){load().finally(()=>setTimeout(tick,live?(activePhase()?5000:15000):15000));}
-let gamesOffset=0;
+let gamesOffset=0,hashSeeded=false;
 $("member").addEventListener("change",()=>{gamesOffset=0;++seq;renderGames(seq);});
 $("pg-prev").addEventListener("click",()=>{gamesOffset=Math.max(0,gamesOffset-100);renderGames(++seq);});
 $("pg-next").addEventListener("click",()=>{gamesOffset+=100;renderGames(++seq);});
@@ -515,10 +571,7 @@ $("live-toggle").addEventListener("change",e=>{live=e.target.checked;
   $("updated").textContent="updated "+ago(lastTick)+" · "+(live?"live":"paused");load();});
 let resizeT=0;
 window.addEventListener("resize",()=>{clearTimeout(resizeT);resizeT=setTimeout(()=>{if(S)renderCurves();},150);});
-load().then(()=>{const q=new URLSearchParams(location.hash.slice(1));const m=q.get("member");
-  if(m){const sel=$("member");const opt=[...sel.options].find(o=>o.text===m);
-    if(opt){sel.value=opt.text;sel.dispatchEvent(new Event("change"));}
-    else history.replaceState(null,"",location.pathname);}});
+load();
 tick();
 """
 
@@ -529,7 +582,7 @@ def render_page() -> str:
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AlphaStarZero training</title>
 <style>{STYLES}</style></head>
-<body><div class="wrap">
+<body><a class="skip" href="#games-card">skip to games</a><a class="skip" href="#gen-card">skip to generations</a><div class="wrap">
 <h1>AlphaStarZero training</h1>
 <p class="sub">mirror self-play · policy gradients · scripted promotion — nothing external, ever</p>
 <div id="error" role="alert"></div>
@@ -539,13 +592,13 @@ def render_page() -> str:
 <div class="stats" id="stats-row">
   <div class="card"><div class="stat-label">Champion</div><div class="stat-value" id="st-champ">—</div></div>
   <div class="card"><div class="stat-label">Generations</div><div class="stat-value" id="st-gen">0</div></div>
-  <div class="card"><div class="stat-label">Games logged</div><div class="stat-value" id="st-games">0</div></div>
+  <div class="card"><div class="stat-label">Games logged (train + eval)</div><div class="stat-value" id="st-games">0</div></div>
   <div class="card status-wide"><div class="stat-label">Status</div>
     <div class="status-line" id="st-status">loading…</div>
     <div class="progress"><div id="st-bar" style="width:0%"></div></div></div>
 </div>
 <div class="section-title">Training curves</div>
-<div class="legend">mean policy loss per generation (down is good) · mean episode return per generation (up is good)</div>
+<div class="legend">mean policy loss per generation (down is good) · mean episode return per generation (up is good) · one point per generation, oldest → newest · axes span the data range</div>
 <div class="charts">
   <div class="card chart-card"><div class="chart-head"><h3>Policy loss <span id="loss-last"></span></h3><span id="loss-delta"></span></div>
     <p class="chart-sub">mean REINFORCE loss per generation</p><canvas id="ch-loss"></canvas></div>
@@ -553,8 +606,8 @@ def render_page() -> str:
     <p class="chart-sub">discounted episode return, one point per generation</p><canvas id="ch-ret"></canvas></div>
 </div>
 <div class="section-title">Generations</div>
-<div class="legend">why each challenger was promoted or held — win-rate bar vs the promotion marker</div>
-<div class="card table-scroll"><table>
+<div class="legend">why each challenger was promoted or held — challenger W-D-L · score counts a draw as half a win · bar is the promotion threshold marker</div>
+<div class="card table-scroll" id="gen-card"><table>
 <tr><th>challenger</th><th class="num">train return</th><th class="num">train loss</th><th>eval vs champion</th><th>result</th></tr>
 <tbody id="gen-body"></tbody></table></div>
 <div class="cols">
@@ -567,19 +620,20 @@ def render_page() -> str:
 </div>
 <div>
 <div class="section-title">Recent games</div>
-<div class="legend">train = practice (may include self-play) · eval = promotion duels vs champion</div>
-<div class="card">
+<div class="legend">train = practice (may include self-play) · eval = promotion duels vs champion · matchup scores are engine points</div>
+<div class="card" id="games-card">
 <div class="toolbar">
 <label for="member">member</label>
 <select id="member"><option value="">all members</option></select>
 <label class="live-toggle"><input type="checkbox" id="live-toggle" checked> <span id="live-label">live</span></label>
 <span class="pager"><button id="pg-prev" type="button">← newer</button><button id="pg-next" type="button">older →</button></span>
-<span class="updated" id="updated"></span>
+<span class="legend" id="games-count" style="margin:0"></span>
+<span class="updated" id="updated" title="page refresh time — data may be older while the run is idle"></span>
 </div>
 <div class="table-scroll" style="max-height:480px; overflow-y:auto;"><table>
+<caption class="legend" style="text-align:left; padding:0 0 6px">result is side A's view · switches to the filtered member when filtered</caption>
 <tr><th>gen</th><th>kind</th><th>matchup</th><th>result</th><th>replay</th></tr>
 <tbody id="games-body"></tbody></table></div>
-<div class="legend" id="games-count" style="margin:8px 0 0"></div>
 </div>
 </div>
 </div>
