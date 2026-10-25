@@ -12,3 +12,4 @@ autoresearch/runs/
 bots/greentea/build/
 ml/archive/
 ml/archive_*/
+*.class
