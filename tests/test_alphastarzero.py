@@ -1521,6 +1521,32 @@ def test_eval_uses_held_maps_only(tmp_path, monkeypatch):
     assert seen == ["h1.map", "h2.map", "h1.map", "h2.map"]
 
 
+def test_eval_falls_back_to_train_maps_without_held_pool(tmp_path, monkeypatch):
+    import evaluate
+    import game_if
+
+    base = tmp_path / "archive"
+    w = {"a": [1.0]}
+    seen = []
+
+    def fake_play(root, python, wa, wb, gcfg, outdir, **kwargs):
+        seen.append(gcfg.map)
+        (outdir / "logs").mkdir(parents=True, exist_ok=True)
+        (outdir / "logs" / "0.replay").write_text(
+            '{"game_length": 10, "score": [1, 1], "replaydata": {}}'
+        )
+        return {"game": {"game_length": 10, "score": [1, 1],
+                            "replaydata": {}},
+                "records_a": [], "records_b": []}
+
+    monkeypatch.setattr(game_if, "play", fake_play)
+    # one-map curriculum: split leaves held empty, evals run the map.
+    cfg = {"eval_games": 2, "maps": ["only.map"], "held_maps": [],
+           "turns": 5, "temperature": 0.0, "seed": 0, "workers": 1}
+    evaluate.evaluate(cfg, base, "chal", w, "champ", w)
+    assert seen == ["only.map", "only.map"]
+
+
 def test_eval_reports_score_margins(tmp_path, monkeypatch):
     import archive
     import evaluate
