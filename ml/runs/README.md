@@ -15,6 +15,22 @@ The idea backlog lives in QUEUE.md (one idea per round).
 - Promotion bar (noise floor): Wilson lower bound > 0.5, draws
 half, head-to-head vs champion only. Borderline evals (0.48-0.55)
 earn one repeat before verdict.
+## Discard bar (be sure before dropping)
+
+An idea moves to dropped only when ALL hold:
+1. A full round ran under clean conditions (no mid-round pool or
+reward edits; confounds named in the plan or absent).
+2. The effect is decisive OR a repeat confirmed it: decisive means
+the headline metric moved the wrong way with margin (e.g. peace
++0.07 with 0 promotions, not noise around the bar). Borderline
+results earn a repeat, not a verdict.
+3. The mechanism is named, not just the numbers (WHY it failed).
+4. Reopen conditions are written down (what evidence would revive it).
+
+Every dropped entry carries: round, numbers, mechanism, confounds
+considered, reopen conditions. Audit the list against this bar
+whenever a round ends.
+
 - Bold triggers: 2 quiet rounds -> try something different;
 40 gens on a rung -> diagnose, don't advance blind.
 

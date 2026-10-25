@@ -20,6 +20,31 @@ tools/maps/curriculum/README.md.
 
 ## open (ordered)
 
+Each experiment ships with acceptance/falsification criteria in its
+plan file before launch. See Discard bar below for what it takes
+to drop one.
+
+- BC-base + kill-heavy exploiters (round 13 TRYING): AlphaStar base
+  reset + TStar-school role shaping (attribution corrected — the
+  shaping is not AlphaStar's; they keep one reward). Acceptance:
+  exploiters win duels / promotion / champ margins compress.
+- Continuous main lineage: contender trains from own weights +
+  persistent optimizer, resets only on promotion/collapse.
+  Acceptance: promotion rate up vs reset-regime on same pool;
+  falsified if drifters rot (eval floor falls over gens).
+- KL anchor to supervised base: penalty toward g000 weights during
+  training (AlphaStar bounds main drift; ours drifted 100+ gens
+  unleashed). Acceptance: promotions continue past current stall
+  with less drift; falsified if it shackles adaptation (margins
+  freeze).
+- Three-role asymmetry: exploiters face mains only, never each
+  other; beaten mains join a permanent league sampled by PFSP
+  (AlphaStar ME/LE). Only if cycles appear (rock-paper-scissors
+  in the matrix: A beats B beats C beats A). Watch item, not live.
+- Nash-main selection: promote the least-exploitable (Nash mixture
+  weight) instead of Wilson-vs-champ. Only if Wilson promotes
+  specialists that later collapse. Watch item.
+
 - BC-base exploiters (round 13 candidate): exploiter gens spawn
   from BC-from-pros weights instead of random init (AlphaStar:
   exploiters reset to the supervised base). Fresh eyes, competent
@@ -90,7 +115,9 @@ tools/maps/curriculum/README.md.
   -1.28..+1.65) but the incentive is perverse — survivors get paid,
   so not-fighting pays twice. Rung-1 peace 0.68 -> 0.75, decisive
   boards went quiet, 0 promotions. Reverted. Lesson: price winning,
-  never survival.
+  never survival. Reopen if: combat-proportional variant (tiebreak
+  scaled by kills, not bodies), or small-boards-only trial.
+  Single-round evidence — needs a repeat before permanent burial.
 - gen2p boards (round 11): 3.3% and 5.1% decisive — cut per the
   demotion bar.
 - Generated rung 3 (rung3a-d): wrong direction — rung 3 is real
@@ -103,6 +130,9 @@ tools/maps/curriculum/README.md.
   stacked cleverness, deleted for simplicity.
 - FOOD removal (rounds 6-7): 0 promotions in 30 gens. Reverted.
 - Outcome decay (round 5): unjustified discounting. Dropped.
+  WEAK EVIDENCE (0/5 decayed vs 3/15 undecayed, confounded) —
+  kept on theory (time distance != causal distance), not data.
+  Reopen if undecayed ever stalls with early-game blindness.
 - Draw-as-loss: per-minibatch norm washes constants. Stays dropped.
 - 60-turn evals: truncate before skill gaps compound. Dropped for
   eval-turns 150.
