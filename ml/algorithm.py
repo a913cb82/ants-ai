@@ -31,6 +31,20 @@ def logprob(policy: model.CNNPolicy, window: torch.Tensor, action: int) -> float
     return float(torch.log_softmax(logits, dim=0)[action])
 
 
+def to_batch(
+    records: list[dict], returns: list[float]
+) -> list[tuple[torch.Tensor, int, float]]:
+    """Decision rows + priced returns -> learner batch."""
+    return [
+        (
+            torch.tensor(rec["window"], dtype=torch.float32),
+            model.ACTIONS.index(rec["action"]),
+            ret,
+        )
+        for rec, ret in zip(records, returns, strict=True)
+    ]
+
+
 def reinforce_step(
     policy: model.CNNPolicy,
     batch: list[tuple[torch.Tensor, int, float]],

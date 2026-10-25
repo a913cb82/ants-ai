@@ -5,7 +5,7 @@ Inference runs the torch CNNPolicy from model.py over the 6-channel
 local window, one ant at a time. Water is hard-masked from the window;
 the live reservation set blocks already-claimed tiles so two ants never
 take the same square. weights.json holds the champion parameters; the
-trainer rewrites it only on promotion. `MyBot.py [weights]` points the
+trainer rewrites it only on promotion. `MLBot.py [weights]` points the
 bot at another file for self-play games.
 """
 

@@ -8,6 +8,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "bots" / "alphastarzero"))
 sys.path.insert(0, str(ROOT / "ml"))
@@ -349,7 +351,7 @@ def test_outcome_loss_and_draw():
 
 
 def test_bot_records_turn_rows_when_env_set(tmp_path, monkeypatch):
-    import MyBot
+    import MLBot
 
     monkeypatch.setenv("AZ0_RECORD_DIR", str(tmp_path))
 
@@ -387,7 +389,7 @@ def test_bot_records_turn_rows_when_env_set(tmp_path, monkeypatch):
         def time_remaining(self):
             return 1000
 
-    bot = MyBot.AlphaZeroBot()
+    bot = MLBot.AlphaZeroBot()
     bot.do_setup(StubAnts())
     bot.do_turn(StubAnts())
     files = list(tmp_path.glob("*.jsonl"))
@@ -402,7 +404,7 @@ def test_bot_records_turn_rows_when_env_set(tmp_path, monkeypatch):
 def test_bot_samples_with_temperature(tmp_path, monkeypatch):
     import torch
 
-    import MyBot
+    import MLBot
 
     monkeypatch.setenv("AZ0_RECORD_DIR", str(tmp_path))
     monkeypatch.setenv("AZ0_TEMPERATURE", "3.0")
@@ -442,7 +444,7 @@ def test_bot_samples_with_temperature(tmp_path, monkeypatch):
             return 1000
 
     torch.manual_seed(0)
-    bot = MyBot.AlphaZeroBot()
+    bot = MLBot.AlphaZeroBot()
     bot.do_setup(SymmetricStub())
     seen = set()
     for _ in range(200):
@@ -458,12 +460,12 @@ def test_bot_weights_path_override(tmp_path):
     import torch
 
     import model
-    import MyBot
+    import MLBot
 
     torch.manual_seed(123)
     alt = tmp_path / "alt.json"
     alt.write_text(json.dumps(model.state_dict_to_lists(model.CNNPolicy())))
-    bot = MyBot.AlphaZeroBot(weights_path=str(alt))
+    bot = MLBot.AlphaZeroBot(weights_path=str(alt))
     assert bot.policy(torch.zeros(1, 6, 9, 9)).shape == (1, 5)
 
 
@@ -654,3 +656,99 @@ def test_train_step_noop_on_equal_returns():
     assert stats["loss"] == 0.0
     for b, p in zip(before, policy.parameters(), strict=True):
         assert torch.equal(b, p)
+
+
+def test_archive_save_load_roundtrip(tmp_path):
+    import archive
+
+    base = tmp_path / "archive"
+    cid = archive.save_checkpoint(base, {"w": [1.0]}, role="main", parent=None)
+    assert archive.load_checkpoint(base, cid) == {"w": [1.0]}
+    assert archive.members(base)[0]["id"] == cid
+
+
+def test_nash_splits_rock_paper_scissors(tmp_path):
+    import archive
+
+    base = tmp_path / "archive"
+    a = archive.save_checkpoint(base, {}, role="main", parent=None)
+    b = archive.save_checkpoint(base, {}, role="main", parent=None)
+    c = archive.save_checkpoint(base, {}, role="main", parent=None)
+    archive.record_result(base, a, b, 1, 0)
+    archive.record_result(base, b, c, 1, 0)
+    archive.record_result(base, c, a, 1, 0)
+    mix = archive.nash_mixture(base)
+    for cid in (a, b, c):
+        assert mix[cid] == abs(mix[cid]) and abs(mix[cid] - 1 / 3) < 0.05
+
+
+def test_nash_crowns_dominant_strategy(tmp_path):
+    import archive
+
+    base = tmp_path / "archive"
+    a = archive.save_checkpoint(base, {}, role="main", parent=None)
+    b = archive.save_checkpoint(base, {}, role="main", parent=None)
+    archive.record_result(base, a, b, 5, 0)
+    mix = archive.nash_mixture(base)
+    assert mix[a] > 0.9 and mix[b] < 0.1
+
+
+def test_pfsp_prefers_beaters(tmp_path):
+    import archive
+
+    base = tmp_path / "archive"
+    champ = archive.save_checkpoint(base, {}, role="main", parent=None)
+    beater = archive.save_checkpoint(base, {}, role="main", parent=None)
+    victim = archive.save_checkpoint(base, {}, role="main", parent=None)
+    for _ in range(5):
+        archive.record_result(base, beater, champ, 1, 0)
+        archive.record_result(base, champ, victim, 1, 0)
+    picks = archive.sample_opponents(base, champ, 200, self_play_frac=0.0, seed=0)
+    assert picks.count(beater) > picks.count(victim) * 2
+
+
+def test_to_batch_converts_rows_and_returns():
+    import torch
+
+    import algorithm
+
+    records = [
+        {"window": torch.zeros(6, 9, 9).tolist(), "action": "e"},
+        {"window": torch.zeros(6, 9, 9).tolist(), "action": "stay"},
+    ]
+    batch = algorithm.to_batch(records, [1.0, -1.0])
+    assert len(batch) == 2
+    assert batch[0][0].shape == torch.Size([6, 9, 9])
+    assert batch[0][1] == 1 and batch[1][1] == 4
+    assert batch[0][2] == 1.0 and batch[1][2] == -1.0
+
+
+def test_promote_rule_needs_threshold_and_nash():
+    import selfplay
+
+    assert selfplay.should_promote(0.60, 0.5, 0.4, 0.55)
+    assert not selfplay.should_promote(0.50, 0.5, 0.4, 0.55)
+    assert not selfplay.should_promote(0.80, 0.2, 0.4, 0.55)
+
+
+@pytest.mark.slow
+def test_game_if_mirror_plays_and_prices(tmp_path):
+    import game_if
+    import rewards
+
+    out = game_if.play(
+        ROOT,
+        sys.executable,
+        json.loads((ROOT / "bots" / "alphastarzero" / "weights.json").read_text()),
+        json.loads((ROOT / "bots" / "alphastarzero" / "weights.json").read_text()),
+        "tools/maps/example/tutorial1.map",
+        10,
+        tmp_path / "g0",
+        temperature=1.0,
+        player_seed=0,
+        engine_seed=0,
+    )
+    assert out["game"]["game_length"] == 10
+    assert out["records_a"] and out["records_b"]
+    r = rewards.compute_returns(out["game"], 0, out["records_a"])
+    assert len(r) == len(out["records_a"])
