@@ -28,8 +28,13 @@ BOT_WEIGHTS = ROOT / "bots" / "alphastarzero" / "weights.json"
 
 def default_config() -> dict:
     return {
-        "maps": ["tools/maps/example/tutorial1.map"],
-        "turns": 50,
+        "maps": [
+            "tools/maps/example/tutorial1.map",
+            "tools/maps/maze/maze_02p_02.map",
+            "tools/maps/random_walk/random_walk_p02_03.map",
+            "tools/maps/cell_maze/cell_maze_p02_04.map",
+        ],
+        "turns": 100,
         "train_games": 4,
         "eval_games": 20,
         "temperature": 1.0,

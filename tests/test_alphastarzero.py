@@ -1338,3 +1338,17 @@ def test_bot_loads_deep_weights(tmp_path):
     )
     bot = MLBot.AlphaZeroBot(weights_path=str(alt))
     assert bot.policy.arch == "deep"
+
+
+def test_default_maps_exist_and_turns_cover_endgames():
+    import os
+
+    import selfplay
+
+    cfg = selfplay.default_config()
+    assert len(cfg["maps"]) >= 3  # no single-map overfitting
+    import os
+
+    for m in cfg["maps"]:
+        assert os.path.exists(m), m
+    assert cfg["turns"] >= 100  # reach decisive phases, not just openings
