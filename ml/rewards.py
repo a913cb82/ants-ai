@@ -97,8 +97,9 @@ def compute_returns(game, me, records):
         return [i for i, (t, d) in enumerate(zip(turns, dests)) if t == turn and d == loc]
 
     # food gathered by me: credit the ants that stepped onto the tile
-    # food gathered by me: credit my ants that ended the turn within
-    # spawnradius of the tile (gathering is by proximity, not occupancy)
+    # food gathered by me: credit my ants that ended the turn ADJACENT to
+    # the tile. Gathering runs on nearby_ants, which excludes distance 0:
+    # the ant standing ON the food does not gather it. 0 < d2 <= spawnradius2.
     spawn2 = replaydata.get("spawnradius2", 1)
     for entry in replaydata.get("food", []):
         if len(entry) < 5 or entry[4] != me:
@@ -107,7 +108,7 @@ def compute_returns(game, me, records):
         near = [
             i
             for i, (t, d) in enumerate(zip(turns, dests))
-            if t == end and _dist2(d, (r, c), rows, cols) <= spawn2
+            if t == end and 0 < _dist2(d, (r, c), rows, cols) <= spawn2
         ]
         for i in near:
             rets[i] += FOOD / len(near)
@@ -139,17 +140,28 @@ def compute_returns(game, me, records):
         for i in near:
             rets[i] += KILL / len(near)
 
-    # hills: razed iff end_turn <= game length; team-shared that turn
+    # hills: razed iff end_turn <= game length. A hill falls to the single
+    # enemy ant standing ON it (do_raze_hills), so the raze credits the
+    # ant on the tile; a lost hill is a team failure, split across the
+    # team's ants that turn.
     for entry in replaydata.get("hills", []):
         r, c, owner, end = entry
         if end > length:
             continue
-        mine = [i for i, t in enumerate(turns) if t == end]
-        if not mine:
-            continue
-        share = (HILL_RAZE if owner != me else HILL_LOST) / len(mine)
-        for i in mine:
-            rets[i] += share
+        razers = [
+            i
+            for i, (t, d) in enumerate(zip(turns, dests))
+            if t == end and d == (r, c)
+        ]
+        if razers:
+            for i in razers:
+                rets[i] += (HILL_RAZE if owner != me else HILL_LOST) / len(razers)
+        else:
+            mine = [i for i, t in enumerate(turns) if t == end]
+            if mine:
+                share = (HILL_RAZE if owner != me else HILL_LOST) / len(mine)
+                for i in mine:
+                    rets[i] += share
 
     # terminal outcome discounted back to every decision
     end_value = outcome(game, me)

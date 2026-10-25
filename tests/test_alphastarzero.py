@@ -282,7 +282,7 @@ def test_food_credit_goes_to_gatherer_dest():
         {"turn": 3, "loc": [0, 0], "dest": [0, 0], "action": "stay"},
     ]
     rets = rewards.compute_returns(game, 0, records)
-    assert rets[0] == rewards.FOOD
+    assert rets[0] == 0.0  # on top: nearby_ants excludes distance 0
     assert rets[1] == 0.0
 
 
@@ -314,17 +314,30 @@ def test_kill_credit_splits_among_nearby_attackers():
     assert rets[1] == 0.0
 
 
-def test_hill_raze_shared_across_alive_ants():
+def test_hill_raze_credits_the_ant_on_the_hill():
     import rewards
 
     game = _game()
     game["replaydata"]["hills"] = [[8, 8, 1, 4]]  # enemy hill razed turn 4
     records = [
-        {"turn": 4, "loc": [1, 1], "dest": [1, 1], "action": "stay"},
+        {"turn": 4, "loc": [8, 7], "dest": [8, 8], "action": "e"},
         {"turn": 4, "loc": [2, 2], "dest": [2, 2], "action": "stay"},
     ]
     rets = rewards.compute_returns(game, 0, records)
-    assert rets == [rewards.HILL_RAZE / 2, rewards.HILL_RAZE / 2]
+    assert rets == [rewards.HILL_RAZE, 0.0]
+
+
+def test_hill_loss_splits_across_team():
+    import rewards
+
+    game = _game()
+    game["replaydata"]["hills"] = [[1, 1, 0, 4]]  # own hill lost turn 4
+    records = [
+        {"turn": 4, "loc": [5, 5], "dest": [5, 5], "action": "stay"},
+        {"turn": 4, "loc": [2, 2], "dest": [2, 2], "action": "stay"},
+    ]
+    rets = rewards.compute_returns(game, 0, records)
+    assert rets == [rewards.HILL_LOST / 2, rewards.HILL_LOST / 2]
 
 
 def test_outcome_win_adds_terminal_bonus_discounted():

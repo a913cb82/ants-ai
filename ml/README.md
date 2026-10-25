@@ -48,12 +48,15 @@ Pure function of the engine replay plus the bot's decision log:
 - **Decisions**: the bot appends `{turn, loc, dest, action, cues}`
   per ant per turn, only when `AZ0_RECORD_DIR` is set (self-play
   only; outside the bot tree so league hashing stays clean).
-- **Credit** (`compute_returns`): food/kills go to the ants within
-  gather/attack radius (`spawnradius2`/`attackradius2` from the
-  replay); deaths hit the dead ant; hills split across the team's
-  ants that turn; outcome (`WIN=25 / LOSS=-25 / DRAW=0`) discounts
-  back to every decision at `GAMMA=0.99`. Dense events are
-  same-turn; the outcome carries the long horizon.
+- **Credit** (`compute_returns`): food goes to ants ending the turn
+  *adjacent* to the tile (`0 < d2 <= spawnradius2` — the engine's
+  `nearby_ants` excludes distance 0, so standing ON food gathers
+  nothing); kills to ants within `attackradius2` of the death;
+  deaths hit the dead ant; a raze credits the single ant ON the
+  hill (`do_raze_hills`); a lost hill splits across the team that
+  turn. Outcome (`WIN=25 / LOSS=-25 / DRAW=0`) discounts back to
+  every decision at `GAMMA=0.99`. Dense events are same-turn; the
+  outcome carries the long horizon.
 - **Trajectories**: rebuilt from initial tile + order string, so no
   simulator is needed for credit assignment.
 
