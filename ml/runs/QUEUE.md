@@ -30,6 +30,11 @@ to drop one.
   exploiters win duels / promotion / champ margins compress.
 - Continuous main lineage: contender trains from own weights +
   persistent optimizer, resets only on promotion/collapse.
+  Parents must form CHAINS (contender's parent = its own last self),
+  not stars: round-13 manifest shows 19/20 members parented to g160
+  (45+ gen reign) — one-step mutations from one point cannot walk
+  away from it. Branch cap (e.g. 2 active) + prune rule (eval floor
+  3 gens running -> cut the branch) keeps it affordable.
   Acceptance: promotion rate up vs reset-regime on same pool;
   falsified if drifters rot (eval floor falls over gens).
 - KL anchor to supervised base: penalty toward g000 weights during
