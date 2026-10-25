@@ -611,3 +611,46 @@ def test_act_ranked_lists_best_first_and_respects_blocked():
     top = model.act_greedy(policy, w)
     ranked_blocked = model.act_ranked(policy, w, blocked={top})
     assert ranked_blocked[0] != top
+
+
+def _train_batch(returns=(1.0, 2.0, 3.0)):
+    import torch
+
+    windows = torch.zeros(len(returns), 6, 9, 9)
+    windows[:, 1, 4, 4] = 1.0
+    return [(windows[i], i % 5, float(r)) for i, r in enumerate(returns)]
+
+
+def test_reinforce_raises_chosen_logprob():
+    import torch
+
+    import model
+    import algorithm
+
+    torch.manual_seed(0)
+    policy = model.CNNPolicy()
+    batch = _train_batch(returns=(1.0, 0.0))
+    before = algorithm.logprob(policy, batch[0][0], batch[0][1])
+    algorithm.reinforce_step(policy, batch, lr=1e-2)
+    assert algorithm.logprob(policy, batch[0][0], batch[0][1]) > before
+
+
+def test_advantages_center_on_batch_mean():
+    import algorithm
+
+    assert algorithm.advantages([1.0, 2.0, 3.0]) == [-1.0, 0.0, 1.0]
+
+
+def test_train_step_noop_on_equal_returns():
+    import torch
+
+    import model
+    import algorithm
+
+    torch.manual_seed(0)
+    policy = model.CNNPolicy()
+    before = [p.detach().clone() for p in policy.parameters()]
+    stats = algorithm.reinforce_step(policy, _train_batch((2.0, 2.0, 2.0)), lr=1e-2)
+    assert stats["loss"] == 0.0
+    for b, p in zip(before, policy.parameters(), strict=True):
+        assert torch.equal(b, p)
