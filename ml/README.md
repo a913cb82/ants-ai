@@ -182,3 +182,9 @@ evaluate.py keeps only mean_margin; per-duel margins are discarded.
 Logging the list (10 ints per gen) would show whether a +0.3 mean is
 one +3 game or three +1s — the difference between a fluke and a
 repeatable edge. Cheap; do it when margins start moving.
+
+## Next: eval map rotation offset (bug, not built)
+
+With 12 held maps and 10 eval duels starting at pool[0], maps 10-11
+are never evaluated. Fix: offset the rotation by generation index
+(start = gen_index % len(pool)) so all held maps cycle into evals.
