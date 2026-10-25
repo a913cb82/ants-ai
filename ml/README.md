@@ -195,7 +195,17 @@ persists via archive/critic.json (training apparatus, not the agent;
 actor still restarts from champion, evals use policy only). 15-gen
 continuity probe (seed 99, turns 60, defaults) next.
 
-## The run that should learn (2026-10-25, in flight)
+## Run 2 (2026-10-25, in flight): the unstick attempt
+
+Same lineage (ml/archive, BC g000, 15 more gens -> 45). Four fixes
+vs the flat 30: full-trunk critic banking (was head-only no-op),
+ENGAGE=0.5 enemy-approach shaping, exams at 150 turns (60t exams
+truncated before wars resolved), exploration up (temp 2.0 +
+entropy 0.05; the actor sat frozen at BC weights, 0.006 moves).
+Watch: v start-epoch falling across gens (continuity finally
+working?), first non-zero margin, first win/promotion.
+
+## The run that should learn (2026-10-25, done flat)
 
 30 gens, seed 456, turns 60, defaults + --init-weights
 /tmp/bcpros/bc_weights.json (BC val 0.462; live gate 23-4).
