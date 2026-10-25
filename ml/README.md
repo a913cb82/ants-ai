@@ -119,3 +119,20 @@ bot env (OMP/MKL/OPENBLAS=1 in game_if; torch.set_num_threads(1)
 in the bot). Training compute untouched: 86ms/epoch is noise next
 to data cost. Fixed cost left: torch cold start ~1.3s/bot/game
 (engine spawns fresh interpreters; out of our hands).
+
+## Pro calibration (2026-10-25; toolchains installed)
+
+Only pas11 runs as-ported; the rest needed compilers (apt: default-jdk
++ build-essential + mono-complete) and all now build except flagcapper
+(needs -Wno-implicit-function-declaration, applied to its .sh).
+Long games, all rank-stabilized endings, none hitting turn budgets:
+- xathis 3-0 fourmidable, tutorial1, 165 turns.
+- greentea 3-0 lazarant, generated gen2p_05, 135 turns.
+- flagcapper 3-0 starter, tutorial1, 24 turns (fast C bot).
+- xathis 3-0 AZ0 (early champion), tutorial1, 30 turns.
+- pas11 is broken as an opponent: crashes on first enemy contact
+  (3-arg destination call its bundled ants.py lacks); also too slow
+  (~1000ms/turn, timed out twice). Not a sparring partner.
+Lesson: competent games resolve at 130-165 turns, so default turns
+100 -> 150 (covers the resolution range; 300-turn endgame evals stay
+periodic). xathis is the external measuring stick.

@@ -47,7 +47,7 @@ def default_map_pool() -> list[str]:
 def default_config() -> dict:
     return {
         "maps": default_map_pool(),
-        "turns": 100,
+        "turns": 150,
         "train_games": 4,
         "eval_games": 20,
         "temperature": 1.0,

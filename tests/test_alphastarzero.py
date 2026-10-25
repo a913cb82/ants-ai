@@ -1352,7 +1352,7 @@ def test_default_maps_exist_and_turns_cover_endgames():
 
     for m in cfg["maps"]:
         assert os.path.exists(m), m
-    assert cfg["turns"] >= 100  # reach decisive phases, not just openings
+    assert cfg["turns"] >= 150  # pro games resolve at 130-165 turns
 
 
 def _parse_grid(lines: list[str]) -> tuple[int, int, list[str]]:
