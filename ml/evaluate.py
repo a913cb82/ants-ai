@@ -23,14 +23,16 @@ def should_promote(
     wins: int,
     draws: int,
     games: int,
-    nash_chal: float,
-    nash_champ: float,
     threshold: float = 0.5,
 ) -> bool:
-    """Automated promotion: Wilson lower bound clears the bar AND Nash
-    mass. Draws count half a win in both the rate and the bound."""
+    """Automated promotion: Wilson lower bound clears the bar.
+
+    Draws count half a win. Head-to-head vs the champion is the only
+    evidence we trust: challengers never face each other (star data),
+    so the Nash mixture collapses onto whoever last beat the champ
+    and cannot gate promotion. Nash stays recorded for display only."""
     lower = archive.wilson_lower(wins + 0.5 * draws, games)
-    return lower > threshold and nash_chal >= nash_champ
+    return lower > threshold
 
 
 def _play_duel(args) -> tuple[float, float]:

@@ -133,17 +133,13 @@ def snapshot(base: Path) -> dict:
         ngames = ev.get("games", 0)
         wr = ev.get("win_rate", 0.0)
         lower = archive.wilson_lower(ev.get("wins", 0) + 0.5 * draws, ngames)
-        nash_chal = mix.get(h.get("challenger", ""), 0.0)
-        nash_champ = mix.get(h.get("champion", ""), 0.0)
         cfg = h.get("config", {}) or {}
         if not ev:
             reason = "held: waiting on first eval"
         elif h.get("promoted"):
             reason = f"promoted: lower {lower:.2f} clears threshold {thr:.2f}"
-        elif lower <= thr:
-            reason = f"held: lower {lower:.2f} vs threshold {thr:.2f}"
         else:
-            reason = f"held: nash {nash_chal:.2f} < champ {nash_champ:.2f}"
+            reason = f"held: lower {lower:.2f} vs threshold {thr:.2f}"
         gens.append({
             "id": h.get("challenger", h.get("id", "?")),
             "champion": h.get("champion"),
@@ -670,7 +666,7 @@ def render_page() -> str:
 <div class="cols">
 <div>
 <div class="section-title">Population</div>
-<div class="legend">nash = share of the training mixture · W-D-L counts eval duels only</div>
+<div class="legend">nash = mixture share, display only (challengers only face the champion, so it cannot rank them) · W-D-L counts eval duels only</div>
 <div class="card table-scroll table-tall"><table>
 <tr><th>id</th><th>role</th><th>parent</th><th>nash</th><th class="num">W-D-L (eval)</th></tr>
 <tbody id="pop-body"></tbody></table></div>

@@ -27,6 +27,14 @@ import model
 
 BatchItem = tuple[torch.Tensor, int, float, list, float]
 
+# NESW are equivalent: the rules never favor a compass direction, so a
+# rotated window with the counter-rotated move is an equally valid row.
+# One CCW turn sends n->w->s->e->n (stay stays); the mask permutes with
+# the actions (mask'[new] = mask[old]). Random k per row quadruples
+# the directional coverage of a 6k-param net for free.
+ROT_PERM = (3, 0, 1, 2, 4)
+ROT_MASK = (1, 2, 3, 0, 4)
+
 
 def new_policy(
     weights: dict | None = None, arch: str | None = None
@@ -69,6 +77,19 @@ def to_batch(
     ]
 
 
+def _rotate_item(item: BatchItem, k: int) -> BatchItem:
+    """Rotate a row k quarter-turns CCW (window, action, mask together).
+
+    k = 0 is the identity. The return is untouched: rotation preserves
+    game facts, only the viewpoint turns."""
+    w, a, r, m, o = item
+    for _ in range(k % 4):
+        w = torch.rot90(w, 1, [1, 2])
+        a = ROT_PERM[a]
+        m = [m[i] for i in ROT_MASK]
+    return (w, a, r, m, o)
+
+
 def collect(
     policy: model.CNNPolicy, records: list[dict], returns: list[float]
 ) -> list[BatchItem]:
@@ -78,6 +99,10 @@ def collect(
     items = to_batch(records, returns, [0.0] * len(returns))
     if not items:
         return items
+    # Random rotation per row: the behavior log-probs are scored on the
+    # rotated pairs, so PPO's ratio stays on-policy by construction.
+    ks = torch.randint(0, 4, (len(items),)).tolist()
+    items = [_rotate_item(it, k) for it, k in zip(items, ks, strict=True)]
     chosen, _entropy = masked_log_probs(policy, items)
     return [
         (w, a, r, m, float(c))

@@ -232,8 +232,7 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
         {k: v for k, v in chal_w.items() if model.is_critic_key(k)})
     mix = archive.nash_mixture(base)
     promoted = evaluate.should_promote(
-        ev["wins"], ev["draws"], ev["games"],
-        mix.get(chal_id, 0.0), mix.get(champ_id, 0.0), cfg["promote_threshold"],
+        ev["wins"], ev["draws"], ev["games"], cfg["promote_threshold"],
     )
     finished = time.time()
     report = {

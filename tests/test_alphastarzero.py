@@ -754,12 +754,15 @@ def test_to_batch_converts_rows_and_returns():
     assert batch[1][3] == [False, False, False, False, True]
 
 
-def test_promote_rule_needs_wilson_and_nash():
+def test_promote_rule_needs_wilson():
     import evaluate
 
-    assert evaluate.should_promote(7, 0, 10, 0.5, 0.4)
-    assert not evaluate.should_promote(4, 0, 10, 0.5, 0.4)
-    assert not evaluate.should_promote(10, 0, 10, 0.2, 0.4)
+    assert evaluate.should_promote(10, 0, 10)
+    assert evaluate.should_promote(7, 0, 10)
+    assert not evaluate.should_promote(6, 0, 10)
+    # draws count half: 6W/2D (7.0 effective) clears, 5W/2D doesn't.
+    assert evaluate.should_promote(6, 2, 10)
+    assert not evaluate.should_promote(5, 2, 10)
 
 
 def test_wilson_lower_bounds():
@@ -793,6 +796,49 @@ def test_kill_credit_excludes_zero_distance():
     assert rewards.compute_returns(game, 0, records) == [0.0]
 
 
+
+
+def test_rotation_permutes_actions_and_masks():
+    import algorithm
+
+    # n->w->s->e->n per CCW turn; stay fixed; mask follows the action.
+    names = ["n", "e", "s", "w", "stay"]
+    assert [names[algorithm.ROT_PERM[i]] for i in range(5)] == [
+        "w", "n", "e", "s", "stay"]
+    mask = [True, False, True, False, True]
+    assert [[mask[i] for i in algorithm.ROT_MASK]] == [
+        [False, True, False, True, True]]
+    # four turns return every action.
+    a = 0
+    for _ in range(4):
+        a = algorithm.ROT_PERM[a]
+    assert a == 0
+
+
+def test_rotate_item_turns_window_action_mask_together():
+    import algorithm
+    import torch
+
+    w = torch.zeros(6, 9, 9)
+    w[0, 0, 4] = 1.0  # north-center marker
+    item = (w, 0, 1.0, [True, False, False, False, True], 0.0)
+    rw, ra, rr, rm, _ = algorithm._rotate_item(item, 1)
+    assert rw.shape == (6, 9, 9)
+    assert rw[0, 4, 0] == 1.0 and rw.sum() == 1.0  # west-center now
+    assert ra == 3  # n became w
+    assert rr == 1.0  # return untouched
+    assert rm == [False, False, False, True, True]  # legal n became legal w
+    # stay is invariant under any rotation.
+    sw = torch.zeros(6, 9, 9)
+    s = (sw, 4, 0.5, [False, False, False, False, True], 0.0)
+    for k in (1, 2, 3):
+        _, sa, _, sm, _ = algorithm._rotate_item(s, k)
+        assert sa == 4 and sm == [False, False, False, False, True]
+    # k=0 identity, k=4 == k=0.
+    for k in (0, 4):
+        zw, za, _, zm, _ = algorithm._rotate_item(item, k)
+        assert torch.equal(zw, w) and za == 0
+        assert zm == [True, False, False, False, True]
 
 
 def test_decompose_reports_category_mass():
