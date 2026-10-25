@@ -135,6 +135,7 @@ def snapshot(base: Path) -> dict:
         lower = archive.wilson_lower(ev.get("wins", 0) + 0.5 * draws, ngames)
         nash_chal = mix.get(h.get("challenger", ""), 0.0)
         nash_champ = mix.get(h.get("champion", ""), 0.0)
+        cfg = h.get("config", {}) or {}
         if not ev:
             reason = "held: waiting on first eval"
         elif h.get("promoted"):
@@ -154,6 +155,9 @@ def snapshot(base: Path) -> dict:
             "threshold": thr,
             "promoted": bool(h.get("promoted")),
             "reason": reason,
+            "arch": cfg.get("arch", "base"),
+            "turns": cfg.get("turns", 0),
+            "gamma": cfg.get("gamma", 0.0),
         })
     gens.reverse()
     losses = []
@@ -501,8 +505,9 @@ function renderGenerations(){
     `<span class="marker" style="left:${(g.threshold*100).toFixed(0)}%"></span></span>`+
     `${g.eval_w}-${g.eval_d}-${Math.max(0,g.eval_games-g.eval_w-g.eval_d)} · ${(g.win_rate*100).toFixed(0)}% (draw=&#189;) · lower ${g.wilson_lower.toFixed(2)}</span></td>`+
     `<td>${g.promoted?'<span class="badge promoted">promoted ★</span>':'<span class="badge held">held</span>'}`+
-    `<div class="legend" style="margin:4px 0 0">${esc(g.reason)}</div></td></tr>`;}).join("");
-  $("gen-body").innerHTML=rows||'<tr><td colspan="5" class="empty">no completed generations yet</td></tr>';
+    `<div class="legend" style="margin:4px 0 0">${esc(g.reason)}</div></td>`+
+    `<td class="num legend">${esc(g.arch)} · ${g.turns}t · γ${g.gamma}</td></tr>`;}).join("");
+  $("gen-body").innerHTML=rows||'<tr><td colspan="6" class="empty">no completed generations yet</td></tr>';
 }
 function memberIds(){return S.members.map(m=>m.id);}
 function renderMemberOptions(){
@@ -626,7 +631,7 @@ def render_page() -> str:
 <div class="section-title">Generations</div>
 <div class="legend">why each challenger was promoted or held — challenger W-D-L · score counts a draw as half a win · green fill is win rate, tick is the promotion threshold</div>
 <div class="card table-scroll" id="gen-card"><table>
-<tr><th>challenger</th><th class="num">train return</th><th class="num">train loss</th><th>eval vs champion</th><th>result</th></tr>
+<tr><th>challenger</th><th class="num">train return</th><th class="num">train loss</th><th>eval vs champion</th><th>result</th><th class="num">config</th></tr>
 <tbody id="gen-body"></tbody></table></div>
 <div class="cols">
 <div>

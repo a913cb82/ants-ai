@@ -36,6 +36,7 @@ def should_promote(
 def _play_duel(args) -> tuple[float, float]:
     """One eval duel: play and record. Thread-safe via archive lock."""
     (cfg, base, chal_id, champ_id, me_w, other_w, slot, g) = args
+    pool = cfg.get("held_maps", cfg["maps"])  # evals on unseen maps
     rel = f"games/{chal_id}/eval{g}"
     out = game_if.play(
         ROOT,
@@ -43,7 +44,7 @@ def _play_duel(args) -> tuple[float, float]:
         me_w,
         other_w,
         game_if.GameConfig(
-            map=cfg["maps"][g % len(cfg["maps"])],
+            map=pool[g % len(pool)],
             turns=cfg["turns"],
             temperature=0.0,
             player_seed=5000 + g,

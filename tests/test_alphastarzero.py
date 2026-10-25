@@ -873,7 +873,9 @@ def test_cli_overrides():
     assert cfg["train_games"] == 2
     assert cfg["turns"] == 20
     assert cfg["commit"] is False
+    # Single-map pools hold nothing out: everything trains.
     assert cfg["maps"] == ["tools/maps/example/tutorial1.map"]
+    assert cfg["held_maps"] == []
 
 
 def test_game_if_cleanup_keeps_replay_drops_sides(tmp_path):
@@ -1347,7 +1349,7 @@ def test_default_maps_exist_and_turns_cover_endgames():
     import selfplay
 
     cfg = selfplay.default_config()
-    assert cfg["maps"] == selfplay.default_map_pool()
+    assert sorted(cfg["maps"] + cfg["held_maps"]) == selfplay.default_map_pool()
     assert len(cfg["maps"]) >= 100  # the full upstream 2p pool + generated
     for m in cfg["maps"]:
         assert os.path.exists(m), m
@@ -1398,3 +1400,54 @@ def test_mapgen_symmetric_and_connected():
             if grid[r][c] == "A"
         )
         assert mapgen._connected(land, start)
+
+
+def test_pool_split_disjoint_and_deterministic():
+    import selfplay
+
+    full = selfplay.default_map_pool()
+    train, held = selfplay.split_pool(full)
+    assert len(train) + len(held) == len(full)
+    assert not set(train) & set(held)
+    assert sorted(train + held) == full
+    assert len(held) >= 8  # real held-out set, not a token
+    assert selfplay.split_pool(full) == (train, held)
+
+
+def test_custom_maps_resplit_for_unseen_evals():
+    import selfplay
+
+    maps = [f"m{i}.map" for i in range(30)]
+    cfg = selfplay.parse_args(["--maps"] + maps)
+    assert sorted(cfg["maps"] + cfg["held_maps"]) == sorted(maps)
+    assert not set(cfg["maps"]) & set(cfg["held_maps"])
+    assert len(cfg["held_maps"]) == 3  # every 13th of 30
+
+
+def test_eval_uses_held_maps_only(tmp_path, monkeypatch):
+    import archive
+    import evaluate
+    import game_if
+
+    base = tmp_path / "archive"
+    w = {"a": [1.0]}
+    champ = archive.save_checkpoint(base, w, role="main", parent=None)
+    seen = []
+
+    class FakeGame:
+        pass
+
+    def fake_play(root, python, wa, wb, gcfg, outdir):
+        seen.append(gcfg.map)
+        (outdir / "logs").mkdir(parents=True, exist_ok=True)
+        (outdir / "logs" / "0.replay").write_text(
+            '{"game_length": 10, "score": [1, 0], "replaydata": {}}'
+        )
+        return {"game": {"game_length": 10, "score": [1, 0], "replaydata": {}},
+                "records_a": [], "records_b": []}
+
+    monkeypatch.setattr(game_if, "play", fake_play)
+    cfg = {"eval_games": 4, "maps": ["train.map"], "held_maps": ["h1.map", "h2.map"],
+           "turns": 5, "temperature": 0.0, "seed": 0}
+    evaluate.evaluate(cfg, base, "chal", w, champ, w)
+    assert seen == ["h1.map", "h2.map", "h1.map", "h2.map"]

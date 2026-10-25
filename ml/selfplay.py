@@ -37,9 +37,23 @@ def default_map_pool() -> list[str]:
     return mapgen.default_pool()
 
 
+def split_pool(pool: list[str]) -> tuple[list[str], list[str]]:
+    """Train pool + held-out eval pool. Every 13th map is held (~11).
+
+    Deterministic, disjoint, union == pool. Evals run on maps the
+    challenger never trained on, so eval W/D measures generalization
+    instead of memorization. Pools under 13 maps hold nothing out."""
+    held = pool[::13] if len(pool) >= 13 else []
+    excluded = set(held)
+    return [m for m in pool if m not in excluded], held
+
+
 def default_config() -> dict:
+    train_maps, held_maps = split_pool(default_map_pool())
     return {
-        "maps": default_map_pool(),
+        "maps": train_maps,
+        "held_maps": held_maps,
+        "turns": 250,
         "turns": 250,
         "train_games": 4,
         "eval_games": 20,
@@ -66,7 +80,7 @@ def parse_args(argv: list[str] | None = None) -> dict:
 
     defaults = default_config()
     p = argparse.ArgumentParser(description="Run one automated generation.")
-    p.add_argument("--maps", nargs="+", default=defaults["maps"])
+    p.add_argument("--maps", nargs="+", default=None)
     p.add_argument("--turns", type=int, default=defaults["turns"])
     p.add_argument("--train-games", type=int, default=defaults["train_games"])
     p.add_argument("--eval-games", type=int, default=defaults["eval_games"])
@@ -88,8 +102,14 @@ def parse_args(argv: list[str] | None = None) -> dict:
     p.add_argument("--commit", action=argparse.BooleanOptionalAction,
                    default=defaults["commit"])
     args = p.parse_args(argv)
+    if args.maps is None:
+        train_maps, held_maps = defaults["maps"], defaults["held_maps"]
+    else:
+        # Custom pool: re-split so evals stay on unseen maps.
+        train_maps, held_maps = split_pool(sorted(set(args.maps)))
     return {
-        "maps": args.maps,
+        "maps": train_maps,
+        "held_maps": held_maps,
         "turns": args.turns,
         "train_games": args.train_games,
         "eval_games": args.eval_games,
