@@ -35,7 +35,7 @@ LOSS = -5.0
 # Symmetric, so oscillating toward/away nets ~zero (no farming); bounded
 # by ~APPROACH per full approach, dwarfed by FOOD. Offline only: the
 # policy never sees food positions, only its egocentric window.
-APPROACH = 0.2
+APPROACH = 1.0
 DRAW = 0.0
 GAMMA = 0.97
 

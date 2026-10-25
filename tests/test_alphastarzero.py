@@ -464,10 +464,10 @@ def test_dense_reward_discounts_back_along_ant_path():
         {"turn": 2, "loc": [5, 4], "dest": [6, 4], "action": "s"},
     ]
     rets = rewards.compute_returns(game, 0, records)
-    # approach composes with food but does NOT walk back: +0.004 on the
-    # gather turn (same-turn), +0.012 on the approach turn (same-turn).
-    assert rets[1] == rewards.FOOD + 0.004
-    assert rets[0] == rewards.FOOD * rewards.GAMMA + 0.012
+    # approach composes with food but does NOT walk back: +0.02 on the
+    # gather turn (same-turn), +0.06 on the approach turn (same-turn).
+    assert rets[1] == rewards.FOOD + 0.02
+    assert rets[0] == rewards.FOOD * rewards.GAMMA + 0.06
 
 
 def _cnn_window(water_dests=(), radius=4):
@@ -805,8 +805,8 @@ def test_approach_rewards_steps_toward_food():
         {"turn": 3, "loc": [0, 0], "dest": [0, 0], "action": "stay"},
     ]
     rets = rewards.compute_returns(game, 0, records)
-    # d2 4 -> 1 on a 10x10 map: 0.2 * 3 / 50.
-    assert abs(rets[0] - 0.012) < 1e-12
+    # d2 4 -> 1 on a 10x10 map: 1.0 * 3 / 50.
+    assert abs(rets[0] - 0.06) < 1e-12
     assert rets[1] == 0.0
 
 
@@ -819,7 +819,7 @@ def test_approach_punishes_steps_away():
         {"turn": 3, "loc": [5, 7], "dest": [5, 8], "action": "s"},
     ]
     rets = rewards.compute_returns(game, 0, records)
-    assert abs(rets[0] - (-0.02)) < 1e-12
+    assert abs(rets[0] - (-0.1)) < 1e-12
 
 
 def test_approach_ignores_onto_food_and_missing_food():
@@ -848,10 +848,10 @@ def test_approach_does_not_walk_back():
         {"turn": 2, "loc": [5, 4], "dest": [6, 4], "action": "s"},
     ]
     rets = rewards.compute_returns(game, 0, records)
-    # same-turn only: turn 1 keeps its own +0.012, turn 2 its +0.004.
-    # With walk-back, turn 1 would also collect 0.004 * GAMMA.
-    assert abs(rets[0] - 0.012) < 1e-12
-    assert abs(rets[1] - 0.004) < 1e-12
+    # same-turn only: turn 1 keeps its own +0.06, turn 2 its +0.02.
+    # With walk-back, turn 1 would also collect 0.02 * GAMMA.
+    assert abs(rets[0] - 0.06) < 1e-12
+    assert abs(rets[1] - 0.02) < 1e-12
 
 
 def test_decompose_reports_category_mass():
