@@ -115,6 +115,31 @@ def record_result(
     p["matrix"].write_text(json.dumps(data))
 
 
+def log_game(
+    base: Path, gen: str, kind: str, a: str, b: str,
+    score_a: float, score_b: float, replay: str,
+) -> None:
+    """Append one game to the dashboard index (replay path archive-relative)."""
+    init(base)
+    with open(_paths(base)["dir"] / "games.jsonl", "a") as f:
+        f.write(json.dumps({
+            "gen": gen, "kind": kind, "a": a, "b": b,
+            "score_a": score_a, "score_b": score_b, "replay": replay,
+        }) + "\n")
+
+
+def list_games(base: Path, member: str | None = None) -> list[dict]:
+    """Newest first; optionally only games involving member."""
+    path = _paths(base)["dir"] / "games.jsonl"
+    if not path.exists():
+        return []
+    rows = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+    rows.reverse()
+    if member is not None:
+        rows = [r for r in rows if r["a"] == member or r["b"] == member]
+    return rows
+
+
 def _head_to_head(data: dict, kind: str, a: str, b: str) -> tuple[float, float]:
     """(a's wins, b's wins) across both slot orders, with a +1/+1
     Laplace prior: unplayed reads as 0.5 and small samples shrink to it."""

@@ -39,6 +39,7 @@ def evaluate(
     for g in range(cfg["eval_games"]):
         slot = g % 2
         me_w, other_w = (chal_w, champ_w) if slot == 0 else (champ_w, chal_w)
+        rel = f"games/{chal_id}/eval{g}"
         out = game_if.play(
             ROOT,
             sys.executable,
@@ -51,14 +52,14 @@ def evaluate(
                 player_seed=5000 + g,
                 engine_seed=9000 + g,
             ),
-            base / "games" / f"eval{g}",
+            base / rel,
         )
         game = out["game"]
         sa, sb = game["score"][0], game["score"][1]
-        archive.record_result(
-            base, chal_id if slot == 0 else champ_id,
-            champ_id if slot == 0 else chal_id, sa, sb, kind="eval",
-        )
+        first, second = (chal_id, champ_id) if slot == 0 else (champ_id, chal_id)
+        archive.record_result(base, first, second, sa, sb, kind="eval")
+        archive.log_game(base, chal_id, "eval", first, second, sa, sb,
+                         rel + "/logs/0.replay")
         chal_score, champ_score = (sa, sb) if slot == 0 else (sb, sa)
         wins += chal_score > champ_score
         draws += chal_score == champ_score

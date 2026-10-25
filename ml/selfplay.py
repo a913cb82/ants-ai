@@ -83,6 +83,20 @@ def _random_weights(seed: int) -> dict:
     return model.state_dict_to_lists(model.CNNPolicy())
 
 
+def append_history(base: Path, entry: dict) -> None:
+    """Append one generation summary; the dashboard reads this for curves."""
+    archive.init(base)
+    with open(base / "history.jsonl", "a") as f:
+        f.write(json.dumps(entry) + "\n")
+
+
+def read_history(base: Path) -> list[dict]:
+    path = base / "history.jsonl"
+    if not path.exists():
+        return []
+    return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+
+
 def publish(base: Path, report: dict, commit: bool) -> None:
     """Champion pointer + rated weights + optional git commit."""
     archive.set_champion(base, report["challenger"])
@@ -125,6 +139,8 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
         "config": cfg,
     }
     (base / "last_report.json").write_text(json.dumps(report, indent=1))
+    append_history(base, {k: v for k, v in report.items()
+                           if k != "challenger_weights"})
     if promoted:
         publish(base, report, commit)
     return report

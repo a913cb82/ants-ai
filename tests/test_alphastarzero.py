@@ -867,3 +867,56 @@ def test_first_generation_runs_and_reports(tmp_path):
     assert rep["config"]["turns"] == 10
     leftovers = [p for p in (tmp_path / "archive" / "games").rglob("side_a")]
     assert leftovers == []
+
+
+def test_games_index_roundtrip_and_filter(tmp_path):
+    import archive
+
+    base = tmp_path / "archive"
+    archive.log_game(base, "g001", "train", "g000", "g001", 3, 1, "games/g001/t0/logs/0.replay")
+    archive.log_game(base, "g001", "eval", "g001", "g002", 2, 2, "games/g001/e0/logs/0.replay")
+    all_games = archive.list_games(base)
+    assert len(all_games) == 2
+    mine = archive.list_games(base, member="g002")
+    assert len(mine) == 1 and mine[0]["kind"] == "eval"
+    assert mine[0]["replay"] == "games/g001/e0/logs/0.replay"
+
+
+def test_history_append_and_read(tmp_path):
+    import selfplay
+
+    base = tmp_path / "archive"
+    selfplay.append_history(base, {"gen": 0, "promoted": True})
+    selfplay.append_history(base, {"gen": 1, "promoted": False})
+    hist = selfplay.read_history(base)
+    assert [h["gen"] for h in hist] == [0, 1]
+
+
+def test_snapshot_empty_and_populated(tmp_path):
+    import archive
+    import dashboard
+    import selfplay
+
+    base = tmp_path / "archive"
+    snap = dashboard.snapshot(base)
+    assert snap["champion"] is None and snap["members"] == [] and snap["games"] == []
+    a = archive.save_checkpoint(base, {}, role="main", parent=None)
+    b = archive.save_checkpoint(base, {}, role="challenger", parent=a)
+    archive.set_champion(base, a)
+    archive.log_game(base, a, "eval", a, b, 3, 1, "games/g000/e0/logs/0.replay")
+    selfplay.append_history(base, {"train": {"losses": [0.5], "mean_return": 1.0}})
+    snap = dashboard.snapshot(base)
+    assert snap["champion"] == a
+    assert snap["members"][0]["wins"] == 1.0
+    assert snap["games"][0]["replay"].endswith("0.replay")
+
+
+def test_replay_page_guards_traversal(tmp_path):
+    import dashboard
+
+    base = tmp_path / "archive"
+    (base / "games").mkdir(parents=True)
+    (base / "games" / "r.json").write_text("{}")
+    assert dashboard.replay_page(base, "games/r.json") is not None
+    assert dashboard.replay_page(base, "../../etc/passwd") is None
+    assert dashboard.replay_page(base, "missing.json") is None
