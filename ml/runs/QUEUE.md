@@ -13,8 +13,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 16: exact D4 symmetrization (probe 100%, bias gone).
-  Tests whether removing the orientation lottery converts to wins.
+- Round 17: KL anchor to supervised base (beta 0.01, smoke live).
+  Tests whether a light leash beats 100-gen unleashed drift.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
@@ -47,11 +47,13 @@ to drop one.
 
 ## done
 
-- Rounds 13-15: exploiters with teeth (BC base + kill-heavy) +
-  continuous main lineage. 6 promotions in 45 gens (g208, g212,
-  g236, g245 + 2 exploiter crowns g222, g246); chains depth 34;
-  main wr trends up; no rot. Both live as infrastructure.
-  Funnel pattern: water boards fight, opens turtle.
+- Rounds 13-16: exploiters with teeth (BC base + kill-heavy) +
+  continuous main lineage + D4 symmetrization. 7 promotions in 60
+  gens (g208, g212, g236, g245, g253 + 2 exploiter crowns g222,
+  g246); chains depth 34; symmetrization kept as hygiene (100%
+  agreement, free). Score-peace overturned: funnel draws hide
+  bloodbaths (44 deaths) — conversion problem, not pacifism.
+  Demotion bar now contact-based. All live as infrastructure.
 
 - Rung-2 extended pool (rounds 11-12): rung 1 + rung2a-d, then
   f/g/h/i/j staged in. Gap twin-bars, pond twin lakes, 2d back to

@@ -215,6 +215,8 @@ def train_epoch(
     entropy_beta: float = 0.01,
     max_norm: float = 1.0,
     minibatch: int = 64,
+    anchor: model.CNNPolicy | None = None,
+    kl_anchor_beta: float = 0.0,
 ) -> dict[str, float]:
     """One PPO pass: clipped surrogate + value loss - beta * entropy.
 
@@ -226,7 +228,7 @@ def train_epoch(
     elimination, lost records). Returns losses for the generation log.
     """
     stats = {"loss": 0.0, "mean_return": 0.0, "entropy": 0.0, "kl": 0.0,
-             "pg_loss": 0.0, "v_loss": 0.0, "steps": 0}
+             "pg_loss": 0.0, "v_loss": 0.0, "steps": 0, "kl_anchor": 0.0}
     if not batch:
         return stats
     stats["mean_return"] = sum(r for _w, _a, r, _m, _o in batch) / len(batch)
@@ -237,7 +239,7 @@ def train_epoch(
     bmean, bstd = all_ret.mean(), all_ret.std(unbiased=False)
     mb_size = min(minibatch, max(16, len(batch) // 4)) if batch else minibatch
     idx = torch.randperm(len(batch)).tolist()
-    n_loss = n_pg = n_v = n_ent = n_kl = 0.0
+    n_loss = n_pg = n_v = n_ent = n_kl = n_anch = 0.0
     n_steps = 0
     for start in range(0, len(batch), mb_size):
         mb = [batch[i] for i in idx[start:start + mb_size]]
@@ -255,12 +257,20 @@ def train_epoch(
         pg = -torch.min(ratio * adv, torch.clamp(ratio, 1 - clip, 1 + clip) * adv).mean()
         v = ((values - rz) ** 2).mean()
         loss = pg + vf_coef * v - entropy_beta * entropy.mean()
+        if anchor is not None and kl_anchor_beta:
+            with torch.no_grad():
+                alogp = model.masked_log_softmax(anchor, windows, masks)
+            kl_anchor = (logp.exp() * (logp - alogp)).sum(dim=1).mean()
+            loss = loss + kl_anchor_beta * kl_anchor
+        else:
+            kl_anchor = torch.zeros((), device=logp.device)
         opt.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(policy.parameters(), max_norm)
         opt.step()
         kl = ((ratio - 1) - (chosen - old)).mean()
         n_loss += float(loss.detach())
+        n_anch += float(kl_anchor.detach())
         n_pg += float(pg.detach())
         n_v += float(v.detach())
         n_ent += float(entropy.mean().detach())
@@ -270,5 +280,6 @@ def train_epoch(
         "loss": n_loss / n_steps, "pg_loss": n_pg / n_steps,
         "v_loss": n_v / n_steps, "entropy": n_ent / n_steps,
         "kl": n_kl / n_steps, "steps": n_steps,
+        "kl_anchor": n_anch / n_steps,
     })
     return stats

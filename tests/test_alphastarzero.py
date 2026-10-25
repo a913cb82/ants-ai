@@ -554,6 +554,71 @@ def test_forward_is_flip_equivariant():
     assert torch.allclose(base, got[:, list(model.UNFLIP)], atol=1e-5)
 
 
+def test_anchor_kl_zero_for_identical_policies():
+    import torch
+
+    import algorithm
+
+    torch.manual_seed(11)
+    pol = algorithm.new_policy({})
+    anchor = algorithm.new_policy(algorithm.policy_weights(pol))
+    opt = algorithm.make_optimizer(pol, lr=0.0)  # frozen: KL stays exact
+    recs = [{"window": torch.rand(6, 9, 9), "action": "n",
+             "legal": [True] * 5} for _ in range(32)]
+    batch = algorithm.collect(pol, recs, [1.0] * 32)
+    stats = algorithm.train_epoch(pol, opt, batch, anchor=anchor,
+                                  kl_anchor_beta=0.1)
+    assert stats["kl_anchor"] == 0.0
+
+
+def test_anchor_pulls_policy_toward_it():
+    import torch
+
+    import algorithm
+    import model
+
+    torch.manual_seed(13)
+    pol = algorithm.new_policy({})
+    anchor = algorithm.new_policy({})
+    anchor.head.bias.data = torch.tensor([5.0, 0, 0, 0, 0])
+    anchor.eval()
+    probe = [torch.rand(6, 9, 9) for _ in range(64)]
+
+    def agree(p):
+        p.eval()
+        with torch.no_grad():
+            n = 0
+            for w in probe:
+                if int(model.masked_logits(
+                        p, w, frozenset()).argmax()) == int(
+                        model.masked_logits(
+                        anchor, w, frozenset()).argmax()):
+                    n += 1
+            return n / len(probe)
+
+    def mass(p):
+        p.eval()
+        with torch.no_grad():
+            tot = 0.0
+            for w in probe:
+                m = torch.tensor([[True] * 5])
+                lp = model.masked_log_softmax(p, w.unsqueeze(0), m)
+                la = model.masked_log_softmax(anchor, w.unsqueeze(0), m)
+                tot += float(lp.exp()[0, int(la.argmax())])
+            return tot / len(probe)
+
+    before = agree(pol)
+    mass_before = mass(pol)
+    opt = algorithm.make_optimizer(pol)
+    recs = [{"window": torch.rand(6, 9, 9), "action": "n",
+             "legal": [True] * 5} for _ in range(64)]
+    batch = algorithm.collect(pol, recs, [1.0] * 64)
+    algorithm.train_epoch(pol, opt, batch, vf_coef=0.0,
+                          entropy_beta=0.0, anchor=anchor,
+                          kl_anchor_beta=0.5)
+    assert agree(pol) >= before and mass(pol) > mass_before
+
+
 def test_values_are_rotation_invariant():
     import torch
 
@@ -1881,7 +1946,7 @@ def _mocked_generation(monkeypatch, captured):
     import train
 
     def fake_train(cfg, base, champ_id, champ_w, role="challenger",
-                   parent=None, opt_state=None):
+                   parent=None, opt_state=None, **kwargs):
         captured["role"] = role
         captured["init_w"] = copy.deepcopy(champ_w)
         cid = archive.save_checkpoint(base, copy.deepcopy(champ_w), role, champ_id if parent is None else parent)

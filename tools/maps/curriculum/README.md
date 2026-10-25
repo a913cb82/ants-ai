@@ -42,11 +42,10 @@ Boards move, not just rungs.
 clean smoke (runs end to end, no crash) -> joins the next round
 as a passenger. Stays if its train-game decisive rate exceeds 10%
 over that round.
-- Board demotion (pool -> cut): decisive rate under 10% over a
-full round -> cut, no second chances for real boards (gen2p_00
-3.3% and gen2p_05 5.1% in round 11: cut). Curriculum boards get
-one fix attempt first (the toroidal flaw class is repairable),
-then the same bar.
+- Board demotion (pool -> cut): CONTACT rate under 10% over a
+full round -> cut. Contact = deaths or razes in sampled replays
+(score margin alone conflates bloodbaths with standoffs: round-16
+forensics found funnel draws with 44 deaths).
 - Rung promotion: two promotions in any ten-gen window (above).
 - Rung demotion (retreat): a full round under 10% decisive
 rung-wide means signal collapse -> retreat one rung and diagnose

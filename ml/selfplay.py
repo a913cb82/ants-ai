@@ -66,6 +66,7 @@ def default_config() -> dict:
         "clip": 0.2,
         "vf_coef": 0.5,
         "entropy_beta": 0.01,
+        "kl_anchor_beta": 0.0,
         "max_norm": 1.0,
         "minibatch": 64,
         "gamma": 0.97,
@@ -95,6 +96,9 @@ def parse_args(argv: list[str] | None = None) -> dict:
     p.add_argument("--clip", type=float, default=defaults["clip"])
     p.add_argument("--vf-coef", type=float, default=defaults["vf_coef"])
     p.add_argument("--entropy-beta", type=float, default=defaults["entropy_beta"])
+    p.add_argument("--kl-anchor-beta", type=float, default=defaults["kl_anchor_beta"],
+                     help="KL penalty toward the supervised base (g000); "
+                     "0 disables the anchor")
     p.add_argument("--max-norm", type=float, default=defaults["max_norm"])
     p.add_argument("--minibatch", type=int, default=defaults["minibatch"])
     p.add_argument("--gamma", type=float, default=defaults["gamma"])
@@ -130,6 +134,7 @@ def parse_args(argv: list[str] | None = None) -> dict:
         "clip": args.clip,
         "vf_coef": args.vf_coef,
         "entropy_beta": args.entropy_beta,
+        "kl_anchor_beta": args.kl_anchor_beta,
         "max_norm": args.max_norm,
         "minibatch": args.minibatch,
         "gamma": args.gamma,
@@ -249,9 +254,16 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
         start_w = {**start_w,
                    **{k: v for k, v in critic.items()
                       if k in start_w and model.is_critic_key(k)}}
+    anchor_w = None
+    if cfg.get("kl_anchor_beta"):
+        try:
+            anchor_w = archive.load_checkpoint(base, "g000")
+        except (FileNotFoundError, ValueError, KeyError):
+            anchor_w = None
     chal_id, chal_w, train_stats, opt_out = train.train_generation(
         cfg, base, champ_id, start_w, role=role, parent=parent,
-        opt_state=opt_in)
+        opt_state=opt_in, anchor=anchor_w,
+        kl_anchor_beta=cfg.get("kl_anchor_beta", 0.0))
     if not exploiter:
         archive.set_main(base, chal_id)
         archive.save_opt(base, chal_id, opt_out)

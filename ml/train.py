@@ -73,7 +73,7 @@ def _play_one(args) -> dict:
     return {"rows": rows, "rets": rets}
 
 
-def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict, role: str = "challenger", parent: str | None = None, opt_state: dict | None = None) -> tuple[str, dict, dict, dict]:
+def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict, role: str = "challenger", parent: str | None = None, opt_state: dict | None = None, anchor: dict | None = None, kl_anchor_beta: float = 0.0) -> tuple[str, dict, dict, dict]:
     """Self-play training games -> (challenger id, weights, train stats, opt state).
 
     The snapshot's parent defaults to the champion; the continuous
@@ -86,6 +86,10 @@ def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict, role: 
     policy = algorithm.new_policy(chal_w)
     opt = algorithm.make_optimizer(policy, lr=cfg["lr"])
     algorithm.load_opt_state(opt, opt_state)
+    anchor_pol = None
+    if anchor is not None and kl_anchor_beta:
+        anchor_pol = algorithm.new_policy(anchor)
+        anchor_pol.eval()
     jobs = []
     for g in range(cfg["train_games"]):
         opp_id = archive.sample_opponents(base, champ_id, 1, seed=cfg["seed"] + g)[0]
@@ -98,17 +102,19 @@ def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict, role: 
         games = list(pool.map(_play_one, jobs))
     for out in games:
         batch.extend(algorithm.collect(policy, out["rows"], out["rets"]))
-    losses, entropies, kls, pgs, vs = [], [], [], [], []
+    losses, entropies, kls, pgs, vs, anchs = [], [], [], [], [], []
     for _ in range(cfg["epochs"]):
         stats = algorithm.train_epoch(
             policy, opt, batch,
             clip=cfg["clip"], vf_coef=cfg["vf_coef"],
             entropy_beta=cfg["entropy_beta"], max_norm=cfg["max_norm"],
             minibatch=cfg["minibatch"],
+            anchor=anchor_pol, kl_anchor_beta=kl_anchor_beta,
         )
         losses.append(stats["loss"])
         entropies.append(stats["entropy"])
         kls.append(stats["kl"])
+        anchs.append(stats["kl_anchor"])
         pgs.append(stats["pg_loss"])
         vs.append(stats["v_loss"])
     chal_w = algorithm.policy_weights(policy)
@@ -122,6 +128,7 @@ def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict, role: 
         "losses": losses,
         "entropies": entropies,
         "kl": kls,
+        "kl_anchor": anchs,
         "pg_loss": pgs,
         "v_loss": vs,
         "steps": stats.get("steps", 0),
