@@ -519,10 +519,11 @@ function renderCurves(){
   $("ret-last").title=rets.length?"mean return "+rets[rets.length-1].toFixed(4):"";
 }
 function renderPopulation(){
-  const rows=S.members.map(m=>`<tr><td>${esc(m.id)}${m.id===S.champion?' <span class="champ-star">★</span>':""}</td>`+
-    `<td>${esc(m.role)}</td><td>${esc(m.parent||"—")}</td>`+
+  const rows=S.members.map(m=>{const role=m.role==="main"?"seed":m.role;
+    return `<tr><td>${esc(m.id)}${m.id===S.champion?' <span class="champ-star">★</span>':""}</td>`+
+    `<td>${esc(role)}${m.role==="main"?' <span class="legend">founding weights</span>':""}</td><td>${esc(m.parent||"—")}</td>`+
     `<td><span class="nash-wrap"><span class="nash-bar"><div style="width:${(m.nash*100).toFixed(1)}%"></div></span>${m.nash.toFixed(2)}</span></td>`+
-    `<td class="num">${m.wins}-${m.draws}-${m.losses}</td></tr>`).join("");
+    `<td class="num">${m.wins}-${m.draws}-${m.losses}</td></tr>`}).join("");
   $("pop-body").innerHTML=rows||'<tr><td colspan="5" class="empty">no checkpoints yet — start a generation</td></tr>';
 }
 function renderGenerations(){
