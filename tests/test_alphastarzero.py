@@ -864,8 +864,8 @@ def test_engage_rewards_closing_on_living_enemy():
         {"turn": 3, "loc": [0, 0], "dest": [0, 0], "action": "stay"},
     ]
     rets = rewards.compute_returns(game, 0, records)
-    # d2 4 -> 1 on a 10x10 map at half scale: 0.5 * 3 / 50.
-    assert abs(rets[0] - 0.03) < 1e-12
+    # d2 4 -> 1 on a 10x10 map, scaled by ENGAGE: ENGAGE * 3 / 50.
+    assert abs(rets[0] - rewards.ENGAGE * 3 / 50) < 1e-12
     assert rets[1] == 0.0
 
 
@@ -876,7 +876,7 @@ def test_engage_punishes_retreat_and_ignores_missing_foes():
     game["replaydata"]["ants"] = [[5, 5, 1, 5, 1, "---"]]
     records = [{"turn": 3, "loc": [5, 7], "dest": [5, 8], "action": "s"}]
     rets = rewards.compute_returns(game, 0, records)
-    assert abs(rets[0] - (-0.05)) < 1e-12
+    assert abs(rets[0] - (-rewards.ENGAGE * 5 / 50)) < 1e-12
     # stepping onto the foe (d2 == 0) earns nothing, like food.
     records = [{"turn": 3, "loc": [5, 6], "dest": [5, 5], "action": "n"}]
     assert rewards.compute_returns(game, 0, records) == [0.0]
@@ -899,9 +899,9 @@ def test_engage_does_not_walk_back():
         {"turn": 2, "loc": [5, 4], "dest": [6, 4], "action": "s"},
     ]
     rets = rewards.compute_returns(game, 0, records)
-    # same-turn only: 0.5*3/50 then 0.5*1/50, no GAMMA carry.
-    assert abs(rets[0] - 0.03) < 1e-12
-    assert abs(rets[1] - 0.01) < 1e-12
+    # same-turn only: ENGAGE*3/50 then ENGAGE*1/50, no GAMMA carry.
+    assert abs(rets[0] - rewards.ENGAGE * 3 / 50) < 1e-12
+    assert abs(rets[1] - rewards.ENGAGE * 1 / 50) < 1e-12
 
 
 def test_decompose_reports_category_mass():

@@ -39,11 +39,12 @@ APPROACH = 1.0
 # Potential-based enemy engagement (training-only shaping): each step
 # toward the nearest living enemy pays ENGAGE * dd2/S2, steps away
 # charge it. Same rules as food approach (symmetric, same-turn only,
-# bounded) at half the scale: fighting is riskier than gathering, so
-# gathering stays the primary drive. Converts gathering superiority
-# into wars: both sides close in, the bigger army wins the kills, and
-# score finally separates (kills are the only in-game score).
-ENGAGE = 0.5
+# bounded) at DOUBLE the food scale: gathering disperses ants while
+# engagement concentrates them, and 45 gens proved dispersion wins —
+# zero games in the archive ever reached margin 2. Contact is the
+# precondition for kills, kills are the only in-game score, and score
+# is the only selection signal. Priced by DEATH (-1) against suicide.
+ENGAGE = 2.0
 DRAW = 0.0
 GAMMA = 0.97
 
