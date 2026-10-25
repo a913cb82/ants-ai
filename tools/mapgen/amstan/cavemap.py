@@ -2,7 +2,8 @@
 
 import random
 
-from symmetricmap import LAND, WATER, Point, SymmetricMap, diag_directions, directions
+from symmetricmap import SymmetricMap
+from terrain import LAND, WATER, Point, diag_directions, directions
 
 
 class Cavemap(SymmetricMap):
