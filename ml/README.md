@@ -158,5 +158,6 @@ Seek, chess variants): the fixes are exploiters, decisive-weighted
 PFSP, and shorter curricula. Draw-as-loss was considered and
 REJECTED: under per-minibatch standardization a constant draw
 penalty washes out; only return variance trains. Landed: exploiter
-generations (every 3rd gen fresh-inits vs champion, same rule) +
-score-margin logging (draws hide progress; margins show it first).
+generations (every 3rd gen fresh-inits vs champion, same rule;
+live-fire validated) + score-margin logging (draws hide progress;
+margins show it first).
