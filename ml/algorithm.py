@@ -1,9 +1,13 @@
 """RL updates: policy in, improved policy out.
 
-PPO-lite: clipped surrogate + shared-trunk value head + per-minibatch
-standardized (return - value) advantages. Knows torch and the PPO
-estimator. Knows nothing about ants, replays, or the engine: batches
-arrive as (window, action, return, legal-mask, behavior-logprob) tuples,
+PPO with Monte-Carlo targets (no GAE): clipped surrogate +
+shared-trunk value head + per-minibatch standardized
+(return - value) advantages. (GAE was omitted deliberately: with dense
+per-ant shaping over <=150-turn episodes, Monte-Carlo targets are
+already low-bias; see README. Adding GAE is a ~20-line change now
+that the value head exists.) Knows torch and the PPO estimator.
+Knows nothing about ants, replays, or the engine: batches arrive as
+(window, action, return, legal-mask, behavior-logprob) tuples,
 action indices in features.ACTIONS order. Masks come from the stored
 per-decision legal sets, so the learner scores actions under exactly
 the distribution the bot acted with.

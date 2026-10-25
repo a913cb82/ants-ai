@@ -78,7 +78,9 @@ current champion — the rated phenotype, and the only weights in git.
 
 ## Status
 
-CNN policy + full loop landed; first automated generation ran clean
-(trained, evaluated, correctly held the champion on a sub-bar eval).
-Open: learning-signal validation over several generations, exploiter
-phases, value head / PPO when REINFORCE plateaus.
+CNN policy + PPO loop landed (clipped surrogate, shared-trunk value
+head, per-minibatch standardized advantages; Monte-Carlo targets,
+no GAE — see `ml/algorithm.py`). First automated generations ran
+clean (trained, evaluated, correctly held the champion on sub-bar
+evals). Open: learning-signal validation over several generations,
+exploiter phases, GAE if the value baseline proves insufficient.
