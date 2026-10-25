@@ -159,6 +159,8 @@ def snapshot(base: Path) -> dict:
             "turns": cfg.get("turns", 0),
             "gamma": cfg.get("gamma", 0.0),
             "mean_margin": ev.get("mean_margin", 0.0),
+            "margins": ev.get("margins", []),
+            "exploiter": bool(h.get("exploiter")),
         })
     gens.reverse()
     losses = []
@@ -506,7 +508,7 @@ function renderGenerations(){
     `<span class="marker" style="left:${(g.threshold*100).toFixed(0)}%"></span></span>`+
     `${g.eval_w}-${g.eval_d}-${Math.max(0,g.eval_games-g.eval_w-g.eval_d)} · ${(g.win_rate*100).toFixed(0)}% (draw=&#189;) · lower ${g.wilson_lower.toFixed(2)} · margin ${g.mean_margin.toFixed(2)}</span></td>`+
     `<td>${g.promoted?'<span class="badge promoted">promoted ★</span>':'<span class="badge held">held</span>'}`+
-    `<div class="legend" style="margin:4px 0 0">${esc(g.reason)}</div></td>`+
+    `<div class="legend" style="margin:4px 0 0">${esc(g.reason)}</div>`+(g.exploiter?` <span class="badge draw">exploiter</span>`:'')+`</td>`+
     `<td class="num legend">${esc(g.arch)} · ${g.turns}t · γ${g.gamma}</td></tr>`;}).join("");
   $("gen-body").innerHTML=rows||'<tr><td colspan="6" class="empty">no completed generations yet</td></tr>';
 }

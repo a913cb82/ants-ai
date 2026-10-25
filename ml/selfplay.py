@@ -187,7 +187,8 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
     chal_id, chal_w, train_stats = train.train_generation(
         cfg, base, champ_id, start_w,
         role="exploiter" if exploiter else "challenger")
-    ev = evaluate.evaluate(cfg, base, chal_id, chal_w, champ_id, champ_w)
+    ev = evaluate.evaluate(cfg, base, chal_id, chal_w, champ_id, champ_w,
+                             map_offset=gen_index)
     mix = archive.nash_mixture(base)
     promoted = evaluate.should_promote(
         ev["wins"], ev["draws"], ev["games"],

@@ -148,6 +148,19 @@ turns=150 ends 79% of pro games early; 250 covers 58%, 300 covers
 inside a training game, and the 300+ tail stays periodic-eval
 territory.
 
+## 15-gen run on the full new machinery (seed 22, exploiters +
+   held evals + margins)
+
+Returns flat 0.16-0.18 all 15 gens, 0 promotions, eval 2W/148D.
+Both wins came from exploiters (gens 9, 12: 1W/9D, margin +0.3);
+mirrors drew everything else with margins exactly 0.0. Per-duel
+margins (kept in duel order) showed each +0.3 is ONE +3 duel, and
+on DIFFERENT held maps — the champion has small per-map holes and
+fresh inits find them. Exploiters are currently the SOLE source of
+eval signal. Landed on this evidence: duel-ordered per-duel margins,
+eval map rotation by generation (10 duels had left 2 of 12 held maps
+unevaluated forever), exploiter badge on the dashboard.
+
 ## A/B: base vs deep + 10-gen signal run (paired seed 21, 250 turns)
 
 No separation at 3 gens; extended to 10v10. Base: 0.136->0.178

@@ -951,6 +951,24 @@ def test_snapshot_empty_and_populated(tmp_path):
     assert snap["games"][0]["replay"].endswith("0.replay")
 
 
+def test_snapshot_flags_exploiter_generations(tmp_path):
+    import dashboard
+    import selfplay
+
+    base = tmp_path / "archive"
+    selfplay.append_history(base, {
+        "challenger": "c1", "champion": "m", "promoted": False,
+        "exploiter": True,
+        "train": {"losses": [0.5], "mean_return": 0.1},
+        "eval": {"wins": 0, "draws": 2, "games": 2, "win_rate": 0.5,
+                 "margins": [0, 0], "mean_margin": 0.0},
+        "config": {},
+    })
+    snap = dashboard.snapshot(base)
+    assert snap["generations"][0]["exploiter"] is True
+    assert snap["generations"][0]["margins"] == [0, 0]
+
+
 def test_replay_page_guards_traversal(tmp_path):
     import dashboard
 
@@ -1474,11 +1492,39 @@ def test_eval_reports_score_margins(tmp_path, monkeypatch):
 
     monkeypatch.setattr(game_if, "play", fake_play)
     cfg = {"eval_games": 2, "maps": ["m.map"], "turns": 5,
-           "temperature": 0.0, "seed": 0}
+           "temperature": 0.0, "seed": 0, "workers": 1}
     ev = evaluate.evaluate(cfg, base, "chal", w, champ, w)
     # Slot 0: chal is A (3-1 -> +2). Slot 1: chal is B (1-1 -> 0).
-    assert ev["margins"] == [2, 0] or sorted(ev["margins"]) == [0, 2]
+    # Single worker keeps duel order deterministic.
+    assert ev["margins"] == [2, 0]
     assert ev["mean_margin"] == 1.0
+
+
+def test_eval_map_offset_rotates_held_pool(tmp_path, monkeypatch):
+    import archive
+    import evaluate
+    import game_if
+
+    base = tmp_path / "archive"
+    w = {"a": [1.0]}
+    champ = archive.save_checkpoint(base, w, role="main", parent=None)
+    seen = []
+
+    def fake_play(root, python, wa, wb, gcfg, outdir):
+        seen.append(gcfg.map)
+        (outdir / "logs").mkdir(parents=True, exist_ok=True)
+        (outdir / "logs" / "0.replay").write_text(
+            '{"game_length": 10, "score": [1, 1], "replaydata": {}}'
+        )
+        return {"game": {"game_length": 10, "score": [1, 1], "replaydata": {}},
+                "records_a": [], "records_b": []}
+
+    monkeypatch.setattr(game_if, "play", fake_play)
+    cfg = {"eval_games": 2, "maps": ["t.map"],
+           "held_maps": ["h1.map", "h2.map", "h3.map"],
+           "turns": 5, "temperature": 0.0, "seed": 0, "workers": 1}
+    evaluate.evaluate(cfg, base, "chal", w, champ, w, map_offset=1)
+    assert seen == ["h2.map", "h3.map"]
 
 
 def _mocked_generation(monkeypatch, captured):
@@ -1494,7 +1540,8 @@ def _mocked_generation(monkeypatch, captured):
         cid = archive.save_checkpoint(base, copy.deepcopy(champ_w), role, champ_id)
         return cid, copy.deepcopy(champ_w), {"rows": 0}
 
-    def fake_eval(cfg, base, chal_id, chal_w, champ_id, champ_w):
+    def fake_eval(cfg, base, chal_id, chal_w, champ_id, champ_w,
+                  map_offset=0):
         return {"wins": 0, "draws": 0, "games": 0, "win_rate": 0.0,
                 "margins": [], "mean_margin": 0.0}
 

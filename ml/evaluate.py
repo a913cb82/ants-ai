@@ -35,7 +35,7 @@ def should_promote(
 
 def _play_duel(args) -> tuple[float, float]:
     """One eval duel: play and record. Thread-safe via archive lock."""
-    (cfg, base, chal_id, champ_id, me_w, other_w, slot, g) = args
+    (cfg, base, chal_id, champ_id, me_w, other_w, slot, g, offset) = args
     pool = cfg.get("held_maps", cfg["maps"])  # evals on unseen maps
     rel = f"games/{chal_id}/eval{g}"
     out = game_if.play(
@@ -44,7 +44,7 @@ def _play_duel(args) -> tuple[float, float]:
         me_w,
         other_w,
         game_if.GameConfig(
-            map=pool[g % len(pool)],
+            map=pool[(offset + g) % len(pool)],
             turns=cfg["turns"],
             temperature=0.0,
             player_seed=5000 + g,
@@ -62,25 +62,27 @@ def _play_duel(args) -> tuple[float, float]:
 
 
 def evaluate(
-    cfg: dict, base: Path, chal_id: str, chal_w: dict, champ_id: str, champ_w: dict
+    cfg: dict, base: Path, chal_id: str, chal_w: dict, champ_id: str, champ_w: dict,
+    map_offset: int = 0,
 ) -> dict:
     jobs = []
     for g in range(cfg["eval_games"]):
         slot = g % 2
         me_w, other_w = (chal_w, champ_w) if slot == 0 else (champ_w, chal_w)
-        jobs.append((cfg, base, chal_id, champ_id, me_w, other_w, slot, g))
+        jobs.append((cfg, base, chal_id, champ_id, me_w, other_w, slot, g,
+                       map_offset))
     workers = min(cfg.get("workers", 8), len(jobs)) or 1
     wins = draws = finished = 0
-    margins: list[int] = []
+    margins: list[int] = [0] * cfg["eval_games"]
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        future_to_g = {pool.submit(_play_duel, job): job[-1] for job in jobs}
+        future_to_g = {pool.submit(_play_duel, job): job[7] for job in jobs}
         for future in as_completed(future_to_g):
             g = future_to_g[future]
             sa, sb = future.result()
             chal_score, champ_score = (sa, sb) if g % 2 == 0 else (sb, sa)
             wins += chal_score > champ_score
             draws += chal_score == champ_score
-            margins.append(chal_score - champ_score)
+            margins[g] = chal_score - champ_score  # duel order, not finish order
             finished += 1
             archive.write_status(base, {
                 "phase": "eval", "challenger": chal_id,
