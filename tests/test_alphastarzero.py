@@ -103,14 +103,6 @@ def test_model_never_picks_water():
     assert action != "e"
 
 
-def test_weights_file_loads_and_matches_model_keys():
-    import model
-
-    wpath = ROOT / "bots" / "alphastarzero" / "weights.json"
-    weights = json.loads(wpath.read_text())
-    assert set(weights) == set(model.FEATURE_KEYS)
-
-
 def test_window_shape_channels_dtype():
     import features
 
@@ -402,8 +394,77 @@ def test_bot_records_turn_rows_when_env_set(tmp_path, monkeypatch):
     assert len(files) == 1
     row = json.loads(files[0].read_text().strip().splitlines()[-1])
     assert row["turn"] == 1
-    assert row["action"] in ("s", "e")
+    assert row["action"] in ("n", "e", "s", "w", "stay")
     assert "dest" in row and "cues" in row
+    assert len(row["window"]) == 6 and len(row["window"][0]) == 9
+
+
+def test_bot_samples_with_temperature(tmp_path, monkeypatch):
+    import torch
+
+    import MyBot
+
+    monkeypatch.setenv("AZ0_RECORD_DIR", str(tmp_path))
+    monkeypatch.setenv("AZ0_TEMPERATURE", "3.0")
+
+    class SymmetricStub:
+        rows, cols = 10, 10
+        viewradius2 = 77
+
+        def my_ants(self):
+            return [(4, 4)]
+
+        def enemy_ants(self):
+            return []
+
+        def food(self):
+            return []
+
+        def my_hills(self):
+            return []
+
+        def enemy_hills(self):
+            return []
+
+        def destination(self, loc, d):
+            return {"n": (3, 4), "s": (5, 4), "e": (4, 5), "w": (4, 3)}[d]
+
+        def passable(self, loc):
+            return True
+
+        def distance(self, a, b):
+            return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
+        def issue_order(self, order):
+            pass
+
+        def time_remaining(self):
+            return 1000
+
+    torch.manual_seed(0)
+    bot = MyBot.AlphaZeroBot()
+    bot.do_setup(SymmetricStub())
+    seen = set()
+    for _ in range(200):
+        bot.do_turn(SymmetricStub())
+        lines = open(next(tmp_path.glob("*.jsonl"))).read().strip().splitlines()
+        seen.add(json.loads(lines[-1])["action"])
+    assert len(seen) >= 2
+
+
+def test_bot_weights_path_override(tmp_path):
+    import json
+
+    import torch
+
+    import model
+    import MyBot
+
+    torch.manual_seed(123)
+    alt = tmp_path / "alt.json"
+    alt.write_text(json.dumps(model.state_dict_to_lists(model.CNNPolicy())))
+    bot = MyBot.AlphaZeroBot(weights_path=str(alt))
+    assert bot.policy(torch.zeros(1, 6, 9, 9)).shape == (1, 5)
 
 
 def test_food_credit_by_spawnradius_proximity():
@@ -447,3 +508,106 @@ def test_dense_reward_discounts_back_along_ant_path():
     rets = rewards.compute_returns(game, 0, records)
     assert rets[1] == rewards.FOOD
     assert rets[0] == rewards.FOOD * rewards.GAMMA
+
+
+def _cnn_window(water_dests=(), radius=4):
+    import torch
+
+    from features import CHANNELS
+
+    w = torch.zeros(6, 2 * radius + 1, 2 * radius + 1)
+    w[CHANNELS.index("own_ant")][radius][radius] = 1.0
+    for action in water_dests:
+        dr, dc = {"n": (-1, 0), "e": (0, 1), "s": (1, 0), "w": (0, -1), "stay": (0, 0)}[action]
+        w[CHANNELS.index("water")][radius + dr][radius + dc] = 1.0
+    return w
+
+
+def test_cnn_forward_shape():
+    import torch
+
+    import model
+
+    policy = model.CNNPolicy()
+    assert policy(torch.zeros(1, 6, 9, 9)).shape == (1, 5)
+
+
+def test_cnn_radius_agnostic():
+    import torch
+
+    import model
+
+    policy = model.CNNPolicy()
+    assert policy(torch.zeros(1, 6, 5, 5)).shape == (1, 5)
+
+
+def test_cnn_water_mask_forces_stay():
+    import model
+
+    policy = model.CNNPolicy()
+    w = _cnn_window(water_dests=("n", "e", "s", "w"))
+    assert model.act_greedy(policy, w) == "stay"
+
+
+def test_cnn_probs_sum_to_one_and_mask_water():
+    import model
+
+    policy = model.CNNPolicy()
+    w = _cnn_window(water_dests=("n", "e"))
+    probs = model.act_probs(policy, w)
+    assert abs(sum(probs.values()) - 1.0) < 1e-5
+    assert probs["n"] == 0.0 and probs["e"] == 0.0
+
+
+def test_cnn_sample_stays_legal_and_spreads():
+    import torch
+
+    import model
+
+    torch.manual_seed(7)
+    policy = model.CNNPolicy()
+    w = _cnn_window()
+    seen = {model.sample(policy, w, temperature=3.0) for _ in range(200)}
+    assert seen <= {"n", "e", "s", "w", "stay"}
+    assert len(seen) >= 2
+
+
+def test_cnn_state_dict_json_roundtrip(tmp_path):
+    import json
+    import torch
+
+    import model
+
+    policy = model.CNNPolicy()
+    path = tmp_path / "w.json"
+    path.write_text(json.dumps(model.state_dict_to_lists(policy)))
+    policy2 = model.CNNPolicy()
+    policy2.load_state_dict(model.lists_to_state_dict(json.loads(path.read_text())))
+    x = torch.zeros(1, 6, 9, 9)
+    assert torch.equal(policy(x), policy2(x))
+
+
+def test_weights_file_loads_into_cnn():
+    import json
+
+    import torch
+
+    import model
+
+    wpath = ROOT / "bots" / "alphastarzero" / "weights.json"
+    policy = model.CNNPolicy()
+    policy.load_state_dict(model.lists_to_state_dict(json.loads(wpath.read_text())))
+    assert policy(torch.zeros(1, 6, 9, 9)).shape == (1, 5)
+
+
+def test_act_ranked_lists_best_first_and_respects_blocked():
+    import model
+
+    policy = model.CNNPolicy()
+    w = _cnn_window()
+    ranked = model.act_ranked(policy, w)
+    assert set(ranked) == {"n", "e", "s", "w", "stay"}
+    assert ranked[0] == model.act_greedy(policy, w)
+    top = model.act_greedy(policy, w)
+    ranked_blocked = model.act_ranked(policy, w, blocked={top})
+    assert ranked_blocked[0] != top
