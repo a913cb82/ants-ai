@@ -195,6 +195,15 @@ persists via archive/critic.json (training apparatus, not the agent;
 actor still restarts from champion, evals use policy only). 15-gen
 continuity probe (seed 99, turns 60, defaults) next.
 
+## The run that should learn (2026-10-25, in flight)
+
+30 gens, seed 456, turns 60, defaults + --init-weights
+/tmp/bcpros/bc_weights.json (BC val 0.462; live gate 23-4).
+Fresh ml/archive (seed-7 history kept in ml/archive_seed7), commit
+ON. Stack: BC init + split critic + continuity + shaping +
+batch-norm. Watch: v_loss sustained <0.7, train-return ascent,
+first promotion. Dashboard: :8090 (Run card reads run_plan.json).
+
 ## Unblocking the next run (2026-10-25): two-pronged
 
 The combo moved the critic (1.0 -> ~0.85, dips to 0.67) but the
