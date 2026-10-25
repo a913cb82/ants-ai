@@ -156,7 +156,7 @@ Causal chain, evidence-backed:
    from scratch and evals against random. Nothing accumulates.
 2. Batches hold ~20k rows with ~1.6% food-event rows; the rest are
    near-identical walked-back mush (gamma=0.97 over 250 turns credits
-   the whole trajectory almost uniformly: 0.97^250 = 0.0004).
+   the whole trajectory almost uniformly: 0.97^250 ≈ 0.0005).
 3. Per-MINIBATCH advantage standardization amplifies the noise rows
    to O(1) advantages in minibatches that contain zero real events.
    900 noise-gradient steps/gen random-walk the policy far from init
@@ -171,7 +171,7 @@ Causal chain, evidence-backed:
    behavior is frozen (scores identical across gens, 0 razes/96 games,
    ~0.5 deaths/game: random-walk foraging, never fighting).
 
-Probes/fixes, simplest first: 60-turn horizon (gamma contrast 400x)
+Probes/fixes, simplest first: 60-turn horizon (gamma contrast ~330x)
 -> whole-batch advantage norm (preserve event magnitude) -> denser
 shaping only if those fail.
 
