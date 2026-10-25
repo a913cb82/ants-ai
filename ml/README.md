@@ -148,6 +148,33 @@ turns=150 ends 79% of pro games early; 250 covers 58%, 300 covers
 inside a training game, and the 300+ tail stays periodic-eval
 territory.
 
+## Why 30 gens learned nothing (deep-dive 2026-10-25)
+
+Causal chain, evidence-backed:
+
+1. Champion stays random init (0/30 promotions), so every gen trains
+   from scratch and evals against random. Nothing accumulates.
+2. Batches hold ~20k rows with ~1.6% food-event rows; the rest are
+   near-identical walked-back mush (gamma=0.97 over 250 turns credits
+   the whole trajectory almost uniformly: 0.97^250 = 0.0004).
+3. Per-MINIBATCH advantage standardization amplifies the noise rows
+   to O(1) advantages in minibatches that contain zero real events.
+   900 noise-gradient steps/gen random-walk the policy far from init
+   (challenger-vs-champion KL 1.18) and sharpen it onto noise.
+4. The critic chases standardized noise: v_loss flat at ~0.78 all
+   30 gens, and probed trainee value heads diverge (+24 vs target
+   mean 0). Advantages are standardized noise.
+5. Noise-sharpened challenger vs random champion: draws. No promotion.
+   Next gen resets. 30 gens = 30 independent random walks.
+6. Credit code itself is CORRECT (synthetic traces: same-turn food,
+   path walk-back, kill radius, drop conditions all verified) and
+   behavior is frozen (scores identical across gens, 0 razes/96 games,
+   ~0.5 deaths/game: random-walk foraging, never fighting).
+
+Probes/fixes, simplest first: 60-turn horizon (gamma contrast 400x)
+-> whole-batch advantage norm (preserve event magnitude) -> denser
+shaping only if those fail.
+
 ## Launching a run (dashboard progress)
 
 Write `ml/archive/run_plan.json` before starting, e.g.
