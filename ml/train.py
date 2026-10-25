@@ -22,12 +22,25 @@ import game_if
 import rewards
 
 
+def _train_map(maps: list, train_games: int, chal_id: str, g: int) -> str:
+    """Which pool map game g of this generation plays.
+
+    Game index alone (g % len) pins training to the first few maps
+    forever once the pool outgrows games-per-gen. Offset by the
+    generation number so consecutive gens sweep the whole pool."""
+    try:
+        gen_num = int(chal_id[1:])
+    except (ValueError, IndexError):
+        gen_num = 0
+    return maps[(gen_num * train_games + g) % len(maps)]
+
+
 def _play_one(args) -> dict:
     """One train game: play, price, record. Thread-safe via archive lock."""
     (cfg, base, chal_id, opp_id, me_w, other_w, slot, g) = args
     rel = f"games/{chal_id}/train{g}_slot{slot}"
     first, second = (chal_id, opp_id) if slot == 0 else (opp_id, chal_id)
-    map_path = cfg["maps"][g % len(cfg["maps"])]
+    map_path = _train_map(cfg["maps"], cfg["train_games"], chal_id, g)
     out = game_if.play(
         ROOT,
         sys.executable,

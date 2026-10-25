@@ -9,7 +9,7 @@ of difficulty. Graduate on mastery, not on a schedule.
 |------|------|-------|-----------|--------|
 | 1 | rung1_open (tiny + water, hills in sight) | 192 | contact: meet, fight, win | done, mastered |
 | 2 | rung2a/b/c/d (open, pond, gap, lakes; hills beyond sight) | 384–560 | scouting + water routing | in play |
-| 3 | 14 random_walk boards (see list) | 3000–5200 | scale + variety, held-out evals return | queued |
+| 3 | 14 random_walk boards + rung 1 + rung 2 pool (19 total) | 192–5200 | scale + variety, no forgetting | queued |
 | 4 | full pool (148 maps, mazes included) | up to 24k | corridors, chokepoints, full generalization | queued |
 
 ## Graduation rule
@@ -22,12 +22,14 @@ that loses peace (back to all-draws) or stops promoting is a signal
 to diagnose the rewards, not to graduate. Graduation is manual per
 round for now; automate once the ladder stops changing.
 
-## Rung 3 map list (12 train + 2 held)
+## Rung 3 map list (18 train + 2 held)
 
-random_walk_p02_32, _54, _72, _60, _27, _31, _03, _13, _37, _15,
-_12, _45, _08, _20 (all under tools/maps/random_walk/). Held out:
-_03 and _72 (every 13th). All are non-maze open boards; mazes wait
-for the full pool.
+Rung 1 + rung 2a-d stay in the pool (early skills keep training;
+nothing graduates out). Plus 14 random_walk boards: _32, _54, _72,
+_60, _27, _31, _03, _13, _37, _15, _45, _08, _20 (all under
+tools/maps/random_walk/). Held out: rung 1 (retention exam on the
+simplest board) and one random_walk board (every 13th). Train games
+rotate across the pool by generation so every board sees play.
 
 ## Notes
 

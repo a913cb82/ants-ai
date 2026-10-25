@@ -1728,6 +1728,15 @@ def test_eval_turns_overrides_training_turns(tmp_path, monkeypatch):
     assert seen == [60, 60]
 
 
+def test_train_maps_rotate_across_generations():
+    import train
+
+    maps = [f"m{i}.map" for i in range(6)]
+    seen = [train._train_map(maps, 2, f"g{n}", g) for n in range(3)
+            for g in range(2)]
+    assert sorted(seen) == maps
+
+
 def _mocked_generation(monkeypatch, captured):
     import copy
 
