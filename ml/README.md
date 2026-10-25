@@ -133,9 +133,10 @@ Long games, all rank-stabilized endings, none hitting turn budgets:
 - pas11 is broken as an opponent: crashes on first enemy contact
   (3-arg destination call its bundled ants.py lacks); also too slow
   (~1000ms/turn, timed out twice). Not a sparring partner.
-Lesson: competent games resolve at 130-165 turns, so default turns
-100 -> 150 (covers the resolution range; 300-turn endgame evals stay
-periodic). xathis is the external measuring stick.
+Lesson: competent games resolve at 130-220 turns (the 24-game
+sample below: median 229). Default turns 100 -> 150 -> 250 as the
+evidence grew; the 300+ tail stays periodic-eval territory.
+xathis is the external measuring stick.
 
 ## Pro length sample (24 games, 500-turn cap, all 7 working pros,
    all 5 map families, zero timeouts)
