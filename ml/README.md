@@ -148,6 +148,16 @@ turns=150 ends 79% of pro games early; 250 covers 58%, 300 covers
 inside a training game, and the 300+ tail stays periodic-eval
 territory.
 
+## 30-gen training run, seed 7, defaults (2026-10-25)
+
+Status: DAMNING. Returns flat 0.15-0.18 all 30 gens, eval 5W/595D
+(99.2% draws), zero promotions, champion stuck at g000. Only wins:
+gens 1/3/4 (early) + one at g024; gens 5-23 and 25-30 unbroken
+draws with margins exactly 0.0. 15 + 30 gens across two seeds now
+show time alone does not break the plateau: the loop is mechanically
+perfect and learns nothing measurable after gen ~4. Next lever per
+roadmap: decisive-weighted PFSP. Archive: ml/archive (seed 7).
+
 ## 15-gen run on the full new machinery (seed 22, exploiters +
    held evals + margins)
 
