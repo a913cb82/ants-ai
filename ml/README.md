@@ -184,6 +184,17 @@ smeared shaping's immediate contingency with future-movement noise.
 Fix: approach awards are same-turn ONLY (food still walks back).
 Stacked probe v2 next.
 
+## Critic continuity (2026-10-25): the structural fix
+
+v3 (APPROACH=1.0): still flat (v ~1.0, 120/120 draws). v4 (vf_coef
+4.0): v 0.96->0.89, still no wins. Realization: within-gen v falls
+(1.03->0.89 over 3 epochs) but the critic RESETS every generation
+(challenger starts from champion = random init, zero head) and is
+discarded — 30 gens = 30 critic cold-starts. Landed: the value head
+persists via archive/critic.json (training apparatus, not the agent;
+actor still restarts from champion, evals use policy only). 15-gen
+continuity probe (seed 99, turns 60, defaults) next.
+
 ## Critic-fittability test (2026-10-25, /tmp/criticfit.py)
 
 Supervised value-only fit on 1547 random-policy rows: whole-net
