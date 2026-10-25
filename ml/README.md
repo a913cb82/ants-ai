@@ -171,11 +171,16 @@ Causal chain, evidence-backed:
    behavior is frozen (scores identical across gens, 0 razes/96 games,
    ~0.5 deaths/game: random-walk foraging, never fighting).
 
-Probes/fixes, simplest first: 60-turn horizon (gamma contrast ~330x)
--> whole-batch advantage norm (preserve event magnitude) -> denser
-shaping only if those fail.
+Probes/fixes: 60-turn horizon alone FAILED (6 gens, v_loss 0.81-0.99,
+120/120 draws) — horizon sharpens credit but can't create signal when
+returns are unpredictable from windows. Landed instead:
+(a) potential-based food-approach shaping (symmetric, bounded ~0.2
+per approach, offline training-only; every step now carries signal
+the critic can learn from windows), (b) batch-level advantage norm
+(no second standardization; noise minibatches stay small next to
+event minibatches). Stacked probe (turns-60 + both, seed 99) next.
 
-## Shaping design (for the next run if the 60-turn probe stays flat)
+## Shaping design (superseded: implemented + probed, see above)
 
 Potential-based food approach, training-only (policy stays ant-local):
 Phi(s) = -dist(ant, nearest visible food)/scale, reward F = GAMMA*Phi(s')
