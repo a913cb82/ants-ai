@@ -20,6 +20,21 @@ tools/maps/curriculum/README.md.
 
 ## open (ordered)
 
+- Wider receptive field + visibility channel (round 16 candidate):
+  grow the window (radius 4 -> 5/6, still inside legal union vision)
+  and add a channel marking per-tile visibility (mine / teammate's /
+  unseen). Enables beyond-own-LoS decisions the engine already
+  allows: approaching when a friendly holds the far side, reading
+  nearby teammates for coordination. Still fully local (no globals,
+  no communication) — the field widens, the doctrine holds. Needs
+  weight-shape migration (conv1 input channels change; old weights
+  don't load — branch the model version). Acceptance: decisiveness
+  up on big/scouting boards, promotions continue.
+- Parked explicitly: per-ant MEMORY of last-seen tiles (the full
+  version of beyond-LoS knowledge). Stateful bot + stateful training
+  is a new architecture, not an upgrade. Revisit only if union
+  vision + visibility channel prove insufficient.
+
 Each experiment ships with acceptance/falsification criteria in its
 plan file before launch. See Discard bar below for what it takes
 to drop one.
