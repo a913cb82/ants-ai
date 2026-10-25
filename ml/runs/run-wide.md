@@ -17,5 +17,10 @@ exactly what beyond-own-LoS vision targets.
 - Success criteria: >= 1 promotion; elim share rises on gap/caves.
 - Failure criteria: 0 promotions + flat elim -> vision wasn't the
   blocker; revisit attack-conversion shaping (gated engage class).
-- Results: pending.
-- Verdict: pending.
+- Results, first attempt: 0/15 INFRASTRUCTURE FAILURE — every gen
+  crashed at the first opt.step(): banked Adam momentum was still
+  6-channel shaped while the net went 7-channel. Weight migration
+  covered parameters but not optimizer state. Fixed in
+  load_opt_state (shape-validated: matching params keep history,
+  reshaped ones restart fresh; test reproduces the crash). Rerun
+  below is the live verification.

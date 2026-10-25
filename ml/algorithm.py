@@ -138,22 +138,41 @@ def serialize_opt(opt: torch.optim.Optimizer) -> dict:
 
 
 def load_opt_state(opt: torch.optim.Optimizer, blob: dict | None) -> None:
-    """Restore serialized Adam state; ignores shape mismatches."""
+    """Restore serialized Adam state; drops reshaped params.
+
+    Momentum buffers are shape-bound: after a widening (6ch -> 7ch)
+    the old conv1/vconv1 exp_avg no longer fits and must not load
+    (round 18 crashed its first opt.step on exactly this). Matching
+    params keep their history; reshaped ones restart fresh."""
     if not blob:
         return
     try:
         cur = opt.state_dict()
         if not cur["param_groups"]:
             return
+        live = [p for g in opt.param_groups for p in g["params"]]
         state = {}
         for idx, vals in blob.get("state", {}).items():
             try:
                 i = int(idx)
             except (ValueError, TypeError):
                 continue
-            state[i] = {}
+            if i >= len(live):
+                continue
+            want = tuple(live[i].shape)
+            item = {}
+            ok = True
             for k, v in vals.items():
-                state[i][k] = torch.tensor(v) if isinstance(v, list) else v
+                t = torch.tensor(v) if isinstance(v, list) else v
+                # Scalars (step counters) always fit; every buffer
+                # must match exactly or the whole param restarts fresh.
+                if (torch.is_tensor(t) and t.shape != torch.Size(())
+                        and tuple(t.shape) != want):
+                    ok = False
+                    break
+                item[k] = t
+            if ok:
+                state[i] = item
         groups = []
         for cur_g, saved_g in zip(cur["param_groups"],
                                   blob.get("param_groups", [])):

@@ -653,6 +653,32 @@ def test_padded_old_weights_give_identical_outputs():
                            new.values(torch.cat([w6, pad], dim=1)))
 
 
+def test_opt_state_drops_reshaped_params():
+    import torch
+
+    import algorithm
+    import model
+
+    torch.manual_seed(31)
+    old = model.CNNPolicy(channels=6)
+    opt = algorithm.make_optimizer(old)
+    old(torch.rand(2, 6, 9, 9)).sum().backward()
+    opt.step()  # populates momentum buffers
+    blob = algorithm.serialize_opt(opt)
+    new = model.CNNPolicy()  # 7 channels now
+    opt2 = algorithm.make_optimizer(new)
+    algorithm.load_opt_state(opt2, blob)  # must not raise ...
+    new(torch.rand(2, 7, 15, 15)).sum().backward()
+    opt2.step()  # ... nor crash here (the round-18 failure).
+    cur = opt2.state_dict()["state"]
+    params = [p for g in opt2.param_groups for p in g["params"]]
+    for i, p in enumerate(params):
+        if i in cur:
+            for v in cur[i].values():
+                if torch.is_tensor(v) and v.shape != torch.Size(()):
+                    assert v.shape == p.shape
+
+
 def test_values_are_rotation_invariant():
     import torch
 
