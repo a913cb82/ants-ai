@@ -10,6 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "bots" / "alphastarzero"))
+sys.path.insert(0, str(ROOT / "ml"))
 
 
 class FakeAnts:
@@ -232,3 +233,175 @@ def test_window_full_radius_inside_default_sight():
     assert w.sum() > 0.0
     # water tile (2,2) is offset (-2,-2), d2=8 <= 77: still reported
     assert w[features.CHANNELS.index("water")][2][2] == 1.0
+
+
+def _game(**kw):
+    """Minimal 0.replay-shaped game: 10x10, 2 players, 10 turns."""
+    base = {
+        "score": [0, 0],
+        "status": ["survived", "survived"],
+        "length": 10,
+        "replaydata": {
+            "map": {"rows": 10, "cols": 10},
+            "viewradius2": 77,
+            "attackradius2": 5,
+            "food": [],
+            "ants": [],
+            "hills": [],
+        },
+    }
+    base.update(kw)
+    return base
+
+
+def test_reconstruct_tracks_orders_with_wrap():
+    import rewards
+
+    ants = [
+        [9, 9, 1, 11, 0, "es"],  # (9,9) ->e-> (9,0) ->s-> (0,0), survives
+    ]
+    traj = rewards.trajectories(_game()["replaydata"] | {"ants": ants})
+    assert traj[(0, 0)] == [(1, (9, 9)), (2, (9, 0)), (3, (0, 0))]
+
+
+def test_reconstruct_stops_at_death_turn():
+    import rewards
+
+    ants = [[4, 4, 1, 2, 0, "s"]]  # moves south on turn 2, dies there
+    traj = rewards.trajectories(_game()["replaydata"] | {"ants": ants})
+    assert traj[(0, 0)] == [(1, (4, 4)), (2, (5, 4))]
+
+
+def test_food_credit_goes_to_gatherer_dest():
+    import rewards
+
+    game = _game()
+    game["replaydata"]["food"] = [[5, 5, 1, 3, 0]]  # gathered by p0 on turn 3
+    records = [
+        {"turn": 3, "loc": [4, 5], "dest": [5, 5], "action": "s"},
+        {"turn": 3, "loc": [0, 0], "dest": [0, 0], "action": "stay"},
+    ]
+    rets = rewards.compute_returns(game, 0, records)
+    assert rets[0] == rewards.FOOD
+    assert rets[1] == 0.0
+
+
+def test_death_penalizes_dead_ant_only():
+    import rewards
+
+    game = _game()
+    game["replaydata"]["ants"] = [[4, 4, 1, 2, 0, "s"]]
+    records = [
+        {"turn": 2, "loc": [4, 4], "dest": [5, 4], "action": "s"},
+        {"turn": 2, "loc": [0, 0], "dest": [0, 1], "action": "e"},
+    ]
+    rets = rewards.compute_returns(game, 0, records)
+    assert rets[0] == rewards.DEATH
+    assert rets[1] == 0.0
+
+
+def test_kill_credit_splits_among_nearby_attackers():
+    import rewards
+
+    game = _game()
+    game["replaydata"]["ants"] = [[5, 5, 1, 3, 1, "--"]]  # enemy dies turn 3
+    records = [
+        {"turn": 3, "loc": [5, 4], "dest": [5, 4], "action": "stay"},
+        {"turn": 3, "loc": [0, 0], "dest": [0, 0], "action": "stay"},
+    ]
+    rets = rewards.compute_returns(game, 0, records)
+    assert rets[0] == rewards.KILL
+    assert rets[1] == 0.0
+
+
+def test_hill_raze_shared_across_alive_ants():
+    import rewards
+
+    game = _game()
+    game["replaydata"]["hills"] = [[8, 8, 1, 4]]  # enemy hill razed turn 4
+    records = [
+        {"turn": 4, "loc": [1, 1], "dest": [1, 1], "action": "stay"},
+        {"turn": 4, "loc": [2, 2], "dest": [2, 2], "action": "stay"},
+    ]
+    rets = rewards.compute_returns(game, 0, records)
+    assert rets == [rewards.HILL_RAZE / 2, rewards.HILL_RAZE / 2]
+
+
+def test_outcome_win_adds_terminal_bonus_discounted():
+    import rewards
+
+    game = _game(score=[10, 4])
+    records = [{"turn": 9, "loc": [1, 1], "dest": [1, 1], "action": "stay"}]
+    rets = rewards.compute_returns(game, 0, records)
+    assert rets[0] == rewards.WIN * (rewards.GAMMA ** (10 - 9))
+
+
+def test_outcome_loss_and_draw():
+    import rewards
+
+    assert rewards.outcome(_game(score=[3, 9]), 0) == rewards.LOSS
+    assert rewards.outcome(_game(score=[5, 5]), 0) == rewards.DRAW
+
+
+def test_bot_records_turn_rows_when_env_set(tmp_path, monkeypatch):
+    import MyBot
+
+    monkeypatch.setenv("AZ0_RECORD_DIR", str(tmp_path))
+
+    class StubAnts:
+        rows, cols = 10, 10
+        viewradius2 = 77
+
+        def my_ants(self):
+            return [(4, 4)]
+
+        def enemy_ants(self):
+            return []
+
+        def food(self):
+            return [(5, 5)]
+
+        def my_hills(self):
+            return []
+
+        def enemy_hills(self):
+            return []
+
+        def destination(self, loc, d):
+            return {"n": (3, 4), "s": (5, 4), "e": (4, 5), "w": (4, 3)}[d]
+
+        def passable(self, loc):
+            return True
+
+        def distance(self, a, b):
+            return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
+        def issue_order(self, order):
+            pass
+
+        def time_remaining(self):
+            return 1000
+
+    bot = MyBot.AlphaZeroBot()
+    bot.do_setup(StubAnts())
+    bot.do_turn(StubAnts())
+    files = list(tmp_path.glob("*.jsonl"))
+    assert len(files) == 1
+    row = json.loads(files[0].read_text().strip().splitlines()[-1])
+    assert row["turn"] == 1
+    assert row["action"] in ("s", "e")
+    assert "dest" in row and "cues" in row
+
+
+def test_food_credit_by_spawnradius_proximity():
+    import rewards
+
+    game = _game()
+    game["replaydata"]["food"] = [[5, 5, 1, 3, 0]]  # spawnradius2=1: adjacent counts
+    records = [
+        {"turn": 3, "loc": [5, 3], "dest": [5, 4], "action": "e"},
+        {"turn": 3, "loc": [0, 0], "dest": [0, 0], "action": "stay"},
+    ]
+    rets = rewards.compute_returns(game, 0, records)
+    assert rets[0] == rewards.FOOD
+    assert rets[1] == 0.0

@@ -12,7 +12,7 @@ loop (fixed budget, recorded score, keep-the-winner).
 | small discrete actions | `5^N` joint moves | factorized per-ant policy, shared weights |
 | full observability | fog of war, simultaneous moves | local cues + memory-less greedy; history/LSTM later |
 | fast simulator + MCTS | 1000 ms turn, subprocess engine | MCTS over *abstract* orders (raid hill, gather food), not moves; neural net proposes, symbolic resolver disposes |
-| win/loss reward | score + survival + hills | shaped reward now (food delta, kills, hills razed), win/loss value head later |
+| win/loss reward | score + survival + hills | terminal outcome + dense shaping, both in `ml/rewards.py` (landed); learned value head later |
 
 ## Generation loop (each generation = one commit)
 
@@ -38,6 +38,27 @@ loop (fixed budget, recorded score, keep-the-winner).
   (encoder landed: `features.local_window`, radius 4 default; CNN head next)
 - v2: MCTS over abstract group orders with the value head guiding
   search; per-ant policy executes the chosen assignment.
+
+## Reward system (`ml/rewards.py`, landed)
+
+Pure function of the engine replay plus the bot's decision log:
+
+- **Source of truth**: the replay records food pickups (gatherer +
+  turn), every ant's full order string, and hill raze turns.
+- **Decisions**: the bot appends `{turn, loc, dest, action, cues}`
+  per ant per turn, only when `AZ0_RECORD_DIR` is set (self-play
+  only; outside the bot tree so league hashing stays clean).
+- **Credit** (`compute_returns`): food/kills go to the ants within
+  gather/attack radius (`spawnradius2`/`attackradius2` from the
+  replay); deaths hit the dead ant; hills split across the team's
+  ants that turn; outcome (`WIN=25 / LOSS=-25 / DRAW=0`) discounts
+  back to every decision at `GAMMA=0.99`. Dense events are
+  same-turn; the outcome carries the long horizon.
+- **Trajectories**: rebuilt from initial tile + order string, so no
+  simulator is needed for credit assignment.
+
+Try it: run a wired self-play game with `AZ0_RECORD_DIR` set, then
+price its decisions with `rewards.compute_returns(game, 0, records)`.
 
 ## Environment
 
