@@ -37,7 +37,7 @@ def _train_map(maps: list, train_games: int, chal_id: str, g: int) -> str:
 
 def _play_one(args) -> dict:
     """One train game: play, price, record. Thread-safe via archive lock."""
-    (cfg, base, chal_id, opp_id, me_w, other_w, slot, g) = args
+    (cfg, base, chal_id, opp_id, me_w, other_w, slot, g, role) = args
     rel = f"games/{chal_id}/train{g}_slot{slot}"
     first, second = (chal_id, opp_id) if slot == 0 else (opp_id, chal_id)
     map_path = _train_map(cfg["maps"], cfg["train_games"], chal_id, g)
@@ -59,7 +59,7 @@ def _play_one(args) -> dict:
     )
     game = out["game"]
     rows = out["records_a"] if slot == 0 else out["records_b"]
-    rets = rewards.compute_returns(game, slot, rows)
+    rets = rewards.compute_returns(game, slot, rows, rewards.scales_for(role))
     sa, sb = game["score"][0], game["score"][1]
     archive.record_result(base, first, second, sa, sb, kind="train")
     archive.log_game(base, chal_id, "train", first, second, sa, sb,
@@ -86,7 +86,7 @@ def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict, role: 
         opp_w = archive.load_checkpoint(base, opp_id)
         for slot in (0, 1):
             me_w, other_w = (chal_w, opp_w) if slot == 0 else (opp_w, chal_w)
-            jobs.append((cfg, base, chal_id, opp_id, me_w, other_w, slot, g))
+            jobs.append((cfg, base, chal_id, opp_id, me_w, other_w, slot, g, role))
     workers = min(cfg.get("workers", 8), len(jobs)) or 1
     with ThreadPoolExecutor(max_workers=workers) as pool:
         games = list(pool.map(_play_one, jobs))

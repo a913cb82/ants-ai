@@ -260,6 +260,28 @@ def test_kill_credit_splits_among_nearby_attackers():
     assert rets[1] == 0.0
 
 
+def test_exploiter_scales_triple_combat_credit():
+    import rewards
+
+    game = _game()
+    game["replaydata"]["ants"] = [[5, 5, 1, 3, 1, "--"]]
+    records = [
+        {"turn": 3, "loc": [5, 4], "dest": [5, 4], "action": "stay"},
+    ]
+    base = rewards.compute_returns(game, 0, records)
+    sharp = rewards.compute_returns(
+        game, 0, records, rewards.scales_for("exploiter"))
+    assert sharp[0] == 3 * base[0] == 3 * rewards.KILL
+
+
+def test_exploiter_scales_keep_outcome():
+    import rewards
+
+    assert rewards.scales_for("exploiter")["WIN"] == rewards.WIN
+    assert rewards.scales_for("exploiter")["LOSS"] == rewards.LOSS
+    assert rewards.scales_for("challenger")["KILL"] == rewards.KILL
+
+
 def test_hill_raze_credits_the_ant_on_the_hill():
     import rewards
 
@@ -1861,7 +1883,19 @@ def test_exploiter_starts_from_fresh_weights(tmp_path, monkeypatch):
     champ_w = archive.load_checkpoint(base, champ_id)
     rep = selfplay.run_generation(cfg, base, commit=False)
     assert rep["exploiter"] is True
-    assert captured["init_w"] != champ_w  # fresh random init, not a copy
+    # supervised base (g000), not a champ copy — unless the archive
+    # started random, in which case g000 IS random and equality holds.
+    assert captured["init_w"] != champ_w or champ_w == archive.load_checkpoint(base, "g000")
+
+
+def test_exploiter_base_prefers_founding_weights(tmp_path):
+    import archive
+    import selfplay
+
+    base = tmp_path / "archive"
+    archive.save_checkpoint(base, {"w": [1.0]}, "main", None)
+    got = selfplay._exploiter_base(base, {"seed": 0}, 5)
+    assert got == {"w": [1.0]}
 
 
 def test_non_exploiter_copies_champion(tmp_path, monkeypatch):

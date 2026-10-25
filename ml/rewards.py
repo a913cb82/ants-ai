@@ -33,6 +33,24 @@ LOSS = -5.0
 DRAW = 0.0
 GAMMA = 0.97
 
+ROLE_OVERRIDES = {
+    # Exploiters train to kill, not to win efficiently: triple combat
+    # credit, halve gathering, shared hills and outcome. Main line
+    # untouched. Challenger (and anything unknown) gets base rewards.
+    "exploiter": {"FOOD": 0.5, "KILL": 3.0, "DEATH": 3.0},
+}
+
+
+def scales_for(role: str) -> dict:
+    """Full event scale table for a training role."""
+    base = {
+        "FOOD": FOOD, "KILL": KILL, "DEATH": DEATH,
+        "HILL_RAZE": HILL_RAZE, "HILL_LOST": HILL_LOST,
+        "WIN": WIN, "LOSS": LOSS,
+    }
+    base.update(ROLE_OVERRIDES.get(role, {}))
+    return base
+
 def trajectories(replaydata):
     """Replay every ant: {(owner, idx): [(turn, loc), ...]}.
 
@@ -100,7 +118,7 @@ def dests_at(turns, dests, turn, pred=None):
     ]
 
 
-def _awards(game, me, records):
+def _awards(game, me, records, scales):
     """Credit events: (awards, end_value, length, turns, keys).
 
     awards: [(turn, {idx: same-turn share}, scope, kind)]. Shares in one
@@ -133,7 +151,7 @@ def _awards(game, me, records):
             lambda d: 0 < dist2(d, (r, c), rows, cols) <= spawn2,
         )
         if near:
-            awards.append((end, {i: FOOD / len(near) for i in near}, "ant", "food"))
+            awards.append((end, {i: scales["FOOD"] / len(near) for i in near}, "ant", "food"))
 
     # own deaths: penalize the ant that died on its death tile
     for entry in replaydata.get("ants", []):
@@ -145,7 +163,7 @@ def _awards(game, me, records):
             loc = step(loc, order, rows, cols)
         hit = same_turn_dest(end, loc)
         if hit:
-            awards.append((end, {i: DEATH / len(hit) for i in hit}, "ant", "death"))
+            awards.append((end, {i: scales["DEATH"] / len(hit) for i in hit}, "ant", "death"))
 
     # kills: split credit among my ants within attack radius of the death.
     # Combat runs on nearby_ants, which excludes distance 0: a co-located
@@ -162,7 +180,7 @@ def _awards(game, me, records):
             lambda d: 0 < dist2(d, loc, rows, cols) <= attack2,
         )
         if near:
-            awards.append((end, {i: KILL / len(near) for i in near}, "ant", "kill"))
+            awards.append((end, {i: scales["KILL"] / len(near) for i in near}, "ant", "kill"))
 
     # hills: razed iff end_turn <= game length. A hill falls to the single
     # enemy ant standing ON it (do_raze_hills), so the raze credits the
@@ -172,7 +190,7 @@ def _awards(game, me, records):
         r, c, owner, end = entry
         if end > length:
             continue
-        amount = HILL_RAZE if owner != me else HILL_LOST
+        amount = scales["HILL_RAZE"] if owner != me else scales["HILL_LOST"]
         razers = dests_at(turns, dests, end, lambda d: d == (r, c))
         if razers:
             awards.append(
@@ -188,13 +206,14 @@ def _awards(game, me, records):
     return awards, outcome(game, me), length, turns, keys
 
 
-def compute_returns(game, me, records):
+def compute_returns(game, me, records, scales=None):
     """Discounted return for each decision record.
 
     records: [{turn, loc, dest, action, ...}] logged by the bot for its
-    own ants. Returns a parallel list of floats.
-    """
-    awards, end_value, length, turns, keys = _awards(game, me, records)
+    own ants. Returns a parallel list of floats. scales selects the
+    training role's event table (base game rewards by default)."""
+    scales = scales or scales_for("challenger")
+    awards, end_value, length, turns, keys = _awards(game, me, records, scales)
     rets = [0.0] * len(records)
 
     # settle: same-turn credit plus GAMMA-discounted walk-back. "ant"
@@ -216,8 +235,9 @@ def compute_returns(game, me, records):
     # batch-mean baseline a uniform draw batch is already
     # advantage-neutral, matching promotion's half-win treatment.
     if end_value:
+        terminal = scales["WIN"] if end_value > 0 else scales["LOSS"]
         for i, _t in enumerate(turns):
-            rets[i] += end_value
+            rets[i] += terminal
 
     return rets
 
@@ -231,7 +251,8 @@ def decompose(game, me, records):
     value ("terminal"), never multiplied by the row count. Comparing
     "terminal" against the dense totals shows the true scale ratio.
     """
-    awards, end_value, _length, _turns, _keys = _awards(game, me, records)
+    awards, end_value, _length, _turns, _keys = _awards(
+        game, me, records, scales_for("challenger"))
     mass: dict[str, float] = {
         "food": 0.0, "kill": 0.0, "death": 0.0, "hill": 0.0,
     }

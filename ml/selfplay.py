@@ -191,6 +191,19 @@ def publish(base: Path, report: dict, commit: bool) -> None:
         )
 
 
+def _exploiter_base(base: Path, cfg: dict, gen_index: int) -> dict:
+    """Exploiter starting weights: the supervised base, not random.
+
+    AlphaStar exploiters reset to the supervised policy (fresh eyes,
+    competent hands). Ours is the lineage's own founding weights
+    (g000 = BC-from-pros init); random init is the fallback for
+    archives that started without it."""
+    try:
+        return archive.load_checkpoint(base, "g000")
+    except (FileNotFoundError, ValueError, KeyError):
+        return _random_weights(cfg["seed"] + gen_index, cfg.get("arch", "base"))
+
+
 def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
     import rewards
 
@@ -213,7 +226,7 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
     gen_index = len(read_history(base))
     exploiter = gen_index % 3 == 2
     start_w = (
-        _random_weights(cfg["seed"] + gen_index, cfg.get("arch", "base"))
+        _exploiter_base(base, cfg, gen_index)
         if exploiter else champ_w
     )
     critic = _load_critic(base)

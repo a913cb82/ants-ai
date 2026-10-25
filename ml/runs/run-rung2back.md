@@ -19,5 +19,14 @@ gen2p duds cut, pool back to small decisive ground.
 - Failure criteria: 0 promotions with peace still rising ->
   the stall is deeper than incentives (actor/exploration redesign,
   per-role exploiters move up the queue).
-- Results: pending.
-- Verdict: pending.
+- Results (g187-g201): ZERO promotions, champion g160 holds
+  (0/30 across rounds 11-12). Peace still rising 0.27 -> 0.32 ->
+  0.36. Tiebreak-revert did NOT restore decisiveness: rung2a
+  0.64-0.71 (round-9 decisive era was 0.4-0.5), rung1 ends 0.93.
+  New boards: f KEEP (0.21-0.29), i KEEP, j keep-weak, g CUT
+  (2/3 below bar), h CUT (0.00-0.14). v healthy, pg small.
+- Verdict: stall is DEEPER than incentives. 30 peaceful gens
+  converged the population on gather-racing; the road back to
+  war-winning crosses a fitness valley (fighting badly loses,
+  turtling draws). Neither rewards nor pools cross valleys —
+  only invasion does. Exploiters-with-teeth move up.
