@@ -428,7 +428,9 @@ def test_food_credit_by_spawnradius_proximity():
     game = _game()
     game["replaydata"]["food"] = [[5, 5, 1, 3, 0]]  # spawnradius2=1: adjacent counts
     records = [
-        {"turn": 3, "loc": [5, 3], "dest": [5, 4], "action": "e"},
+        # gatherer stays: approach shaping fires only on movement,
+        # so this stays a pure food-channel test.
+        {"turn": 3, "loc": [5, 4], "dest": [5, 4], "action": "stay"},
         {"turn": 3, "loc": [0, 0], "dest": [0, 0], "action": "stay"},
     ]
     rets = rewards.compute_returns(game, 0, records)
@@ -442,8 +444,9 @@ def test_food_splits_one_pickup_across_all_adjacent_ants():
     game = _game()
     game["replaydata"]["food"] = [[5, 5, 1, 3, 0]]
     records = [
-        {"turn": 3, "loc": [5, 3], "dest": [5, 4], "action": "e"},
-        {"turn": 3, "loc": [5, 7], "dest": [5, 6], "action": "w"},
+        # both gatherers stay: pure split test, no approach term.
+        {"turn": 3, "loc": [5, 4], "dest": [5, 4], "action": "stay"},
+        {"turn": 3, "loc": [5, 6], "dest": [5, 6], "action": "stay"},
         {"turn": 3, "loc": [0, 0], "dest": [0, 0], "action": "stay"},
     ]
     rets = rewards.compute_returns(game, 0, records)
@@ -461,8 +464,10 @@ def test_dense_reward_discounts_back_along_ant_path():
         {"turn": 2, "loc": [5, 4], "dest": [6, 4], "action": "s"},
     ]
     rets = rewards.compute_returns(game, 0, records)
-    assert rets[1] == rewards.FOOD
-    assert rets[0] == rewards.FOOD * rewards.GAMMA
+    # approach composes with food: +0.004 on the gather turn (d2 2->1),
+    # +0.012 on the approach turn (d2 5->2), both walked back together.
+    assert rets[1] == rewards.FOOD + 0.004
+    assert rets[0] == (rewards.FOOD + 0.004) * rewards.GAMMA + 0.012
 
 
 def _cnn_window(water_dests=(), radius=4):
@@ -789,6 +794,49 @@ def test_kill_credit_excludes_zero_distance():
     assert rewards.compute_returns(game, 0, records) == [0.0]
 
 
+def test_approach_rewards_steps_toward_food():
+    import rewards
+
+    game = _game()
+    # food NOT gathered this turn (end=5): pure approach channel.
+    game["replaydata"]["food"] = [[5, 5, 1, 5, 0]]
+    records = [
+        {"turn": 3, "loc": [5, 7], "dest": [5, 6], "action": "n"},
+        {"turn": 3, "loc": [0, 0], "dest": [0, 0], "action": "stay"},
+    ]
+    rets = rewards.compute_returns(game, 0, records)
+    # d2 4 -> 1 on a 10x10 map: 0.2 * 3 / 50.
+    assert abs(rets[0] - 0.012) < 1e-12
+    assert rets[1] == 0.0
+
+
+def test_approach_punishes_steps_away():
+    import rewards
+
+    game = _game()
+    game["replaydata"]["food"] = [[5, 5, 1, 3, 0]]
+    records = [
+        {"turn": 3, "loc": [5, 7], "dest": [5, 8], "action": "s"},
+    ]
+    rets = rewards.compute_returns(game, 0, records)
+    assert abs(rets[0] - (-0.02)) < 1e-12
+
+
+def test_approach_ignores_onto_food_and_missing_food():
+    import rewards
+
+    game = _game()
+    game["replaydata"]["food"] = [[5, 5, 1, 3, 0]]
+    # stepping ONTO the tile (d2 == 0) earns no approach credit,
+    # matching the engine rule that co-located ants don't gather.
+    records = [{"turn": 3, "loc": [5, 6], "dest": [5, 5], "action": "n"}]
+    assert rewards.compute_returns(game, 0, records) == [0.0]
+    # no food present at all: silent.
+    game["replaydata"]["food"] = []
+    records = [{"turn": 3, "loc": [5, 7], "dest": [5, 6], "action": "n"}]
+    assert rewards.compute_returns(game, 0, records) == [0.0]
+
+
 def test_decompose_reports_category_mass():
     import rewards
 
@@ -967,6 +1015,26 @@ def test_snapshot_flags_exploiter_generations(tmp_path):
     snap = dashboard.snapshot(base)
     assert snap["generations"][0]["exploiter"] is True
     assert snap["generations"][0]["margins"] == [0, 0]
+
+
+def test_batch_norm_keeps_event_magnitude_over_noise():
+    import torch
+
+    import algorithm
+    import model
+
+    policy = model.CNNPolicy()
+    n = 64
+    rets = [0.1] * (n - 1) + [5.0]
+    windows = torch.zeros(n, 6, 9, 9)
+    values = policy.values(windows)
+    all_ret = torch.tensor(rets)
+    adv = algorithm._advantages(
+        all_ret, values, all_ret.mean(), all_ret.std(unbiased=False))
+    noise, event = adv[:-1].abs().max().item(), abs(adv[-1].item())
+    # one real event must outweigh the loudest noise row by an order
+    # of magnitude; per-minibatch standardization would make them O(1).
+    assert event > 10 * noise
 
 
 def test_snapshot_carries_run_timing_and_plan(tmp_path):

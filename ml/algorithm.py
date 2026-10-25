@@ -129,6 +129,18 @@ def masked_log_probs(
     return chosen, entropy
 
 
+def _advantages(
+    returns: torch.Tensor, values: torch.Tensor,
+    bmean: torch.Tensor, bstd: torch.Tensor,
+) -> torch.Tensor:
+    """Batch-scaled advantages: (standardized return) - value.
+
+    No second standardization: a minibatch of pure noise rows keeps
+    near-zero advantages while an event minibatch keeps large ones."""
+    rz = (returns - bmean) / (bstd + 1e-8)
+    return rz - values.detach()
+
+
 def train_epoch(
     policy: model.CNNPolicy,
     opt: torch.optim.Optimizer,
@@ -141,16 +153,23 @@ def train_epoch(
 ) -> dict[str, float]:
     """One PPO pass: clipped surrogate + value loss - beta * entropy.
 
-    Advantages are (return - value) standardized per minibatch, so a
-    won-game/lost-game offset never leaks across games (the learned
-    baseline absorbs it). Empty batch is a no-op (early elimination,
-    lost records). Returns losses for the generation log.
+    Advantages are (return - value) standardized over the WHOLE batch,
+    so a minibatch of pure noise rows keeps near-zero advantages while
+    an event minibatch keeps large ones. (Per-minibatch standardization
+    gave every minibatch unit variance by construction, amplifying noise
+    into full-scale gradients.) Empty batch is a no-op (early
+    elimination, lost records). Returns losses for the generation log.
     """
     stats = {"loss": 0.0, "mean_return": 0.0, "entropy": 0.0, "kl": 0.0,
              "pg_loss": 0.0, "v_loss": 0.0, "steps": 0}
     if not batch:
         return stats
     stats["mean_return"] = sum(r for _w, _a, r, _m, _o in batch) / len(batch)
+    # Batch-level return statistics: every minibatch is scored on the
+    # same scale, preserving the event-vs-noise magnitude gap.
+    all_ret = torch.tensor(
+        [r for _w, _a, r, _m, _o in batch], dtype=torch.float32)
+    bmean, bstd = all_ret.mean(), all_ret.std(unbiased=False)
     mb_size = min(minibatch, max(16, len(batch) // 4)) if batch else minibatch
     idx = torch.randperm(len(batch)).tolist()
     n_loss = n_pg = n_v = n_ent = n_kl = 0.0
@@ -162,12 +181,11 @@ def train_epoch(
         chosen = logp[range(len(mb)), actions]
         entropy = -(logp.exp() * logp).sum(dim=1)
         values = policy.values(windows)
-        # Critic fits STANDARDIZED returns: raw returns run to ±25,
-        # which would let the value term hog the shared-trunk gradient.
-        # The baseline absorbs game-level offsets either way.
-        rz = (returns - returns.mean()) / (returns.std(unbiased=False) + 1e-8)
-        adv = rz - values.detach()
-        adv = (adv - adv.mean()) / (adv.std(unbiased=False) + 1e-8)
+        # Critic fits batch-standardized returns; advantages keep the
+        # batch scale (no second standardization: noise minibatches must
+        # stay small next to event minibatches).
+        adv = _advantages(returns, values, bmean, bstd)
+        rz = (returns - bmean) / (bstd + 1e-8)  # value target (same scale)
         ratio = torch.exp(chosen - old)
         pg = -torch.min(ratio * adv, torch.clamp(ratio, 1 - clip, 1 + clip) * adv).mean()
         v = ((values - rz) ** 2).mean()

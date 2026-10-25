@@ -30,6 +30,12 @@ HILL_RAZE = 10.0
 HILL_LOST = -10.0
 WIN = 5.0
 LOSS = -5.0
+# Potential-based food approach (training-only shaping): each step toward
+# the nearest present food pays APPROACH * dd2/S2, steps away charge it.
+# Symmetric, so oscillating toward/away nets ~zero (no farming); bounded
+# by ~APPROACH per full approach, dwarfed by FOOD. Offline only: the
+# policy never sees food positions, only its egocentric window.
+APPROACH = 0.2
 DRAW = 0.0
 GAMMA = 0.97
 
@@ -112,6 +118,7 @@ def _awards(game, me, records):
     attack2 = replaydata.get("attackradius2", 5)
 
     dests = [tuple(rec["dest"]) for rec in records]
+    locs = [tuple(rec["loc"]) for rec in records]
     turns = [rec["turn"] for rec in records]
     keys = record_identities(replaydata, records)
     awards = []
@@ -184,6 +191,27 @@ def _awards(game, me, records):
                     (end, {i: amount / len(mine) for i in mine}, "team", "hill")
                 )
 
+    # approach shaping: movement-only potential difference against the
+    # food present that turn. Stepping ONTO food (d2 == 0) earns nothing,
+    # matching the engine rule that co-located ants don't gather.
+    spots = [
+        (r, c, s, e)
+        for r, c, s, e, *_ in replaydata.get("food", [])
+    ]
+    if spots:
+        norm = (rows * rows + cols * cols) / 4.0
+        for i, (t, before, after) in enumerate(zip(turns, locs, dests)):
+            present = [(r, c) for (r, c, s, e) in spots if s <= t <= e]
+            if not present:
+                continue
+            d_after = min(dist2(after, f, rows, cols) for f in present)
+            if d_after == 0:
+                continue
+            d_before = min(dist2(before, f, rows, cols) for f in present)
+            f = APPROACH * (d_before - d_after) / norm
+            if f:
+                awards.append((t, {i: f}, "ant", "approach"))
+
     return awards, outcome(game, me), length, turns, keys
 
 
@@ -230,6 +258,7 @@ def decompose(game, me, records):
     awards, end_value, _length, _turns, _keys = _awards(game, me, records)
     mass: dict[str, float] = {
         "food": 0.0, "kill": 0.0, "death": 0.0, "hill": 0.0,
+        "approach": 0.0,
     }
     for _turn, shares, _scope, kind in awards:
         mass[kind] += sum(shares.values())
