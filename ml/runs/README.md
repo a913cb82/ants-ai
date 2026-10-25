@@ -2,9 +2,21 @@
 
 One file per training campaign. Every round gets a PLAN section
 before launch (hypothesis, config, success criteria) and RESULTS
-after (numbers, verdict, next step). The loop: plan, run, record,
-reassess, repeat. Curriculum ladder and graduation rule live in
-tools/maps/curriculum/README.md.
+after (numbers, verdict, next step). Entries are append-only: never
+rewrite a verdict, supersede it in the next round's file. The loop:
+plan, run, record, reassess, repeat. Curriculum ladder and
+ graduation rule live in tools/maps/curriculum/README.md.
+The idea backlog lives in QUEUE.md (one idea per round).
+
+## Fixed exam (every round runs the same shape)
+
+- 15 gens, seed 456, turns 150, temp 2.0, entropy-beta 0.05.
+- Train 4 games, eval 20 duels (greedy, rotated held maps).
+- Promotion bar (noise floor): Wilson lower bound > 0.5, draws
+half, head-to-head vs champion only. Borderline evals (0.48-0.55)
+earn one repeat before verdict.
+- Bold triggers: 2 quiet rounds -> try something different;
+40 gens on a rung -> diagnose, don't advance blind.
 
 ## Template
 
