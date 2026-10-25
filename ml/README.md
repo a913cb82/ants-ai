@@ -1,0 +1,54 @@
+# AlphaStarZero: self-play loop
+
+Train an Ants bot the AlphaZero way: the bot plays itself, the trainer
+learns from the games, the challenger replaces the champion only when
+it wins. Three phases per generation, borrowed from the autoresearch
+loop (fixed budget, recorded score, keep-the-winner).
+
+## Why not vanilla AlphaZero
+
+| AlphaZero assumption | Ants reality | Adaptation |
+|---|---|---|
+| small discrete actions | `5^N` joint moves | factorized per-ant policy, shared weights |
+| full observability | fog of war, simultaneous moves | local cues + memory-less greedy; history/LSTM later |
+| fast simulator + MCTS | 1000 ms turn, subprocess engine | MCTS over *abstract* orders (raid hill, gather food), not moves; neural net proposes, symbolic resolver disposes |
+| win/loss reward | score + survival + hills | shaped reward now (food delta, kills, hills razed), win/loss value head later |
+
+## Generation loop (each generation = one commit)
+
+1. **Self-play.** Champion + challenger play K games through
+   `league/play.py` (logged to `league/games.jsonl`, so ratings stay
+   honest). Positions, sampled actions, and returns go to a replay
+   buffer; keep several past generations to avoid cycles (league pool
+   gives opponents for free).
+2. **Train.** Policy-gradient step on `LinearPolicy` (REINFORCE with a
+   running baseline now; value head + PPO when the encoder grows).
+   Rewrites `bots/alphastarzero/weights.json` — nothing else.
+3. **Promote.** Challenger vs champion duel set. Win-rate above
+   threshold → challenger becomes champion (commit). Else keep
+   champion, try new hyperparams. Same keep-the-winner rule as
+   `autoresearch/docs/PROGRAM.md`.
+
+## Scaling path
+
+- v0 (this branch): linear over 4 cues, REINFORCE, food-seeking +
+  collision-free baseline. Proves data → train → promote turns.
+- v1: local window encoder (e.g. 9x9 x channels: water, food, own,
+  enemy, hill, pheromone) + small CNN, value head.
+- v2: MCTS over abstract group orders with the value head guiding
+  search; per-ant policy executes the chosen assignment.
+
+## Environment
+
+Training needs torch in the repo venv (CPU is fine; inference is one
+linear layer):
+
+```sh
+uv pip install --python .venv/bin/python numpy torch \
+  --index-url https://download.pytorch.org/whl/cpu
+```
+
+Runtime inference uses the same venv interpreter: league `bind()`
+rewrites a leading `python` token to it, so `import torch` works in
+rated play. (Raw `tools/playgame.py` calls need an absolute
+interpreter path for the same reason.)
