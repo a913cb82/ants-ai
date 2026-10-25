@@ -1394,8 +1394,8 @@ def test_deep_arch_stays_in_param_budget():
 
     base = _count_params(model.CNNPolicy(arch="base"))
     deep = _count_params(model.CNNPolicy(arch="deep"))
-    assert base == 6294
-    assert 4000 < deep < 9000  # same order, no budget blowout
+    assert base == 11814  # +1 conv stack: separate value trunk (vconv*)
+    assert 9000 < deep < 14000  # same order, no budget blowout
 
 
 def test_deep_arch_sees_full_window_where_base_cannot():
@@ -1723,6 +1723,29 @@ def test_critic_warm_starts_baseline_and_persists(tmp_path, monkeypatch):
     saved = json.loads((base / "critic.json").read_text())
     assert saved["value.bias"] == [7.0]
     assert all(k.startswith("value.") for k in saved)
+
+
+def test_init_weights_seed_gen_zero_champion(tmp_path, monkeypatch):
+    import archive
+    import json
+    import selfplay
+
+    captured = {}
+    _mocked_generation(monkeypatch, captured)
+    base = tmp_path / "archive"
+    cfg = _exploiter_cfg()
+    w = selfplay._random_weights(7, "base")
+    init = tmp_path / "bc.json"
+    init.write_text(json.dumps(w))
+    cfg["init_weights"] = str(init)
+    selfplay.run_generation(cfg, base, commit=False)
+    champ = archive.get_champion(base)
+    assert archive.load_checkpoint(base, champ) == w
+    # fresh archives only: existing champions are untouched
+    w2 = selfplay._random_weights(8, "base")
+    init.write_text(json.dumps(w2))
+    selfplay.run_generation(cfg, base, commit=False)
+    assert archive.load_checkpoint(base, archive.get_champion(base)) != w2
 
 
 @pytest.mark.parametrize("hist_len,expected", [

@@ -19,9 +19,12 @@ class CNNPolicy(torch.nn.Module):
     params. Same budget, strictly more expressive; the A/B challenger.
 
     Adaptive pooling keeps both radius-agnostic: any odd-sized window
-    in, 5 logits out. The value head shares the trunk (+129/145
-    params, zero-initialized so early value estimates start at 0).
-    Fully ant-local: no global inputs, no memory, no communication.
+    in, 5 logits out. The critic owns a SEPARATE conv stack (same tiny
+    shapes, vconv* keys) with the value head on it; values() runs the
+    value trunk, so actor gradients never fight critic gradients and
+    vice versa. The value head is zero-initialized so early value
+    estimates start at 0. Fully ant-local: no global inputs, no
+    memory, no communication.
     """
 
     def __init__(
@@ -34,6 +37,8 @@ class CNNPolicy(torch.nn.Module):
         if arch == "base":
             self.conv1 = torch.nn.Conv2d(channels, 16, kernel_size=3, padding=1)
             self.conv2 = torch.nn.Conv2d(16, 32, kernel_size=3, padding=1)
+            self.vconv1 = torch.nn.Conv2d(channels, 16, kernel_size=3, padding=1)
+            self.vconv2 = torch.nn.Conv2d(16, 32, kernel_size=3, padding=1)
             self.pool = torch.nn.AdaptiveAvgPool2d((2, 2))
             trunk_dim = 32 * 4
         else:
@@ -41,6 +46,10 @@ class CNNPolicy(torch.nn.Module):
             self.conv2 = torch.nn.Conv2d(8, 12, kernel_size=3, padding=1)
             self.conv3 = torch.nn.Conv2d(12, 16, kernel_size=3, padding=1)
             self.conv4 = torch.nn.Conv2d(16, 16, kernel_size=3, padding=1)
+            self.vconv1 = torch.nn.Conv2d(channels, 8, kernel_size=3, padding=1)
+            self.vconv2 = torch.nn.Conv2d(8, 12, kernel_size=3, padding=1)
+            self.vconv3 = torch.nn.Conv2d(12, 16, kernel_size=3, padding=1)
+            self.vconv4 = torch.nn.Conv2d(16, 16, kernel_size=3, padding=1)
             self.pool = torch.nn.AdaptiveAvgPool2d((3, 3))
             trunk_dim = 16 * 9
         self.head = torch.nn.Linear(trunk_dim, len(ACTIONS))
@@ -49,12 +58,21 @@ class CNNPolicy(torch.nn.Module):
         torch.nn.init.zeros_(self.value.bias)
 
     def trunk(self, x: torch.Tensor) -> torch.Tensor:
-        """x: (B, C, H, W) -> shared features (B, trunk_dim)."""
+        """x: (B, C, H, W) -> actor features (B, trunk_dim)."""
         x = torch.relu(self.conv1(x))
         x = torch.relu(self.conv2(x))
         if self.arch == "deep":
             x = torch.relu(self.conv3(x))
             x = torch.relu(self.conv4(x))
+        return self.pool(x).flatten(start_dim=1)
+
+    def vtrunk(self, x: torch.Tensor) -> torch.Tensor:
+        """x: (B, C, H, W) -> critic features (B, trunk_dim)."""
+        x = torch.relu(self.vconv1(x))
+        x = torch.relu(self.vconv2(x))
+        if self.arch == "deep":
+            x = torch.relu(self.vconv3(x))
+            x = torch.relu(self.vconv4(x))
         return self.pool(x).flatten(start_dim=1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -63,7 +81,7 @@ class CNNPolicy(torch.nn.Module):
 
     def values(self, x: torch.Tensor) -> torch.Tensor:
         """x: (B, 6, H, W) -> state values (B,)."""
-        return self.value(self.trunk(x)).squeeze(-1)
+        return self.value(self.vtrunk(x)).squeeze(-1)
 
 
 def infer_arch(weights: dict) -> str:

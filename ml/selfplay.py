@@ -71,6 +71,7 @@ def default_config() -> dict:
         "gamma": 0.97,
         "promote_threshold": 0.5,
         "seed": 0,
+        "init_weights": None,
         "archive": "ml/archive",
         "commit": True,
     }
@@ -99,6 +100,9 @@ def parse_args(argv: list[str] | None = None) -> dict:
     p.add_argument("--promote-threshold", type=float,
                    default=defaults["promote_threshold"])
     p.add_argument("--seed", type=int, default=defaults["seed"])
+    p.add_argument("--init-weights", default=defaults["init_weights"],
+                     help="JSON weights seeding the gen-0 champion "
+                     "(e.g. BC-from-pros); fresh archives only")
     p.add_argument("--archive", default=defaults["archive"])
     p.add_argument("--commit", action=argparse.BooleanOptionalAction,
                    default=defaults["commit"])
@@ -127,6 +131,7 @@ def parse_args(argv: list[str] | None = None) -> dict:
         "gamma": args.gamma,
         "promote_threshold": args.promote_threshold,
         "seed": args.seed,
+        "init_weights": args.init_weights,
         "archive": args.archive,
         "commit": args.commit,
     }
@@ -189,7 +194,13 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
     rewards.GAMMA = cfg.get("gamma", rewards.GAMMA)
     champ_id = archive.get_champion(base)
     if champ_id is None:
-        champ_w = _random_weights(cfg["seed"], cfg.get("arch", "base"))
+        init = cfg.get("init_weights")
+        if init:
+            # Supervised start (e.g. BC-from-pros): generation zero begins
+            # from learned weights instead of random. Fresh archives only.
+            champ_w = json.loads(Path(init).read_text())
+        else:
+            champ_w = _random_weights(cfg["seed"], cfg.get("arch", "base"))
         champ_id = archive.save_checkpoint(base, champ_w, "main", None)
         archive.set_champion(base, champ_id)
     else:
