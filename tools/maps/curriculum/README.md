@@ -22,14 +22,15 @@ that loses peace (back to all-draws) or stops promoting is a signal
 to diagnose the rewards, not to graduate. Graduation is manual per
 round for now; automate once the ladder stops changing.
 
-## Rung 3 map list (18 train + 2 held)
+## Rung 3 map list (9 boards, all train)
 
-Rung 1 + rung 2a-d stay in the pool (early skills keep training;
-nothing graduates out). Plus 14 random_walk boards: _32, _54, _72,
-_60, _27, _31, _03, _13, _37, _15, _45, _08, _20 (all under
-tools/maps/random_walk/). Held out: rung 1 (retention exam on the
-simplest board) and one random_walk board (every 13th). Train games
-rotate across the pool by generation so every board sees play.
+Rung 1 + rung2a-d (early skills keep training every ~2 gens via
+rotation) + 4 generated mid-boards: rung3a open 24x40 (960),
+rung3b twin 5x5 lakes, rung3c chokepoint gap 28x44, rung3d twin
+6x6 lakes 32x52 (1664). Under 13 maps: no held-out split, evals
+run the train pool (promotion judges mastery; graduation to rung
+4 tests transfer). Random_walk boards parked for rung 4 — 3k+
+tiles never meet in 150 turns (round 10: zero decisive).
 
 ## Notes
 

@@ -31,6 +31,7 @@ HILL_LOST = -10.0
 WIN = 5.0
 LOSS = -5.0
 DRAW = 0.0
+TIEBREAK = 1.0
 GAMMA = 0.97
 
 def trajectories(replaydata):
@@ -98,6 +99,30 @@ def dests_at(turns, dests, turn, pred=None):
         for i, (t, d) in enumerate(zip(turns, dests))
         if t == turn and (pred is None or pred(d))
     ]
+
+
+def material_edge(game, me):
+    """Draw-only tiebreak by living army: +1/0/-1.
+
+    Drawn games otherwise pay every row identically (0), so a batch
+    of draws carries no signal. The side with more ants alive at the
+    final turn out-gathered or out-preserved the other — closer to
+    winning, worth a fraction of a win. Comparative, so mirror
+    peace (equal armies) still pays 0: no farming trap. Decisive
+    games are untouched."""
+    if outcome(game, me) != DRAW:
+        return 0
+    length = game.get("length", game.get("game_length"))
+    mine = opp = 0
+    for entry in game["replaydata"].get("ants", []):
+        _r, _c, spawn, end, owner, orders = entry
+        if end - spawn <= len(orders):
+            continue  # died before the final turn.
+        if owner == me:
+            mine += 1
+        else:
+            opp += 1
+    return (mine > opp) - (mine < opp)
 
 
 def _awards(game, me, records):
@@ -218,6 +243,13 @@ def compute_returns(game, me, records):
     if end_value:
         for i, _t in enumerate(turns):
             rets[i] += end_value
+
+    # draw tiebreak by material, broadcast whole like the outcome:
+    # out-armying a draw is one causal step from winning.
+    edge = material_edge(game, me)
+    if edge:
+        for i, _t in enumerate(turns):
+            rets[i] += edge * TIEBREAK
 
     return rets
 
