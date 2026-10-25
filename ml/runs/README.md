@@ -34,6 +34,15 @@ whenever a round ends.
 - Bold triggers: 2 quiet rounds -> try something different;
 40 gens on a rung -> diagnose, don't advance blind.
 
+## Reference design (AlphaStar is the baseline)
+
+League: one main training continuously (never resets), periodic
+exploiters resetting to the supervised base on promotion,
+PFSP-lite opponent sampling, Nash recorded. Deviations from this
+shape (thresholds, caps, extra roles, per-role rewards) need a
+written justification and a path back. Simplicity first: remove
+machinery before adding it.
+
 ## Template
 
 - Hypothesis: what this round tests, in one sentence.

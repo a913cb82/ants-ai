@@ -28,15 +28,15 @@ to drop one.
   reset + TStar-school role shaping (attribution corrected — the
   shaping is not AlphaStar's; they keep one reward). Acceptance:
   exploiters win duels / promotion / champ margins compress.
-- Continuous main lineage: contender trains from own weights +
-  persistent optimizer, resets only on promotion/collapse.
-  Parents must form CHAINS (contender's parent = its own last self),
-  not stars: round-13 manifest shows 19/20 members parented to g160
-  (45+ gen reign) — one-step mutations from one point cannot walk
-  away from it. Branch cap (e.g. 2 active) + prune rule (eval floor
-  3 gens running -> cut the branch) keeps it affordable.
+- Continuous main lineage (AlphaStar baseline, round 14 candidate):
+  ONE main that trains continuously and never resets — parent chains
+  fall out automatically, no branch caps, no prune rules. Round-13
+  manifest proved the need: 19/20 members parented to g160, one-step
+  mutations from one point cannot walk away from it. Periodic
+  exploiters (supervised reset, live) + PFSP-lite (live) complete the
+  shape. Deviations need justification + a path back (doctrine).
   Acceptance: promotion rate up vs reset-regime on same pool;
-  falsified if drifters rot (eval floor falls over gens).
+  falsified if the main rots (eval floor falls over gens).
 - KL anchor to supervised base: penalty toward g000 weights during
   training (AlphaStar bounds main drift; ours drifted 100+ gens
   unleashed). Acceptance: promotions continue past current stall
@@ -55,12 +55,6 @@ to drop one.
   exploiters reset to the supervised base). Fresh eyes, competent
   hands — turns 0-7 target practice into selection pressure.
   One-line change; small and safe.
-- Continuous main lineage (round 14 candidate): the contender trains
-  from its own weights plus persistent optimizer across gens, no
-  reset-to-champ; resets only on promotion or collapse (AlphaStar
-  mains train for weeks; our 4-games-then-discard is amnesia).
-  Bigger change; needs design (collapse threshold, optimizer
-  banking).
 - Exact D4 symmetrization in forward(): average all 8 dihedral
   orientations inside the model (probe: 41% agreement, east bias).
   Weight-compatible, train=act coherent. Acceptance 100% by
