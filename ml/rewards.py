@@ -226,10 +226,15 @@ def compute_returns(game, me, records):
 
     # settle: same-turn credit plus GAMMA-discounted walk-back. "ant"
     # awards travel back along the credited ant's own path; "team"
-    # awards reach every earlier decision.
-    for event_turn, shares, scope, _kind in awards:
+    # awards reach every earlier decision. "approach" shaping is
+    # same-turn ONLY: walking it back would smear the immediate
+    # step contingency with future-movement noise (the walk-back is
+    # what food/kill credit is for).
+    for event_turn, shares, scope, kind in awards:
         for i, share in shares.items():
             rets[i] += share
+            if kind == "approach":
+                continue
             for j, t in enumerate(turns):
                 if j == i or t >= event_turn:
                     continue

@@ -464,10 +464,10 @@ def test_dense_reward_discounts_back_along_ant_path():
         {"turn": 2, "loc": [5, 4], "dest": [6, 4], "action": "s"},
     ]
     rets = rewards.compute_returns(game, 0, records)
-    # approach composes with food: +0.004 on the gather turn (d2 2->1),
-    # +0.012 on the approach turn (d2 5->2), both walked back together.
+    # approach composes with food but does NOT walk back: +0.004 on the
+    # gather turn (same-turn), +0.012 on the approach turn (same-turn).
     assert rets[1] == rewards.FOOD + 0.004
-    assert rets[0] == (rewards.FOOD + 0.004) * rewards.GAMMA + 0.012
+    assert rets[0] == rewards.FOOD * rewards.GAMMA + 0.012
 
 
 def _cnn_window(water_dests=(), radius=4):
@@ -835,6 +835,23 @@ def test_approach_ignores_onto_food_and_missing_food():
     game["replaydata"]["food"] = []
     records = [{"turn": 3, "loc": [5, 7], "dest": [5, 6], "action": "n"}]
     assert rewards.compute_returns(game, 0, records) == [0.0]
+
+
+def test_approach_does_not_walk_back():
+    import rewards
+
+    game = _game()
+    game["replaydata"]["ants"] = [[4, 4, 0, 99, 0, "ss"]]
+    game["replaydata"]["food"] = [[6, 6, 1, 5, 0]]  # never gathered
+    records = [
+        {"turn": 1, "loc": [4, 4], "dest": [5, 4], "action": "s"},
+        {"turn": 2, "loc": [5, 4], "dest": [6, 4], "action": "s"},
+    ]
+    rets = rewards.compute_returns(game, 0, records)
+    # same-turn only: turn 1 keeps its own +0.012, turn 2 its +0.004.
+    # With walk-back, turn 1 would also collect 0.004 * GAMMA.
+    assert abs(rets[0] - 0.012) < 1e-12
+    assert abs(rets[1] - 0.004) < 1e-12
 
 
 def test_decompose_reports_category_mass():
