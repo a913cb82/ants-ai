@@ -920,3 +920,22 @@ def test_replay_page_guards_traversal(tmp_path):
     assert dashboard.replay_page(base, "games/r.json") is not None
     assert dashboard.replay_page(base, "../../etc/passwd") is None
     assert dashboard.replay_page(base, "missing.json") is None
+
+
+def test_status_roundtrip(tmp_path):
+    import archive
+
+    base = tmp_path / "archive"
+    assert archive.read_status(base) == {}
+    archive.write_status(base, {"phase": "train", "done": 2, "total": 8})
+    assert archive.read_status(base)["done"] == 2
+
+
+def test_snapshot_carries_live_status(tmp_path):
+    import archive
+    import dashboard
+
+    base = tmp_path / "archive"
+    assert dashboard.snapshot(base)["status"] == {}
+    archive.write_status(base, {"phase": "eval", "done": 3, "total": 20})
+    assert dashboard.snapshot(base)["status"]["phase"] == "eval"

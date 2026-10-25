@@ -139,6 +139,10 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
         "config": cfg,
     }
     (base / "last_report.json").write_text(json.dumps(report, indent=1))
+    archive.write_status(base, {
+        "phase": "done", "challenger": chal_id, "champion": champ_id,
+        "promoted": promoted,
+    })
     append_history(base, {k: v for k, v in report.items()
                            if k != "challenger_weights"})
     if promoted:

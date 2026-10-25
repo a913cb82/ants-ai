@@ -128,6 +128,19 @@ def log_game(
         }) + "\n")
 
 
+def write_status(base: Path, status: dict) -> None:
+    """Live progress for the dashboard (overwritten as a generation runs)."""
+    init(base)
+    (_paths(base)["dir"] / "status.json").write_text(json.dumps(status))
+
+
+def read_status(base: Path) -> dict:
+    path = base / "status.json"
+    if not path.exists():
+        return {}
+    return json.loads(path.read_text())
+
+
 def list_games(base: Path, member: str | None = None) -> list[dict]:
     """Newest first; optionally only games involving member."""
     path = _paths(base)["dir"] / "games.jsonl"

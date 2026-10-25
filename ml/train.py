@@ -57,6 +57,12 @@ def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict) -> tup
             archive.record_result(base, first, second, sa, sb, kind="train")
             archive.log_game(base, chal_id, "train", first, second, sa, sb,
                              rel + "/logs/0.replay")
+            archive.write_status(base, {
+                "phase": "train", "challenger": chal_id,
+                "done": g * 2 + slot + 1, "total": cfg["train_games"] * 2,
+                "last_mean_return": sum(rets) / len(rets) if rets else 0.0,
+                "last_game": rel,
+            })
     policy.load_state_dict(model.lists_to_state_dict(chal_w))
     losses, entropies = [], []
     for _ in range(cfg["epochs"]):

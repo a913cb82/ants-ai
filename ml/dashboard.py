@@ -61,6 +61,7 @@ def snapshot(base: Path) -> dict:
         "members": members,
         "history": selfplay.read_history(base),
         "games": archive.list_games(base)[:50],
+        "status": archive.read_status(base),
         "counts": {
             "generations": len(selfplay.read_history(base)),
             "games": len(archive.list_games(base)),
@@ -159,8 +160,13 @@ data.forEach((v,i)=>{const px=i/(data.length-1||1)*c.width,py=c.height-((v-mn)/r
 i?x.lineTo(px,py):x.moveTo(px,py)});x.stroke();
 x.fillStyle='#666';x.fillText(id+' last='+data[data.length-1].toFixed(3),8,12);}
 async function load(){const r=await fetch('/api/snapshot');S=await r.json();
+const st=S.status||{};
+let prog='idle';
+if(st.phase==='train')prog=`training ${st.challenger||''}: game ${st.done}/${st.total} (last mean return ${(st.last_mean_return||0).toFixed(2)})`;
+else if(st.phase==='eval')prog=`evaluating ${st.challenger||''}: duel ${st.done}/${st.total} (${st.wins||0}W ${st.draws||0}D so far)`;
+else if(st.phase==='done')prog=`generation done: ${st.challenger||''} ${st.promoted?'promoted ★':'held'} (champion ${st.champion||''})`;
 document.getElementById('head').textContent=
-`champion ${S.champion||'—'} · ${S.counts.generations} generations · ${S.counts.games} games`;
+`champion ${S.champion||'—'} · ${S.counts.generations} generations · ${S.counts.games} games · ${prog}`;
 const losses=S.history.flatMap(h=>h.train?h.train.losses:[]);
 line('loss',losses,'#c00');
 line('ret',S.history.map(h=>h.train?h.train.mean_return:0),'#080');
@@ -178,7 +184,7 @@ document.getElementById('games').innerHTML=
 g.slice(0,100).map(x=>`<tr><td>${x.gen}</td><td>${x.kind}</td><td>${x.a} vs ${x.b}</td><td>${x.score_a}-${x.score_b}</td><td><a href="/replay?f=${encodeURIComponent(x.replay)}" target="_blank" rel="noopener">open</a></td></tr>`).join('');}
 document.getElementById('member').onchange=loadGames;
 document.getElementById('refresh').onclick=load;
-load();setInterval(load,15000);
+load();setInterval(load,5000);
 </script></body></html>
 """
 
