@@ -854,35 +854,56 @@ def test_approach_does_not_walk_back():
     assert abs(rets[1] - 0.02) < 1e-12
 
 
-def test_engage_rewards_closing_on_living_enemy():
+def test_engage_pays_approach_with_local_superiority():
     import rewards
 
     game = _game()
-    game["replaydata"]["ants"] = [[5, 5, 1, 5, 1, "---"]]  # foe holds (5,5)
-    records = [
-        {"turn": 3, "loc": [5, 7], "dest": [5, 6], "action": "n"},
-        {"turn": 3, "loc": [0, 0], "dest": [0, 0], "action": "stay"},
+    game["replaydata"]["ants"] = [
+        [5, 7, 1, 6, 0, "----"],  # recorded ant, holds (5,7)
+        [5, 3, 1, 6, 0, "----"],  # friend holds (5,3): 2v1
+        [5, 5, 1, 5, 1, "---"],  # foe holds (5,5)
     ]
+    records = [{"turn": 3, "loc": [5, 7], "dest": [5, 6], "action": "n"}]
     rets = rewards.compute_returns(game, 0, records)
-    # d2 4 -> 1 on a 10x10 map, scaled by ENGAGE: ENGAGE * 3 / 50.
+    # 2 friends vs 1 foe in sight: ENGAGE * 3 / 50.
     assert abs(rets[0] - rewards.ENGAGE * 3 / 50) < 1e-12
-    assert rets[1] == 0.0
 
 
-def test_engage_punishes_retreat_and_ignores_missing_foes():
+def test_engage_silent_when_even_or_outnumbered():
+    import rewards
+
+    mover = [5, 7, 1, 6, 0, "----"]
+    foe = [5, 5, 1, 5, 1, "---"]
+    records = [{"turn": 3, "loc": [5, 7], "dest": [5, 6], "action": "n"}]
+    # 1v1: even numbers get no signal, keep gathering.
+    game = _game()
+    game["replaydata"]["ants"] = [mover, foe]
+    assert rewards.compute_returns(game, 0, records) == [0.0]
+    # 1v2: outnumbered, no signal.
+    game = _game()
+    game["replaydata"]["ants"] = [mover, foe, [5, 4, 1, 5, 1, "---"]]
+    assert rewards.compute_returns(game, 0, records) == [0.0]
+    # no foes at all: silent.
+    game = _game()
+    game["replaydata"]["ants"] = [mover]
+    assert rewards.compute_returns(game, 0, records) == [0.0]
+
+
+def test_engage_charges_retreat_when_ahead():
     import rewards
 
     game = _game()
-    game["replaydata"]["ants"] = [[5, 5, 1, 5, 1, "---"]]
+    game["replaydata"]["ants"] = [
+        [5, 7, 1, 6, 0, "----"],
+        [5, 3, 1, 6, 0, "----"],
+        [5, 5, 1, 5, 1, "---"],
+    ]
     records = [{"turn": 3, "loc": [5, 7], "dest": [5, 8], "action": "s"}]
     rets = rewards.compute_returns(game, 0, records)
+    # ahead but backing off: symmetric charge, ENGAGE * -5 / 50.
     assert abs(rets[0] - (-rewards.ENGAGE * 5 / 50)) < 1e-12
     # stepping onto the foe (d2 == 0) earns nothing, like food.
     records = [{"turn": 3, "loc": [5, 6], "dest": [5, 5], "action": "n"}]
-    assert rewards.compute_returns(game, 0, records) == [0.0]
-    # no living enemies that turn: silent.
-    game["replaydata"]["ants"] = []
-    records = [{"turn": 3, "loc": [5, 7], "dest": [5, 6], "action": "n"}]
     assert rewards.compute_returns(game, 0, records) == [0.0]
 
 
@@ -892,6 +913,7 @@ def test_engage_does_not_walk_back():
     game = _game()
     game["replaydata"]["ants"] = [
         [4, 4, 0, 99, 0, "ss"],
+        [5, 3, 0, 99, 0, "--"],  # friend holds (5,3): 2v1 both turns
         [6, 6, 1, 99, 1, "--"],  # foe holds (6,6)
     ]
     records = [
@@ -902,6 +924,30 @@ def test_engage_does_not_walk_back():
     # same-turn only: ENGAGE*3/50 then ENGAGE*1/50, no GAMMA carry.
     assert abs(rets[0] - rewards.ENGAGE * 3 / 50) < 1e-12
     assert abs(rets[1] - rewards.ENGAGE * 1 / 50) < 1e-12
+
+
+def test_approach_splits_crowded_food():
+    import rewards
+
+    game = _game()
+    # one food, two ants closing the same turn: each gets half.
+    game["replaydata"]["food"] = [[5, 5, 1, 5, 0]]
+    records = [
+        {"turn": 3, "loc": [5, 7], "dest": [5, 6], "action": "n"},
+        {"turn": 3, "loc": [5, 3], "dest": [5, 4], "action": "s"},
+    ]
+    rets = rewards.compute_returns(game, 0, records)
+    assert abs(rets[0] - 0.03) < 1e-12
+    assert abs(rets[1] - 0.03) < 1e-12
+    # lonely food still pays full: separate foods, separate shares.
+    game["replaydata"]["food"] = [[5, 5, 1, 5, 0], [0, 9, 1, 5, 0]]
+    records = [
+        {"turn": 3, "loc": [5, 7], "dest": [5, 6], "action": "n"},
+        {"turn": 3, "loc": [0, 7], "dest": [0, 8], "action": "e"},
+    ]
+    rets = rewards.compute_returns(game, 0, records)
+    assert abs(rets[0] - 0.06) < 1e-12
+    assert abs(rets[1] - rewards.APPROACH * 3 / 50) < 1e-12
 
 
 def test_decompose_reports_category_mass():
