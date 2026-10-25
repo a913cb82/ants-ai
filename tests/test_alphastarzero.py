@@ -1137,3 +1137,107 @@ def test_game_timeouts_raised_and_retry_flagged():
     cfg = game_if.GameConfig(map="m", turns=10)
     assert cfg.turntime_ms == 5000 and cfg.loadtime_ms == 15000
     assert game_if.GameConfig(map="m", turns=1).timeout == 600
+
+
+def test_snapshot_window_matches_direct():
+    import torch
+
+    import features
+
+    ants = FakeAnts()
+    ants._mine = [(4, 4), (0, 0), (9, 9)]
+    view = features.snapshot(ants)
+    for loc in ants.my_ants():
+        assert torch.equal(
+            features.local_window(ants, loc),
+            features.local_window(ants, loc, view=view),
+        )
+
+
+def test_masked_logits_batch_matches_serial():
+    import torch
+
+    import features
+    import model
+
+    torch.manual_seed(0)
+    policy = model.CNNPolicy()
+    ants = FakeAnts()
+    windows = torch.stack(
+        [features.local_window(ants, loc) for loc in [(4, 4), (0, 0), (9, 9)]]
+    )
+    blockeds = [frozenset(), frozenset({"n"}), frozenset({"n", "e", "s", "w"})]
+    batched = model.masked_logits_batch(policy, windows, blockeds)
+    assert batched.shape == (3, 5)
+    for i, loc in enumerate([(4, 4), (0, 0), (9, 9)]):
+        single = model.masked_logits(
+            policy, features.local_window(ants, loc), blockeds[i]
+        )
+        # allclose, not equal: batched GEMM accumulates in a different
+        # order, so the last ulp may differ. Same math, same decisions.
+        assert torch.allclose(batched[i], single, atol=1e-6)
+
+
+def test_batch_stay_fallback_when_nothing_legal():
+    import torch
+
+    import features
+    import model
+
+    torch.manual_seed(0)
+    policy = model.CNNPolicy()
+    ants = FakeAnts()
+    windows = torch.stack([features.local_window(ants, (4, 4))])
+    logits = model.masked_logits_batch(policy, windows, [frozenset(features.ACTIONS)])
+    assert model.act_greedy_batch(logits) == ["stay"]
+    assert model.sample_batch(logits, 1.0) == ["stay"]
+
+
+def test_batch_act_shapes_and_greedy_agreement():
+    import torch
+
+    import features
+    import model
+
+    torch.manual_seed(1)
+    policy = model.CNNPolicy()
+    ants = FakeAnts()
+    windows = torch.stack(
+        [features.local_window(ants, loc) for loc in [(4, 4), (0, 0)]]
+    )
+    logits = model.masked_logits_batch(policy, windows, [frozenset(), frozenset()])
+    assert model.act_greedy_batch(logits) == [
+        model.act_greedy(policy, windows[0]),
+        model.act_greedy(policy, windows[1]),
+    ]
+    assert len(model.sample_batch(logits, 1.0)) == 2
+
+
+def test_zero_game_counts_do_not_crash_pools(tmp_path):
+    import archive
+    import evaluate
+    import train
+
+    base = tmp_path / "archive"
+    w = {"a": [1.0]}
+    champ = archive.save_checkpoint(base, w, role="main", parent=None)
+    archive.set_champion(base, champ)
+    cfg = {"train_games": 0, "eval_games": 0, "workers": 8, "maps": [], "turns": 1,
+           "lr": 1e-3, "epochs": 1, "temperature": 0.0, "seed": 0,
+           "clip": 0.2, "vf_coef": 0.5, "entropy_beta": 0.01,
+           "max_norm": 1.0, "minibatch": 64}
+    cid, cw, stats = train.train_generation(cfg, base, champ, w)
+    assert stats["rows"] == 0
+    ev = evaluate.evaluate(cfg, base, cid, cw, champ, w)
+    assert ev["games"] == 0 and ev["win_rate"] == 0.0
+
+
+def test_bot_env_is_single_threaded():
+    import game_if
+
+    env = game_if._bot_env(game_if.GameConfig(map="m", turns=1, temperature=0.5))
+    assert env["OMP_NUM_THREADS"] == "1"
+    assert env["MKL_NUM_THREADS"] == "1"
+    assert env["OPENBLAS_NUM_THREADS"] == "1"
+    assert env["AZ0_TEMPERATURE"] == "0.5"
+    assert env["AZ0_RECORD_DIR"] == "records"

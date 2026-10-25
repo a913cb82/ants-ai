@@ -18,7 +18,14 @@ import sys
 import traceback
 from pathlib import Path
 
+import torch
 from ants import Ants
+
+# One net this small gains nothing from intra-op thread pools, and the
+# driver runs up to 8 workers x 2 bots concurrently: cap threads so
+# parallel games stop oversubscribing the machine (game_if also sets
+# OMP/MKL env for the subprocess). Training keeps default threads.
+torch.set_num_threads(1)
 
 import features
 import model
@@ -49,67 +56,89 @@ class AlphaZeroBot:
         temperature = os.environ.get(TEMPERATURE_ENV)
         self._temperature = float(temperature) if temperature else 0.0
         self._turn = 0
+        self._water = None  # impassable set, cached in do_setup
         record_dir = os.environ.get(RECORD_ENV)
         self._record_path = (
             Path(record_dir) / f"az0-{os.getpid()}.jsonl" if record_dir else None
         )
 
     def do_setup(self, ants: Ants) -> None:
-        pass
+        # Water never changes mid-game: cache the impassable set once so
+        # per-turn encoding is pure set lookups, zero engine calls.
+        self._water = {
+            (r, c)
+            for r in range(ants.rows)
+            for c in range(ants.cols)
+            if not ants.passable((r, c))
+        }
 
     def do_turn(self, ants: Ants) -> None:
         self._turn += 1
-        rows = []
         mine = ants.my_ants()
-        # Every own tile starts reserved: ordering onto a staying nestmate
-        # kills both ants (tools/ants.py do_orders). The acting ant's own
-        # tile is exempted per action below.
+        if not mine:
+            return
+        # One board read, one forward for the whole turn. Reservation
+        # stays sequential (ant i's blocked set needs ants 0..i-1's
+        # destinations), but masking applies to precomputed logit rows.
+        view = features.snapshot(ants, water=self._water)
+        windows = [features.local_window(ants, loc, view=view) for loc in mine]
+        with torch.no_grad():
+            logits = self.policy(torch.stack(windows))
+        recording = self._record_path is not None
+        rows = []
         reserved = set(mine)
-        for ant_loc in mine:
-            rows.append(self._decide(ants, ant_loc, reserved))
-            if rows[-1]["action"] != "stay":
-                ants.issue_order((ant_loc, rows[-1]["action"]))
-                reserved.add(tuple(rows[-1]["dest"]))
+        undecided: tuple = ()
+        for i, ant_loc in enumerate(mine):
+            blocked = frozenset(
+                action
+                for action in features.ACTIONS
+                if (dest := features.dest_of(ants, ant_loc, action)) in reserved
+                and dest != ant_loc
+            )
+            legal = model.legal_mask(windows[i], blocked)
+            masked = model.mask_logits(
+                logits[i], windows[i], blocked, legal=legal
+            )
+            if self._temperature > 0:
+                probs = torch.softmax(masked / self._temperature, dim=0)
+                action = features.ACTIONS[int(torch.multinomial(probs, 1))]
+            else:
+                action = features.ACTIONS[int(torch.argmax(masked))]
+            if action != "stay":
+                dest = features.dest_of(ants, ant_loc, action)
+                ants.issue_order((ant_loc, action))
+                reserved.add(tuple(dest))
+            else:
+                dest = ant_loc
+            if recording:
+                rows.append({
+                    "turn": self._turn,
+                    "loc": list(ant_loc),
+                    "dest": list(dest),
+                    "action": action,
+                    "window": windows[i].tolist(),
+                    "legal": legal.tolist(),
+                })
             if ants.time_remaining() < 10:
+                undecided = tuple(mine[i + 1 :])
                 break
-        else:
-            ant_loc = None  # all ants decided; loop did not break
-        if ant_loc is not None:
+        if undecided and recording:
             # Time ran out: log the undecided ants as stays so training
             # rows never starve late-order ants of credit.
-            decided = len(rows)
-            for rest in mine[decided:]:
-                rows.append(self._row(ants, rest, "stay", frozenset()))
-        if self._record_path is not None and rows:
+            for rest in undecided:
+                rest_window = features.local_window(ants, rest, view=view)
+                rows.append({
+                    "turn": self._turn,
+                    "loc": list(rest),
+                    "dest": list(rest),
+                    "action": "stay",
+                    "window": rest_window.tolist(),
+                    "legal": model.legal_mask(rest_window, frozenset()).tolist(),
+                })
+        if recording and rows:
             with open(self._record_path, "a") as f:
                 for row in rows:
                     f.write(json.dumps(row) + "\n")
-
-    def _decide(self, ants: Ants, ant_loc: tuple[int, int], reserved: set) -> dict:
-        window = features.local_window(ants, ant_loc)
-        blocked = frozenset(
-            action
-            for action in features.ACTIONS
-            if (dest := features.dest_of(ants, ant_loc, action)) in reserved
-            and dest != ant_loc
-        )
-        if self._temperature > 0:
-            action = model.sample(self.policy, window, self._temperature, blocked)
-        else:
-            action = model.act_greedy(self.policy, window, blocked)
-        return self._row(ants, ant_loc, action, blocked, window)
-
-    def _row(self, ants, ant_loc, action, blocked, window=None) -> dict:
-        window = features.local_window(ants, ant_loc) if window is None else window
-        dest = features.dest_of(ants, ant_loc, action)
-        return {
-            "turn": self._turn,
-            "loc": list(ant_loc),
-            "dest": list(dest),
-            "action": action,
-            "window": window.tolist(),
-            "legal": model.legal_mask(window, blocked).tolist(),
-        }
 
 
 if __name__ == "__main__":

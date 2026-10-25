@@ -104,3 +104,18 @@ exploiter phases, GAE if the value baseline proves insufficient.
   Next levers are draw-rate, not step size: longer turns, second map,
   or score-margin eval metric. gamma=0.99 raised train returns
   (+50%) with no eval change — consistent with draws, not learning.
+
+## Performance (same day, inference + training throughput)
+
+150-ant turn: ~40ms -> 7.5ms greedy / 11ms sampled.
+- features.snapshot(): five board scans once per turn, not per ant;
+  water cached in do_setup (static all game) -> zero engine calls.
+- One batched forward per turn (1.2ms vs 6-8ms serial).
+- legal_mask vectorized via advanced indexing (49us -> 10us/ant).
+- Window buffer is numpy + cached sight-circle offsets.
+- No row materialization when not recording.
+8-game generation at workers=4: 21.7s -> 7.0s via single-thread
+bot env (OMP/MKL/OPENBLAS=1 in game_if; torch.set_num_threads(1)
+in the bot). Training compute untouched: 86ms/epoch is noise next
+to data cost. Fixed cost left: torch cold start ~1.3s/bot/game
+(engine spawns fresh interpreters; out of our hands).

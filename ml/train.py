@@ -71,7 +71,7 @@ def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict) -> tup
         for slot in (0, 1):
             me_w, other_w = (chal_w, opp_w) if slot == 0 else (opp_w, chal_w)
             jobs.append((cfg, base, chal_id, opp_id, me_w, other_w, slot, g))
-    workers = min(cfg.get("workers", 8), len(jobs))
+    workers = min(cfg.get("workers", 8), len(jobs)) or 1
     with ThreadPoolExecutor(max_workers=workers) as pool:
         games = list(pool.map(_play_one, jobs))
     for out in games:

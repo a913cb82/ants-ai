@@ -36,6 +36,23 @@ def _bot_files() -> list[str]:
     return sorted(p.name for p in BOT_DIR.glob("*.py"))
 
 
+def _bot_env(cfg: GameConfig) -> dict:
+    """Environment for bot subprocesses.
+
+    Single-threaded torch: each game spawns two fresh interpreters and
+    a 6k-param net gains nothing from thread pools, while 8 workers x 2
+    bots x 8 OpenMP threads oversubscribes the machine 8x and triples
+    game time under parallel load (measured 21.7s -> 7.0s on 8 games).
+    Training (driver process) keeps default threads."""
+    env = dict(os.environ)
+    env["AZ0_RECORD_DIR"] = "records"
+    env["AZ0_TEMPERATURE"] = str(cfg.temperature)
+    env["OMP_NUM_THREADS"] = "1"
+    env["MKL_NUM_THREADS"] = "1"
+    env["OPENBLAS_NUM_THREADS"] = "1"
+    return env
+
+
 def stage_side(base: Path, weights: dict, tag: str) -> Path:
     """A runnable bot dir: copies of code plus this side's weights.
 
@@ -70,9 +87,7 @@ def play(
     log_dir = outdir / "logs"
     side_a = stage_side(outdir, weights_a, "side_a")
     side_b = stage_side(outdir, weights_b, "side_b")
-    env = dict(os.environ)
-    env["AZ0_RECORD_DIR"] = "records"
-    env["AZ0_TEMPERATURE"] = str(cfg.temperature)
+    env = _bot_env(cfg)
     cmd = [
         python,
         str(root / "tools" / "playgame.py"),

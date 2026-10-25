@@ -68,7 +68,7 @@ def evaluate(
         slot = g % 2
         me_w, other_w = (chal_w, champ_w) if slot == 0 else (champ_w, chal_w)
         jobs.append((cfg, base, chal_id, champ_id, me_w, other_w, slot, g))
-    workers = min(cfg.get("workers", 8), len(jobs))
+    workers = min(cfg.get("workers", 8), len(jobs)) or 1
     wins = draws = finished = 0
     with ThreadPoolExecutor(max_workers=workers) as pool:
         future_to_g = {pool.submit(_play_duel, job): job[-1] for job in jobs}

@@ -43,6 +43,9 @@ class CNNPolicy(torch.nn.Module):
         return self.value(self.trunk(x)).squeeze(-1)
 
 
+_action_index: dict[int, tuple[torch.Tensor, torch.Tensor]] = {}
+
+
 def legal_mask(
     window: torch.Tensor, blocked: frozenset = frozenset()
 ) -> torch.Tensor:
@@ -53,18 +56,91 @@ def legal_mask(
     (the engine ignores moves into both: tools/ants.py validate_orders).
     blocked carries the live reservation set as action names, so two
     ants never take the same tile.
+
+    The five dest cells are gathered with one advanced-index op instead
+    of a python loop with scalar tensor indexing (the old hot spot).
     """
     radius = (window.shape[-2] - 1) // 2
-    ok = []
-    for action in ACTIONS:
-        dr, dc = features.OFFSETS[action]
-        cell = (radius + dr, radius + dc)
-        clear = (
-            window[features.WATER_CHANNEL, cell[0], cell[1]] <= 0
-            and window[features.FOOD_CHANNEL, cell[0], cell[1]] <= 0
+    if radius not in _action_index:
+        rows, cols = zip(
+            *[
+                (radius + features.OFFSETS[a][0], radius + features.OFFSETS[a][1])
+                for a in ACTIONS
+            ]
         )
-        ok.append(bool(clear) and action not in blocked)
-    return torch.tensor(ok, dtype=torch.bool)
+        _action_index[radius] = (
+            torch.tensor(rows, dtype=torch.long),
+            torch.tensor(cols, dtype=torch.long),
+        )
+    rows, cols = _action_index[radius]
+    clear = (window[features.WATER_CHANNEL][rows, cols] <= 0) & (
+        window[features.FOOD_CHANNEL][rows, cols] <= 0
+    )
+    for name in blocked:
+        clear[ACTIONS.index(name)] = False
+    return clear
+
+
+def masked_logits_batch(
+    policy: CNNPolicy, windows: torch.Tensor, blocked: list
+) -> torch.Tensor:
+    """Batched masked_logits: one forward for B ants, same math.
+
+    The legal mask vectorizes: water/food clearance reads straight off
+    the window channels per action offset, blocked action names become
+    a (B, 5) mask. Nothing legal falls back to stay per row."""
+    with torch.no_grad():
+        if windows.shape[0] == 0:
+            return torch.zeros((0, len(ACTIONS)))
+        logits = policy(windows)
+        radius = (windows.shape[-2] - 1) // 2
+        clear = torch.ones((windows.shape[0], len(ACTIONS)), dtype=torch.bool)
+        for k, action in enumerate(ACTIONS):
+            dr, dc = features.OFFSETS[action]
+            clear[:, k] = (
+                windows[:, features.WATER_CHANNEL, radius + dr, radius + dc]
+                <= 0
+            ) & (
+                windows[:, features.FOOD_CHANNEL, radius + dr, radius + dc]
+                <= 0
+            )
+        for i, names in enumerate(blocked):
+            for name in names:
+                clear[i, ACTIONS.index(name)] = False
+        return torch.where(
+            _with_stay(clear), logits, torch.tensor(-1e9)
+        )
+
+
+def act_greedy_batch(logits: torch.Tensor) -> list:
+    """Argmax per row; same answers as act_greedy on each row."""
+    return [ACTIONS[int(i)] for i in torch.argmax(logits, dim=1).tolist()]
+
+
+def sample_batch(logits: torch.Tensor, temperature: float) -> list:
+    """One multinomial call for B rows; same distribution as sample."""
+    probs = torch.softmax(logits / temperature, dim=1)
+    return [
+        ACTIONS[int(i)] for i in torch.multinomial(probs, 1).flatten().tolist()
+    ]
+
+
+def mask_logits(
+    logits: torch.Tensor,
+    window: torch.Tensor,
+    blocked: frozenset,
+    legal: torch.Tensor | None = None,
+) -> torch.Tensor:
+    """Apply the legal mask to precomputed logits (batched forward path).
+
+    Same result as masked_logits without the forward: the bot runs one
+    forward for all ants, then masks each row as its reservation set
+    evolves through the turn. Pass legal= to reuse an already-computed
+    mask instead of recomputing it."""
+    if legal is None:
+        legal = legal_mask(window, blocked)
+    use = _with_stay(legal.unsqueeze(0)).flatten()
+    return torch.where(use, logits, torch.tensor(-1e9))
 
 
 def masked_logits(
@@ -73,7 +149,7 @@ def masked_logits(
     """No-grad masked logits for acting. Nothing legal falls back to
     stay: the mask keeps stay legal and kills the rest."""
     with torch.no_grad():
-        return _apply_mask(policy(window.unsqueeze(0)).flatten(), window, blocked)
+        return mask_logits(policy(window.unsqueeze(0)).flatten(), window, blocked)
 
 
 def _with_stay(masks: torch.Tensor) -> torch.Tensor:
@@ -97,13 +173,6 @@ def masked_log_softmax(
     return torch.log_softmax(
         torch.where(_with_stay(masks), logits, torch.tensor(-1e9)), dim=1
     )
-
-
-def _apply_mask(
-    logits: torch.Tensor, window: torch.Tensor, blocked: frozenset
-) -> torch.Tensor:
-    use = _with_stay(legal_mask(window, blocked).unsqueeze(0)).flatten()
-    return torch.where(use, logits, torch.tensor(-1e9))
 
 
 def act_ranked(
