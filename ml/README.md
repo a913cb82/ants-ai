@@ -33,6 +33,9 @@ loop (fixed budget, recorded score, keep-the-winner).
 
 - v0 (this branch): linear over 4 cues, REINFORCE, food-seeking +
   collision-free baseline. Proves data → train → promote turns.
+  (status: CNN policy + full loop landed; first automated generation
+  ran clean — trained, evaluated, correctly held the champion on a
+  0.50 eval below the 0.55 bar)
 - v1: local window encoder (e.g. 9x9 x channels: water, food, own,
   enemy, hill, pheromone) + small CNN, value head.
   (encoder landed: `features.local_window`, radius 4 default; CNN head next)
