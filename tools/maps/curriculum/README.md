@@ -20,7 +20,7 @@ new board.
 | Rung | Maps | Tiles | New skill | Status |
 |------|------|-------|-----------|--------|
 | 1 | rung1_open (tiny + water, hills in sight) | 192 | contact: meet, fight, win | done, mastered, stays in pool |
-| 2 | rung 1 + rung2a/b/c/d + 2 small real boards (gen2p_00, gen2p_05) | 192–1600 | scouting, water routing, slightly bigger ground | in play (round 11) |
+| 2 | rung 1 + rung2a/b/c/d + f/g/h + 2 small real boards (gen2p_00, gen2p_05) | 192–1600 | bigger ground: scouting, water routing, room to maneuver | in play (round 11; f/g/h join round 12) |
 | 3 | full pool: all 148 real 2p maps | up to 24k | corridors, mazes, full variety, no forgetting | queued (needs 2-in-10 on rung 2) |
 
 ## Graduation rule
@@ -35,6 +35,10 @@ practice). At full-pool scale, reserve train slots for curriculum
 drills (each board trains every ~37 gens otherwise).
 
 ## Notes
+
+- Rung 1 -> rung 2 is MAP SIZE, not hill distance: bigger ground
+  forces scouting, routing, and maneuver whether or not hills start
+  in sight. Hill-beyond-sight was an early heuristic, not a rule.
 
 - Every curriculum board is 180-degree rotationally symmetric,
   asserted by the generators. Real pool boards are asymmetric by
