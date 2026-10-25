@@ -73,13 +73,19 @@ def _play_one(args) -> dict:
     return {"rows": rows, "rets": rets}
 
 
-def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict, role: str = "challenger") -> tuple[str, dict, dict]:
-    """Self-play training games -> (challenger id, weights, train stats)."""
-    chal_id = archive.save_checkpoint(base, copy.deepcopy(champ_w), role, champ_id)
+def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict, role: str = "challenger", parent: str | None = None, opt_state: dict | None = None) -> tuple[str, dict, dict, dict]:
+    """Self-play training games -> (challenger id, weights, train stats, opt state).
+
+    The snapshot's parent defaults to the champion; the continuous
+    main passes its own last id so parents form chains, not stars.
+    Incoming optimizer state (main lineage) is restored before
+    training; outgoing state is returned for banking."""
+    chal_id = archive.save_checkpoint(base, copy.deepcopy(champ_w), role, parent if parent is not None else champ_id)
     chal_w = copy.deepcopy(champ_w)
     batch: list = []
     policy = algorithm.new_policy(chal_w)
     opt = algorithm.make_optimizer(policy, lr=cfg["lr"])
+    algorithm.load_opt_state(opt, opt_state)
     jobs = []
     for g in range(cfg["train_games"]):
         opp_id = archive.sample_opponents(base, champ_id, 1, seed=cfg["seed"] + g)[0]
@@ -107,6 +113,7 @@ def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict, role: 
         vs.append(stats["v_loss"])
     chal_w = algorithm.policy_weights(policy)
     archive.store(base, chal_id, chal_w)
+    opt_out = algorithm.serialize_opt(opt)
     mean_return = (
         sum(r for _w, _a, r, _m, _o in batch) / len(batch) if batch else 0.0
     )
@@ -119,4 +126,4 @@ def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict, role: 
         "v_loss": vs,
         "steps": stats.get("steps", 0),
         "mean_return": mean_return,
-    }
+    }, opt_out

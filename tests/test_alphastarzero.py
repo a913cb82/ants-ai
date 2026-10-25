@@ -1382,10 +1382,67 @@ def test_zero_game_counts_do_not_crash_pools(tmp_path):
            "lr": 1e-3, "epochs": 1, "temperature": 0.0, "seed": 0,
            "clip": 0.2, "vf_coef": 0.5, "entropy_beta": 0.01,
            "max_norm": 1.0, "minibatch": 64}
-    cid, cw, stats = train.train_generation(cfg, base, champ, w)
+    cid, cw, stats, _opt = train.train_generation(cfg, base, champ, w)
     assert stats["rows"] == 0
     ev = evaluate.evaluate(cfg, base, cid, cw, champ, w)
     assert ev["games"] == 0 and ev["win_rate"] == 0.0
+
+
+def test_main_pointer_roundtrip(tmp_path):
+    import archive
+
+    base = tmp_path / "archive"
+    assert archive.get_main(base) is None
+    archive.set_main(base, "g007")
+    assert archive.get_main(base) == "g007"
+
+
+def test_optimizer_state_roundtrip():
+    import torch
+
+    import algorithm
+
+    pol = algorithm.new_policy({})
+    opt = algorithm.make_optimizer(pol)
+    loss = pol(torch.randn(1, 6, 9, 9)).sum()
+    opt.zero_grad()
+    loss.backward()
+    opt.step()
+    assert opt.state_dict()["state"]  # non-empty after a step.
+    blob = algorithm.serialize_opt(opt)
+    import json
+
+    json.dumps(blob)  # must survive the archive as JSON.
+    pol2 = algorithm.new_policy({})
+    opt2 = algorithm.make_optimizer(pol2)
+    algorithm.load_opt_state(opt2, blob)
+    s1 = opt.state_dict()["state"]
+    s2 = opt2.state_dict()["state"]
+    assert set(s2) == set(s1)
+    k = next(iter(s1))
+    assert torch.equal(s1[k]["exp_avg"], s2[k]["exp_avg"])
+
+
+def test_main_lineage_chains_parents(tmp_path, monkeypatch):
+    import archive
+    import selfplay
+
+    captured: dict = {}
+    _mocked_generation(monkeypatch, captured)
+    base = tmp_path / "archive"
+    cfg = _exploiter_cfg()
+    # two challenger gens (gen 0, 1 — exploiter hits at gen 2).
+    # run_generation appends its own history line per gen.
+    selfplay.run_generation(cfg, base, commit=False)
+    rep = selfplay.run_generation(cfg, base, commit=False)
+    assert rep["exploiter"] is False
+    roles = {m["id"]: m for m in archive.members(base)}
+    second = roles[rep["challenger"]]
+    first = [m for m in roles.values()
+             if m.get("role") == "challenger"
+             and m["id"] != rep["challenger"]][0]
+    assert second["parent"] == first["id"]
+    assert archive.get_main(base) == rep["challenger"]
 
 
 def test_bot_env_is_single_threaded():
@@ -1771,11 +1828,12 @@ def _mocked_generation(monkeypatch, captured):
     import evaluate
     import train
 
-    def fake_train(cfg, base, champ_id, champ_w, role="challenger"):
+    def fake_train(cfg, base, champ_id, champ_w, role="challenger",
+                   parent=None, opt_state=None):
         captured["role"] = role
         captured["init_w"] = copy.deepcopy(champ_w)
-        cid = archive.save_checkpoint(base, copy.deepcopy(champ_w), role, champ_id)
-        return cid, copy.deepcopy(champ_w), {"rows": 0}
+        cid = archive.save_checkpoint(base, copy.deepcopy(champ_w), role, champ_id if parent is None else parent)
+        return cid, copy.deepcopy(champ_w), {"rows": 0}, None
 
     def fake_eval(cfg, base, chal_id, chal_w, champ_id, champ_w,
                   map_offset=0):

@@ -225,19 +225,36 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
         champ_w = archive.load_checkpoint(base, champ_id)
     gen_index = len(read_history(base))
     exploiter = gen_index % 3 == 2
-    start_w = (
-        _exploiter_base(base, cfg, gen_index)
-        if exploiter else champ_w
-    )
+    if exploiter:
+        start_w = _exploiter_base(base, cfg, gen_index)
+        opt_in = None
+        parent = champ_id
+        role = "exploiter"
+    else:
+        # Continuous main: train from the main's own weights and
+        # optimizer state, never a champ copy. Snapshots chain
+        # (parent = last main); promotion moves only the champ pointer.
+        main_id = archive.get_main(base)
+        if main_id is None:  # one-time bootstrap on old archives.
+            main_id, main_w, opt_in, parent = champ_id, champ_w, None, champ_id
+        else:
+            main_w = archive.load_checkpoint(base, main_id)
+            opt_in = archive.load_opt(base, main_id)
+            parent = main_id
+        start_w = main_w
+        role = "challenger"
     critic = _load_critic(base)
     if critic:
         # warm-start the baseline only; actor keys stay champ (or fresh).
         start_w = {**start_w,
                    **{k: v for k, v in critic.items()
                       if k in start_w and model.is_critic_key(k)}}
-    chal_id, chal_w, train_stats = train.train_generation(
-        cfg, base, champ_id, start_w,
-        role="exploiter" if exploiter else "challenger")
+    chal_id, chal_w, train_stats, opt_out = train.train_generation(
+        cfg, base, champ_id, start_w, role=role, parent=parent,
+        opt_state=opt_in)
+    if not exploiter:
+        archive.set_main(base, chal_id)
+        archive.save_opt(base, chal_id, opt_out)
     ev = evaluate.evaluate(cfg, base, chal_id, chal_w, champ_id, champ_w,
                              map_offset=gen_index)
     archive.atomic_write_json(

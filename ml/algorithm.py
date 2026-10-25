@@ -113,13 +113,53 @@ def collect(
 def make_optimizer(
     policy: model.CNNPolicy, lr: float = 1e-3
 ) -> torch.optim.Optimizer:
-    """Caller-owned Adam; momentum must survive across PPO epochs.
-
-    NOTE: train.py rebuilds the optimizer per generation, so momentum
-    does NOT cross generations today — only epochs. Cross-generation
-    persistence needs serialized optimizer state (future work).
-    """
+    """Caller-owned Adam; momentum must survive across PPO epochs."""
     return torch.optim.Adam(policy.parameters(), lr=lr)
+
+
+def serialize_opt(opt: torch.optim.Optimizer) -> dict:
+    """Adam state as JSON-safe lists (tensors don't survive json)."""
+    raw = opt.state_dict()
+    state = {}
+    for idx, vals in raw["state"].items():
+        item = {}
+        for k, v in vals.items():
+            item[k] = v.tolist() if torch.is_tensor(v) else v
+        state[str(idx)] = item
+    groups = []
+    for g in raw["param_groups"]:
+        groups.append({k: v for k, v in g.items() if k != "params"})
+    return {"state": state, "param_groups": groups}
+
+
+def load_opt_state(opt: torch.optim.Optimizer, blob: dict | None) -> None:
+    """Restore serialized Adam state; ignores shape mismatches."""
+    if not blob:
+        return
+    try:
+        cur = opt.state_dict()
+        if not cur["param_groups"]:
+            return
+        state = {}
+        for idx, vals in blob.get("state", {}).items():
+            try:
+                i = int(idx)
+            except (ValueError, TypeError):
+                continue
+            state[i] = {}
+            for k, v in vals.items():
+                state[i][k] = torch.tensor(v) if isinstance(v, list) else v
+        groups = []
+        for cur_g, saved_g in zip(cur["param_groups"],
+                                  blob.get("param_groups", [])):
+            g = dict(cur_g)  # live params kept; saved hypers win.
+            g.update({k: v for k, v in saved_g.items() if k != "params"})
+            groups.append(g)
+        if not groups:
+            return
+        opt.load_state_dict({"state": state, "param_groups": groups})
+    except (ValueError, KeyError, IndexError, TypeError, RuntimeError):
+        return
 
 
 def _tensors(policy: model.CNNPolicy, batch: list[BatchItem]):

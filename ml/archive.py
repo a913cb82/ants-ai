@@ -66,6 +66,35 @@ def set_champion(base: Path, cid: str) -> None:
     atomic_write_json(_paths(base)["dir"] / "champion.json", {"id": cid})
 
 
+def get_main(base: Path = DEFAULT_DIR) -> str | None:
+    main = _paths(base)["dir"] / "main.json"
+    if not main.exists():
+        return None
+    return json.loads(main.read_text())["id"]
+
+
+def set_main(base: Path, cid: str) -> None:
+    init(base)
+    atomic_write_json(_paths(base)["dir"] / "main.json", {"id": cid})
+
+
+def save_opt(base: Path, cid: str, blob: dict) -> None:
+    """Persist a member's optimizer state next to its weights."""
+    init(base)
+    atomic_write_json(_paths(base)["checkpoints"] / f"{cid}.opt.json", blob)
+
+
+def load_opt(base: Path, cid: str) -> dict | None:
+    p = _paths(base)["checkpoints"] / f"{cid}.opt.json"
+    if not p.exists():
+        return None
+    try:
+        blob = json.loads(p.read_text())
+    except ValueError:
+        return None
+    return blob if isinstance(blob, dict) else None
+
+
 def store(base: Path, cid: str, weights: dict) -> None:
     """Persist a member's weights. Train-matrix entries logged under an
     id describe work-in-progress play, never final strength; the eval
