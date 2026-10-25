@@ -54,9 +54,17 @@ Pure function of the engine replay plus the bot's decision log:
   nothing); kills to ants within `attackradius2` of the death;
   deaths hit the dead ant; a raze credits the single ant ON the
   hill (`do_raze_hills`); a lost hill splits across the team that
-  turn. Outcome (`WIN=25 / LOSS=-25 / DRAW=0`) discounts back to
-  every decision at `GAMMA=0.99`. Dense events are same-turn; the
-  outcome carries the long horizon.
+  turn. Every event is split across all its credited ants — one
+  food is worth `FOOD` total, never `FOOD` each.
+- **Discount** (`GAMMA=0.99`): everything, not just the outcome. A
+  decision at turn `t` credited for an event at `T >= t` receives
+  `amount * GAMMA**(T-t)`. Dense events walk back along the
+  credited ant's own replay path (records join to trajectories by
+  consecutive pre/post-move tiles); team events walk back to every
+  earlier decision. Same-turn credit is the `GAMMA**0 = 1` case.
+  Horizon caveat: 0.99 barely decays over 30-turn games, so short
+  games spread credit almost uniformly — retune per game length
+  when the trainer lands.
 - **Trajectories**: rebuilt from initial tile + order string, so no
   simulator is needed for credit assignment.
 

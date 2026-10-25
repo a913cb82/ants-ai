@@ -418,3 +418,32 @@ def test_food_credit_by_spawnradius_proximity():
     rets = rewards.compute_returns(game, 0, records)
     assert rets[0] == rewards.FOOD
     assert rets[1] == 0.0
+
+
+def test_food_splits_one_pickup_across_all_adjacent_ants():
+    import rewards
+
+    game = _game()
+    game["replaydata"]["food"] = [[5, 5, 1, 3, 0]]
+    records = [
+        {"turn": 3, "loc": [5, 3], "dest": [5, 4], "action": "e"},
+        {"turn": 3, "loc": [5, 7], "dest": [5, 6], "action": "w"},
+        {"turn": 3, "loc": [0, 0], "dest": [0, 0], "action": "stay"},
+    ]
+    rets = rewards.compute_returns(game, 0, records)
+    assert rets == [rewards.FOOD / 2, rewards.FOOD / 2, 0.0]
+
+
+def test_dense_reward_discounts_back_along_ant_path():
+    import rewards
+
+    game = _game()
+    game["replaydata"]["ants"] = [[4, 4, 0, 99, 0, "ss"]]
+    game["replaydata"]["food"] = [[6, 5, 1, 2, 0]]  # adjacent to (6,4) at turn 2
+    records = [
+        {"turn": 1, "loc": [4, 4], "dest": [5, 4], "action": "s"},
+        {"turn": 2, "loc": [5, 4], "dest": [6, 4], "action": "s"},
+    ]
+    rets = rewards.compute_returns(game, 0, records)
+    assert rets[1] == rewards.FOOD
+    assert rets[0] == rewards.FOOD * rewards.GAMMA

@@ -3,15 +3,14 @@
 The engine replay already records everything the reward needs: food
 pickups carry their gatherer and turn, every ant carries its full order
 string, hills carry their raze turn. This module turns those facts into
-per-decision credit:
+per-decision credit.
 
-- dense, same-turn: food gathered, own death, kills by proximity,
-  hill razed/lost (team-shared);
-- terminal: win/loss/draw, discounted back to every decision.
-
-Dense events credit only the turn they happen on (myopic shaping);
-the outcome carries the long-term signal. Magnitudes are starting
-points, not tuned values.
+Every event is discounted: a decision at turn t credited for an event
+at turn T >= t receives amount * GAMMA**(T-t). Same-turn credit is the
+special case GAMMA**0 = 1. Dense events walk back along the credited
+ant's own path (records joined to replay trajectories by consecutive
+pre/post-move tiles); team events walk back to every earlier decision.
+Magnitudes are starting points, not tuned values.
 """
 
 from __future__ import annotations
@@ -77,6 +76,27 @@ def outcome(game, me):
     return DRAW
 
 
+def record_identities(replaydata, records):
+    """Join each decision record to its replay ant: [(owner, idx) | None].
+
+    A record (turn t, loc -> dest) belongs to the ant whose trajectory
+holds (t-1, loc) followed by (t, dest). Unmatched records (missing or
+ambiguous replay paths) get None and receive same-turn credit only.
+    """
+    trajs = trajectories(replaydata)
+    prev_of = {}
+    for key, traj in trajs.items():
+        for i in range(1, len(traj)):
+            prev_of[(traj[i][0], traj[i - 1][1], traj[i][1])] = key
+    out = []
+    for rec in records:
+        cands = prev_of.get((rec["turn"], tuple(rec["loc"]), tuple(rec["dest"])), None)
+        out.append(cands)
+    # disambiguate tile swaps: the (prev, curr) pair is unique per ant per
+    # turn under legal movement, so at most one ant matches.
+    return out
+
+
 def compute_returns(game, me, records):
     """Discounted return for each decision record.
 
@@ -91,12 +111,13 @@ def compute_returns(game, me, records):
 
     dests = [tuple(rec["dest"]) for rec in records]
     turns = [rec["turn"] for rec in records]
+    keys = record_identities(replaydata, records)
     rets = [0.0] * len(records)
+    awards = []  # (turn, {idx: share}, scope) with scope in ("ant", "team")
 
     def same_turn_dest(turn, loc):
         return [i for i, (t, d) in enumerate(zip(turns, dests)) if t == turn and d == loc]
 
-    # food gathered by me: credit the ants that stepped onto the tile
     # food gathered by me: credit my ants that ended the turn ADJACENT to
     # the tile. Gathering runs on nearby_ants, which excludes distance 0:
     # the ant standing ON the food does not gather it. 0 < d2 <= spawnradius2.
@@ -110,8 +131,8 @@ def compute_returns(game, me, records):
             for i, (t, d) in enumerate(zip(turns, dests))
             if t == end and 0 < _dist2(d, (r, c), rows, cols) <= spawn2
         ]
-        for i in near:
-            rets[i] += FOOD / len(near)
+        if near:
+            awards.append((end, {i: FOOD / len(near) for i in near}, "ant"))
 
     # own deaths: penalize the ant that died on its death tile
     for entry in replaydata.get("ants", []):
@@ -121,8 +142,9 @@ def compute_returns(game, me, records):
         loc = (r, c)
         for order in orders:
             loc = _step(loc, order, rows, cols)
-        for i in same_turn_dest(end, loc):
-            rets[i] += DEATH / max(1, len(same_turn_dest(end, loc)))
+        hit = same_turn_dest(end, loc)
+        if hit:
+            awards.append((end, {i: DEATH / len(hit) for i in hit}, "ant"))
 
     # kills: split credit among my ants within attack radius of the death
     for entry in replaydata.get("ants", []):
@@ -137,8 +159,8 @@ def compute_returns(game, me, records):
             for i, (t, d) in enumerate(zip(turns, dests))
             if t == end and _dist2(d, loc, rows, cols) <= attack2
         ]
-        for i in near:
-            rets[i] += KILL / len(near)
+        if near:
+            awards.append((end, {i: KILL / len(near) for i in near}, "ant"))
 
     # hills: razed iff end_turn <= game length. A hill falls to the single
     # enemy ant standing ON it (do_raze_hills), so the raze credits the
@@ -148,20 +170,30 @@ def compute_returns(game, me, records):
         r, c, owner, end = entry
         if end > length:
             continue
+        amount = HILL_RAZE if owner != me else HILL_LOST
         razers = [
             i
             for i, (t, d) in enumerate(zip(turns, dests))
             if t == end and d == (r, c)
         ]
         if razers:
-            for i in razers:
-                rets[i] += (HILL_RAZE if owner != me else HILL_LOST) / len(razers)
+            awards.append((end, {i: amount / len(razers) for i in razers}, "ant"))
         else:
             mine = [i for i, t in enumerate(turns) if t == end]
             if mine:
-                share = (HILL_RAZE if owner != me else HILL_LOST) / len(mine)
-                for i in mine:
-                    rets[i] += share
+                awards.append((end, {i: amount / len(mine) for i in mine}, "team"))
+
+    # settle: same-turn credit plus GAMMA-discounted walk-back. "ant"
+    # awards travel back along the credited ant's own path; "team"
+    # awards reach every earlier decision.
+    for event_turn, shares, scope in awards:
+        for i, share in shares.items():
+            rets[i] += share
+            for j, t in enumerate(turns):
+                if j == i or t >= event_turn:
+                    continue
+                if scope == "team" or (keys[i] is not None and keys[j] == keys[i]):
+                    rets[j] += share * (GAMMA ** (event_turn - t))
 
     # terminal outcome discounted back to every decision
     end_value = outcome(game, me)
