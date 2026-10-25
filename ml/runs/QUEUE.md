@@ -13,13 +13,13 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 18: wide field (15x15) + own_sight channel, zero-pad
-  migration live. Tests whether union vision restores conversion.
-- Round 17 verdict: KL anchor correctly sized but irrelevant:
-  bounded 0.23-0.30 all round, 0 promotions, main evals 100% draws.
-  CONTACT forensics: 97% death rate on big maps (mutual
-  annihilation to 0-0), r1 elim 28-47%. Disease = conversion,
-  not combat. Anchor kept as default-on infrastructure (0.01).
+- Round 19: asymmetric death (DEATH -2, KILL +1). Breaks 1-for-1
+  indifference; tests whether material preservation restores
+  conversion. Last cheap reward knob.
+- Round 18 verdict: NEGATIVE — vision wasn't the blocker (0 promos,
+  no signature, pg ~= 0). Wide field kept as infrastructure (free,
+  principled). Disease restated: 1-for-1 trades net 0, so nothing
+  preserves material.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)

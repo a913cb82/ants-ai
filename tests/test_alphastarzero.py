@@ -273,6 +273,25 @@ def test_kill_credit_splits_among_nearby_attackers():
     assert rets[1] == 0.0
 
 
+def test_one_for_one_trade_nets_negative():
+    import rewards
+
+    # Asymmetric death: killing pays +1, dying costs -2. A 1-for-1
+    # trade nets -1, so mutual annihilation is no longer free — the
+    # learner must preserve material to profit from combat.
+    game = _game()
+    game["replaydata"]["ants"] = [
+        [5, 5, 1, 3, 1, "--"],  # enemy dies turn 3
+        [5, 4, 1, 3, 0, "s-"],  # own ant dies turn 3
+    ]
+    records = [
+        # death tile is start walked by all orders: (5,4) + s = (6,4).
+        {"turn": 3, "loc": [5, 4], "dest": [6, 4], "action": "s"},
+    ]
+    rets = rewards.compute_returns(game, 0, records)
+    assert rets[0] == rewards.KILL + rewards.DEATH == -1.0
+
+
 def test_exploiter_scales_triple_combat_credit():
     import rewards
 

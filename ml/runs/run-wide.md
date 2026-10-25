@@ -17,10 +17,17 @@ exactly what beyond-own-LoS vision targets.
 - Success criteria: >= 1 promotion; elim share rises on gap/caves.
 - Failure criteria: 0 promotions + flat elim -> vision wasn't the
   blocker; revisit attack-conversion shaping (gated engage class).
-- Results, first attempt: 0/15 INFRASTRUCTURE FAILURE — every gen
-  crashed at the first opt.step(): banked Adam momentum was still
-  6-channel shaped while the net went 7-channel. Weight migration
-  covered parameters but not optimizer state. Fixed in
-  load_opt_state (shape-validated: matching params keep history,
-  reshaped ones restart fresh; test reproduces the crash). Rerun
-  below is the live verification.
+- Results, retry (g293-g307): 15/15 clean, 0 PROMOTIONS. r1 at/
+  above baseline (40-53% elim); other 7 maps still <=12% elim —
+  disease intact. Mains 8/10 all-draw evals; only (losing)
+  exploiters break draws. New channel no behavioral signature:
+  sampled razes are hill-races/double-elims, never post-battle
+  hill-finding with survivors. pg ~= 0 throughout.
+- Verdict: NEGATIVE per criteria — vision wasn't the blocker.
+  Fifteen gens with zero signature is enough: pg ~= 0 means no
+  gradient pushes the new channel, more gens of nothing = nothing.
+  Mechanism recheck: 97% death rate at net-0 means 1-for-1 trades
+  are free — no incentive to preserve material, so no survivors,
+  so no conversion. Fallback (round 19): break the indifference
+  with asymmetric death (DEATH -2, KILL +1) — the cheapest reward
+  knob left; if it fails, the next step is structural, not shaping.

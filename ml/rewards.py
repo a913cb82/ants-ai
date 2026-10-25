@@ -25,7 +25,9 @@ from grid import dist2, step
 
 FOOD = 1.0
 KILL = 1.0
-DEATH = -1.0
+DEATH = -2.0  # asymmetric: dying costs double killing pays, so 1-for-1
+# trades net -1. Mutual annihilation is no longer free; combat must
+# preserve material to profit. Exploiters keep their own scales.
 HILL_RAZE = 10.0
 HILL_LOST = -10.0
 WIN = 5.0
