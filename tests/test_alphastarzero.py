@@ -1451,3 +1451,31 @@ def test_eval_uses_held_maps_only(tmp_path, monkeypatch):
            "turns": 5, "temperature": 0.0, "seed": 0}
     evaluate.evaluate(cfg, base, "chal", w, champ, w)
     assert seen == ["h1.map", "h2.map", "h1.map", "h2.map"]
+
+
+def test_eval_reports_score_margins(tmp_path, monkeypatch):
+    import archive
+    import evaluate
+    import game_if
+
+    base = tmp_path / "archive"
+    w = {"a": [1.0]}
+    champ = archive.save_checkpoint(base, w, role="main", parent=None)
+    scores = iter([(3, 1), (1, 1)])
+
+    def fake_play(root, python, wa, wb, gcfg, outdir):
+        sa, sb = next(scores)
+        (outdir / "logs").mkdir(parents=True, exist_ok=True)
+        (outdir / "logs" / "0.replay").write_text(
+            '{"game_length": 10, "score": [%d, %d], "replaydata": {}}' % (sa, sb)
+        )
+        return {"game": {"game_length": 10, "score": [sa, sb], "replaydata": {}},
+                "records_a": [], "records_b": []}
+
+    monkeypatch.setattr(game_if, "play", fake_play)
+    cfg = {"eval_games": 2, "maps": ["m.map"], "turns": 5,
+           "temperature": 0.0, "seed": 0}
+    ev = evaluate.evaluate(cfg, base, "chal", w, champ, w)
+    # Slot 0: chal is A (3-1 -> +2). Slot 1: chal is B (1-1 -> 0).
+    assert ev["margins"] == [2, 0] or sorted(ev["margins"]) == [0, 2]
+    assert ev["mean_margin"] == 1.0

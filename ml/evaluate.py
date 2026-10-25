@@ -71,6 +71,7 @@ def evaluate(
         jobs.append((cfg, base, chal_id, champ_id, me_w, other_w, slot, g))
     workers = min(cfg.get("workers", 8), len(jobs)) or 1
     wins = draws = finished = 0
+    margins: list[int] = []
     with ThreadPoolExecutor(max_workers=workers) as pool:
         future_to_g = {pool.submit(_play_duel, job): job[-1] for job in jobs}
         for future in as_completed(future_to_g):
@@ -79,6 +80,7 @@ def evaluate(
             chal_score, champ_score = (sa, sb) if g % 2 == 0 else (sb, sa)
             wins += chal_score > champ_score
             draws += chal_score == champ_score
+            margins.append(chal_score - champ_score)
             finished += 1
             archive.write_status(base, {
                 "phase": "eval", "challenger": chal_id,
@@ -91,4 +93,9 @@ def evaluate(
         "draws": draws,
         "games": cfg["eval_games"],
         "win_rate": (wins + 0.5 * draws) / cfg["eval_games"] if cfg["eval_games"] else 0.0,
+        # Score differential per duel (challenger minus champion).
+        # Display only: the promotion rule still reads W/D. But when
+        # mirrors draw 90%+, the margin is where improvement shows first.
+        "margins": margins,
+        "mean_margin": sum(margins) / len(margins) if margins else 0.0,
     }
