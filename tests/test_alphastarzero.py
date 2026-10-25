@@ -422,51 +422,54 @@ def test_bot_weights_path_override(tmp_path):
     assert bot.policy(torch.zeros(1, 6, 9, 9)).shape == (1, 5)
 
 
-def test_food_credit_by_spawnradius_proximity():
+def test_food_gives_no_direct_reward():
     import rewards
 
     game = _game()
     game["replaydata"]["food"] = [[5, 5, 1, 3, 0]]  # spawnradius2=1: adjacent counts
     records = [
-        # gatherer stays: this stays a pure food-channel test.
+        # gathering feeds the hive (more ants win wars) but pays nothing
+        # itself: food is the Blizzard-score trap, not the objective.
         {"turn": 3, "loc": [5, 4], "dest": [5, 4], "action": "stay"},
         {"turn": 3, "loc": [0, 0], "dest": [0, 0], "action": "stay"},
     ]
     rets = rewards.compute_returns(game, 0, records)
-    assert rets[0] == rewards.FOOD
-    assert rets[1] == 0.0
+    assert rets == [0.0, 0.0]
 
 
-def test_food_splits_one_pickup_across_all_adjacent_ants():
+def test_gathered_food_carries_no_credit():
     import rewards
 
     game = _game()
     game["replaydata"]["food"] = [[5, 5, 1, 3, 0]]
     records = [
-        # both gatherers stay: pure split test.
+        # two gatherers, one pickup: still nothing. Armies are paid in
+        # wins, not pickups.
         {"turn": 3, "loc": [5, 4], "dest": [5, 4], "action": "stay"},
         {"turn": 3, "loc": [5, 6], "dest": [5, 6], "action": "stay"},
         {"turn": 3, "loc": [0, 0], "dest": [0, 0], "action": "stay"},
     ]
     rets = rewards.compute_returns(game, 0, records)
-    assert rets == [rewards.FOOD / 2, rewards.FOOD / 2, 0.0]
+    assert rets == [0.0, 0.0, 0.0]
 
 
-def test_dense_reward_discounts_back_along_ant_path():
+def test_kill_reward_discounts_back_along_ant_path():
     import rewards
 
     game = _game()
-    game["replaydata"]["ants"] = [[4, 4, 0, 99, 0, "ss"]]
-    game["replaydata"]["food"] = [[6, 5, 1, 2, 0]]  # adjacent to (6,4) at turn 2
+    game["replaydata"]["ants"] = [
+        [4, 4, 0, 99, 0, "ss"],
+        [6, 5, 0, 2, 1, "--"],  # foe dies on (6,5) at turn 2
+    ]
     records = [
         {"turn": 1, "loc": [4, 4], "dest": [5, 4], "action": "s"},
         {"turn": 2, "loc": [5, 4], "dest": [6, 4], "action": "s"},
     ]
     rets = rewards.compute_returns(game, 0, records)
-    # food walks back along the path: full amount on the gather turn,
+    # kill walks back along the path: full amount on the kill turn,
     # discounted one step on the approach turn.
-    assert rets[1] == rewards.FOOD
-    assert rets[0] == rewards.FOOD * rewards.GAMMA
+    assert rets[1] == rewards.KILL
+    assert rets[0] == rewards.KILL * rewards.GAMMA
 
 
 def _cnn_window(water_dests=(), radius=4):
@@ -851,7 +854,7 @@ def test_decompose_reports_category_mass():
         {"turn": 3, "loc": [0, 0], "dest": [0, 0], "action": "stay"},
     ]
     mass = rewards.decompose(game, 0, records)
-    assert mass["food"] == rewards.FOOD
+    assert mass["food"] == 0.0  # gathered, paid nothing
     assert mass["terminal"] == rewards.WIN  # per-record, not xN
     assert mass["result"] == "win"
     assert mass["kill"] == 0.0
