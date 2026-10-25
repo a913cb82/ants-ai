@@ -195,6 +195,22 @@ persists via archive/critic.json (training apparatus, not the agent;
 actor still restarts from champion, evals use policy only). 15-gen
 continuity probe (seed 99, turns 60, defaults) next.
 
+## Unblocking the next run (2026-10-25): two-pronged
+
+The combo moved the critic (1.0 -> ~0.85, dips to 0.67) but the
+policy never converted: shared-trunk thrash was proven by the
+critic-fit test (head-only stuck, whole-net fit), and random-init
+means E[return|window] = 0 everywhere (nothing predictable to fit).
+Two independent fixes, landing in parallel:
+(a) separate value trunk (vconv* keys; actor gradients can no longer
+fight critic gradients; old checkpoints load with a random-init
+value trunk and keep working);
+(b) BC-from-pros supervised init (xathis games -> (window, pro move)
+rows -> cross-entropy -> --init-weights seeds the gen-0 champion,
+so self-play starts from food-competent play instead of random).
+Either alone might unstick it; together they compound: a non-random
+policy gives the critic something predictable from step one.
+
 ## 30-gen combo verdict (2026-10-25): critic moves, policy doesn't
 
 /tmp/azcombo (seed 123, turns 60, vf_coef 4.0, shaping + batch-norm
