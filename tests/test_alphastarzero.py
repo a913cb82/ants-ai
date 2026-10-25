@@ -24,6 +24,7 @@ class FakeAnts:
         self._enemy = [((4, 6), 1)]
         self._my_hills = [(3, 3)]
         self._enemy_hills = [((6, 6), 1)]
+        self.viewradius2 = 77
 
     def destination(self, loc, direction):
         d = {"n": (-1, 0), "e": (0, 1), "s": (1, 0), "w": (0, -1)}[direction]
@@ -185,3 +186,49 @@ def test_window_marks_both_hills():
     w = features.local_window(ants, (4, 4), radius=3)
     assert w[features.CHANNELS.index("own_hill")][2][2] == 1.0
     assert w[features.CHANNELS.index("enemy_hill")][5][5] == 1.0
+
+
+def test_window_masks_cells_outside_los_circle():
+    import features
+
+    ants = FakeAnts()
+    ants.viewradius2 = 8
+    ants._mine = [(4, 4)]
+    ants._food = [(7, 4), (6, 4)]  # offsets (+3,0) d2=9, (+2,0) d2=4
+    w = features.local_window(ants, (4, 4), radius=3)
+    food = w[features.CHANNELS.index("food")]
+    assert food[6][3] == 0.0  # outside the sight circle: masked
+    assert food[5][3] == 1.0  # inside: visible
+
+
+def test_window_los_boundary_is_inclusive():
+    import features
+
+    ants = FakeAnts()
+    ants.viewradius2 = 8
+    ants._mine = [(4, 4)]
+    ants._food = [(6, 6)]  # offset (+2,+2), d2=8 == viewradius2
+    w = features.local_window(ants, (4, 4), radius=3)
+    assert w[features.CHANNELS.index("food")][5][5] == 1.0
+
+
+def test_window_masks_own_ants_outside_circle():
+    import features
+
+    ants = FakeAnts()
+    ants.viewradius2 = 8
+    ants._mine = [(4, 4), (7, 4)]  # second ant at offset (+3,0), d2=9
+    w = features.local_window(ants, (4, 4), radius=3)
+    own = w[features.CHANNELS.index("own_ant")]
+    assert own[3][3] == 1.0  # self still marked
+    assert own[6][3] == 0.0  # far own ant outside this ant's circle
+
+
+def test_window_full_radius_inside_default_sight():
+    import features
+
+    ants = FakeAnts()  # viewradius2=77: radius-4 corner d2=32, all visible
+    w = features.local_window(ants, (4, 4), radius=4)
+    assert w.sum() > 0.0
+    # water tile (2,2) is offset (-2,-2), d2=8 <= 77: still reported
+    assert w[features.CHANNELS.index("water")][2][2] == 1.0

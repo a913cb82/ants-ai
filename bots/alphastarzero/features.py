@@ -90,10 +90,17 @@ def local_window(
     whatever is `dr, dc` tiles away with toroidal wrap. Channel order is
     CHANNELS. Water is authoritative: a water tile never carries an ant,
     hill, or food mark.
+
+    Engine line of sight: only cells with dr*dr+dc*dc <= viewradius2
+    (the ant's own sight circle, cf. tools/ants.py neighbourhood_offsets)
+    are filled. Cells outside the circle stay all-zero, matching what the
+    engine actually reveals to the bot. viewradius2 comes from the game
+    settings and defaults to 77 when the wrapper does not provide it.
     """
     size = 2 * radius + 1
     window = torch.zeros((len(CHANNELS), size, size), dtype=torch.float32)
     r0, c0 = loc
+    sight2 = getattr(ants, "viewradius2", 77)
     own_ants = set(ants.my_ants())
     own_hills = set(ants.my_hills())
     enemy_ants = {pos for pos, _owner in ants.enemy_ants()}
@@ -101,6 +108,8 @@ def local_window(
     foods = set(ants.food())
     for dr in range(-radius, radius + 1):
         for dc in range(-radius, radius + 1):
+            if dr * dr + dc * dc > sight2:
+                continue
             cell = ((r0 + dr) % ants.rows, (c0 + dc) % ants.cols)
             i, j = dr + radius, dc + radius
             if not ants.passable(cell):
