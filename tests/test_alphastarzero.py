@@ -939,3 +939,33 @@ def test_snapshot_carries_live_status(tmp_path):
     assert dashboard.snapshot(base)["status"] == {}
     archive.write_status(base, {"phase": "eval", "done": 3, "total": 20})
     assert dashboard.snapshot(base)["status"]["phase"] == "eval"
+
+
+def test_dashboard_http_api(tmp_path):
+    import json
+    import threading
+    import urllib.request
+
+    import archive
+    import dashboard
+
+    base = tmp_path / "archive"
+    a = archive.save_checkpoint(base, {}, role="main", parent=None)
+    archive.set_champion(base, a)
+    srv = dashboard.make_handler(base)
+    import http.server
+
+    httpd = http.server.ThreadingHTTPServer(("127.0.0.1", 0), srv)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        root = f"http://127.0.0.1:{httpd.server_address[1]}"
+        snap = json.load(urllib.request.urlopen(root + "/api/snapshot", timeout=5))
+        assert snap["champion"] == a and snap["game_total"] == 0
+        assert "generations" in snap and "status" in snap
+        archive.log_game(base, a, "eval", a, a, 1, 1, "games/g/e/logs/0.replay")
+        page = json.load(urllib.request.urlopen(root + "/api/games?limit=1", timeout=5))
+        assert page["total"] == 1 and len(page["rows"]) == 1
+        with urllib.request.urlopen(root + "/", timeout=5) as r:
+            assert "no-store" in r.headers.get("Cache-Control", "")
+    finally:
+        httpd.shutdown()

@@ -12,7 +12,9 @@ Pure files + numpy; knows nothing about torch or the engine.
 from __future__ import annotations
 
 import json
+import os
 import re
+import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -129,9 +131,22 @@ def log_game(
 
 
 def write_status(base: Path, status: dict) -> None:
-    """Live progress for the dashboard (overwritten as a generation runs)."""
+    """Live progress for the dashboard (overwritten as a generation runs).
+
+    Atomic rename: readers never see a half-written file mid-poll."""
     init(base)
-    (_paths(base)["dir"] / "status.json").write_text(json.dumps(status))
+    target = _paths(base)["dir"] / "status.json"
+    fd, tmp = tempfile.mkstemp(dir=str(target.parent), suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(json.dumps(status))
+        os.replace(tmp, target)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 
 def read_status(base: Path) -> dict:

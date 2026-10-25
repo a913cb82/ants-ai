@@ -8,8 +8,8 @@ generations.
   .venv/bin/python ml/dashboard.py [--port 8080] [--archive ml/archive]
 
 Routes: / (page), /api/snapshot (everything as JSON),
-/api/games?member=<id> (game index), /replay?f=<archive-relative
-replay> (visualizer page, opens in a new tab),
+/api/games?member=&limit=&offset= (game index slice + total),
+/replay?f=<archive-relative replay> (visualizer page, named tab),
 /static/v/<path> (visualizer js/data/img).
 """
 
@@ -19,7 +19,10 @@ import argparse
 import functools
 import html
 import json
+import os
 import sys
+import tempfile
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -33,44 +36,107 @@ import selfplay
 VIS_DIR = ROOT / "tools" / "visualizer"
 TEMPLATE = (VIS_DIR / "replay.html.template").read_text()
 
+_nash_cache: dict = {}
+
+
+def _nash_cached(base: Path) -> dict:
+    """Fictitious play is O(iters*n^2): redo only when the matrix changes."""
+    mpath = base / "matrix.json"
+    try:
+        mtime = mpath.stat().st_mtime_ns
+    except OSError:
+        return {}
+    if _nash_cache.get("mtime") != mtime:
+        _nash_cache.clear()
+        _nash_cache["mtime"] = mtime
+        _nash_cache["mix"] = archive.nash_mixture(base)
+    return _nash_cache["mix"]
+
+
+# ---------------------------------------------------------------- DATA
+
+
+def _outcome(a: str, sa: float, b: str, sb: float, ref: str) -> str:
+    mine, theirs = (sa, sb) if ref == a else (sb, sa)
+    if mine > theirs:
+        return "win"
+    if mine < theirs:
+        return "loss"
+    return "draw"
+
 
 def snapshot(base: Path) -> dict:
-    """Everything the page needs, in one JSON-able dict."""
+    """Everything the page needs, in one JSON-able dict. One read per file."""
     archive.init(base)
     champ = archive.get_champion(base)
-    mix = archive.nash_mixture(base)
+    mix = _nash_cached(base)
     games = archive.list_games(base)
+    history = selfplay.read_history(base)
     members = []
     for m in archive.members(base):
         cid = m["id"]
-        w = l = 0
+        w = d = l = 0
         for g in games:
-            mine, theirs = (g["score_a"], g["score_b"]) if g["a"] == cid else (
-                (g["score_b"], g["score_a"]) if g["b"] == cid else (None, None))
-            if mine is None:
+            if g["kind"] != "eval":
                 continue
-            w += mine > theirs
-            l += mine < theirs
+            if g["a"] != cid and g["b"] != cid:
+                continue
+            r = _outcome(g["a"], g["score_a"], g["b"], g["score_b"], cid)
+            w += r == "win"
+            d += r == "draw"
+            l += r == "loss"
         members.append({
             "id": cid, "role": m["role"], "parent": m["parent"],
             "nash": round(mix.get(cid, 0.0), 4),
-            "wins": w, "losses": l,
+            "wins": w, "draws": d, "losses": l,
         })
+    gens = []
+    for h in history:
+        ev = h.get("eval", {}) or {}
+        tr = h.get("train", {}) or {}
+        losses = tr.get("losses", []) or []
+        thr = (h.get("config", {}) or {}).get("promote_threshold", 0.5)
+        draws = ev.get("draws", 0)
+        ngames = ev.get("games", 0)
+        wr = ev.get("win_rate", 0.0)
+        lower = archive.wilson_lower(ev.get("wins", 0) + 0.5 * draws, ngames)
+        if not ev:
+            reason = "held: waiting on first eval"
+        elif h.get("promoted"):
+            reason = f"promoted: lower {lower:.2f} clears bar {thr:.2f}"
+        elif ngames:
+            reason = f"held: lower {lower:.2f} vs bar {thr:.2f}"
+        else:
+            reason = f"held: win-rate {wr:.2f} vs bar {thr:.2f}"
+        gens.append({
+            "id": h.get("challenger", h.get("id", "?")),
+            "champion": h.get("champion"),
+            "train_return": tr.get("mean_return", 0.0),
+            "train_loss": (sum(losses) / len(losses)) if losses else 0.0,
+            "eval_w": ev.get("wins", 0), "eval_d": draws,
+            "eval_games": ngames, "win_rate": wr,
+            "wilson_lower": round(lower, 3),
+            "threshold": thr,
+            "promoted": bool(h.get("promoted")),
+            "reason": reason,
+        })
+    gens.reverse()
     return {
         "champion": champ,
         "members": members,
-        "history": selfplay.read_history(base),
-        "games": archive.list_games(base)[:50],
+        "history": history,
+        "generations": gens,
+        "games": games[:50],
+        "game_total": len(games),
         "status": archive.read_status(base),
-        "counts": {
-            "generations": len(selfplay.read_history(base)),
-            "games": len(archive.list_games(base)),
-        },
+        "counts": {"generations": len(history), "games": len(games)},
     }
 
 
-def replay_page(base: Path, rel: str) -> str | None:
+def replay_page(base: Path, rel: str | None) -> str | None:
     """Visualizer HTML with the replay inlined. None if unsafe/missing."""
+    if not rel:
+        return None
     target = (base / rel).resolve()
     if not str(target).startswith(str(base.resolve())) or not target.is_file():
         return None
@@ -84,6 +150,19 @@ def replay_page(base: Path, rel: str) -> str | None:
     return page.replace("## REPLAY PLACEHOLDER ##", data)
 
 
+# ---------------------------------------------------------------- API
+
+
+def _json(handler: BaseHTTPRequestHandler, obj: object, status: int = 200) -> None:
+    body = json.dumps(obj).encode()
+    handler.send_response(status)
+    handler.send_header("Content-Type", "application/json")
+    handler.send_header("Cache-Control", "no-store")
+    handler.send_header("Content-Length", str(len(body)))
+    handler.end_headers()
+    handler.wfile.write(body)
+
+
 def make_handler(base: Path):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):
@@ -92,100 +171,383 @@ def make_handler(base: Path):
         def _send(self, body: bytes, ctype: str):
             self.send_response(200)
             self.send_header("Content-Type", ctype)
+            self.send_header("Cache-Control", "no-store")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
 
         def do_GET(self):
             parsed = urlparse(self.path)
-            if parsed.path == "/":
-                self._send(PAGE.encode(), "text/html")
-            elif parsed.path == "/api/snapshot":
-                self._send(json.dumps(snapshot(base)).encode(), "application/json")
-            elif parsed.path == "/api/games":
-                member = parse_qs(parsed.query).get("member", [None])[0]
-                self._send(
-                    json.dumps(archive.list_games(base, member)).encode(),
-                    "application/json",
-                )
-            elif parsed.path == "/replay":
-                rel = parse_qs(parsed.query).get("f", [None])[0]
-                page = replay_page(base, rel) if rel else None
-                if page is None:
-                    self.send_error(404, "no such replay")
+            try:
+                if parsed.path == "/":
+                    self._send(render_page().encode(), "text/html")
+                elif parsed.path == "/api/snapshot":
+                    _json(self, snapshot(base))
+                elif parsed.path == "/api/games":
+                    q = parse_qs(parsed.query)
+                    member = q.get("member", [None])[0]
+                    try:
+                        limit = min(int(q.get("limit", ["50"])[0]), 200)
+                    except ValueError:
+                        limit = 50
+                    try:
+                        offset = max(int(q.get("offset", ["0"])[0]), 0)
+                    except ValueError:
+                        offset = 0
+                    rows = archive.list_games(base, member)
+                    _json(self, {"total": len(rows),
+                                 "rows": rows[offset:offset + limit]})
+                elif parsed.path == "/replay":
+                    rel = parse_qs(parsed.query).get("f", [None])[0]
+                    page = replay_page(base, rel)
+                    if page is None:
+                        self.send_error(404, "no such replay")
+                    else:
+                        self._send(page.encode(), "text/html")
+                elif parsed.path.startswith("/static/v/"):
+                    target = (VIS_DIR / parsed.path[len("/static/v/"):]).resolve()
+                    if not str(target).startswith(str(VIS_DIR.resolve())) or not target.is_file():
+                        self.send_error(404, "no such file")
+                    else:
+                        ctype = "application/javascript" if target.suffix == ".js" else (
+                            "text/html" if target.suffix in (".html", ".htm") else
+                            "image/png" if target.suffix == ".png" else "application/octet-stream")
+                        self._send(target.read_bytes(), ctype)
                 else:
-                    self._send(page.encode(), "text/html")
-            elif parsed.path.startswith("/static/v/"):
-                target = (VIS_DIR / parsed.path[len("/static/v/"):]).resolve()
-                if not str(target).startswith(str(VIS_DIR.resolve())) or not target.is_file():
-                    self.send_error(404, "no such file")
-                else:
-                    ctype = "application/javascript" if target.suffix == ".js" else (
-                        "text/html" if target.suffix in (".html", ".htm") else
-                        "image/png" if target.suffix == ".png" else "application/octet-stream")
-                    self._send(target.read_bytes(), ctype)
-            else:
-                self.send_error(404, "unknown route")
+                    self.send_error(404, "unknown route")
+            except (OSError, ValueError) as e:
+                _json(self, {"error": f"{type(e).__name__}: {e}"}, status=500)
 
     return Handler
 
 
-PAGE = """<!doctype html>
-<html><head><meta charset="utf-8"><title>AlphaStarZero training</title>
-<style>
-body{font-family:system-ui,sans-serif;margin:2em;max-width:1000px}
-table{border-collapse:collapse;margin:1em 0}td,th{border:1px solid #ccc;padding:.3em .7em;text-align:left}
-canvas{border:1px solid #ccc;margin:.5em 0}
-select,button{font-size:1em}
-.muted{color:#666}
-</style></head><body>
+# ---------------------------------------------------------------- PAGE
+
+
+STYLES = """
+:root{
+  --bg:#F6F7F9; --card:#FFFFFF; --border:#E3E6EA; --border-strong:#C9CFD6;
+  --ink:#16191D; --secondary:#5B6470; --muted:#8A94A0;
+  --accent:#2456E0; --success:#18794E; --danger:#C4322B; --warn:#B7791F;
+  --eval-bg:#EAF0FE; --eval-ink:#2456E0; --train-bg:#EDEFF1; --train-ink:#5B6470;
+  --grid:#E9EDF1; --chart-text:#6B7480;
+}
+*{box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,Roboto,"Helvetica Neue",Arial,sans-serif;
+  background:var(--bg); color:var(--ink); margin:0; padding:24px max(16px,4vw) 48px;}
+.wrap{max-width:1200px; margin:0 auto;}
+h1{font-size:20px; margin:0 0 4px;}
+.sub{color:var(--secondary); font-size:13px; margin:0 0 20px;}
+.section-title{font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
+  color:var(--secondary); margin:32px 0 12px;}
+.legend{font-size:12px; color:var(--muted); margin:-6px 0 12px;}
+.stats{display:grid; grid-template-columns:repeat(3,1fr); gap:16px;}
+.status-wide{grid-column:span 3;}
+.card{background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px 20px;}
+.stat-label{font-size:12px; color:var(--secondary);}
+.stat-value{font-size:28px; font-weight:700; font-variant-numeric:tabular-nums; margin-top:2px;}
+.stat-value .champ-star{color:var(--warn); font-size:20px;}
+.progress{height:8px; background:var(--border); border-radius:4px; margin-top:10px; overflow:hidden;}
+.progress>div{height:100%; background:var(--accent); border-radius:4px; transition:width .4s, background .4s;}
+.status-line{font-size:14px; margin-top:2px;}
+.charts{display:grid; grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr)); gap:16px;}
+.chart-card h3{margin:0 0 2px; font-size:14px;}
+.chart-sub{font-size:12px; color:var(--muted); margin:0 0 8px;}
+.chart-head{display:flex; justify-content:space-between; align-items:baseline;}
+.delta{font-size:12px; font-weight:700; padding:2px 8px; border-radius:20px;}
+.delta.up{color:var(--success); background:#E6F4EC;}
+.delta.down{color:var(--danger); background:#FBEAE8;}
+.delta.flat{color:var(--secondary); background:var(--train-bg);}
+canvas{width:100%; height:220px; display:block;}
+.cols{display:grid; grid-template-columns:1fr 1.4fr; gap:16px; align-items:start;}
+.table-scroll{overflow-x:auto;}
+table{border-collapse:collapse; width:100%; font-size:13.5px; font-variant-numeric:tabular-nums;}
+th{background:#F1F3F5; text-align:left; font-size:12px; color:var(--secondary); font-weight:600;}
+th,td{padding:9px 10px; border-bottom:1px solid var(--border);}
+tr:last-child td{border-bottom:none;}
+tbody tr:hover{background:#F8FAFC;}
+td.num, th.num{text-align:right;}
+.pill{display:inline-block; font-size:11px; font-weight:700; padding:2px 9px; border-radius:20px;}
+.pill.eval{background:var(--eval-bg); color:var(--eval-ink);}
+.pill.train{background:var(--train-bg); color:var(--train-ink);}
+.badge{display:inline-block; font-size:11px; font-weight:700; padding:2px 9px; border-radius:20px;}
+.badge.win{color:var(--success); background:#E6F4EC;}
+.badge.loss{color:var(--danger); background:#FBEAE8;}
+.badge.draw{color:var(--secondary); background:var(--train-bg);}
+.badge.promoted{color:var(--success); background:#E6F4EC;}
+.badge.held{color:var(--warn); background:#FBF3E2;}
+.nash-wrap{display:flex; align-items:center; gap:8px;}
+.nash-bar{flex:1; min-width:60px; height:6px; background:var(--border); border-radius:3px; overflow:hidden;}
+.nash-bar>div{height:100%; background:var(--accent);}
+.rate-wrap{display:flex; align-items:center; gap:8px;}
+.rate-bar{flex:1; min-width:70px; height:6px; background:var(--border); border-radius:3px; position:relative; overflow:hidden;}
+.rate-bar>div{height:100%; background:var(--success);}
+.rate-bar .marker{position:absolute; top:-2px; bottom:-2px; width:2px; background:var(--ink);}
+.toolbar{display:flex; gap:10px; align-items:center; margin-bottom:10px; flex-wrap:wrap;}
+.toolbar label{font-size:13px; color:var(--secondary);}
+select{font-size:13px; padding:6px 10px; border:1px solid var(--border-strong); border-radius:8px; background:#fff;}
+.live-toggle{display:flex; align-items:center; gap:6px; font-size:13px; color:var(--secondary);}
+.updated{font-size:12px; color:var(--muted); margin-left:auto;}
+#error{display:none; background:#FBEAE8; color:var(--danger); border:1px solid #F0C4C0;
+  border-radius:8px; padding:10px 14px; margin-bottom:16px; font-size:13px;}
+.empty{padding:28px 20px; color:var(--secondary); font-size:14px;}
+.empty code{background:#EFF1F4; padding:2px 6px; border-radius:4px; font-size:13px;}
+a{color:var(--accent); text-decoration:none;}
+a:hover{text-decoration:underline;}
+.winner{font-weight:700;}
+@media (max-width:900px){
+  .stats{grid-template-columns:repeat(2,1fr);}
+  .status-wide{grid-column:span 2;}
+  .cols{grid-template-columns:1fr;}
+  body{padding:16px 16px 40px;}
+}
+"""
+
+SCRIPT = """
+let S=null, seq=0, lastHash="", lastGames="", live=true, lastTick=0;
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+async function fetchJSON(url){
+  const r=await fetch(url);
+  if(!r.ok) throw new Error("HTTP "+r.status+" on "+url);
+  return r.json();
+}
+function ago(ts){const s=Math.max(0,Math.round((Date.now()-ts)/1000));
+  return s<2?"just now":s+"s ago";}
+function shortReplay(rel){const p=(rel||"").split("/").filter(Boolean);
+  return p.length>=3?p[p.length-3]:(p.pop()||"").replace(/\\.replay$/,"");}
+function outcome(a,sa,b,sb){
+  if(sa>sb) return {cls:"win",label:"win"};
+  if(sa<sb) return {cls:"loss",label:"loss"};
+  return {cls:"draw",label:"draw"};
+}
+/* Charts: titled card, gridlines, min/max labels, headroom, HiDPI. */
+function plot(id,series,color,fill,labels){
+  const cv=$(id),ctx=cv.getContext("2d");
+  const dpr=window.devicePixelRatio||1,W=cv.clientWidth,H=cv.clientHeight;
+  cv.width=W*dpr;cv.height=H*dpr;ctx.scale(dpr,dpr);
+  ctx.clearRect(0,0,W,H);
+  if(!series.length){ctx.fillStyle="#8A94A0";ctx.font="12px system-ui";
+    ctx.fillText("no generations yet",12,20);return;}
+  let mn=Math.min(...series),mx=Math.max(...series);
+  if(mx-mn<1e-9){mn-=1;mx+=1;}
+  const pad=(mx-mn)*0.12;mn-=pad;mx+=pad;
+  const prec=(mx-mn)<0.5?3:2;
+  const L=48,R=8,T=8,B=20,iw=W-L-R,ih=H-T-B;
+  const X=i=>L+iw*(series.length<2?0.5:i/(series.length-1));
+  const Y=v=>T+ih*(1-(v-mn)/(mx-mn));
+  ctx.strokeStyle="#E9EDF1";ctx.fillStyle="#6B7480";ctx.font="10px system-ui";ctx.lineWidth=1;
+  for(let k=0;k<=3;k++){const v=mn+(mx-mn)*k/3,y=Y(v);
+    ctx.beginPath();ctx.moveTo(L,y);ctx.lineTo(W-R,y);ctx.stroke();
+    let t=v.toFixed(prec);if(t==="-0.000"||t==="-0.00")t=t.slice(1);
+    ctx.fillText(t,4,y+3);}
+  const x0=(labels&&labels[0])||"gen 0";
+  const x1=(labels&&labels[labels.length-1])||("gen "+(series.length-1));
+  ctx.fillText(x0,L,H-6);
+  const w1=ctx.measureText(x1).width;
+  ctx.fillText(x1,W-R-w1,H-6);
+  if(fill){const gr=ctx.createLinearGradient(0,T,0,H-B);
+    gr.addColorStop(0,fill);gr.addColorStop(1,"rgba(255,255,255,0)");
+    ctx.beginPath();ctx.moveTo(X(0),Y(series[0]));
+    series.forEach((v,i)=>ctx.lineTo(X(i),Y(v)));
+    ctx.lineTo(X(series.length-1),H-B);ctx.lineTo(X(0),H-B);ctx.closePath();
+    ctx.fillStyle=gr;ctx.fill();}
+  ctx.strokeStyle=color;ctx.lineWidth=2;ctx.lineJoin="round";ctx.beginPath();
+  series.forEach((v,i)=>i?ctx.lineTo(X(i),Y(v)):ctx.moveTo(X(i),Y(v)));ctx.stroke();
+  const lx=X(series.length-1),ly=Y(series[series.length-1]);
+  ctx.fillStyle=color;ctx.beginPath();ctx.arc(lx,ly,3.5,0,7);ctx.fill();
+}
+function deltaChip(vals,invert){
+  if(vals.length<2) return '<span class="delta flat">—</span>';
+  const d=vals[vals.length-1]-vals[vals.length-2];
+  if(Math.abs(d)<1e-9) return '<span class="delta flat">±0.00</span>';
+  const good=invert?d<0:d>0;
+  return `<span class="delta ${good?"up":"down"}">${d>0?"+":""}${d.toFixed(3)}</span>`;
+}
+function renderHeader(){
+  $("st-champ").innerHTML=esc(S.champion||"—")+(S.champion?' <span class="champ-star">★</span>':"");
+  $("st-gen").textContent=S.counts.generations;
+  $("st-games").textContent=S.counts.games;
+  const st=S.status||{},el=$("st-status"),bar=$("st-bar");
+  bar.style.width="0%";bar.style.background="var(--accent)";
+  if(st.phase==="train"){
+    el.innerHTML=`training <b>${esc(st.challenger||"")}</b> · game ${st.done}/${st.total} · last mean return <b>${(+st.last_mean_return||0).toFixed(2)}</b>`;
+    bar.style.width=(100*st.done/Math.max(1,st.total))+"%";
+  }else if(st.phase==="eval"){
+    el.innerHTML=`evaluating <b>${esc(st.challenger||"")}</b> · duel ${st.done}/${st.total} · <b>${st.wins||0}W ${st.draws||0}D</b> so far`;
+    bar.style.width=(100*st.done/Math.max(1,st.total))+"%";
+  }else if(st.phase==="done"){
+    el.innerHTML=`last run finished: <b>${esc(st.challenger||"")}</b> `+
+      (st.promoted?'<span class="badge promoted">promoted ★</span>':'<span class="badge held">held</span>')+
+      ` · champion ${esc(st.champion||"")} · idle, waiting for the next run`;
+    bar.style.width="100%";
+    bar.style.background=st.promoted?"var(--success)":"var(--secondary)";
+  }else{
+    el.innerHTML=S.counts.generations?`idle · last champion ${esc(S.champion||"—")}`:"waiting for the first generation…";
+  }
+  $("updated").textContent="updated "+ago(lastTick)+" · "+(live?"live":"paused");
+}
+function renderCurves(){
+  const byGen=S.history.map(h=>{const l=((h.train||{}).losses||[]);return l.length?l.reduce((a,b)=>a+b,0)/l.length:0;});
+  const rets=S.history.map(h=>((h.train||{}).mean_return||0));
+  const ids=S.history.map(h=>h.challenger||"");
+  plot("ch-loss",byGen,"#C4322B","rgba(196,50,43,.12)",ids);
+  plot("ch-ret",rets,"#18794E","rgba(24,121,78,.12)",ids);
+  $("loss-delta").innerHTML=deltaChip(byGen,true);
+  $("ret-delta").innerHTML=deltaChip(rets,false);
+  $("loss-last").textContent=byGen.length?byGen[byGen.length-1].toFixed(3):"—";
+  $("ret-last").textContent=rets.length?rets[rets.length-1].toFixed(3):"—";
+}
+function renderPopulation(){
+  const rows=S.members.map(m=>`<tr><td>${esc(m.id)}${m.id===S.champion?' <span class="champ-star">★</span>':""}</td>`+
+    `<td>${esc(m.role)}</td><td>${esc(m.parent||"—")}</td>`+
+    `<td><span class="nash-wrap"><span class="nash-bar"><div style="width:${(m.nash*100).toFixed(1)}%"></div></span>${m.nash.toFixed(2)}</span></td>`+
+    `<td class="num">${m.wins}-${m.draws}-${m.losses}</td></tr>`).join("");
+  $("pop-body").innerHTML=rows||'<tr><td colspan="5" class="empty">no checkpoints yet — start a generation</td></tr>';
+}
+function renderGenerations(){
+  const rows=S.generations.map(g=>{
+    const pct=g.eval_games?100*(g.win_rate):0;
+    return `<tr><td>${esc(g.id)}</td><td class="num">${g.train_return.toFixed(2)}</td>`+
+    `<td class="num">${g.train_loss.toFixed(3)}</td>`+
+    `<td><span class="rate-wrap" title="Wilson lower bound ${g.wilson_lower.toFixed(2)} vs promotion bar ${g.threshold.toFixed(2)}"><span class="rate-bar"><div style="width:${pct.toFixed(0)}%"></div>`+
+    `<span class="marker" style="left:${(g.threshold*100).toFixed(0)}%"></span></span>`+
+    `${g.eval_w}-${g.eval_d}-${g.eval_games-g.eval_w-g.eval_d} · ${(g.win_rate*100).toFixed(0)}% · lower ${g.wilson_lower.toFixed(2)}</span></td>`+
+    `<td>${g.promoted?'<span class="badge promoted">promoted ★</span>':'<span class="badge held">held</span>'}`+
+    `<div class="legend" style="margin:4px 0 0">${esc(g.reason)}</div></td></tr>`;}).join("");
+  $("gen-body").innerHTML=rows||'<tr><td colspan="5" class="empty">no completed generations yet</td></tr>';
+}
+function memberIds(){return S.members.map(m=>m.id);}
+function renderMemberOptions(){
+  const sel=$("member"),cur=sel.value||location.hash.replace("#member=","");
+  const ids=memberIds();
+  if(sel.options.length-1===ids.length && ids.every((id,i)=>sel.options[i+1].text===id)){
+    if(cur&&ids.includes(cur)) sel.value=cur;
+    return; // unchanged: leave the open dropdown alone
+  }
+  sel.innerHTML='<option value="">all members</option>'+ids.map(id=>`<option>${esc(id)}</option>`).join("");
+  if(cur&&ids.includes(cur)) sel.value=cur;
+}
+async function renderGames(my){
+  const m=$("member").value;
+  history.replaceState(null,"",m?"#member="+encodeURIComponent(m):location.pathname);
+  const qparts=[];
+  if(m)qparts.push("member="+encodeURIComponent(m));
+  qparts.push("limit=100");
+  let data;
+  try{data=await fetchJSON("/api/games?"+qparts.join("&"));}
+  catch(e){
+    $("error").style.display="block";
+    $("error").textContent="games feed failed ("+e.message+") — showing last good table. retrying…";
+    return;
+  }
+  if(my!==seq) return; // a newer poll won
+  const h=JSON.stringify(data);
+  if(h===lastGames) return; // unchanged: keep focus, selection, scroll
+  lastGames=h;
+  const rows=data.rows.map(x=>{
+    const ref=m||x.a;
+    const o=ref===x.a?outcome(x.a,x.score_a,x.b,x.score_b):outcome(x.b,x.score_b,x.a,x.score_a);
+    const aWon=x.score_a>x.score_b,bWon=x.score_b>x.score_a;
+    const wa=(aWon?'<span class="winner">':'')+esc(x.a)+(aWon?'</span>':'');
+    const wb=(bWon?'<span class="winner">':'')+esc(x.b)+(bWon?'</span>':'');
+    const label=x.gen+" · "+shortReplay(x.replay);
+    return `<tr><td>${esc(x.gen)}</td><td><span class="pill ${esc(x.kind)}">${esc(x.kind)}</span></td>`+
+    `<td title="engine score">${wa} ${x.score_a} vs ${wb} ${x.score_b}</td><td><span class="badge ${o.cls}">${o.label}</span></td>`+
+    `<td><a href="/replay?f=${encodeURIComponent(x.replay)}" target="_blank" rel="noopener" title="${esc(x.a)} vs ${esc(x.b)}, gen ${esc(x.gen)}">${esc(label)}</a></td></tr>`;}).join("");
+  $("games-body").innerHTML=rows||(m?`<tr><td colspan="5" class="empty">no games logged for ${esc(m)} yet</td></tr>`:'<tr><td colspan="5" class="empty">no games logged yet — they appear here as each finishes</td></tr>');
+  $("games-count").textContent=`showing ${data.rows.length} of ${data.total}`;
+}
+async function load(){
+  if(!live) return;
+  const my=++seq;
+  try{
+    const snap=await fetchJSON("/api/snapshot");
+    if(my!==seq) return; // a newer poll won
+    const h=JSON.stringify(snap);
+    lastTick=Date.now();
+    $("error").style.display="none";
+    if(h!==lastHash){lastHash=h;S=snap;
+      renderHeader();renderCurves();renderPopulation();renderGenerations();renderMemberOptions();}
+    else renderHeader();
+    await renderGames(my);
+    $("updated").textContent="updated "+ago(lastTick)+" · live";
+  }catch(e){
+    $("error").style.display="block";
+    $("error").textContent="connection lost ("+e.message+") — showing last good data from "+ago(lastTick)+". retrying…";
+  }
+}
+function activePhase(){const p=S&&S.status&&S.status.phase;return p==="train"||p==="eval";}
+function tick(){load().finally(()=>setTimeout(tick,live?(activePhase()?5000:15000):15000));}
+$("member").addEventListener("change",()=>renderGames(seq));
+$("live-toggle").addEventListener("change",e=>{live=e.target.checked;
+  $("updated").textContent="updated "+ago(lastTick)+" · "+(live?"live":"paused");load();});
+window.addEventListener("resize",()=>{if(S)renderCurves();});
+load().then(()=>{const m=location.hash.replace("#member=","");
+  if(m){const sel=$("member");const opt=[...sel.options].find(o=>o.text===decodeURIComponent(m));
+    if(opt){sel.value=opt.text;renderGames(seq);}}});
+tick();
+"""
+
+
+def render_page() -> str:
+    return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AlphaStarZero training</title>
+<style>{STYLES}</style></head>
+<body><div class="wrap">
 <h1>AlphaStarZero training</h1>
-<div id="head" class="muted">loading…</div>
-<h2>Training curves</h2>
-<canvas id="loss" width="480" height="160"></canvas>
-<canvas id="ret" width="480" height="160"></canvas>
-<h2>Population</h2>
-<table id="pop"><tr><th>id</th><th>role</th><th>parent</th><th>nash</th><th>W-L (eval)</th></tr></table>
-<h2>Recent games</h2>
-<div><select id="member"><option value="">all members</option></select>
-<button id="refresh">refresh</button></div>
-<table id="games"><tr><th>gen</th><th>kind</th><th>matchup</th><th>score</th><th>replay</th></tr></table>
-<script>
-let S=null;
-function line(id,data,color){const c=document.getElementById(id),x=c.getContext('2d');
-x.clearRect(0,0,c.width,c.height);if(!data.length)return;
-const mn=Math.min(...data),mx=Math.max(...data),rg=(mx-mn)||1;
-x.strokeStyle=color;x.beginPath();
-data.forEach((v,i)=>{const px=i/(data.length-1||1)*c.width,py=c.height-((v-mn)/rg)*c.height;
-i?x.lineTo(px,py):x.moveTo(px,py)});x.stroke();
-x.fillStyle='#666';x.fillText(id+' last='+data[data.length-1].toFixed(3),8,12);}
-async function load(){const r=await fetch('/api/snapshot');S=await r.json();
-const st=S.status||{};
-let prog='idle';
-if(st.phase==='train')prog=`training ${st.challenger||''}: game ${st.done}/${st.total} (last mean return ${(st.last_mean_return||0).toFixed(2)})`;
-else if(st.phase==='eval')prog=`evaluating ${st.challenger||''}: duel ${st.done}/${st.total} (${st.wins||0}W ${st.draws||0}D so far)`;
-else if(st.phase==='done')prog=`generation done: ${st.challenger||''} ${st.promoted?'promoted ★':'held'} (champion ${st.champion||''})`;
-document.getElementById('head').textContent=
-`champion ${S.champion||'—'} · ${S.counts.generations} generations · ${S.counts.games} games · ${prog}`;
-const losses=S.history.flatMap(h=>h.train?h.train.losses:[]);
-line('loss',losses,'#c00');
-line('ret',S.history.map(h=>h.train?h.train.mean_return:0),'#080');
-const pop=document.getElementById('pop');
-pop.innerHTML='<tr><th>id</th><th>role</th><th>parent</th><th>nash</th><th>W-L (eval)</th></tr>'+
-S.members.map(m=>`<tr><td>${m.id}${m.id===S.champion?' ★':''}</td><td>${m.role}</td><td>${m.parent||'—'}</td><td>${m.nash}</td><td>${m.wins}-${m.losses}</td></tr>`).join('');
-const sel=document.getElementById('member'),cur=sel.value;
-sel.innerHTML='<option value="">all members</option>'+
-S.members.map(m=>`<option ${m.id===cur?'selected':''}>${m.id}</option>`).join('');
-loadGames();}
-async function loadGames(){const m=document.getElementById('member').value;
-const r=await fetch('/api/games'+(m?('?member='+m):''));const g=await r.json();
-document.getElementById('games').innerHTML=
-'<tr><th>gen</th><th>kind</th><th>matchup</th><th>score</th><th>replay</th></tr>'+
-g.slice(0,100).map(x=>`<tr><td>${x.gen}</td><td>${x.kind}</td><td>${x.a} vs ${x.b}</td><td>${x.score_a}-${x.score_b}</td><td><a href="/replay?f=${encodeURIComponent(x.replay)}" target="_blank" rel="noopener">open</a></td></tr>`).join('');}
-document.getElementById('member').onchange=loadGames;
-document.getElementById('refresh').onclick=load;
-load();setInterval(load,5000);
-</script></body></html>
+<p class="sub">mirror self-play · policy gradients · scripted promotion — nothing external, ever</p>
+<div id="error" role="alert"></div>
+<div class="stats">
+  <div class="card"><div class="stat-label">Champion</div><div class="stat-value" id="st-champ">—</div></div>
+  <div class="card"><div class="stat-label">Generations</div><div class="stat-value" id="st-gen">0</div></div>
+  <div class="card"><div class="stat-label">Games logged</div><div class="stat-value" id="st-games">0</div></div>
+  <div class="card status-wide"><div class="stat-label">Status</div>
+    <div class="status-line" id="st-status">loading…</div>
+    <div class="progress"><div id="st-bar" style="width:0%"></div></div></div>
+</div>
+<div class="section-title">Training curves</div>
+<div class="legend">mean policy loss per generation (down is good) · mean episode return per generation (up is good)</div>
+<div class="charts">
+  <div class="card chart-card"><div class="chart-head"><h3>Policy loss <span id="loss-last"></span></h3><span id="loss-delta"></span></div>
+    <p class="chart-sub">mean REINFORCE loss per generation</p><canvas id="ch-loss"></canvas></div>
+  <div class="card chart-card"><div class="chart-head"><h3>Mean return <span id="ret-last"></span></h3><span id="ret-delta"></span></div>
+    <p class="chart-sub">discounted episode return, one point per generation</p><canvas id="ch-ret"></canvas></div>
+</div>
+<div class="section-title">Generations</div>
+<div class="legend">why each challenger was promoted or held — win-rate bar vs the promotion marker</div>
+<div class="card table-scroll"><table>
+<tr><th>challenger</th><th class="num">train return</th><th class="num">train loss</th><th>eval vs champion</th><th>result</th></tr>
+<tbody id="gen-body"></tbody></table></div>
+<div class="cols">
+<div>
+<div class="section-title">Population</div>
+<div class="legend">nash = share of the training mixture · W-D-L counts eval duels only</div>
+<div class="card table-scroll"><table>
+<tr><th>id</th><th>role</th><th>parent</th><th>nash</th><th class="num">W-D-L (eval)</th></tr>
+<tbody id="pop-body"></tbody></table></div>
+</div>
+<div>
+<div class="section-title">Recent games</div>
+<div class="legend">train = practice (may include self-play) · eval = promotion duels vs champion</div>
+<div class="card">
+<div class="toolbar">
+<label for="member">member</label>
+<select id="member"><option value="">all members</option></select>
+<label class="live-toggle"><input type="checkbox" id="live-toggle" checked> live</label>
+<span class="updated" id="updated"></span>
+</div>
+<div class="table-scroll" style="max-height:480px; overflow-y:auto;"><table>
+<tr><th>gen</th><th>kind</th><th>matchup</th><th>result</th><th>replay</th></tr>
+<tbody id="games-body"></tbody></table></div>
+<div class="legend" id="games-count" style="margin:8px 0 0"></div>
+</div>
+</div>
+</div>
+</div>
+<script>{SCRIPT}</script></body></html>
 """
 
 
