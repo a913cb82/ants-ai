@@ -11,27 +11,50 @@ from features import ACTIONS
 class CNNPolicy(torch.nn.Module):
     """Small convnet: (6, H, W) window -> 5 action logits + 1 value.
 
-    Adaptive pooling keeps it radius-agnostic: any odd-sized window in,
-    5 logits out. ~6k params; microseconds per forward on CPU.
-    The value head shares the trunk (+129 params, zero-initialized so
-    early value estimates start at 0).
+    arch="base": 2 conv layers (16/32ch), 5x5 receptive field, 2x2
+    pool -> 128 dims, ~6.3k params. The periphery reaches the heads
+    only as pooled smear.
+    arch="deep": 4 narrow conv layers (8/12/16/16ch), 9x9 receptive
+    field covering the whole window, 3x3 pool -> 144 dims, ~6.3k
+    params. Same budget, strictly more expressive; the A/B challenger.
+
+    Adaptive pooling keeps both radius-agnostic: any odd-sized window
+    in, 5 logits out. The value head shares the trunk (+129/145
+    params, zero-initialized so early value estimates start at 0).
+    Fully ant-local: no global inputs, no memory, no communication.
     """
 
-    def __init__(self, channels: int | None = None) -> None:
+    def __init__(
+        self, channels: int | None = None, arch: str = "base"
+    ) -> None:
         super().__init__()
+        assert arch in ("base", "deep"), arch
+        self.arch = arch
         channels = len(features.CHANNELS) if channels is None else channels
-        self.conv1 = torch.nn.Conv2d(channels, 16, kernel_size=3, padding=1)
-        self.conv2 = torch.nn.Conv2d(16, 32, kernel_size=3, padding=1)
-        self.pool = torch.nn.AdaptiveAvgPool2d((2, 2))
-        self.head = torch.nn.Linear(32 * 4, len(ACTIONS))
-        self.value = torch.nn.Linear(32 * 4, 1)
+        if arch == "base":
+            self.conv1 = torch.nn.Conv2d(channels, 16, kernel_size=3, padding=1)
+            self.conv2 = torch.nn.Conv2d(16, 32, kernel_size=3, padding=1)
+            self.pool = torch.nn.AdaptiveAvgPool2d((2, 2))
+            trunk_dim = 32 * 4
+        else:
+            self.conv1 = torch.nn.Conv2d(channels, 8, kernel_size=3, padding=1)
+            self.conv2 = torch.nn.Conv2d(8, 12, kernel_size=3, padding=1)
+            self.conv3 = torch.nn.Conv2d(12, 16, kernel_size=3, padding=1)
+            self.conv4 = torch.nn.Conv2d(16, 16, kernel_size=3, padding=1)
+            self.pool = torch.nn.AdaptiveAvgPool2d((3, 3))
+            trunk_dim = 16 * 9
+        self.head = torch.nn.Linear(trunk_dim, len(ACTIONS))
+        self.value = torch.nn.Linear(trunk_dim, 1)
         torch.nn.init.zeros_(self.value.weight)
         torch.nn.init.zeros_(self.value.bias)
 
     def trunk(self, x: torch.Tensor) -> torch.Tensor:
-        """x: (B, C, H, W) -> shared features (B, 128)."""
+        """x: (B, C, H, W) -> shared features (B, trunk_dim)."""
         x = torch.relu(self.conv1(x))
         x = torch.relu(self.conv2(x))
+        if self.arch == "deep":
+            x = torch.relu(self.conv3(x))
+            x = torch.relu(self.conv4(x))
         return self.pool(x).flatten(start_dim=1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -41,6 +64,15 @@ class CNNPolicy(torch.nn.Module):
     def values(self, x: torch.Tensor) -> torch.Tensor:
         """x: (B, 6, H, W) -> state values (B,)."""
         return self.value(self.trunk(x)).squeeze(-1)
+
+
+def infer_arch(weights: dict) -> str:
+    """Which arch a weight dict belongs to, by key presence.
+
+    The bot and the trainer never share an arch flag: weights carry
+    their own shape, so a deep checkpoint can never load into a base
+    net (or vice versa) by mistake."""
+    return "deep" if "conv3.weight" in weights else "base"
 
 
 _action_index: dict[int, tuple[torch.Tensor, torch.Tensor]] = {}

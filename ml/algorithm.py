@@ -28,13 +28,19 @@ import model
 BatchItem = tuple[torch.Tensor, int, float, list, float]
 
 
-def new_policy(weights: dict | None = None) -> model.CNNPolicy:
+def new_policy(
+    weights: dict | None = None, arch: str | None = None
+) -> model.CNNPolicy:
     """Construct a policy, optionally from stored weight lists.
 
     The one place ml/ names the bot's network shape: train.py talks to
     new_policy/policy_weights and never imports model directly.
+    arch defaults to whatever the weights say (infer_arch), so an
+    explicit flag is only needed for fresh random nets.
     """
-    policy = model.CNNPolicy()
+    if arch is None:
+        arch = model.infer_arch(weights) if weights is not None else "base"
+    policy = model.CNNPolicy(arch=arch)
     if weights is not None:
         # strict=False: pre-value-head checkpoints lack the value keys
         # (they stay zero-initialized, i.e. no baseline yet).

@@ -1241,3 +1241,100 @@ def test_bot_env_is_single_threaded():
     assert env["OPENBLAS_NUM_THREADS"] == "1"
     assert env["AZ0_TEMPERATURE"] == "0.5"
     assert env["AZ0_RECORD_DIR"] == "records"
+
+
+def _count_params(policy) -> int:
+    return sum(t.numel() for t in policy.parameters())
+
+
+def test_deep_arch_shapes_and_value_zero_init():
+    import torch
+
+    import model
+
+    torch.manual_seed(0)
+    policy = model.CNNPolicy(arch="deep")
+    assert policy(torch.zeros(2, 6, 9, 9)).shape == (2, 5)
+    assert torch.equal(
+        policy.values(torch.zeros(2, 6, 9, 9)), torch.zeros(2)
+    )
+
+
+def test_deep_arch_stays_in_param_budget():
+    import model
+
+    base = _count_params(model.CNNPolicy(arch="base"))
+    deep = _count_params(model.CNNPolicy(arch="deep"))
+    assert base == 6294
+    assert 4000 < deep < 9000  # same order, no budget blowout
+
+
+def test_deep_arch_sees_full_window_where_base_cannot():
+    import torch
+
+    import model
+
+    def separation(arch: str) -> float:
+        policy = model.CNNPolicy(arch=arch)
+        with torch.no_grad():
+            for mod in policy.modules():
+                if isinstance(mod, torch.nn.Conv2d):
+                    mod.weight.fill_(1.0)
+                    mod.bias.zero_()
+        north = torch.zeros(1, 6, 9, 9)
+        north[0, 5, 0, 4] = 1.0  # food 4 north
+        south = torch.zeros(1, 6, 9, 9)
+        south[0, 5, 8, 4] = 1.0  # food 4 south
+        with torch.no_grad():
+            return (
+                (policy.trunk(north) - policy.trunk(south)).abs().sum().item()
+            )
+
+    # Ones-weights: deterministic. Base sees far food only as pooled
+    # smear (weak N-vs-S separation); deep's full-window field keeps
+    # the direction signal ~5000x stronger.
+    assert separation("deep") > 1000 * separation("base")
+
+
+def test_infer_arch_from_weights():
+    import model
+
+    assert model.infer_arch(model.state_dict_to_lists(model.CNNPolicy())) == "base"
+    assert (
+        model.infer_arch(
+            model.state_dict_to_lists(model.CNNPolicy(arch="deep"))
+        )
+        == "deep"
+    )
+
+
+def test_new_policy_arch_passthrough_and_inference():
+    import algorithm
+    import model
+
+    deep_w = model.state_dict_to_lists(model.CNNPolicy(arch="deep"))
+    assert algorithm.new_policy(deep_w).arch == "deep"  # inferred
+    assert algorithm.new_policy(None, arch="deep").arch == "deep"
+
+
+def test_config_default_arch_and_cli_override():
+    import selfplay
+
+    assert selfplay.default_config()["arch"] == "base"
+    assert selfplay.parse_args(["--arch", "deep"])["arch"] == "deep"
+
+
+def test_bot_loads_deep_weights(tmp_path):
+    import json
+
+    import MLBot
+    import model
+
+    alt = tmp_path / "deep.json"
+    alt.write_text(
+        json.dumps(
+            model.state_dict_to_lists(model.CNNPolicy(arch="deep"))
+        )
+    )
+    bot = MLBot.AlphaZeroBot(weights_path=str(alt))
+    assert bot.policy.arch == "deep"

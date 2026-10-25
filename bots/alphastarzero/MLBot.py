@@ -45,11 +45,10 @@ TEMPERATURE_ENV = "AZ0_TEMPERATURE"
 
 class AlphaZeroBot:
     def __init__(self, weights_path: str | Path | None = None) -> None:
-        self.policy = model.CNNPolicy()
+        raw = json.loads(Path(weights_path or WEIGHTS_PATH).read_text())
+        self.policy = model.CNNPolicy(arch=model.infer_arch(raw))
         self.policy.load_state_dict(
-            model.lists_to_state_dict(
-                json.loads(Path(weights_path or WEIGHTS_PATH).read_text())
-            ),
+            model.lists_to_state_dict(raw),
             strict=False,  # pre-value-head champions lack the value keys
         )
         self.policy.eval()

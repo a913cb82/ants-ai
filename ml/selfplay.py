@@ -35,6 +35,7 @@ def default_config() -> dict:
         "temperature": 1.0,
         "lr": 1e-3,
         "epochs": 3,
+        "arch": "base",
         "workers": 8,
         "clip": 0.2,
         "vf_coef": 0.5,
@@ -61,6 +62,7 @@ def parse_args(argv: list[str] | None = None) -> dict:
     p.add_argument("--temperature", type=float, default=defaults["temperature"])
     p.add_argument("--lr", type=float, default=defaults["lr"])
     p.add_argument("--epochs", type=int, default=defaults["epochs"])
+    p.add_argument("--arch", choices=("base", "deep"), default=defaults["arch"])
     p.add_argument("--workers", type=int, default=defaults["workers"])
     p.add_argument("--clip", type=float, default=defaults["clip"])
     p.add_argument("--vf-coef", type=float, default=defaults["vf_coef"])
@@ -83,6 +85,7 @@ def parse_args(argv: list[str] | None = None) -> dict:
         "temperature": args.temperature,
         "lr": args.lr,
         "epochs": args.epochs,
+        "arch": args.arch,
         "workers": args.workers,
         "clip": args.clip,
         "vf_coef": args.vf_coef,
@@ -97,11 +100,11 @@ def parse_args(argv: list[str] | None = None) -> dict:
     }
 
 
-def _random_weights(seed: int) -> dict:
+def _random_weights(seed: int, arch: str) -> dict:
     import torch
 
     torch.manual_seed(seed)
-    return model.state_dict_to_lists(model.CNNPolicy())
+    return model.state_dict_to_lists(model.CNNPolicy(arch=arch))
 
 
 def append_history(base: Path, entry: dict) -> None:
@@ -139,7 +142,7 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
     rewards.GAMMA = cfg.get("gamma", rewards.GAMMA)
     champ_id = archive.get_champion(base)
     if champ_id is None:
-        champ_w = _random_weights(cfg["seed"])
+        champ_w = _random_weights(cfg["seed"], cfg.get("arch", "base"))
         champ_id = archive.save_checkpoint(base, champ_w, "main", None)
         archive.set_champion(base, champ_id)
     else:
