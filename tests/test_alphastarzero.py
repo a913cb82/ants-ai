@@ -1346,9 +1346,55 @@ def test_default_maps_exist_and_turns_cover_endgames():
     import selfplay
 
     cfg = selfplay.default_config()
-    assert len(cfg["maps"]) >= 3  # no single-map overfitting
+    assert cfg["maps"] == selfplay.default_map_pool()
+    assert len(cfg["maps"]) >= 10  # real grids + generated set
     import os
 
     for m in cfg["maps"]:
         assert os.path.exists(m), m
     assert cfg["turns"] >= 100  # reach decisive phases, not just openings
+
+
+def _parse_grid(lines: list[str]) -> tuple[int, int, list[str]]:
+    rows = cols = 0
+    grid: list[str] = []
+    for line in lines:
+        if line.startswith("rows "):
+            rows = int(line.split()[1])
+        elif line.startswith("cols "):
+            cols = int(line.split()[1])
+        elif line.startswith("m "):
+            grid.append(line[2:])
+    return rows, cols, grid
+
+
+def test_mapgen_deterministic_and_valid():
+    import mapgen
+
+    assert mapgen.generate(3) == mapgen.generate(3)
+    for seed in range(6):
+        lines = mapgen.generate(seed)
+        rows, cols, grid = _parse_grid(lines)
+        assert len(grid) == rows and all(len(r) == cols for r in grid)
+        flat = "".join(grid)
+        assert set(flat) <= set(".%*AB")
+        assert flat.count("A") == 1 and flat.count("B") == 1
+
+
+def test_mapgen_symmetric_and_connected():
+    import mapgen
+
+    for seed in range(6):
+        rows, cols, grid = _parse_grid(mapgen.generate(seed))
+        swap = {"A": "B", "B": "A", ".": ".", "%": "%", "*": "*"}
+        for r in range(rows):
+            for c in range(cols):
+                assert swap[grid[r][c]] == grid[rows - 1 - r][cols - 1 - c]
+        land = [[cell != "%" for cell in row] for row in grid]
+        start = next(
+            (r, c)
+            for r in range(rows)
+            for c in range(cols)
+            if grid[r][c] == "A"
+        )
+        assert mapgen._connected(land, start)

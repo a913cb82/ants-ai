@@ -26,14 +26,27 @@ import train
 BOT_WEIGHTS = ROOT / "bots" / "alphastarzero" / "weights.json"
 
 
+def default_map_pool() -> list[str]:
+    """Every playable 2p grid: the 3 real maps + generated symmetric set.
+
+    The maze/cell_maze/random_walk dirs hold generator PARAMS, not
+    playable grids (verified: only tutorial1, maze_02p_02, and
+    random_walk_02p_02 parse as grids). ml/mapgen.py fills the gap.
+    Sorted for determinism; rotation in train/eval cycles the pool."""
+    import glob as _glob
+
+    pool = [
+        "tools/maps/example/tutorial1.map",
+        "tools/maps/maze/maze_02p_02.map",
+        "tools/maps/random_walk/random_walk_02p_02.map",
+    ]
+    pool += sorted(_glob.glob("tools/maps/generated/gen2p_*.map"))
+    return pool
+
+
 def default_config() -> dict:
     return {
-        "maps": [
-            "tools/maps/example/tutorial1.map",
-            "tools/maps/maze/maze_02p_02.map",
-            "tools/maps/random_walk/random_walk_p02_03.map",
-            "tools/maps/cell_maze/cell_maze_p02_04.map",
-        ],
+        "maps": default_map_pool(),
         "turns": 100,
         "train_games": 4,
         "eval_games": 20,

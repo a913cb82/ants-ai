@@ -12,9 +12,11 @@ if [ "$STALE" -eq 0 ]; then
   done
 fi
 if [ "$STALE" -eq 1 ]; then
-  gcc -O3 -funroll-loops -c MyBot.c -o MyBot.o
-  gcc -O3 -funroll-loops -c YourCode.c -o YourCode.o
-  gcc -O3 -funroll-loops -c ants.c -o ants.o
+  # -Wno-implicit-function-declaration: 2011 sources predate the
+  # gcc-14 default that errors on it; symbols resolve at link.
+  gcc -O3 -funroll-loops -Wno-implicit-function-declaration -c MyBot.c -o MyBot.o
+  gcc -O3 -funroll-loops -Wno-implicit-function-declaration -c YourCode.c -o YourCode.o
+  gcc -O3 -funroll-loops -Wno-implicit-function-declaration -c ants.c -o ants.o
   gcc -O2 MyBot.o YourCode.o ants.o -o MyBot -lm
 fi
 exec ./MyBot
