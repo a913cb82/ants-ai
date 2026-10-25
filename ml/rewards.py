@@ -23,6 +23,7 @@ sys.path.insert(0, str(ROOT / "ml"))
 
 from grid import dist2, step
 
+FOOD = 1.0
 KILL = 1.0
 DEATH = -1.0
 HILL_RAZE = 10.0
@@ -119,6 +120,21 @@ def _awards(game, me, records):
     def same_turn_dest(turn, loc):
         return dests_at(turns, dests, turn, lambda d: d == loc)
 
+    # food gathered by me: credit my ants that ended the turn ADJACENT to
+    # the tile. Gathering runs on nearby_ants, which excludes distance 0:
+    # the ant standing ON the food does not gather it. 0 < d2 <= spawnradius2.
+    spawn2 = replaydata.get("spawnradius2", 1)
+    for entry in replaydata.get("food", []):
+        if len(entry) < 5 or entry[4] != me:
+            continue
+        r, c, _start, end, _owner = entry
+        near = dests_at(
+            turns, dests, end,
+            lambda d: 0 < dist2(d, (r, c), rows, cols) <= spawn2,
+        )
+        if near:
+            awards.append((end, {i: FOOD / len(near) for i in near}, "ant", "food"))
+
     # own deaths: penalize the ant that died on its death tile
     for entry in replaydata.get("ants", []):
         r, c, spawn, end, owner, orders = entry
@@ -209,7 +225,7 @@ def compute_returns(game, me, records):
 def decompose(game, me, records):
     """Undiscounted return mass by category, for tuning magnitudes.
 
-    Dense shares conserve the event amount (one kill totals KILL),
+    Dense shares conserve the event amount (one food totals FOOD),
     but the terminal outcome is broadcast to every record by
     compute_returns — so it is reported separately as a PER-RECORD
     value ("terminal"), never multiplied by the row count. Comparing
