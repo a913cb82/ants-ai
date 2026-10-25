@@ -136,3 +136,13 @@ Long games, all rank-stabilized endings, none hitting turn budgets:
 Lesson: competent games resolve at 130-165 turns, so default turns
 100 -> 150 (covers the resolution range; 300-turn endgame evals stay
 periodic). xathis is the external measuring stick.
+
+## Pro length sample (24 games, 500-turn cap, all 7 working pros,
+   all 5 map families, zero timeouts)
+
+46-500 turns, median 229, mean 256. 21/24 decided before the cap
+(rank-stabilized or extermination); 3 hit 500, all draws. Coverage:
+turns=150 ends 79% of pro games early; 250 covers 58%, 300 covers
+71%. Default turns 150 -> 250: the majority of real games now fit
+inside a training game, and the 300+ tail stays periodic-eval
+territory.

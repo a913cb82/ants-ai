@@ -1352,7 +1352,7 @@ def test_default_maps_exist_and_turns_cover_endgames():
     for m in cfg["maps"]:
         assert os.path.exists(m), m
         assert mapgen.is_playable_2p(m), m
-    assert cfg["turns"] >= 150  # pro games resolve at 130-165 turns
+    assert cfg["turns"] >= 250  # pro median is 229; 150 covered 21%
 
 
 def _parse_grid(lines: list[str]) -> tuple[int, int, list[str]]:
