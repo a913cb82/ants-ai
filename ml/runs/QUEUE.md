@@ -15,41 +15,24 @@ tools/maps/curriculum/README.md.
 
 - Round 50: same config (alive: crown defended, gate holds).
   Era pace 1/15 via the rival line.
-  (Round-35 verdict: APPARENT exhaustion, CONFOUNDED — clones'
-  kl pinned 0.01, anchor dragged them to BC; see run-teeth2.md.)
-- Round 28 verdict: GAP STERILE (0 promos, g441 holds). Conversion
-  38.6/39.3/44.3% — holds r27 gains, no full-pool conversion:
-  gap 7%/5%/0% (2/51 decisive, both 0-0 racer trades). Raze wins
-  regress to lone-racer trades (Walive mostly 0-3; best 11 open,
-  7 cave1 — r27's armies gone). Deaths flat (~23% unique-ant,
-  vs 17-20% r27 same-metric; no 90s relapse). g455/g456 knock
-  (0.575/0.60 raw, Wilson just under bar).
-- Round 19 verdict: POSITIVE — 2 promotions (g313 exploiter crown,
-  g314), conversion 13% -> 24% -> 19%, double-elims 22% -> 7%,
-  no pacification. DEATH -2 kept as new base. Caveat: death rate
-  was already low — -2 redirects combat, doesn't reduce it.
-  Exploiter +3 DEATH understood as combat subsidy (load-bearing);
-  do not touch unless exploiters stop biting.
-- Rounds 22-23 verdict: RETREAT. Full pool draws everything
-  unfamiliar (1/240 decisive); drills cover but don't retain.
-  Lesson: retention beats coverage. Next synthesis: rotating
-  small windows.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
 
-- Round 16: exact D4 symmetrization in forward(). Smallest
-  architectural change with a guaranteed property (probe: 41%
-  agreement, east bias). Weight-compatible, train=act coherent.
-  Acceptance 100% by construction + promotion rate vs rounds 12-15.
-- Round 17: KL anchor to supervised base (g000). Bounds 100+ gen
-  drift; AlphaStar-fine-tune practice. Small (one loss term).
-  Acceptance: promotions continue with less drift; falsified if it
-  shackles adaptation (margins freeze).
-- Round 18: wider receptive field + visibility channel (radius
-  4 -> 5/6, visibility marking mine/teammate's/unseen). Needs model
-  version branch (input shape changes). Acceptance: decisiveness up
-  on scouting boards. Per-ant MEMORY stays parked (new architecture).
+- Round 51 candidate: lagged intent channels (user proposal).
+  5 extra channels carrying last turn's friendly action
+  distributions, visible only where friendlies stand — comms
+  with ant-local state intact. Zero-init pad
+  (behavior-preserving deploy). Plan in run-comm.md. Gateway:
+  ablation gap decides; failure = axis barren, do not build
+  bigger. Queued behind the round-50 tripwire (a knockless
+  round reopens re-root-or-bank first).
+- Behind the gateway, in order: pheromone map (shared decaying
+  layer, 1-2ch, stigmergy); learned messages (CommNet-style,
+  two-stage forward, rotates with D4); recurrent hidden state
+  (needs sequence PPO — big, last resort). Frame stacking
+  (last-window channels) reviewed and passed over: intent
+  subsumes its motion cues where it matters (neighbors).
 - Conditional: rung 3 = full real pool (148 maps). Needs 2-in-10 on
   current pool PLUS drill-reservation code first. Held-out evals
   return at 13+ same-rung boards. Graduation re-decided every round.
@@ -66,6 +49,18 @@ to drop one.
 
 ## done
 
+- Rounds 17-50 (condensed; detail in run-*.md): D4
+  symmetrization (round 16, kept as hygiene); KL anchor (round
+  17, kept at 0.01 until round 45 proved it irrelevant either
+  way, now 0.0); wide field 15x15 + own-sight (round 18, kept,
+  negative verdict); DEATH -2 asymmetric base (round 19, still
+  live); frontier training (rounds 39-41: window-15 rivals +
+  guaranteed champ slot — ended the 94-gen drought, g611);
+  persistent rival lineage (round 42+: counter-styles need
+  time; 7 of 8 crowns this era rival-line; gatekeeper reframe
+  round 46 — main gates ~.45, rival climbs); ledger rebalance
+  (round 46: main HA 0.5 -> 0.25, rival pinned 0.5; mechanism
+  wrong for the main, regime kept climbing 3/15).
 - Rounds 13-16: exploiters with teeth (BC base + kill-heavy) +
   continuous main lineage + D4 symmetrization. 7 promotions in 60
   gens (g208, g212, g236, g245, g253 + 2 exploiter crowns g222,
