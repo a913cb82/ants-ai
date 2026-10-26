@@ -13,10 +13,9 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 73 next: champ-share restore (~25%) + spoiler fold,
-  frozen 12, penalty on, volume held. Tests the dilution
-  confound. Capacity waits for clean evidence. Strike one
-  live on the main.
+- Round 73 running: champ-share restore (~25%) + spoiler
+  fold, frozen 12, penalty on, volume held. Backstop clock
+  starts here (knockless 73 = strike one of two).
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
