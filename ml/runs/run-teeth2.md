@@ -34,3 +34,18 @@ declined).
   kl 0; scouts drift, that's their job), both origins re-tested
   clean. If clones still crushed -> teeth exhausted for real ->
   rung-3-with-formula.
+- Results (g563-g577): 0 PROMOTIONS. Champ-clones crushed even
+  unanchored (best 6W/7D eff 0.475, no crown); BC 0-1W. Champ
+  g513 holds 60 gens. Teeth REALLY exhausted (confound cleared:
+  clones drifted, still lost).
+- Verdict: pre-commit said rung-3-with-formula, but a diagnostic
+  arbitrated first. Sampled round-36 eval draws: most run the full
+  150 (turn-limit) with 24-48 ants alive; one had 46 alive d2=4
+  (2 tiles!) from the foe hill at the clock. Big-board games need
+  >150 turns to march+fight+raze (pro median 229); the clock cuts
+  them mid-march, so HILL/OUTCOME never fire and draws are
+  TRUNCATION artifacts. Round 37 = turns 250 (train+eval, one
+  number, same horizon both sides). Rung-3 stays queued behind
+  (retention objection unrebutted); the commitment's intent —
+  test the formula somewhere new — is honored by horizon, not
+  breadth.

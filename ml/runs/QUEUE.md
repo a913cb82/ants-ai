@@ -13,8 +13,9 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 36: unanchored exploiter retest (role==exploiter -> kl 0).
-  Clean competent-pressure test; rung-3-with-formula waits on it.
+- Round 37: longer games (turns 250 train+eval). Diagnostic:
+  armies 2 tiles out at the clock — truncation, not breadth.
+  Rung-3-with-formula queued behind on failure.
   (Round-35 verdict: APPARENT exhaustion, CONFOUNDED — clones'
   kl pinned 0.01, anchor dragged them to BC; see run-teeth2.md.)
 - Round 28 verdict: GAP STERILE (0 promos, g441 holds). Conversion
