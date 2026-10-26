@@ -54,6 +54,14 @@ list, not a schedule. Skip-the-queue rules in runs README.)
   missing incentive in a turtle field. Applies to TRAINING
   returns first (exam integrity: promotion still reads W/D;
   revisit only if training works). Plan needed before launch.
+- Queued volume fix (user-ordered, 3:1): train 4 -> 30
+  opponents (60 engine games vs the sacred 20-game exam)
+  + workers 8 -> 12. Tests the under-training hypothesis
+  (thin education, not field ceiling, explains weak knocks).
+  Exam byte-identical. Watches: wall-clock/gen, batch rows,
+  pg/v health, train wins per board, knock quality. Runs
+  after the 1-4 program (mid-trial changes confound). Dial
+  the level from data after one round.
 - Follow-up chain: if oasis (idea 2) works → generator survey
   for more mechanics (hunger/low-food boards, central-hill
   king-of-hill). If oasis fails → map-mechanic axis likely
