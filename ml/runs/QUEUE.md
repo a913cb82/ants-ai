@@ -13,14 +13,18 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 20: DEATH -2 replication (no new variable). Confirms
-  round 19 is regime change, not luck; revert on failure.
+- Round 21: drill reservation + pg_abs logging (apparatus, no
+  behavior change). Rung-3 prerequisite; data accumulates.
 - Round 19 verdict: POSITIVE — 2 promotions (g313 exploiter crown,
   g314), conversion 13% -> 24% -> 19%, double-elims 22% -> 7%,
   no pacification. DEATH -2 kept as new base. Caveat: death rate
   was already low — -2 redirects combat, doesn't reduce it.
   Exploiter +3 DEATH understood as combat subsidy (load-bearing);
   do not touch unless exploiters stop biting.
+- Round 20 verdict: neither bar fired (0 promos, conversion
+  13% -> 20%, no collapse). Keep -2 (no evidence of harm, weak
+  evidence of help). No more pure replication — round 21 builds
+  rung-3 apparatus on the same config.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)

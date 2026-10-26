@@ -211,6 +211,29 @@ def record_result(
         atomic_write_json(p["matrix"], data)
 
 
+def next_drill_maps(base: Path, pool: list, n: int, gen_num: int) -> list:
+    """Round-robin drill reservation: the n least-recently-trained boards.
+
+    Game index alone pins training to the first few maps once the pool
+    outgrows games-per-gen. This guarantees every board trains at least
+    once per ceil(len(pool)/n) gens however large the pool grows
+    (rung-3 ready). Ties break by pool order, so small pools sweep
+    exactly like the old gen-rotation."""
+    init(base)
+    path = _paths(base)["dir"] / "drills.json"
+    try:
+        last = json.loads(path.read_text())
+    except (OSError, ValueError):
+        last = {}
+    order = {m: i for i, m in enumerate(pool)}
+    ranked = sorted(pool, key=lambda m: (last.get(m, -1), order[m]))
+    chosen = ranked[:n]
+    for m in chosen:
+        last[m] = gen_num
+    atomic_write_json(path, last)
+    return chosen
+
+
 def log_game(
     base: Path, gen: str, kind: str, a: str, b: str,
     score_a: float, score_b: float, replay: str, map: str | None = None,

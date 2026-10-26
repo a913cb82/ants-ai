@@ -252,7 +252,8 @@ def train_epoch(
     elimination, lost records). Returns losses for the generation log.
     """
     stats = {"loss": 0.0, "mean_return": 0.0, "entropy": 0.0, "kl": 0.0,
-             "pg_loss": 0.0, "v_loss": 0.0, "steps": 0, "kl_anchor": 0.0}
+             "pg_loss": 0.0, "v_loss": 0.0, "steps": 0, "kl_anchor": 0.0,
+             "pg_abs": 0.0}
     if not batch:
         return stats
     stats["mean_return"] = sum(r for _w, _a, r, _m, _o in batch) / len(batch)
@@ -263,7 +264,7 @@ def train_epoch(
     bmean, bstd = all_ret.mean(), all_ret.std(unbiased=False)
     mb_size = min(minibatch, max(16, len(batch) // 4)) if batch else minibatch
     idx = torch.randperm(len(batch)).tolist()
-    n_loss = n_pg = n_v = n_ent = n_kl = n_anch = 0.0
+    n_loss = n_pg = n_v = n_ent = n_kl = n_anch = n_pga = 0.0
     n_steps = 0
     for start in range(0, len(batch), mb_size):
         mb = [batch[i] for i in idx[start:start + mb_size]]
@@ -278,7 +279,10 @@ def train_epoch(
         adv = _advantages(returns, values, bmean, bstd)
         rz = (returns - bmean) / (bstd + 1e-8)  # value target (same scale)
         ratio = torch.exp(chosen - old)
-        pg = -torch.min(ratio * adv, torch.clamp(ratio, 1 - clip, 1 + clip) * adv).mean()
+        pg_rows = -torch.min(ratio * adv,
+                             torch.clamp(ratio, 1 - clip, 1 + clip) * adv)
+        pg = pg_rows.mean()
+        pg_abs = pg_rows.abs().mean()
         v = ((values - rz) ** 2).mean()
         loss = pg + vf_coef * v - entropy_beta * entropy.mean()
         if anchor is not None and kl_anchor_beta:
@@ -295,6 +299,7 @@ def train_epoch(
         kl = ((ratio - 1) - (chosen - old)).mean()
         n_loss += float(loss.detach())
         n_anch += float(kl_anchor.detach())
+        n_pga += float(pg_abs.detach())
         n_pg += float(pg.detach())
         n_v += float(v.detach())
         n_ent += float(entropy.mean().detach())
@@ -305,5 +310,6 @@ def train_epoch(
         "v_loss": n_v / n_steps, "entropy": n_ent / n_steps,
         "kl": n_kl / n_steps, "steps": n_steps,
         "kl_anchor": n_anch / n_steps,
+        "pg_abs": n_pga / n_steps,
     })
     return stats

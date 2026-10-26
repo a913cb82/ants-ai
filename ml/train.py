@@ -22,25 +22,12 @@ import game_if
 import rewards
 
 
-def _train_map(maps: list, train_games: int, chal_id: str, g: int) -> str:
-    """Which pool map game g of this generation plays.
-
-    Game index alone (g % len) pins training to the first few maps
-    forever once the pool outgrows games-per-gen. Offset by the
-    generation number so consecutive gens sweep the whole pool."""
-    try:
-        gen_num = int(chal_id[1:])
-    except (ValueError, IndexError):
-        gen_num = 0
-    return maps[(gen_num * train_games + g) % len(maps)]
-
-
 def _play_one(args) -> dict:
     """One train game: play, price, record. Thread-safe via archive lock."""
-    (cfg, base, chal_id, opp_id, me_w, other_w, slot, g, role) = args
+    (cfg, base, chal_id, opp_id, me_w, other_w, slot, g, role,
+     map_path) = args
     rel = f"games/{chal_id}/train{g}_slot{slot}"
     first, second = (chal_id, opp_id) if slot == 0 else (opp_id, chal_id)
-    map_path = _train_map(cfg["maps"], cfg["train_games"], chal_id, g)
     out = game_if.play(
         ROOT,
         sys.executable,
@@ -91,18 +78,25 @@ def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict, role: 
         anchor_pol = algorithm.new_policy(anchor)
         anchor_pol.eval()
     jobs = []
+    try:
+        gen_num = int(chal_id[1:])
+    except (ValueError, IndexError):
+        gen_num = 0
+    drill_maps = archive.next_drill_maps(
+        base, cfg["maps"], cfg["train_games"], gen_num)
     for g in range(cfg["train_games"]):
         opp_id = archive.sample_opponents(base, champ_id, 1, seed=cfg["seed"] + g)[0]
         opp_w = archive.load_checkpoint(base, opp_id)
         for slot in (0, 1):
             me_w, other_w = (chal_w, opp_w) if slot == 0 else (opp_w, chal_w)
-            jobs.append((cfg, base, chal_id, opp_id, me_w, other_w, slot, g, role))
+            jobs.append((cfg, base, chal_id, opp_id, me_w, other_w, slot,
+                         g, role, drill_maps[g]))
     workers = min(cfg.get("workers", 8), len(jobs)) or 1
     with ThreadPoolExecutor(max_workers=workers) as pool:
         games = list(pool.map(_play_one, jobs))
     for out in games:
         batch.extend(algorithm.collect(policy, out["rows"], out["rets"]))
-    losses, entropies, kls, pgs, vs, anchs = [], [], [], [], [], []
+    losses, entropies, kls, pgs, vs, anchs, pgas = [], [], [], [], [], [], []
     for _ in range(cfg["epochs"]):
         stats = algorithm.train_epoch(
             policy, opt, batch,
@@ -115,6 +109,7 @@ def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict, role: 
         entropies.append(stats["entropy"])
         kls.append(stats["kl"])
         anchs.append(stats["kl_anchor"])
+        pgas.append(stats["pg_abs"])
         pgs.append(stats["pg_loss"])
         vs.append(stats["v_loss"])
     chal_w = algorithm.policy_weights(policy)
@@ -129,6 +124,7 @@ def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict, role: 
         "entropies": entropies,
         "kl": kls,
         "kl_anchor": anchs,
+        "pg_abs": pgas,
         "pg_loss": pgs,
         "v_loss": vs,
         "steps": stats.get("steps", 0),

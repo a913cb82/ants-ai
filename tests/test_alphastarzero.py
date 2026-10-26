@@ -2013,13 +2013,67 @@ def test_eval_turns_overrides_training_turns(tmp_path, monkeypatch):
     assert seen == [60, 60]
 
 
-def test_train_maps_rotate_across_generations():
+def test_drills_sweep_pool_round_robin(tmp_path):
+    import archive
+
+    base = tmp_path / "archive"
+    pool = [f"m{i}.map" for i in range(6)]
+    seen = []
+    for gen in range(3):
+        seen += archive.next_drill_maps(base, pool, 2, gen)
+    assert sorted(seen) == pool  # every board trains within the cycle
+    assert archive.next_drill_maps(base, pool, 2, 3) == pool[:2]
+
+
+def test_drills_prioritize_untrained_boards(tmp_path):
+    import archive
+
+    base = tmp_path / "archive"
+    pool = [f"m{i}.map" for i in range(6)]
+    archive.next_drill_maps(base, pool[:4], 4, 0)
+    # New boards join later: they train before any repeat.
+    assert archive.next_drill_maps(base, pool, 2, 1) == pool[4:]
+
+
+def test_pg_abs_bounds_pg_magnitude():
+    import torch
+
+    import algorithm
+
+    torch.manual_seed(41)
+    pol = algorithm.new_policy({})
+    opt = algorithm.make_optimizer(pol)
+    recs = [{"window": torch.rand(_C, _S, _S), "action": "n",
+             "legal": [True] * 5} for _ in range(64)]
+    batch = algorithm.collect(pol, recs, [1.0] * 64)
+    stats = algorithm.train_epoch(pol, opt, batch)
+    assert stats["pg_abs"] >= abs(stats["pg_loss"])
+
+
+def test_train_generation_reserves_drills(tmp_path, monkeypatch):
+    import archive
     import train
 
-    maps = [f"m{i}.map" for i in range(6)]
-    seen = [train._train_map(maps, 2, f"g{n}", g) for n in range(3)
-            for g in range(2)]
-    assert sorted(seen) == maps
+    base = tmp_path / "archive"
+    w = {"a": [1.0]}
+    champ = archive.save_checkpoint(base, w, role="main", parent=None)
+    archive.set_champion(base, champ)
+    cfg = {"train_games": 0, "eval_games": 0, "workers": 8,
+           "maps": ["a.map", "b.map"], "turns": 1,
+           "lr": 1e-3, "epochs": 1, "temperature": 0.0, "seed": 0,
+           "clip": 0.2, "vf_coef": 0.5, "entropy_beta": 0.01,
+           "max_norm": 1.0, "minibatch": 64}
+    seen = {}
+    real = archive.next_drill_maps
+
+    def spy(b, pool, n, gen_num):
+        seen["args"] = (pool, n, gen_num)
+        return real(b, pool, n, gen_num)
+
+    monkeypatch.setattr(archive, "next_drill_maps", spy)
+    train.train_generation(cfg, base, champ, w)
+    assert seen["args"][0] == ["a.map", "b.map"]
+    assert seen["args"][1] == 0
 
 
 def _mocked_generation(monkeypatch, captured):
