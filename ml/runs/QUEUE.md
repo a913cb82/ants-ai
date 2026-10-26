@@ -41,8 +41,10 @@ list, not a schedule. Skip-the-queue rules in runs README.)
   by the per-map trial rules: round 70 auditions q/r/s as
   passengers (stay >10% decisive each).
 - Conditional: rung 3 = full real pool (148 maps). Needs 2-in-10 on
-  current pool PLUS drill-reservation code first. Held-out evals
-  return at 13+ same-rung boards. Graduation re-decided every round.
+  current pool. NO held-out splits at any size (standing rule):
+  every rung board trains and evals every gen — per-gen coverage
+  arrives with the volume round; rotation covers at round level
+  until then. Graduation re-decided every round.
 - Conditional: kill/death removal, pure-outcome ablations —
   ESCALATED to idea 6 (last resort). Dense stalled 9 rounds
   (60-68), but gating (idea 1) is the targeted fix first;

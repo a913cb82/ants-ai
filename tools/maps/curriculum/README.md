@@ -38,7 +38,11 @@ drills (each board trains every ~37 gens otherwise).
 
 ## Pool promotion and demotion
 
-Boards move, not just rungs.
+Boards move, not just rungs. Every board IN the rung plays every
+generation — train AND eval, no phase splits, no held-out boards
+at any pool size (standing coverage rule). Train-side assignment
+(drills) guarantees each board its games per gen; eval rotation
+spans the whole rung.
 
 - Board promotion (staged -> pool): playable_2p, hills placed, one
 clean smoke (runs end to end, no crash) -> joins the next round
