@@ -33,3 +33,11 @@ Banked loop reopens with mechanism #1 (user-ordered 1-4).
 - Verdict: FLAT → continue per order (idea 2 next). Gate
   alone was never required to break the Nash. No soften
   (one round; revisit halve-not-zero if knockless x3).
+- Results (g1088-g1102, round 70, report-only under freeze):
+  q 100% decisive (converts hard), r 30% (weak, over bar),
+  s 0% (sterile, all draws). Members by legislation anyway —
+  rates banked as knowledge. Axis verdict MIXED-ALIVE: scale
+  + texture CAN convert (q) but unreliably (s barren).
+  Regime flat: 0 promos (drought 11), 0 knocks (best .47).
+  Mains edging late (.35-.47 last 4). Matrix snippet errored
+  (key mismatch, games.jsonl uses gen/a/b) — fix next brief.
