@@ -23,5 +23,15 @@ under lineage (lineage-era bug).
   -> the mismatch wasn't the blocker; the disease is in the
   update itself (pg cancels structurally) -> persistent
   exploiter lineages (counter-styles need time) or capacity.
-- Results: pending.
-- Verdict: pending.
+- Results (g608-g622): ONE PROMOTION — g611 over g513 (0.625,
+  nash 1.00). Drought over at 94 gens. Verification: train
+  opponents 40/40 ancient -> 112/120 recent + 8 mirror + 0
+  ancient. Eval draws 87% -> ~40%; raw wins 27/26/17 per block
+  (was ~5). v healthy, kl anchored on challengers.
+- Verdict: MISMATCH FIXED, decisively. The update works when fed
+  informative opponents; the disease was stale rivalry, not the
+  learner. Consolidate (round 40 same). Hygiene note (not a
+  chase): runner saw g608 eval double-logged lines + a recount
+  mismatch (W7/D7 vs W8/D5, same wr) — promotion math comes from
+  evaluate()'s in-process numbers, not jsonl parsing; revisit in
+  a hygiene pass, not mid-regime.

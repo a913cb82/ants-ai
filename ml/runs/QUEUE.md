@@ -13,8 +13,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 39: train at the frontier (window 15 + champ, student
-  fixed). Tests whether the train/eval mismatch was the blocker.
+- Round 40: frontier consolidation (same config). Confirm the
+  fix replicates; drought-breaker must not be a one-off.
   (Round-35 verdict: APPARENT exhaustion, CONFOUNDED — clones'
   kl pinned 0.01, anchor dragged them to BC; see run-teeth2.md.)
 - Round 28 verdict: GAP STERILE (0 promos, g441 holds). Conversion
