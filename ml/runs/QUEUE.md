@@ -13,8 +13,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 57: same config (graft takes: 2 crowns, main knocks).
-  Strike rule expired; standing tripwire only.
+- Round 58: same config (3 crowns, main takes twice).
+  The climb is the main again.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)

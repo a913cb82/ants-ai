@@ -113,6 +113,13 @@ need time — so stop reseeding and let one rival develop.
   Note: takes still arrive via exploiter role; challenger
   knocks Wilson-block (correctly — .50-.57 raw isn't .65).
   The bar holds; the climb climbs.
+- Results (g878-g892): 3 PROMOTIONS — g884 (main .775, 13W)
+  over g873, g889 (main .650) over g884, g891 (exploiter
+  .725) over g889. Champ g873 -> g884 -> g889 -> g891. Main
+  knocks every block; first MAIN crowns since g655 (round 42).
+  9/15 gens knock. Graft fully vindicated.
+- Verdict: ALIVE, continue same (round 58). The main climbs
+  again — alongside the rival, not beneath it.
 - Results (g728-g742): 0 PROMOTIONS. Champ g720 holds. Two
   rival knocks (g732 .60, g735 .575 — correctly unpromoted:
   Wilson lower, not raw eff, is the bar; no anomaly). Main
