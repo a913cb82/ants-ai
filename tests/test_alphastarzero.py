@@ -2791,3 +2791,31 @@ def test_spoiler_gate_keeps_kills_zeroes_march():
                                     rewards.scales_for("spoiler"),
                                     role="spoiler")
     assert mrets == [rewards.LOSS]  # HA moot (zero scale), gated anyway
+
+
+def test_drills_cycle_when_games_exceed_pool(tmp_path):
+    """n > len(pool) returns exactly n entries, round-robin (volfix)."""
+    import archive
+
+    base = tmp_path / "archive"
+    pool = [f"m{i}.map" for i in range(4)]
+    got = archive.next_drill_maps(base, pool, 10, 1)
+    assert len(got) == 10  # exactly train_games entries, not capped
+    assert sorted(got[:4]) == pool  # first sweep covers every board once
+    assert got[:4] == pool  # fresh archive: pool order (all ties)
+    assert got[4:8] == got[:4]  # repeats cycle in the same order
+    assert got[8:] == got[:2]
+    stamped = json.loads((base / "drills.json").read_text())
+    assert all(stamped[m] == 1 for m in pool)  # repeats don't corrupt
+
+
+def test_drills_cycle_respects_least_recent_first(tmp_path):
+    import archive
+
+    base = tmp_path / "archive"
+    pool = [f"m{i}.map" for i in range(4)]
+    archive.next_drill_maps(base, pool[:2], 2, 0)
+    got = archive.next_drill_maps(base, pool, 5, 1)
+    assert len(got) == 5
+    assert got[:4] == pool[2:] + pool[:2]  # untrained boards first
+    assert got[4] == pool[2]  # repeat follows the same order

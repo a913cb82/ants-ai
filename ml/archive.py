@@ -245,8 +245,8 @@ def next_drill_maps(base: Path, pool: list, n: int, gen_num: int) -> list:
         last = {}
     order = {m: i for i, m in enumerate(pool)}
     ranked = sorted(pool, key=lambda m: (last.get(m, -1), order[m]))
-    chosen = ranked[:n]
-    for m in chosen:
+    chosen = [ranked[i % len(ranked)] for i in range(max(n, 0))] if ranked else []
+    for m in ranked[:n]:
         last[m] = gen_num
     atomic_write_json(path, last)
     return chosen
