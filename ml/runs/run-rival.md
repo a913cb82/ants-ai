@@ -219,6 +219,19 @@ need time — so stop reseeding and let one rival develop.
   goalpost-moving declined then. Flagged: 11/14 draws.
 - Verdict: DEVELOPING → continue (round 67). Watches:
   strike two?, line-B train wins (~r68?), 2g holds?
+- Results (g1028-g1042): 0 PROMOTIONS (drought 8). Champ
+  g924 holds. STRIKE EXPIRED (main knocks twice: g1034 .525
+  + g1042 .575, positive margins — no intervention).
+  Line B STALLED (no eval >.40, zero train wins rounds 66+
+  67, three 0/0/8 sweeps — flatline, not slow development:
+  line A crowned in its FIRST persistent round).
+  2g STAYS big (62% decisive). Eval table: 2f best (22/8/12),
+  2a/2i champ kill-boards (14W/63L combined — opens belong
+  to whoever's stronger, no geometry to hide behind).
+- Next: round 68 is LINE-B'S EXAM (pre-committed): train
+  wins or eval ≥.40, or line B FAILED → fold to single
+  line A (revert code? no — just stop alternating: schedule
+  line A every exploiter gen). Drought 8 noted, not feared.
 - Results (g728-g742): 0 PROMOTIONS. Champ g720 holds. Two
   rival knocks (g732 .60, g735 .575 — correctly unpromoted:
   Wilson lower, not raw eff, is the bar; no anomaly). Main

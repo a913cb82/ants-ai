@@ -13,8 +13,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 67: two lines continue (line B round 4 of ~10).
-  Strike one live on the main. 2g stays (21%, watched).
+- Round 68: same (line-B EXAM: train wins or eval ≥.40,
+  or line B folds). Drought 8; strike expired.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
