@@ -13,8 +13,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 60: same config (main crown + 9 knocks).
-  Watches: 2a hole, block-3 fade.
+- Round 61: same config (alive, g924 crown).
+  2a stays (contact bar, not win-rate).
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)

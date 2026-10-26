@@ -137,6 +137,17 @@ need time — so stop reseeding and let one rival develop.
   (draw-heavy positive), 2a_open .329 HOLE (24 losses).
 - Verdict: ALIVE, continue same (round 60). Watches: 2a hole
   (persistent?) + block-3 fade (spread?).
+- Results (g923-g937): 1 PROMO (g924 exploiter .70 over g913).
+  Champ g913 -> g924. Main 2 knocks (.55/.525, no stall). Fade
+  did NOT spread (block closed knocking). Rival downhill after
+  crowning (.70 -> .40/.325/.475, no knocks).
+- Demotion case REVIEWED, 2a STAYS: the candidate bar was
+  win-rate, but the doctrine bar is CONTACT — and 2a runs 92%
+  decisive (round-59 table 11/3/24). Demoting the board we
+  bleed on would be training-dodging: removing the exam we
+  fail. 2a stays as the open-ground whetstone. Regime fact
+  banked: corridors are ours (mg1/gap), opens are theirs.
+- Verdict: ALIVE, continue same (round 61).
 - Results (g728-g742): 0 PROMOTIONS. Champ g720 holds. Two
   rival knocks (g732 .60, g735 .575 — correctly unpromoted:
   Wilson lower, not raw eff, is the bar; no anomaly). Main
