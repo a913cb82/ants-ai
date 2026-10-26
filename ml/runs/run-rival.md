@@ -43,6 +43,15 @@ need time — so stop reseeding and let one rival develop.
   crown yet (last three crowns all rival-line) — if the main
   becomes a permanent sparring partner, the podium is just the
   rival lineage and pressure is one-directional again.
+- Results (g743-g757): ALIVE — 1 PROMO (g747 exploiter .800,
+  14W/4D, most decisive crown of the rival era) + 4 rival
+  knocks (g744/g750/g753/g756). Champ g720 -> g747. Main
+  wobbles (.20-.425, no collapse, no knocks in 10). Doctrine
+  vindicated: the dry round bought the dominant crown.
+- Verdict: ALIVE, continue same (round 49). Rival owns the
+  podium (7 crowns); main owns the gate (.20-.45). Staleness
+  watch noted, no action — the main provides frontier variety
+  + benchmark, and staleness isn't a tripwire.
 - Results (g728-g742): 0 PROMOTIONS. Champ g720 holds. Two
   rival knocks (g732 .60, g735 .575 — correctly unpromoted:
   Wilson lower, not raw eff, is the bar; no anomaly). Main

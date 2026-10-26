@@ -13,8 +13,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 48: same config (dry-but-alive, knocks exist).
-  Tripwire trips only on a knockless round.
+- Round 49: same config (alive: promo + 4 knocks).
+  Rival climbs, main gates.
   (Round-35 verdict: APPARENT exhaustion, CONFOUNDED — clones'
   kl pinned 0.01, anchor dragged them to BC; see run-teeth2.md.)
 - Round 28 verdict: GAP STERILE (0 promos, g441 holds). Conversion
