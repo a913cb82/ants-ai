@@ -13,9 +13,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 27: concentrate force (HA pays first-hill closing only).
-  Tests whether a shared convention turns marches into
-  breakthroughs; watch lakes + death rate.
+- Round 28: concentration consolidation (same config, momentum).
+  Gap-watch: last sterile board — falls or gets forensics.
 - Round 19 verdict: POSITIVE — 2 promotions (g313 exploiter crown,
   g314), conversion 13% -> 24% -> 19%, double-elims 22% -> 7%,
   no pacification. DEATH -2 kept as new base. Caveat: death rate

@@ -20,5 +20,14 @@ kill them piecemeal. Military principle: concentrate force.
   split/concentrate axis is neutral, look elsewhere (coordination
   may need the visibility channel to mature, not reward surgery).
   SUICIDE-WATCH: cross-map marches die (-2 each) -> death spike.
-- Results: pending.
-- Verdict: pending.
+- Results (g428-g442): TWO PROMOTIONS — g438 over g422 and
+  g441 over g438 (both 0.625). Champ g422 -> g441. Conversion
+  12% -> 16% -> 35% across blocks: lakes 62%, pond 21%, cave1
+  27%, open2 69%, rung1 75%. Death rate HALVED (~45% vs 93-97%).
+  First mass razes (23/8/4 ants alive at raze — armies, not lone
+  racers). Gap still 0% — the last sterile board.
+- Verdict: CONCENTRATION WORKS, decisively. Shared convention ->
+  massed attacks -> clean breakthroughs (fewer deaths because
+  attackers win instead of dying piecemeal). Keep first-hill HA.
+  Round 28 consolidates (same config, momentum round): gap-watch
+  is the question — if gap falls, all 8 boards convert.
