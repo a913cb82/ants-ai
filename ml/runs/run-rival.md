@@ -192,6 +192,19 @@ need time — so stop reseeding and let one rival develop.
   which nobody forces now. If predators can't crack turtles
   either → turtling is the Nash → bank. Needs code (two
   tips, alternation, tests) — lead builds, round 65 runs it.
+- Results (g998-g1012): MIXED. Line B founded clean (g999
+  parent g924 line=1, chains g999->g1005->g1011, alternation
+  exact) but doesn't attack yet (0 train wins, draw-heavy,
+  no kill spike — needs development time like line A did).
+  0 promos (drought 6), 4 knocks held (g1000 .550 main +
+  g1001/g1010/g1011 .525s). Champ g924 holds.
+- Gap DEMOTED (reprieve failed: 0/12 draws, 26 straight over
+  two rounds — the defense school is empty). Slot goes to
+  rung2g as sanctioned passenger: the round-65 pool accident
+  auditioned it at .57 decisive. Same stay rule (>10%).
+  Pool stays 8 (gap out, 2g in).
+- Verdict: MIXED → continue two-line regime (round 66).
+  Predators get their development time; turtles get no rest.
 - Results (g728-g742): 0 PROMOTIONS. Champ g720 holds. Two
   rival knocks (g732 .60, g735 .575 — correctly unpromoted:
   Wilson lower, not raw eff, is the bar; no anomaly). Main

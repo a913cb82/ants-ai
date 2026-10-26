@@ -13,9 +13,9 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 65: second rival line (code: two tips + alternation
-  + tests). Line B = g000 + kill scales, persistent.
-  Pool back to 8; gap reprieved (round decides).
+- Round 66: two lines continue (line B round 2 of ~10).
+  Pool: gap out, 2g sanctioned passenger (stay >10%).
+  Use EXACTLY the --maps in the brief (no overrides).
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
