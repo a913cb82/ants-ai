@@ -21,5 +21,15 @@ need time — so stop reseeding and let one rival develop.
 - Failure criteria: rival crushed every gen (0-2W, degenerate
   noise) AND 0 promos -> the main beats everything we can field;
   next is capacity (bigger net) or acceptance (bank the plateau).
-- Results: pending.
-- Verdict: pending.
+- Results (g653-g667): TWO PROMOTIONS — g655 over g611 (0.65,
+  main) and g666 over g655 (0.625, RIVAL crown — 5th kamikaze
+  crown but first EARNED through development). Drought over at
+  41 gens. Champ g611 -> g655 -> g666. Rival trajectory: 8W,
+  7W, 8W, 10W, 8W — never ≤2W, positive margins throughout,
+  decisive style (4-9 draws vs mains' 7-13). Chain verified:
+  last exploiter g666, parent links intact, opt banked.
+- Verdict: RIVAL DEVELOPS. Persistence is the missing ingredient
+  — counter-styles need time, exactly as hypothesized. The
+  program's meta-pattern (disruption eaten, draws return) breaks
+  when the disruption keeps developing. Consolidate (round 43
+  same): the rival chain continues vs the new champ.
