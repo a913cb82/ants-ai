@@ -44,3 +44,26 @@ state, only where that friendly occupies a window cell.
   wants, zero-init pad deploy, D4-coherent input orientation,
   AA_ZERO_INTENT ablation gate. 160 tests green. Live smoke:
   intent mass 0 at turn 0, flows thereafter.
+
+## Round 51 results (g788-g802)
+
+- Integration CLEAN (gen-1 12-wide rows verified, critic +
+  optimizer migrated silently). 1 PROMO: g798 (exploiter)
+  over g747 @ 0.625. Champ g747 -> g798.
+- Breakthrough NOT retained (lakes/caves 0-1/2) — predates
+  intent (rounds 48-50 already soft), not intent's damage.
+- Ablation (g798 vs g720, 10 same-seed pairs): OPEN 4W/3D
+  (+0.3) vs SHUT 6W/3D (+1.5). Gap -1.2: gateway reads
+  NEGATIVE on the 15-gen test.
+- Cheap measurements before deciding (lead analysis, not runner):
+  actor intent weights 0 -> 0.040 (6% of game magnitude —
+  moved, noise-phase); critic intent weights at 24% (the
+  channels predict returns, or the critic overfits); intent
+  occupancy DENSE (96% rows nonzero, mass ~3.7 — signal
+  abundant, not sparse). Verdict: 15 gens caught mid-learning
+  (weights off zero, not yet useful), NOT proven barren.
+- Decision: ONE consolidation round (30 gens total exposure),
+  then re-ablate with a HARD trigger: gap <= 0 after 30 gens
+  -> axis barren, revert to 7ch, no third chance. Consolidation
+  risks one automated round; a premature revert risks killing
+  a slow-live axis the critic already prices.

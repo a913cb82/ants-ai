@@ -13,8 +13,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 51: lagged intent channels (code variable). 5 extra
-  channels, zero-init pad, gateway ablation decides.
+- Round 52: intent consolidation (same code, second exposure).
+  Re-ablate with a hard trigger: gap <= 0 -> revert to 7ch.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
@@ -33,6 +33,9 @@ list, not a schedule. Skip-the-queue rules in runs README.)
   (needs sequence PPO — big, last resort). Frame stacking
   (last-window channels) reviewed and passed over: intent
   subsumes its motion cues where it matters (neighbors).
+- Staged: rung2k/l (48x48, 2/3 hills) + rung2m/n (72x72,
+  2/3 hills). Pool entry by the per-map trial rules (needs a
+  round decision, not auto-join).
 - Conditional: rung 3 = full real pool (148 maps). Needs 2-in-10 on
   current pool PLUS drill-reservation code first. Held-out evals
   return at 13+ same-rung boards. Graduation re-decided every round.
