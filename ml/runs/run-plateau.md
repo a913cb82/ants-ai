@@ -44,3 +44,10 @@ as defense school (kill-zone forensics), not surgery target.
   Stopping rule stated: TWO consecutive dry rounds (even with
   knocks) -> new variable; the gate is fine, the policy would
   need a new slope. Round 32 same config, gate-watch.
+- Results (g503-g517): ONE PROMOTION — g513 over g486 (65%).
+  Knocks blocks 1-2 (50-60% effective, all Wilson-blocked);
+  block 3 converts. Champ g486 -> g513. Teeth intact (5/5
+  exploiters beaten). Footnote: runner analyzed knocks at z=1.96
+  (code uses z=1.0); both block them, promotion stands either way.
+- Verdict: HEALTHY — dry streak broken at one round, regime
+  confirmed. Continue same config.

@@ -13,8 +13,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 32: same config, gate-watch. Second dry round (even
-  with knocks) forces a new variable; the bar stands as is.
+- Round 33: same config (gate healthy, streak broken at one).
+  Pace watch continues.
 - Round 28 verdict: GAP STERILE (0 promos, g441 holds). Conversion
   38.6/39.3/44.3% — holds r27 gains, no full-pool conversion:
   gap 7%/5%/0% (2/51 decisive, both 0-0 racer trades). Raze wins
