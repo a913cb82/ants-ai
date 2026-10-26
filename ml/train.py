@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import copy
 import os
+import random
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -39,19 +40,34 @@ def _train_opponents(base: Path, student: str, champ_id: str, n: int,
     return opps
 
 
-def _is_penalty_game(cfg: dict, g: int) -> bool:
-    """Every Nth train game of a gen prices draws as losses.
+def _penalty_rng(cfg: dict, gen_index: int, g: int) -> random.Random:
+    """Deterministic per-game penalty draw, seeded by (seed, gen, game)."""
+    return random.Random(f"{cfg.get('seed', 0)}:{gen_index}:{g}")
 
-    cfg train_draw_penalty_every=N flags games N, 2N, ... (1-indexed);
-    0/None/missing disables: behavior byte-identical to no penalty."""
+
+def _is_penalty_game(cfg: dict, g: int, gen_index: int = 0) -> bool:
+    """Seeded per-game draw penalty: probability 1/N for each game.
+
+    This replaces the every-Nth stride, which synchronized with drill
+    rotation and dumped every penalized game onto the same few boards
+    (no within-board normal-vs-penalized overlap). The seeded draw is
+    reproducible across reruns and spreads penalized games across all
+    boards every gen. 0/None/missing disables: behavior byte-identical
+    to no penalty."""
     n = cfg.get("train_draw_penalty_every", 0) or 0
-    return bool(n) and (g + 1) % n == 0
+    if not n:
+        return False
+    return _penalty_rng(cfg, gen_index, g).random() < 1.0 / n
 
 
 def _play_one(args) -> dict:
     """One train game: play, price, record. Thread-safe via archive lock."""
     (cfg, base, chal_id, opp_id, me_w, other_w, slot, g, role,
      map_path) = args
+    try:
+        gen_index = int(chal_id[1:])
+    except (ValueError, IndexError):
+        gen_index = 0
     rel = f"games/{chal_id}/train{g}_slot{slot}"
     first, second = (chal_id, opp_id) if slot == 0 else (opp_id, chal_id)
     out = game_if.play(
@@ -74,7 +90,7 @@ def _play_one(args) -> dict:
     rows = out["records_a"] if slot == 0 else out["records_b"]
     rets = rewards.compute_returns(game, slot, rows, rewards.scales_for(role),
                                    role,
-                                   draw_as_loss=_is_penalty_game(cfg, g))
+                                   draw_as_loss=_is_penalty_game(cfg, g, gen_index))
     sa, sb = game["score"][0], game["score"][1]
     archive.record_result(base, first, second, sa, sb, kind="train")
     archive.log_game(base, chal_id, "train", first, second, sa, sb,

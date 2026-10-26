@@ -203,11 +203,14 @@ def publish(base: Path, report: dict, commit: bool) -> None:
 
 
 def _exploiter_line(gen_index: int) -> int:
-    """Which rival line owns this exploiter gen: A (0) or B (1).
+    """Which rival line owns this exploiter gen: A (0) or spoiler (2).
 
     The k-th exploiter sits at gen_index 3k+2; even k runs line A,
-    odd k runs line B. Two independent disruptors, one schedule."""
-    return ((gen_index - 2) // 3) % 2
+    odd k runs the spoiler on a FRESH line index. Line 1 holds the
+    stale line-B chain and is never scheduled again (dies by neglect):
+    the old chain occupied slot 1, so the spoiler re-founds on slot 2
+    instead of chaining it."""
+    return 0 if ((gen_index - 2) // 3) % 2 == 0 else 2
 
 
 def _exploiter_base(base: Path, cfg: dict, gen_index: int,
@@ -225,8 +228,9 @@ def _exploiter_base(base: Path, cfg: dict, gen_index: int,
     Line B (the spoiler) always founds from RANDOM weights, never a
     champ clone or even the supervised base: alien stock with nothing
     to unlearn (naive attackers vs a turtling field), then it chains
-    within itself."""
-    if line == 1:
+    within itself. Lines >= 1 all found this way; line 0 follows the
+    founding alternation below."""
+    if line >= 1:
         return _random_weights(cfg["seed"] + gen_index, cfg.get("arch", "base"))
     k = (gen_index - 2) // 3
     if k % 2 == 1:
@@ -265,7 +269,7 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
         # need time to develop; a fresh reseed every third gen never
         # gets past target practice. The first rival of a line seeds
         # from the founding alternation (line A) or random weights
-        # (line B spoiler: alien stock), then the chain owns it.
+        # (spoiler line: alien stock), then the chain owns it.
         rival = archive.last_exploiter(base, line)
         if rival is None:
             start_w = _exploiter_base(base, cfg, gen_index, champ_w, line)
@@ -275,7 +279,7 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
             start_w = archive.load_checkpoint(base, rival)
             opt_in = archive.load_opt(base, rival)
             parent = rival
-        role = "spoiler" if line == 1 else "exploiter"
+        role = "spoiler" if line >= 1 else "exploiter"
     else:
         # Continuous main: train from the main's own weights and
         # optimizer state, never a champ copy. Snapshots chain
