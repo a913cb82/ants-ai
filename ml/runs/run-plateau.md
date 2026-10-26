@@ -24,3 +24,11 @@ as defense school (kill-zone forensics), not surgery target.
   hygiene note: future rounds must quote train-elim, eval-W, and
   effective separately (this round mixed them); promotion pace
   remains the cleanest regime signal.
+- Results (g473-g487): ONE PROMOTION — g486 over g464 (65%
+  effective, +0.9). Knocks every block (50-55% effective).
+  Train elim 67.5/50/50% (still climbing); eval raw wins rising
+  14 -> 16 -> 23; effective flat 43%. Champ g464 -> g486.
+- Verdict: REGIME HEALTHY — pace exactly 1/15, continue same.
+  Teeth note: exploiters crushed all round (0-3W) — dulling as
+  the main outgrows the fixed BC base, but they still force
+  decisive exams; monitor, don't intervene while pace holds.

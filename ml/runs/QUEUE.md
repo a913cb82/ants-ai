@@ -13,8 +13,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 30: climb watch continues (same config, 4th). Promotion
-  pace ~1/15 steady; regime healthy until it plateaus.
+- Round 31: same config (6th). Pace exactly on target; review
+  forced if a round prints 0 promos with no knocks.
 - Round 28 verdict: GAP STERILE (0 promos, g441 holds). Conversion
   38.6/39.3/44.3% — holds r27 gains, no full-pool conversion:
   gap 7%/5%/0% (2/51 decisive, both 0-0 racer trades). Raze wins
