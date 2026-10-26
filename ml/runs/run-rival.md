@@ -103,6 +103,16 @@ need time — so stop reseeding and let one rival develop.
   margins, .45 ceiling). Risk named: sibling-mirror draws
   (same stock, round-46 objection) — round 56 watches honeymoon
   draws vs divergence-then-win.
+- Results (g863-g877): DIVERGENCE-THEN-WIN. 2 takes (g867 +
+  g873, both .62). Champ g849 -> g867 -> g873. Linkage clean
+  (g863<-g861, chain continues). Main knocks 4x (.53/.50/
+  .53/.57) — grafted stock competitive vs .45 ceiling before.
+  NOT honeymoon draws (7 knocks, decisive games throughout).
+  NOT collapse (no 0-1W). Strike rule EXPIRED.
+- Verdict: graft takes, continue grafted line (round 57).
+  Note: takes still arrive via exploiter role; challenger
+  knocks Wilson-block (correctly — .50-.57 raw isn't .65).
+  The bar holds; the climb climbs.
 - Results (g728-g742): 0 PROMOTIONS. Champ g720 holds. Two
   rival knocks (g732 .60, g735 .575 — correctly unpromoted:
   Wilson lower, not raw eff, is the bar; no anomaly). Main

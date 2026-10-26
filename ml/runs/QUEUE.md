@@ -13,8 +13,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 56: grafted main (main := rival tip g861).
-  Watches honeymoon draws vs divergence-then-win.
+- Round 57: same config (graft takes: 2 crowns, main knocks).
+  Strike rule expired; standing tripwire only.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
