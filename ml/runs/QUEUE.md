@@ -37,9 +37,11 @@ list, not a schedule. Skip-the-queue rules in runs README.)
   (needs sequence PPO — big, last resort). Frame stacking
   (last-window channels) reviewed and passed over: intent
   subsumes its motion cues where it matters (neighbors).
-- Staged: rung2k/l (48x48, 2/3 hills) + rung2m/n (72x72,
-  2/3 hills). Pool entry by the per-map trial rules (needs a
-  round decision, not auto-join).
+- Staged: rung2q/r/s (40x40, 4 hills, upstream-tool-built:
+  cavemap/maze/walk). k-p batch deleted (k/l sterile, m/n
+  predicted sterile, o/p scrapped for tool-built). Pool entry
+  by the per-map trial rules: round 70 auditions q/r/s as
+  passengers (stay >10% decisive each).
 - Conditional: rung 3 = full real pool (148 maps). Needs 2-in-10 on
   current pool PLUS drill-reservation code first. Held-out evals
   return at 13+ same-rung boards. Graduation re-decided every round.
