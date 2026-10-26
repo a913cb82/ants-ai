@@ -222,11 +222,15 @@ def _awards(game, me, records, scales):
 
     foes = [(r, c) for r, c, owner, _end in replaydata.get("hills", [])
             if owner != me]
+    # First enemy hill only: a shared convention concentrating force.
+    # Min-nearest splits attackers (each ant closes its own nearest =
+    # solo races); one common target masses them for breakthroughs.
     if foes:
+        hill = foes[0]
         for i, rec in enumerate(records):
             loc, dest = tuple(rec["loc"]), tuple(rec["dest"])
-            before = min(math.sqrt(dist2(loc, h, rows, cols)) for h in foes)
-            after = min(math.sqrt(dist2(dest, h, rows, cols)) for h in foes)
+            before = math.sqrt(dist2(loc, hill, rows, cols))
+            after = math.sqrt(dist2(dest, hill, rows, cols))
             closed = before - after
             if closed > 0 and after > 0:
                 awards.append((rec["turn"],

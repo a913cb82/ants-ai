@@ -342,7 +342,21 @@ def test_hill_approach_stays_same_turn_only():
     assert rets[1] > 0.0  # closed: same-turn credit only
 
 
-def test_exploiter_scales_triple_combat_credit():
+def test_hill_approach_targets_first_hill_only():
+    import rewards
+
+    # Shared convention concentrates force: closing to the second hill
+    # while opening to the first pays nothing, even though min-nearest
+    # would have paid. All ants see the same list, so all march the
+    # same hill.
+    game = _game()
+    game["replaydata"]["hills"] = [[5, 0, 1, 99], [5, 9, 1, 99]]
+    game["replaydata"]["ants"] = [[5, 4, 1, 5, 0, "e"]]
+    records = [
+        {"turn": 1, "loc": [5, 4], "dest": [5, 5], "action": "e"},
+    ]
+    rets = rewards.compute_returns(game, 0, records)
+    assert rets[0] == 0.0  # closes to second, opens to first: unpaid
     import rewards
 
     game = _game()

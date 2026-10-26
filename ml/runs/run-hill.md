@@ -19,16 +19,17 @@ per the rewards. Rung1 converts because its hills sit inside the
   diagnosis is wrong; next is pure-outcome ablation (the other
   fired conditional). SUICIDE-WATCH: hill-approach death rate
   spikes (marching into defenders) -> cut scale to 0.2 or gate.
-- Results (g398-g412): ONE PROMOTION — g400 over g314 (0.625,
-  EXPLOITER, 4th kamikaze crown). Champ g314 -> g400. HA channel
-  IS used (mass 51-65/game, ~40-50% of death mass); deaths steady
-  (93-97%, no suicide spike). Conversion: one-block spikes (2d
-  75%, 2c 50%, 2b 67%) that vanish — n=4-6/map noise, not
-  sustained. Marching works; razing still doesn't follow.
-- Verdict: WEAK POSITIVE — both bars fired (promotion + mass),
-  but conversion is spikes, not regime. Consolidate (round 26,
-  same config): if spikes sustain on some board + promotions
-  continue, the horizon fix is real. Pattern note: 4 of the last
-  5 crowns are kamikazes — the podium may be selecting for
-  suicide-racers; watch whether the main beats g400 (as g314
-  beat g313) or the crown sticks.
+- Results (g413-g427): ONE PROMOTION — g422 over g400 (0.625,
+  MAIN dethrones the kamikaze, crowns stop at 4). Champ g400 ->
+  g422. Lakes (2d) SUSTAINS conversion all 3 blocks; 2b/2c spikes
+  were noise (0 wins in 38 eval games each). v healthy, HA mass
+  sustained, no suicide.
+- Verdict: HORIZON FIX REAL — keep +0.5. Forensics (this turn):
+  lakes wins are SOLO hill-races (12-84 turns, 2-4 deaths, 3-0) —
+  speed, not breakthrough. HA-as-min-nearest subsidizes racing
+  (each ant closes its own nearest = split forces), which open
+  ground rewards and funnels punish. Next variable (round 27):
+  HA pays closing to the FIRST enemy hill only — a shared
+  convention concentrating force for breakthroughs. Risks lakes
+  solos (they lose HA subsidy but keep the +10 raze); watch
+  lakes + death rate.
