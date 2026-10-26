@@ -66,6 +66,18 @@ def set_champion(base: Path, cid: str) -> None:
     atomic_write_json(_paths(base)["dir"] / "champion.json", {"id": cid})
 
 
+def last_exploiter(base: Path = DEFAULT_DIR) -> str | None:
+    """Most recent exploiter id, or None before the first one.
+
+    The persistent rival chains from this id (weights + optimizer),
+    developing its own style over many gens instead of reseeding
+    every third gen."""
+    for m in reversed(members(base)):
+        if m.get("role") == "exploiter":
+            return m["id"]
+    return None
+
+
 def get_main(base: Path = DEFAULT_DIR) -> str | None:
     main = _paths(base)["dir"] / "main.json"
     if not main.exists():

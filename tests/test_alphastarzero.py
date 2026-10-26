@@ -777,6 +777,43 @@ def test_train_opponents_guarantee_champ_slot(tmp_path):
     assert len(opps) == 4
 
 
+def test_last_exploiter_returns_most_recent(tmp_path):
+    import archive
+
+    base = tmp_path / "archive"
+    assert archive.last_exploiter(base) is None
+    a = archive.save_checkpoint(base, {"w": [1.0]}, "exploiter", None)
+    archive.save_checkpoint(base, {"w": [2.0]}, "challenger", None)
+    b = archive.save_checkpoint(base, {"w": [3.0]}, "exploiter", a)
+    assert archive.last_exploiter(base) == b
+
+
+def test_exploiter_chains_rival_weights_and_opt(tmp_path, monkeypatch):
+    import archive
+    import selfplay
+
+    captured: dict = {}
+    _mocked_generation(monkeypatch, captured)
+    base = tmp_path / "archive"
+    cfg = _exploiter_cfg()
+    # drive to the first exploiter (gen 2), then the second (gen 5)
+    selfplay.run_generation(cfg, base, commit=False)
+    selfplay.run_generation(cfg, base, commit=False)
+    rep = selfplay.run_generation(cfg, base, commit=False)
+    assert rep["exploiter"] is True
+    first = rep["challenger"]
+    w1 = archive.load_checkpoint(base, first)
+    opt_path = base / "checkpoints" / (first + ".opt.json")
+    selfplay.append_history(base, {"gen": 97})
+    selfplay.append_history(base, {"gen": 98})
+    rep2 = selfplay.run_generation(cfg, base, commit=False)
+    assert rep2["exploiter"] is True
+    assert captured["init_w"] == w1  # rival continues, not reseeds
+    members = {m["id"]: m for m in archive.members(base)}
+    assert members[rep2["challenger"]]["parent"] == first
+    assert opt_path.exists()  # rival banks its optimizer
+
+
 def test_values_are_rotation_invariant():
     import torch
 

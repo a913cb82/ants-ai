@@ -238,9 +238,20 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
     gen_index = len(read_history(base))
     exploiter = gen_index % 3 == 2
     if exploiter:
-        start_w = _exploiter_base(base, cfg, gen_index, champ_w)
-        opt_in = None
-        parent = champ_id
+        # Persistent rival: continue the last exploiter's chain
+        # (weights + optimizer) instead of reseeding. Counter-styles
+        # need time to develop; a fresh reseed every third gen never
+        # gets past target practice. First rival seeds from the
+        # founding/champ alternation, then the chain owns it.
+        rival = archive.last_exploiter(base)
+        if rival is None:
+            start_w = _exploiter_base(base, cfg, gen_index, champ_w)
+            opt_in = None
+            parent = champ_id
+        else:
+            start_w = archive.load_checkpoint(base, rival)
+            opt_in = archive.load_opt(base, rival)
+            parent = rival
         role = "exploiter"
     else:
         # Continuous main: train from the main's own weights and
@@ -280,6 +291,8 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
     if not exploiter:
         archive.set_main(base, chal_id)
         archive.save_opt(base, chal_id, opt_out)
+    else:
+        archive.save_opt(base, chal_id, opt_out)  # rival banks its own
     ev = evaluate.evaluate(cfg, base, chal_id, chal_w, champ_id, champ_w,
                              map_offset=gen_index)
     archive.atomic_write_json(
