@@ -13,8 +13,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 34: same config, trigger armed. Dry (even with knocks)
-  -> exploiter diversity; promo -> continue. Pre-committed.
+- Round 35: exploiter origin diversity (alternate g000/champ
+  base). Tests whether competent pressure restores teeth.
 - Round 28 verdict: GAP STERILE (0 promos, g441 holds). Conversion
   38.6/39.3/44.3% — holds r27 gains, no full-pool conversion:
   gap 7%/5%/0% (2/51 decisive, both 0-0 racer trades). Raze wins

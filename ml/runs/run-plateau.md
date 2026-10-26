@@ -61,3 +61,10 @@ as defense school (kill-zone forensics), not surgery target.
   dry (even with knocks) -> new variable = EXPLOITER DIVERSITY
   (teeth observed dulling; small, reversible); round 34 promo ->
   continue. No further deliberation needed at the verdict.
+- Results (g533-g547): 0 PROMOTIONS. Best lower 0.391 (no
+  near-misses). Teeth dull (≤1W in 4/5; one 5W knock). Champ
+  g513 holds.
+- Verdict: TRIGGER FIRES — pre-committed variable = exploiter
+  origin diversity (alternate BC-base / champ-clone by exploiter
+  count; scales untouched). If champ-base exploiters also get
+  crushed -> teeth concept exhausted -> rung-3-with-formula.

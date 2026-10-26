@@ -196,13 +196,20 @@ def publish(base: Path, report: dict, commit: bool) -> None:
         )
 
 
-def _exploiter_base(base: Path, cfg: dict, gen_index: int) -> dict:
-    """Exploiter starting weights: the supervised base, not random.
+def _exploiter_base(base: Path, cfg: dict, gen_index: int,
+                    champ_w: dict) -> dict:
+    """Exploiter starting weights, alternating by exploiter count.
 
-    AlphaStar exploiters reset to the supervised policy (fresh eyes,
-    competent hands). Ours is the lineage's own founding weights
-    (g000 = BC-from-pros init); random init is the fallback for
-    archives that started without it."""
+    The k-th exploiter sits at gen_index 3k+2. Even k resets to the
+    supervised base (fresh eyes, competent hands — AlphaStar's
+    recipe); odd k clones the champion (current competence +
+    disruptive kill-heavy objectives). The main outgrew the fixed
+    BC base (target practice), so competent pressure must come
+    from the podium itself. Random init stays the fallback for
+    archives that started without founding weights."""
+    k = (gen_index - 2) // 3
+    if k % 2 == 1:
+        return copy.deepcopy(champ_w)
     try:
         return archive.load_checkpoint(base, "g000")
     except (FileNotFoundError, ValueError, KeyError):
@@ -231,7 +238,7 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
     gen_index = len(read_history(base))
     exploiter = gen_index % 3 == 2
     if exploiter:
-        start_w = _exploiter_base(base, cfg, gen_index)
+        start_w = _exploiter_base(base, cfg, gen_index, champ_w)
         opt_in = None
         parent = champ_id
         role = "exploiter"

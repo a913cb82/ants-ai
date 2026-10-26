@@ -2265,14 +2265,19 @@ def test_exploiter_starts_from_fresh_weights(tmp_path, monkeypatch):
     assert captured["init_w"] != champ_w or champ_w == archive.load_checkpoint(base, "g000")
 
 
-def test_exploiter_base_prefers_founding_weights(tmp_path):
+def test_exploiter_base_alternates_founding_and_champ(tmp_path):
     import archive
     import selfplay
 
     base = tmp_path / "archive"
     archive.save_checkpoint(base, {"w": [1.0]}, "main", None)
-    got = selfplay._exploiter_base(base, {"seed": 0}, 5)
-    assert got == {"w": [1.0]}
+    champ = {"w": [2.0]}
+    # k-th exploiter sits at gen_index 3k+2: even k -> founding
+    # weights (fresh competent eyes), odd k -> champion clone
+    # (current competence + disruptive objectives).
+    assert selfplay._exploiter_base(base, {"seed": 0}, 2, champ) == {"w": [1.0]}
+    assert selfplay._exploiter_base(base, {"seed": 0}, 5, champ) == champ
+    assert selfplay._exploiter_base(base, {"seed": 0}, 8, champ) == {"w": [1.0]}
 
 
 def test_non_exploiter_copies_champion(tmp_path, monkeypatch):
