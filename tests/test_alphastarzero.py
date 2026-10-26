@@ -2479,8 +2479,9 @@ def test_exploiter_line_alternates_by_count():
     import selfplay
 
     # k-th exploiter sits at gen_index 3k+2: even k -> line A (0),
-    # odd k -> line B (1). Two independent disruptors, one schedule.
-    assert [selfplay._exploiter_line(g) for g in (2, 5, 8, 11, 14)] == [0, 1, 0, 1, 0]
+    # odd k -> spoiler on the fresh line (2); line 1 holds the stale
+    # line-B chain and is never scheduled. Two disruptors, one schedule.
+    assert [selfplay._exploiter_line(g) for g in (2, 5, 8, 11, 14)] == [0, 2, 0, 2, 0]
 
 
 def test_line_b_founds_from_supervised_base_never_champ(tmp_path):
@@ -2535,10 +2536,10 @@ def test_exploiter_gens_alternate_lines_end_to_end(tmp_path, monkeypatch):
     ids = [selfplay.run_generation(cfg, base, commit=False)["challenger"]
            for _ in range(12)]
     members = {m["id"]: m for m in archive.members(base)}
-    # gens 2, 5, 8, 11 are exploiters on lines 0, 1, 0, 1.
+    # gens 2, 5, 8, 11 are exploiters on lines 0, 2, 0, 2.
     assert [members[i].get("line") for i in
-            (ids[2], ids[5], ids[8], ids[11])] == [0, 1, 0, 1]
-    # line B's second gen continues the line-B tip, not line A.
+            (ids[2], ids[5], ids[8], ids[11])] == [0, 2, 0, 2]
+    # line 2's second gen continues the line-2 tip, not line A.
     assert members[ids[11]]["parent"] == ids[5]
     assert members[ids[8]]["parent"] == ids[2]
 
@@ -2776,7 +2777,34 @@ def test_spoiler_founding_is_random_never_g000(tmp_path):
     assert w != {"w": [1.0]} and w != champ  # random stock, nothing to unlearn
 
 
-def test_spoiler_chains_line1_tip(tmp_path, monkeypatch):
+def test_exploiter_line_gives_spoiler_a_fresh_slot():
+    import selfplay
+
+    # k-th exploiter sits at gen_index 3k+2: even k continues line A
+    # (0), odd k runs the spoiler on a FRESH line (2) — line 1 holds
+    # the stale line-B chain and is never scheduled (dies by neglect).
+    assert [selfplay._exploiter_line(g) for g in (2, 5, 8, 11)] == [0, 2, 0, 2]
+
+
+def test_line2_founding_is_random_with_line1_tip_present(tmp_path):
+    import archive
+    import selfplay
+
+    base = tmp_path / "archive"
+    archive.save_checkpoint(base, {"w": [1.0]}, "main", None)  # g000
+    stale = archive.save_checkpoint(base, {"w": [5.0]}, "spoiler",
+                                      None, line=1)
+    assert archive.last_exploiter(base, line=1) == stale
+    champ = {"w": [9.0]}
+    # the spoiler re-founds from random stock on its fresh slot: it
+    # must not chain the stale line-1 tip, clone the champ, or reuse g000.
+    w = selfplay._exploiter_base(base, {"seed": 0, "arch": "base"},
+                                 5, champ, line=2)
+    assert isinstance(w, dict) and "conv1.weight" in w
+    assert w != {"w": [1.0]} and w != champ and w != {"w": [5.0]}
+
+
+def test_spoiler_chains_line2_tip_line1_neglected(tmp_path, monkeypatch):
     import copy
 
     import archive
@@ -2804,20 +2832,29 @@ def test_spoiler_chains_line1_tip(tmp_path, monkeypatch):
     monkeypatch.setattr(evaluate, "evaluate", fake_eval)
     monkeypatch.setattr(evaluate, "should_promote", lambda *a: False)
     base = tmp_path / "archive"
+    # the stale line-B chain predates the repair: line 1 must die by
+    # neglect, never scheduled and never parented again.
+    archive.save_checkpoint(base, {"w": [1.0]}, "main", None)  # g000
+    stale = archive.save_checkpoint(base, {"w": [0.0]}, "spoiler",
+                                      None, line=1)
     cfg = _exploiter_cfg()
     ids = [selfplay.run_generation(cfg, base, commit=False)["challenger"]
            for _ in range(12)]
     members = {m["id"]: m for m in archive.members(base)}
-    # gens 5, 11 are line-B turns: spoiler role, line recorded.
+    # gens 2, 5, 8, 11 are exploiters on lines 0, 2, 0, 2.
+    assert [members[i].get("line") for i in
+            (ids[2], ids[5], ids[8], ids[11])] == [0, 2, 0, 2]
     assert members[ids[5]]["role"] == "spoiler"
-    assert members[ids[5]].get("line") == 1
     assert members[ids[11]]["role"] == "spoiler"
-    # second spoiler continues the line-1 tip, not a reseed.
+    # line-2 chains its own tip, never the stale line-1 chain.
     assert members[ids[11]]["parent"] == ids[5]
     assert inits[1] == archive.load_checkpoint(base, ids[5])
-    # line A stays exploiter.
+    # line-0 chains its own tip, unaffected by the spoiler move.
     assert members[ids[2]]["role"] == "exploiter"
     assert members[ids[8]]["parent"] == ids[2]
+    # the stale line-1 tip is untouched and never parented.
+    assert all(m.get("parent") != stale for m in members.values())
+    assert archive.last_exploiter(base, line=1) == stale
 
 
 def test_spoiler_gate_keeps_kills_zeroes_march():
