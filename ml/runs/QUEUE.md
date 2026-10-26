@@ -13,11 +13,10 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 72 next: spoiler exam proper (fresh line slot, true
-  random founding) + FIXED penalty (randomized assignment)
-  on the frozen 12, volume held. Penalty game-control must
-  show within-board overlap. Backstop: 2 knockless on
-  unchanged config → bank.
+- Round 73 next: champ-share restore (~25%) + spoiler fold,
+  frozen 12, penalty on, volume held. Tests the dilution
+  confound. Capacity waits for clean evidence. Strike one
+  live on the main.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
