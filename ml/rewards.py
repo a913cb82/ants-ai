@@ -28,12 +28,23 @@ KILL = 1.0
 DEATH = -2.0  # asymmetric: dying costs double killing pays, so 1-for-1
 # trades net -1. Mutual annihilation is no longer free; combat must
 # preserve material to profit. Exploiters keep their own scales.
-HILL_APPROACH = 0.5  # same-turn pay per tile closed toward the enemy
+HILL_APPROACH = 0.25  # same-turn pay per tile closed toward the enemy
 # hill. Shortens the discount horizon: a +10 raze 100 turns out is
 # worth ~+0.5 after GAMMA walk-back and cannot compete with an
 # immediate -2 death, so hills need paying now, not at arrival.
 # Unsplit (armies closing together are good) and unconditioned
 # (suicide-watch instead of superiority gates).
+# Ledger note (round 46): HA mass ran ~58/game vs outcome +-5 — the
+# main's ledger was march-dominated, marching paid even when it
+# killed you (Goodhart). The base price falls here; the RIVAL keeps
+# 0.5 via override (winner's price untouched — Chesterton). Second
+# anomaly, deliberately UNtouched: the exploiter DEATH override is
+# +3.0 absolute, i.e. the rival is PAID to die (+6 per mutual kill).
+# Comment above says "penalize" and round-19's 1-for-1 logic wants
+# -6; "KILL/DEATH 3.0" reads as tripled stakes. But the subsidy
+# produces winning aggression, not suicide — fixing the sign risks
+# the only working line for an attribution nobody needs. Revisit
+# only if the rival's board play ever looks suicidal (it doesn't).
 HILL_RAZE = 10.0
 HILL_LOST = -10.0
 WIN = 5.0
@@ -45,6 +56,8 @@ ROLE_OVERRIDES = {
     # Exploiters train to kill, not to win efficiently: triple combat
     # credit, halve gathering, shared hills and outcome. Main line
     # untouched. Challenger (and anything unknown) gets base rewards.
+    # HA override pins the RIVAL's march price at the old 0.5 while
+    # the base (main) falls to 0.25 (round-46 ledger rebalance).
     "exploiter": {"FOOD": 0.5, "KILL": 3.0, "DEATH": 3.0,
                   "HILL_APPROACH": 0.5},
 }

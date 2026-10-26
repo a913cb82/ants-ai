@@ -292,6 +292,16 @@ def test_one_for_one_trade_nets_negative():
     assert rets[0] == rewards.KILL + rewards.DEATH == -1.0
 
 
+def test_main_hill_price_rebalanced_rival_pinned(tmp_path):
+    import rewards
+
+    # The main's ledger was march-dominated (HA ~58/game vs outcome
+    # +-5): marching paid even when it killed you. The rival keeps
+    # the winner's price; only the main's price falls.
+    assert rewards.scales_for("challenger")["HILL_APPROACH"] == 0.25
+    assert rewards.scales_for("exploiter")["HILL_APPROACH"] == 0.5
+
+
 def test_hill_approach_pays_for_closing():
     import math
 

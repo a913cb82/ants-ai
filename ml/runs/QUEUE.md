@@ -13,8 +13,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 45: anchor relief (--kl-anchor-beta 0.0). Frees the
-  main from 200-gen-stale BC drag; exploiters prove freedom.
+- Round 46: ledger rebalance (main HA 0.5 -> 0.25, rival
+  pinned 0.5). Tests whether march-dominance was the blocker.
   (Round-35 verdict: APPARENT exhaustion, CONFOUNDED — clones'
   kl pinned 0.01, anchor dragged them to BC; see run-teeth2.md.)
 - Round 28 verdict: GAP STERILE (0 promos, g441 holds). Conversion
