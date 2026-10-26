@@ -24,3 +24,16 @@ cheap, mechanism-backed test goes first.
   and all — breadth becomes the only untested axis).
 - Results: pending.
 - Verdict: pending.
+- Results (g578-g592): 0 PROMOTIONS. Drought 79 gens. Champ
+  g513 holds. Draws piled at the new cap (111/136 @250);
+  decisive curve untouched (median ~40, only ~9/block >150).
+  Train conversion strong (most maps 50-100%); evals draw-or-
+  worse vs the champ (margins negative almost everywhere).
+  Gap ~10% (slight lift, still lowest).
+- Verdict: HORIZON INNOCENT — longer games buy nothing (same
+  draws, 1.3x cost). Cap back to 150. Mechanism reframe for the
+  committed pool jump: breadth as OPTIMUM-ESCAPE, not curriculum.
+  The champ is unbeatable on 8 learned boards (train 50-100%,
+  evals draw-or-better); new boards are the only new information
+  that can break the local optimum. Retention worry stands but
+  exhaustion weighs heavier: nothing left to learn on 8.
