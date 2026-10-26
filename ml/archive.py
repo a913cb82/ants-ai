@@ -74,7 +74,8 @@ def last_exploiter(base: Path = DEFAULT_DIR, line: int = 0) -> str | None:
     The persistent rival chains from its own line's tip (weights +
     optimizer), developing its own style over many gens."""
     for m in reversed(members(base)):
-        if m.get("role") == "exploiter" and m.get("line", 0) == line:
+        if m.get("role") in ("exploiter", "spoiler") \
+                and m.get("line", 0) == line:
             return m["id"]
     return None
 

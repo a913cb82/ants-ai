@@ -222,14 +222,12 @@ def _exploiter_base(base: Path, cfg: dict, gen_index: int,
     from the podium itself. Random init stays the fallback for
     archives that started without founding weights.
 
-    Line B (the second disruptor) always founds from the supervised
-    base, never a champ clone: it must be alien stock (naive
-    attackers vs a turtling field), then it chains within itself."""
+    Line B (the spoiler) always founds from RANDOM weights, never a
+    champ clone or even the supervised base: alien stock with nothing
+    to unlearn (naive attackers vs a turtling field), then it chains
+    within itself."""
     if line == 1:
-        try:
-            return archive.load_checkpoint(base, "g000")
-        except (FileNotFoundError, ValueError, KeyError):
-            return _random_weights(cfg["seed"] + gen_index, cfg.get("arch", "base"))
+        return _random_weights(cfg["seed"] + gen_index, cfg.get("arch", "base"))
     k = (gen_index - 2) // 3
     if k % 2 == 1:
         return copy.deepcopy(champ_w)
@@ -266,8 +264,8 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
         # (weights + optimizer) instead of reseeding. Counter-styles
         # need time to develop; a fresh reseed every third gen never
         # gets past target practice. The first rival of a line seeds
-        # from the founding alternation (line A) or the supervised
-        # base (line B: alien stock), then the chain owns it.
+        # from the founding alternation (line A) or random weights
+        # (line B spoiler: alien stock), then the chain owns it.
         rival = archive.last_exploiter(base, line)
         if rival is None:
             start_w = _exploiter_base(base, cfg, gen_index, champ_w, line)
@@ -277,7 +275,7 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
             start_w = archive.load_checkpoint(base, rival)
             opt_in = archive.load_opt(base, rival)
             parent = rival
-        role = "exploiter"
+        role = "spoiler" if line == 1 else "exploiter"
     else:
         # Continuous main: train from the main's own weights and
         # optimizer state, never a champ copy. Snapshots chain
@@ -311,7 +309,7 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
         # to the supervised manifold; on exploiters it homogenizes
         # every origin back to BC (round-35 confound: champ-clones
         # collapsed onto g000 mid-training and thrashed).
-        kl_anchor_beta=0.0 if role == "exploiter" else cfg.get(
+        kl_anchor_beta=0.0 if role in ("exploiter", "spoiler") else cfg.get(
             "kl_anchor_beta", 0.0))
     if not exploiter:
         archive.set_main(base, chal_id)
