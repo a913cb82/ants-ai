@@ -1,16 +1,13 @@
 #!/usr/bin/env python
 """AlphaAnt: per-ant CNN policy bot (self-play student).
 
-Inference runs the torch CNNPolicy from model.py over the 12-channel
+Inference runs the torch CNNPolicy from model.py over the 6-channel
 local window, one ant at a time. Water and visible food are hard-masked
 from the window (the engine ignores moves into both); the live
 reservation set blocks already-claimed tiles so two ants never take the
-same square. The 5 intent channels carry last turn's friendly action
-distributions (T=1.0, temperature-free want) wherever a friendly ant
-stands — communication with ant-local state intact. weights.json holds
-the champion parameters; the trainer rewrites it only on promotion.
-`AlphaAnt.py [weights]` points the bot at another file for self-play
-games.
+same square. weights.json holds the champion parameters; the trainer
+rewrites it only on promotion. `AlphaAnt.py [weights]` points the bot at
+another file for self-play games.
 """
 
 from __future__ import annotations
@@ -46,34 +43,6 @@ RECORD_ENV = "AA_RECORD_DIR"
 TEMPERATURE_ENV = "AA_TEMPERATURE"
 
 
-def _intent_for_turn(prev: dict) -> dict | None:
-    """Ablation gate: AA_ZERO_INTENT blinds the policy to intent.
-
-    The gateway measure for the comms axis — eval the champ with
-    the gate shut; a score drop proves the policy reads the
-    channels. Accumulation keeps running (the map stays warm);
-    only the input is blinded."""
-    if os.environ.get("AA_ZERO_INTENT"):
-        return None
-    return prev
-
-
-def _accumulate_intent(new_map: dict, counts: dict, dest, dist) -> None:
-    """File this turn's want under its destination (1-turn identity).
-
-    The bot issues the orders, so dest is where the ant will be read
-    next turn. Collisions (two ants, one dest) average — rare, and the
-    mean is the honest shared signal."""
-    key = tuple(dest)
-    if key in new_map:
-        n = counts[key] + 1
-        new_map[key] = [v + (d - v) / n for v, d in zip(new_map[key], dist)]
-        counts[key] = n
-    else:
-        new_map[key] = list(dist)
-        counts[key] = 1
-
-
 class AlphaAntBot:
     def __init__(self, weights_path: str | Path | None = None) -> None:
         raw = json.loads(Path(weights_path or WEIGHTS_PATH).read_text())
@@ -88,7 +57,6 @@ class AlphaAntBot:
         self._temperature = float(temperature) if temperature else 0.0
         self._turn = 0
         self._water = None  # impassable set, cached in do_setup
-        self._prev_intent: dict = {}  # dest -> last turn's T=1.0 want
         record_dir = os.environ.get(RECORD_ENV)
         self._record_path = (
             Path(record_dir) / f"aa-{os.getpid()}.jsonl" if record_dir else None
@@ -113,19 +81,13 @@ class AlphaAntBot:
         # stays sequential (ant i's blocked set needs ants 0..i-1's
         # destinations), but masking applies to precomputed logit rows.
         view = features.snapshot(ants, water=self._water)
-        seen = _intent_for_turn(self._prev_intent)
-        windows = [
-            features.local_window(ants, loc, view=view, intent=seen)
-            for loc in mine
-        ]
+        windows = [features.local_window(ants, loc, view=view) for loc in mine]
         with torch.no_grad():
             logits = self.policy(torch.stack(windows))
         recording = self._record_path is not None
         rows = []
         reserved = set(mine)
         undecided: tuple = ()
-        new_intent: dict = {}
-        counts: dict = {}
         for i, ant_loc in enumerate(mine):
             blocked = frozenset(
                 action
@@ -148,9 +110,6 @@ class AlphaAntBot:
                 reserved.add(tuple(dest))
             else:
                 dest = ant_loc
-            with torch.no_grad():
-                want = torch.softmax(masked, dim=0).tolist()
-            _accumulate_intent(new_intent, counts, dest, want)
             if recording:
                 rows.append({
                     "turn": self._turn,
@@ -163,33 +122,19 @@ class AlphaAntBot:
             if ants.time_remaining() < 10:
                 undecided = tuple(mine[i + 1 :])
                 break
-        if undecided:
-            # Time ran out: the ants stay, and their wants still file
-            # for next turn's intent (recording or not — rated play
-            # communicates too). Rows log only when recording.
-            start = len(mine) - len(undecided)
-            for j, rest in enumerate(undecided):
-                rest_window = features.local_window(
-                    ants, rest, view=view, intent=seen)
-                with torch.no_grad():
-                    rest_masked = model.mask_logits(
-                        logits[start + j], rest_window, frozenset())
-                _accumulate_intent(
-                    new_intent, counts, rest,
-                    torch.softmax(rest_masked, dim=0).tolist())
-                if recording:
-                    # Log the undecided ants as stays so training rows
-                    # never starve late-order ants of credit.
-                    rows.append({
-                        "turn": self._turn,
-                        "loc": list(rest),
-                        "dest": list(rest),
-                        "action": "stay",
-                        "window": rest_window.tolist(),
-                        "legal": model.legal_mask(
-                            rest_window, frozenset()).tolist(),
-                    })
-        self._prev_intent = new_intent
+        if undecided and recording:
+            # Time ran out: log the undecided ants as stays so training
+            # rows never starve late-order ants of credit.
+            for rest in undecided:
+                rest_window = features.local_window(ants, rest, view=view)
+                rows.append({
+                    "turn": self._turn,
+                    "loc": list(rest),
+                    "dest": list(rest),
+                    "action": "stay",
+                    "window": rest_window.tolist(),
+                    "legal": model.legal_mask(rest_window, frozenset()).tolist(),
+                })
         if recording and rows:
             with open(self._record_path, "a") as f:
                 for row in rows:

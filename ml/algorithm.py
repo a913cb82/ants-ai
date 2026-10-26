@@ -34,10 +34,6 @@ BatchItem = tuple[torch.Tensor, int, float, list, float]
 # the directional coverage of a 6k-param net for free.
 ROT_PERM = (3, 0, 1, 2, 4)
 ROT_MASK = (1, 2, 3, 0, 4)
-# Inverse of ROT_PERM (mirror bots/alphaant/model.py INTENT_Q): intent
-# channels ride the action frame forward with the window, so rotated
-# training rows gather channels by INTENT_Q^k.
-INTENT_Q = (1, 2, 3, 0, 4)
 
 
 def new_policy(
@@ -89,16 +85,11 @@ def to_batch(
 def _rotate_item(item: BatchItem, k: int) -> BatchItem:
     """Rotate a row k quarter-turns CCW (window, action, mask together).
 
-    Intent channels ride the action frame forward (channel c moves to
-    ROT_PERM^k[c]), so the rotated row stays a coherent rotated view
-    for the D4-symmetrized forward. Narrow pre-intent rows rotate
-    spatially only. The return is untouched: rotation preserves game
-    facts, only the viewpoint turns."""
+    k = 0 is the identity. The return is untouched: rotation preserves
+    game facts, only the viewpoint turns."""
     w, a, r, m, o = item
     for _ in range(k % 4):
         w = torch.rot90(w, 1, [1, 2])
-        if w.shape[0] >= 12:
-            w = torch.cat([w[:7], w[7:12][list(INTENT_Q)], w[12:]], dim=0)
         a = ROT_PERM[a]
         m = [m[i] for i in ROT_MASK]
     return (w, a, r, m, o)

@@ -1,7 +1,7 @@
 """Observation encoding for the AlphaAnt bot.
 
 Owns the action space (ACTIONS + OFFSETS) and the two things the bot
-sees: dest_of for movement, local_window for the 12-channel relative
+sees: dest_of for movement, local_window for the 6-channel relative
 state. No policy, no training.
 """
 
@@ -19,18 +19,13 @@ ACTIONS = ("n", "e", "s", "w", "stay")
 OFFSETS = {"n": (-1, 0), "e": (0, 1), "s": (1, 0), "w": (0, -1), "stay": (0, 0)}
 
 # Third-dimension (channel) order of local_window: water, friendly ant,
-# friendly hill, enemy ant, enemy hill, food, own-sight flag, then the
-# friendly intent distribution (last turn's T=1.0 action softmax) on the
-# 5 action slots, visible only where a friendly ant stands.
+# friendly hill, enemy ant, enemy hill, food, own-sight flag.
 CHANNELS = ("water", "own_ant", "own_hill", "enemy_ant", "enemy_hill",
-            "food", "own_sight",
-            "intent_n", "intent_e", "intent_s", "intent_w",
-            "intent_stay")
+            "food", "own_sight")
 
 WATER_CHANNEL = 0
 FOOD_CHANNEL = 5
 OWN_SIGHT_CHANNEL = 6
-INTENT_START = 7
 
 
 _sight_offsets: dict[tuple[int, int], list[tuple[int, int, int, int, bool]]] = {}
@@ -100,7 +95,7 @@ def dest_of(ants: Ants, loc: tuple[int, int], action: str) -> tuple[int, int]:
 
 def local_window(
     ants: Ants, loc: tuple[int, int], radius: int = DEFAULT_RADIUS,
-    view: View | None = None, intent: dict | None = None,
+    view: View | None = None,
 ) -> torch.Tensor:
     """Fully local, relative 1-hot state: (channels, height, width).
 
@@ -118,13 +113,6 @@ def local_window(
     whether they are actionable now is marked. viewradius2 comes from
     the game settings and defaults to 77 when the wrapper does not
     provide it.
-
-    intent maps friendly locations to last turn's T=1.0 action
-    distribution (what the neighbor wanted, not what the sampler
-    did). Only friendly-occupied cells are marked — enemies and
-    empty cells read zeros, so communication stays ant-local: an
-    ant sees a neighbor's mind only where the neighbor stands.
-    None behaves as all-zeros (turn 0, unrecorded games).
     """
     size = 2 * radius + 1
     grid = _np.zeros((len(CHANNELS), size, size), dtype=_np.float32)
@@ -154,6 +142,4 @@ def local_window(
             grid[4, i, j] = 1.0
         if cell in foods:
             grid[5, i, j] = 1.0
-        if intent is not None and cell in own_ants and cell in intent:
-            grid[INTENT_START:INTENT_START + 5, i, j] = intent[cell]
     return torch.from_numpy(grid)
