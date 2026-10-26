@@ -13,9 +13,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 66: two lines continue (line B round 2 of ~10).
-  Pool: gap out, 2g sanctioned passenger (stay >10%).
-  Use EXACTLY the --maps in the brief (no overrides).
+- Round 67: two lines continue (line B round 4 of ~10).
+  Strike one live on the main. 2g stays (21%, watched).
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)

@@ -205,6 +205,20 @@ need time — so stop reseeding and let one rival develop.
   Pool stays 8 (gap out, 2g in).
 - Verdict: MIXED → continue two-line regime (round 66).
   Predators get their development time; turtles get no rest.
+- Results (g1013-g1027): 0 PROMOTIONS (drought 7). Champ
+  g924 holds. Line B first TEETH (g1017 8W eval) then
+  regression (g1023 .275); train still toothless. Line A
+  knocks (g1014 .50) with rising train teeth. Main 0/10
+  knocks (best .475) → STRIKE ONE (letter of the standing
+  rule: main-knockless + rival knocks). Note: if strike two
+  fires, the menu needs rethinking (a second graft collapses
+  the architecture — the intervention would have to be new).
+- 2g STAYS (21% decisive > 10% stay rule). No added
+  win-rate bar: boards are judged by contact, not win-rate
+  (round-60 doctrine) — adding one now would be the same
+  goalpost-moving declined then. Flagged: 11/14 draws.
+- Verdict: DEVELOPING → continue (round 67). Watches:
+  strike two?, line-B train wins (~r68?), 2g holds?
 - Results (g728-g742): 0 PROMOTIONS. Champ g720 holds. Two
   rival knocks (g732 .60, g735 .575 — correctly unpromoted:
   Wilson lower, not raw eff, is the bar; no anomaly). Main
