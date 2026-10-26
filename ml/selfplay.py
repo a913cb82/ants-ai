@@ -270,6 +270,7 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
     chal_id, chal_w, train_stats, opt_out = train.train_generation(
         cfg, base, champ_id, start_w, role=role, parent=parent,
         opt_state=opt_in, anchor=anchor_w,
+        student=main_id if role == "challenger" else champ_id,
         # Scouts drift — that's their job. The anchor binds the main
         # to the supervised manifold; on exploiters it homogenizes
         # every origin back to BC (round-35 confound: champ-clones

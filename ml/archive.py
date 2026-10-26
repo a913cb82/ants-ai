@@ -308,18 +308,41 @@ def win_rates(
 
 
 def sample_opponents(
-    base: Path, student: str, k: int, self_play_frac: float = 0.35, seed: int = 0
+    base: Path, student: str, k: int, self_play_frac: float = 0.35, seed: int = 0,
+    window: int = 15, include: tuple = (),
 ) -> list[str]:
     """PFSP-lite on the eval matrix: mostly the opponents that beat you,
-    some mirror self."""
+    some mirror self. Restricted to the frontier: only members within
+    `window` gens of the newest plus `include` (e.g. the champion)
+    are eligible. A flat-rate draw regime over 300 members degenerates
+    to uniform-over-history — ancient weaklings teaching nothing — so
+    the window keeps every train game informative. Empty filter falls
+    back to everyone (fresh archives)."""
     rng = np.random.default_rng(seed)
     rates = win_rates(base, student)
+    try:
+        newest = max(int(m["id"][1:]) for m in members(base))
+    except (ValueError, KeyError):
+        newest = -1
+
+    def eligible(i: str) -> bool:
+        try:
+            age = newest - int(i[1:])
+        except (ValueError, IndexError):
+            return True
+        return age < window or i in include or i == student
+
     picks = []
     for _ in range(k):
         if rng.random() < self_play_frac or not rates:
             picks.append(student)
         else:
-            ids = sorted(rates)
+            ids = sorted(i for i in rates if eligible(i))
+            if not ids:
+                # PFSP is blind (nothing rated at the frontier): mirror
+                # the student rather than raiding history for ancients.
+                ids = [student]
+                rates = {student: 0.0}
             w = np.array([rates[i] + 0.05 for i in ids])
             picks.append(str(rng.choice(ids, p=w / w.sum())))
     return picks

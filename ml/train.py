@@ -60,7 +60,7 @@ def _play_one(args) -> dict:
     return {"rows": rows, "rets": rets}
 
 
-def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict, role: str = "challenger", parent: str | None = None, opt_state: dict | None = None, anchor: dict | None = None, kl_anchor_beta: float = 0.0) -> tuple[str, dict, dict, dict]:
+def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict, role: str = "challenger", parent: str | None = None, opt_state: dict | None = None, anchor: dict | None = None, kl_anchor_beta: float = 0.0, student: str | None = None) -> tuple[str, dict, dict, dict]:
     """Self-play training games -> (challenger id, weights, train stats, opt state).
 
     The snapshot's parent defaults to the champion; the continuous
@@ -85,7 +85,14 @@ def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict, role: 
     drill_maps = archive.next_drill_maps(
         base, cfg["maps"], cfg["train_games"], gen_num)
     for g in range(cfg["train_games"]):
-        opp_id = archive.sample_opponents(base, champ_id, 1, seed=cfg["seed"] + g)[0]
+        # Train at the frontier: the learner's rivals, not the champ's
+        # (correct when challenger == champ-copy, stale under lineage),
+        # restricted to recent members + champ (ancient weaklings teach
+        # beating weaklings; evals face the champ). Exploiters scout
+        # the podium, so their student is the champ.
+        opp_id = archive.sample_opponents(
+            base, student or champ_id, 1, seed=cfg["seed"] + g,
+            include=(champ_id,))[0]
         opp_w = archive.load_checkpoint(base, opp_id)
         for slot in (0, 1):
             me_w, other_w = (chal_w, opp_w) if slot == 0 else (opp_w, chal_w)

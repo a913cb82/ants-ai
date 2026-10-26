@@ -2151,6 +2151,7 @@ def _mocked_generation(monkeypatch, captured):
                    parent=None, opt_state=None, **kwargs):
         captured["role"] = role
         captured["kl_anchor_beta"] = kwargs.get("kl_anchor_beta")
+        captured["student"] = kwargs.get("student")
         captured["init_w"] = copy.deepcopy(champ_w)
         cid = archive.save_checkpoint(base, copy.deepcopy(champ_w), role, champ_id if parent is None else parent)
         return cid, copy.deepcopy(champ_w), {"rows": 0}, None
@@ -2245,6 +2246,41 @@ def test_exploiter_triggers_every_third_generation(tmp_path, monkeypatch, hist_l
     assert captured["role"] == ("exploiter" if expected else "challenger")
     assert archive.members(base)[-1]["role"] == captured["role"]
     assert archive.read_status(base)["exploiter"] is expected
+
+
+def test_sample_opponents_trains_at_the_frontier(tmp_path):
+    import archive
+
+    base = tmp_path / "archive"
+    for _ in range(21):
+        archive.save_checkpoint(base, {"w": [1.0]}, "main", None)
+    archive.set_champion(base, "g020")
+    # g020 beats the ancients: rates exist so PFSP doesn't degenerate
+    # to self-play; the window then decides eligibility.
+    for old in ("g000", "g001", "g002"):
+        archive.record_result(base, "g020", old, 3, 0)
+    got = archive.sample_opponents(
+        base, "g020", 50, seed=1, window=15,
+        include=("g019",))
+    recent = {f"g{i:03d}" for i in range(6, 21)} | {"g020", "g019"}
+    assert set(got) <= recent
+    assert "g000" not in got  # ancient weaklings never train
+
+
+def test_run_generation_passes_main_as_student(tmp_path, monkeypatch):
+    import archive
+    import selfplay
+
+    captured: dict = {}
+    _mocked_generation(monkeypatch, captured)
+    base = tmp_path / "archive"
+    cfg = _exploiter_cfg()
+    selfplay.run_generation(cfg, base, commit=False)  # gen 0 challenger
+    selfplay.run_generation(cfg, base, commit=False)  # gen 1 challenger
+    # gen 0 bootstraps the main from the champ; gen 1 trains from it,
+    # so the student is the main (g001), not the champ (g000).
+    # (get_main has since advanced to g002; the capture is what matters.)
+    assert captured["student"] == "g001"
 
 
 def test_exploiters_run_unanchored(tmp_path, monkeypatch):
