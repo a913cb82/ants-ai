@@ -28,6 +28,12 @@ KILL = 1.0
 DEATH = -2.0  # asymmetric: dying costs double killing pays, so 1-for-1
 # trades net -1. Mutual annihilation is no longer free; combat must
 # preserve material to profit. Exploiters keep their own scales.
+HILL_APPROACH = 0.5  # same-turn pay per tile closed toward the enemy
+# hill. Shortens the discount horizon: a +10 raze 100 turns out is
+# worth ~+0.5 after GAMMA walk-back and cannot compete with an
+# immediate -2 death, so hills need paying now, not at arrival.
+# Unsplit (armies closing together are good) and unconditioned
+# (suicide-watch instead of superiority gates).
 HILL_RAZE = 10.0
 HILL_LOST = -10.0
 WIN = 5.0
@@ -39,7 +45,8 @@ ROLE_OVERRIDES = {
     # Exploiters train to kill, not to win efficiently: triple combat
     # credit, halve gathering, shared hills and outcome. Main line
     # untouched. Challenger (and anything unknown) gets base rewards.
-    "exploiter": {"FOOD": 0.5, "KILL": 3.0, "DEATH": 3.0},
+    "exploiter": {"FOOD": 0.5, "KILL": 3.0, "DEATH": 3.0,
+                  "HILL_APPROACH": 0.5},
 }
 
 
@@ -48,7 +55,7 @@ def scales_for(role: str) -> dict:
     base = {
         "FOOD": FOOD, "KILL": KILL, "DEATH": DEATH,
         "HILL_RAZE": HILL_RAZE, "HILL_LOST": HILL_LOST,
-        "WIN": WIN, "LOSS": LOSS,
+        "WIN": WIN, "LOSS": LOSS, "HILL_APPROACH": HILL_APPROACH,
     }
     base.update(ROLE_OVERRIDES.get(role, {}))
     return base
@@ -205,6 +212,27 @@ def _awards(game, me, records, scales):
                     (end, {i: amount / len(mine) for i in mine}, "team", "hill")
                 )
 
+    # hill approach: same-turn pay for closing distance to the nearest
+    # enemy hill (toroidal tiles). Marching toward hills must pay NOW:
+    # the discounted raze cannot compete with immediate death costs.
+    # Opening distance or standing still pays nothing; reaching the
+    # hill tile itself is the raze's credit, not approach's (skipped:
+    # d_after == 0 would double-pay the arrival).
+    import math
+
+    foes = [(r, c) for r, c, owner, _end in replaydata.get("hills", [])
+            if owner != me]
+    if foes:
+        for i, rec in enumerate(records):
+            loc, dest = tuple(rec["loc"]), tuple(rec["dest"])
+            before = min(math.sqrt(dist2(loc, h, rows, cols)) for h in foes)
+            after = min(math.sqrt(dist2(dest, h, rows, cols)) for h in foes)
+            closed = before - after
+            if closed > 0 and after > 0:
+                awards.append((rec["turn"],
+                               {i: scales["HILL_APPROACH"] * closed},
+                               "ant", "hill_approach"))
+
     return awards, outcome(game, me), length, turns, keys
 
 
@@ -224,6 +252,9 @@ def compute_returns(game, me, records, scales=None):
     for event_turn, shares, scope, kind in awards:
         for i, share in shares.items():
             rets[i] += share
+            if kind == "hill_approach":
+                continue  # same-turn only: walk-back would smear the
+            # contingency (marching past the hill still pays).
             for j, t in enumerate(turns):
                 if j == i or t >= event_turn:
                     continue
@@ -257,6 +288,7 @@ def decompose(game, me, records):
         game, me, records, scales_for("challenger"))
     mass: dict[str, float] = {
         "food": 0.0, "kill": 0.0, "death": 0.0, "hill": 0.0,
+        "hill_approach": 0.0,
     }
     for _turn, shares, _scope, kind in awards:
         mass[kind] += sum(shares.values())

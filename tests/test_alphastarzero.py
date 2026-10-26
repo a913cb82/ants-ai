@@ -292,6 +292,56 @@ def test_one_for_one_trade_nets_negative():
     assert rets[0] == rewards.KILL + rewards.DEATH == -1.0
 
 
+def test_hill_approach_pays_for_closing():
+    import math
+
+    import rewards
+    from grid import dist2
+
+    game = _game()
+    game["replaydata"]["hills"] = [[5, 9, 1, 99]]  # enemy hill
+    game["replaydata"]["ants"] = [[5, 5, 1, 5, 0, "eee"]]
+    records = [
+        {"turn": 1, "loc": [5, 5], "dest": [5, 6], "action": "e"},
+    ]
+    rets = rewards.compute_returns(game, 0, records)
+    before = math.sqrt(dist2((5, 5), (5, 9), 10, 10))
+    after = math.sqrt(dist2((5, 6), (5, 9), 10, 10))
+    assert rets[0] == rewards.HILL_APPROACH * (before - after)
+
+
+def test_hill_approach_ignores_opening_and_staying():
+    import rewards
+
+    game = _game()
+    game["replaydata"]["hills"] = [[5, 9, 1, 99]]
+    game["replaydata"]["ants"] = [[5, 5, 1, 5, 0, "ew-"]]
+    records = [
+        {"turn": 1, "loc": [5, 5], "dest": [5, 6], "action": "e"},
+        {"turn": 2, "loc": [5, 6], "dest": [5, 5], "action": "w"},
+        {"turn": 3, "loc": [5, 5], "dest": [5, 5], "action": "stay"},
+    ]
+    rets = rewards.compute_returns(game, 0, records)
+    assert rets[0] > 0.0  # closed one tile
+    assert rets[1] == 0.0  # opened it back: no credit
+    assert rets[2] == 0.0  # stayed: no credit
+
+
+def test_hill_approach_stays_same_turn_only():
+    import rewards
+
+    game = _game()
+    game["replaydata"]["hills"] = [[5, 9, 1, 99]]
+    game["replaydata"]["ants"] = [[5, 5, 1, 5, 0, "eee"]]
+    records = [
+        {"turn": 1, "loc": [5, 5], "dest": [5, 4], "action": "w"},
+        {"turn": 2, "loc": [5, 4], "dest": [5, 5], "action": "e"},
+    ]
+    rets = rewards.compute_returns(game, 0, records)
+    assert rets[0] == 0.0  # opened: no credit, and no walk-back arrives
+    assert rets[1] > 0.0  # closed: same-turn credit only
+
+
 def test_exploiter_scales_triple_combat_credit():
     import rewards
 

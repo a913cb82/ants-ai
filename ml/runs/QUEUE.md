@@ -13,9 +13,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 24: retreat to the known 8-board pool. Tests whether
-  conversion resumes (engine works, disease is generalization)
-  or stays dead (disease is learning itself).
+- Round 25: hill-approach shaping (+0.5/tile, same-turn).
+  Shortens the discount horizon; suicide-watch on death rate.
 - Round 19 verdict: POSITIVE — 2 promotions (g313 exploiter crown,
   g314), conversion 13% -> 24% -> 19%, double-elims 22% -> 7%,
   no pacification. DEATH -2 kept as new base. Caveat: death rate
