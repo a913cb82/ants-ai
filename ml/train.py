@@ -95,7 +95,7 @@ def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict, role: 
     main passes its own last id so parents form chains, not stars.
     Incoming optimizer state (main lineage) is restored before
     training; outgoing state is returned for banking."""
-    chal_id = archive.save_checkpoint(base, copy.deepcopy(champ_w), role, parent if parent is not None else champ_id, line=line if role == "exploiter" else None)
+    chal_id = archive.save_checkpoint(base, copy.deepcopy(champ_w), role, parent if parent is not None else champ_id, line=line if role in ("exploiter", "spoiler") else None)
     chal_w = copy.deepcopy(champ_w)
     batch: list = []
     policy = algorithm.new_policy(chal_w)

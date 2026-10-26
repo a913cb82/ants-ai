@@ -60,6 +60,11 @@ ROLE_OVERRIDES = {
     # the base (main) falls to 0.25 (round-46 ledger rebalance).
     "exploiter": {"FOOD": 0.5, "KILL": 3.0, "DEATH": 3.0,
                   "HILL_APPROACH": 0.5},
+    # Spoiler (line-B rival): naive, hungry, persistent. No food or
+    # march credit (nothing to unlearn about turtling), teeth kept,
+    # dying hurts at the base rate. Hills and outcome as base.
+    "spoiler": {"FOOD": 0, "KILL": 3.0, "DEATH": -2.0,
+                "HILL_APPROACH": 0},
 }
 
 
@@ -72,6 +77,9 @@ ROLE_OVERRIDES = {
 GATED_BY_ROLE = {
     "challenger": {"hill_approach", "kill"},
     "exploiter": {"hill_approach"},
+    # Spoiler: gate the march (moot, zero scale) but NOT kills —
+    # pressure is the job, same as the exploiter.
+    "spoiler": {"hill_approach"},
 }
 
 

@@ -2319,10 +2319,11 @@ def test_init_weights_seed_gen_zero_champion(tmp_path, monkeypatch):
     assert archive.load_checkpoint(base, archive.get_champion(base)) != w2
 
 
-@pytest.mark.parametrize("hist_len,expected", [
-    (0, False), (1, False), (2, True), (3, False), (4, False), (5, True),
+@pytest.mark.parametrize("hist_len,role", [
+    (0, "challenger"), (1, "challenger"), (2, "exploiter"),
+    (3, "challenger"), (4, "challenger"), (5, "spoiler"),
 ])
-def test_exploiter_triggers_every_third_generation(tmp_path, monkeypatch, hist_len, expected):
+def test_exploiter_triggers_every_third_generation(tmp_path, monkeypatch, hist_len, role):
     import archive
     import selfplay
 
@@ -2335,11 +2336,13 @@ def test_exploiter_triggers_every_third_generation(tmp_path, monkeypatch, hist_l
     archive.set_champion(base, champ)
     for i in range(hist_len):
         selfplay.append_history(base, {"gen": i})
+    expected = role != "challenger"
     assert len(selfplay.read_history(base)) % 3 == 2 or not expected
     assert (hist_len % 3 == 2) is expected
     rep = selfplay.run_generation(cfg, base, commit=False)
     assert rep["exploiter"] is expected
-    assert captured["role"] == ("exploiter" if expected else "challenger")
+    # line-B turns (gen 5, 11, ...) run the spoiler, line A the exploiter.
+    assert captured["role"] == role
     assert archive.members(base)[-1]["role"] == captured["role"]
     assert archive.read_status(base)["exploiter"] is expected
 
@@ -2487,9 +2490,12 @@ def test_line_b_founds_from_supervised_base_never_champ(tmp_path):
     base = tmp_path / "archive"
     archive.save_checkpoint(base, {"w": [1.0]}, "main", None)  # g000
     champ = {"w": [9.0]}
-    # line B must be alien stock (naive attackers vs the turtle
-    # field), never a champ clone.
-    assert selfplay._exploiter_base(base, {"seed": 0}, 5, champ, line=1) == {"w": [1.0]}
+    # line B (spoiler) is alien stock with nothing to unlearn: random
+    # weights even when the supervised base exists, never a champ clone.
+    w = selfplay._exploiter_base(base, {"seed": 0, "arch": "base"},
+                                 5, champ, line=1)
+    assert isinstance(w, dict) and "conv1.weight" in w
+    assert w != {"w": [1.0]} and w != champ
 
 
 def test_line_b_falls_back_to_random_without_founding(tmp_path):
@@ -2694,3 +2700,94 @@ def test_train_draw_penalty_every_flags_every_nth(tmp_path, monkeypatch):
     assert run(3)["rets"] == [rewards.LOSS]
 
 
+# --- idea 4: spoiler v2 in the line-B slot ---
+
+def test_spoiler_scales_exact_values():
+    import rewards
+
+    s = rewards.scales_for("spoiler")
+    assert s["FOOD"] == 0  # naive: nothing to unlearn about gathering
+    assert s["HILL_APPROACH"] == 0  # hungry, not marching
+    assert s["KILL"] == 3.0  # teeth kept
+    assert s["DEATH"] == -2.0
+    assert s["WIN"] == rewards.WIN
+    assert s["LOSS"] == rewards.LOSS
+    assert s["HILL_RAZE"] == rewards.HILL_RAZE
+    assert s["HILL_LOST"] == rewards.HILL_LOST
+
+
+def test_spoiler_founding_is_random_never_g000(tmp_path):
+    import archive
+    import selfplay
+
+    base = tmp_path / "archive"
+    archive.save_checkpoint(base, {"w": [1.0]}, "main", None)  # g000
+    champ = {"w": [9.0]}
+    w = selfplay._exploiter_base(base, {"seed": 0, "arch": "base"},
+                                 5, champ, line=1)
+    assert isinstance(w, dict) and "conv1.weight" in w
+    assert w != {"w": [1.0]} and w != champ  # random stock, nothing to unlearn
+
+
+def test_spoiler_chains_line1_tip(tmp_path, monkeypatch):
+    import copy
+
+    import archive
+    import evaluate
+    import selfplay
+    import train
+
+    inits = []
+
+    def fake_train(cfg, base, champ_id, champ_w, role="challenger",
+                   parent=None, opt_state=None, **kwargs):
+        if role == "spoiler":
+            inits.append(copy.deepcopy(champ_w))
+        cid = archive.save_checkpoint(
+            base, copy.deepcopy(champ_w), role,
+            champ_id if parent is None else parent,
+            line=kwargs.get("line"))
+        return cid, copy.deepcopy(champ_w), {"rows": 0}, None
+
+    def fake_eval(cfg, base, chal_id, chal_w, champ_id, champ_w, map_offset=0):
+        return {"wins": 0, "draws": 0, "games": 0, "win_rate": 0.0,
+                "margins": [], "mean_margin": 0.0}
+
+    monkeypatch.setattr(train, "train_generation", fake_train)
+    monkeypatch.setattr(evaluate, "evaluate", fake_eval)
+    monkeypatch.setattr(evaluate, "should_promote", lambda *a: False)
+    base = tmp_path / "archive"
+    cfg = _exploiter_cfg()
+    ids = [selfplay.run_generation(cfg, base, commit=False)["challenger"]
+           for _ in range(12)]
+    members = {m["id"]: m for m in archive.members(base)}
+    # gens 5, 11 are line-B turns: spoiler role, line recorded.
+    assert members[ids[5]]["role"] == "spoiler"
+    assert members[ids[5]].get("line") == 1
+    assert members[ids[11]]["role"] == "spoiler"
+    # second spoiler continues the line-1 tip, not a reseed.
+    assert members[ids[11]]["parent"] == ids[5]
+    assert inits[1] == archive.load_checkpoint(base, ids[5])
+    # line A stays exploiter.
+    assert members[ids[2]]["role"] == "exploiter"
+    assert members[ids[8]]["parent"] == ids[2]
+
+
+def test_spoiler_gate_keeps_kills_zeroes_march():
+    import rewards
+
+    game = _game()
+    game["score"] = [0, 1]  # loss
+    game["replaydata"]["ants"] = [[5, 5, 1, 3, 1, "--"]]
+    records = [{"turn": 3, "loc": [5, 4], "dest": [5, 4], "action": "stay"}]
+    rets = rewards.compute_returns(game, 0, records,
+                                   rewards.scales_for("spoiler"),
+                                   role="spoiler")
+    # pressure is the job: kills pay even in defeat.
+    assert rets == [3.0 + rewards.LOSS]
+    march = _hill_game([0, 1])
+    mrecs = [{"turn": 1, "loc": [5, 5], "dest": [6, 6], "action": "s"}]
+    mrets = rewards.compute_returns(march, 0, mrecs,
+                                    rewards.scales_for("spoiler"),
+                                    role="spoiler")
+    assert mrets == [rewards.LOSS]  # HA moot (zero scale), gated anyway
