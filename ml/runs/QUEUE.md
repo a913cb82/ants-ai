@@ -13,8 +13,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 54: same config (alive: 2 knocks, revert clean).
-  Watch g832-type fades.
+- Round 55: same config (alive: 3 exploiter knocks).
+  Strike one on the main-knockless rule (needs two).
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)

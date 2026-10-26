@@ -79,6 +79,18 @@ need time — so stop reseeding and let one rival develop.
   sweeps — best lakes signal yet); no map 0/15. Late fade
   g832 (1W4D) bears watching.
 - Verdict: ALIVE, continue same (round 54).
+- Results (g833-g847): 0 PROMOTIONS. Champ g798 holds. 3
+  knocks, all exploiter (g834 .53, g840 .55, g846 .60 — rising).
+  Main knockless (best g839 .47); main bests declining three
+  rounds (.60 -> .525 -> .47). Lakes flickers died (noise
+  confirmed). No 1W collapses (min 3W — fades isolated).
+- Verdict: ALIVE by the standing rule (either-line knocks =
+  alive; the main-only tripwire is goalpost-moving — declined).
+  But the trend is real, so a NEW rule, pre-committed before
+  data: main-knockless x2 consecutive WITH rival knocks
+  continuing = main-side intervention live (menu: re-root best
+  recent main, or bank rival pedigree into the main slot).
+  Round 54 is strike one.
 - Results (g728-g742): 0 PROMOTIONS. Champ g720 holds. Two
   rival knocks (g732 .60, g735 .575 — correctly unpromoted:
   Wilson lower, not raw eff, is the bar; no anomaly). Main
