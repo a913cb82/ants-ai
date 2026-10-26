@@ -13,9 +13,9 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 29: GAP FORENSICS (sterile 30 gens). Map-specific diagnosis:
-  replay-trace why gap attacks die (funnel geometry? HA mis-targets
-  across the gap? racer-trade equilibrium?). No pool surgery.
+- Round 29: plateau watch (same config, climb-or-plateau).
+  Gap reframed as defense school (lead forensics: deaths cluster
+  at crossing rows 7-8) — forensics round stood down, no surgery.
 - Round 28 verdict: GAP STERILE (0 promos, g441 holds). Conversion
   38.6/39.3/44.3% — holds r27 gains, no full-pool conversion:
   gap 7%/5%/0% (2/51 decisive, both 0-0 racer trades). Raze wins

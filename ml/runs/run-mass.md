@@ -50,3 +50,14 @@ kill them piecemeal. Military principle: concentrate force.
   near-miss challengers) but converts nothing new and loses
   the mass-breakthrough character. Gap sterile 30 gens running:
   no more pool-wide rounds — gap-specific forensics next.
+- Forensics (round-29 prelude, lead): gap deaths cluster at rows
+  7-8 (53/192, 28%) — the crossing is a kill zone. Gap is a
+  DEFENSE SCHOOL by structure (defender wins crossing fights),
+  not a broken attack board. Reframe: not every board must
+  convert; gap teaches holding, the contact bar keeps it
+  legitimately, gap-watch ENDS. The robust round-27/28 story is
+  more + cleaner racing (deaths down, razes up), not mass tactics
+  (round-27 armies were small-n). Round 29 = plateau-watch, same
+  config: trend still rising within-round (38.6 -> 44.3%) and
+  knocks at 0.49-0.50 — climb-or-plateau decides if a new variable
+  is needed.
