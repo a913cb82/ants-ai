@@ -13,8 +13,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 68: same (line-B EXAM: train wins or eval ≥.40,
-  or line B folds). Drought 8; strike expired.
+- Loop PAUSED (banked g924). Resume needs a new MECHANISM
+  (not tuning) + single line A. See run-rival bank note.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)

@@ -232,6 +232,36 @@ need time — so stop reseeding and let one rival develop.
   wins or eval ≥.40, or line B FAILED → fold to single
   line A (revert code? no — just stop alternating: schedule
   line A every exploiter gen). Drought 8 noted, not feared.
+- Results (g1058-g1072): LINE-B EXAM = FAIL (0 train wins in
+  16 games, best eval .25). Regime knockless too (best main
+  .475) → TRIPWIRE. Drought 9. Champ g924 holds 9 rounds.
+- BANK (round 68 verdict). The loop pauses. Reasons:
+  (1) two knockless in six rounds + monotonic knock decay
+  (.60→.55→.50s→0) = trend, not noise; (2) both disruptions
+  of the era absorbed (graft climbed 6 then converged; line B
+  flatlined — the whole population is rival-stock now and it
+  converged); (3) capacity considered + REJECTED: no
+  underfitting signal (train wins happen, critic fits every
+  gen, pg healthy) — the ceiling is game-theoretic (mirror +
+  boards + 150t), a bigger net learns the same draw faster;
+  (4) opponent-mix considered + REJECTED: 25%-champ stalls,
+  100%-champ cycles (best-response, literature says mix) —
+  tuning the untestable is a swamp, not a variable.
+- THE FINDING (the product): mirror self-play on these 8
+  boards converges to a turtle equilibrium. Attacking first
+  loses (defender wins) so both turtle where possible (gap
+  26 draws, 48s 100% draws) and fight only where forced
+  (opens 100% decisive, funnels 75-80%). Corridors are won
+  (2f 12-1-1 train, best eval board); opens belong to
+  whoever's stronger (2a/2i champ kill-boards, 14W/63L).
+  Every disruption has a half-life: frontier fix 1 crown,
+  persistence crowns, graft 6 crowns, line B none. The
+  equilibrium is the result, not the failure.
+- Artifact: bots/alphaant/weights.json == g924 (verified).
+  On resume: single line A (fold B — one-line code change),
+  pool as banked (8 boards, 2g member, gap out). Resume needs
+  a new MECHANISM, not tuning (underfitting signal, new board
+  mechanic, new pressure design).
 - Results (g728-g742): 0 PROMOTIONS. Champ g720 holds. Two
   rival knocks (g732 .60, g735 .575 — correctly unpromoted:
   Wilson lower, not raw eff, is the bar; no anomaly). Main
