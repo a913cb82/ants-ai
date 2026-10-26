@@ -13,8 +13,9 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Loop PAUSED (banked g924). Resume needs a new MECHANISM
-  (not tuning) + single line A. See run-rival bank note.
+- Round 69: outcome-gated shaping trial (idea 1 of user-ordered
+  1-4). March/kill pay only on wins (rival kills always pay).
+  Plan in run-gated.md. impl34 builds ideas 3+4 on impl/ideas34.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
@@ -39,9 +40,24 @@ list, not a schedule. Skip-the-queue rules in runs README.)
 - Conditional: rung 3 = full real pool (148 maps). Needs 2-in-10 on
   current pool PLUS drill-reservation code first. Held-out evals
   return at 13+ same-rung boards. Graduation re-decided every round.
-- Conditional: kill/death removal, pure-outcome ablations — only if
-  dense stalls 40+ gens. Hill-approach — only if invaders stop
-  biting.
+- Conditional: kill/death removal, pure-outcome ablations —
+  ESCALATED to idea 6 (last resort). Dense stalled 9 rounds
+  (60-68), but gating (idea 1) is the targeted fix first;
+  pure-outcome stays behind it. Note: mirrors make wins
+  luck-heavy, so this one risks noise — hence last.
+- Idea 5 (queued): combat-proportional draw tiebreak. The
+  dropped tiebreak paid survival (perverse); this variant
+  prices FIGHTING in draws (kill-scaled), which is the exact
+  missing incentive in a turtle field. Applies to TRAINING
+  returns first (exam integrity: promotion still reads W/D;
+  revisit only if training works). Plan needed before launch.
+- Follow-up chain: if oasis (idea 2) works → generator survey
+  for more mechanics (hunger/low-food boards, central-hill
+  king-of-hill). If oasis fails → map-mechanic axis likely
+  barren, drop it (48s + oasis both sterile = geometry won't
+  fix incentives).
+- Standing diagnostic: matrix-cycle check folds into round
+  briefs (cheap; three lines + main may cycle).
 - Watch items (symptoms first): three-role asymmetry (cycles in
   matrix), Nash-main selection (Wilson promotes collapsing
   specialists), remaining generator survey (pool has room to 12).
@@ -128,7 +144,9 @@ to drop one.
   WEAK EVIDENCE (0/5 decayed vs 3/15 undecayed, confounded) —
   kept on theory (time distance != causal distance), not data.
   Reopen if undecayed ever stalls with early-game blindness.
-- Draw-as-loss: per-minibatch norm washes constants. Stays dropped.
+- Draw-as-loss (global): stays dropped — SUPERSEDED by idea 3
+  (selective draw-penalty games, fraction of train games).
+  If idea 3 works, this entry closes as its ancestor.
 - 60-turn evals: truncate before skill gaps compound. Dropped for
   eval-turns 150.
 - Pure-outcome ablation: still last resort (mirrors make wins
@@ -142,8 +160,12 @@ to drop one.
   Revisit if armies dissolve into skirmishers on big maps.
 - Time penalty for slow wins: a win is a win. Revisit never unless
   draws return.
-- Medium architectures: capacity is not the constraint. Revisit
-  after 3 promotions stall anywhere.
+- Medium architectures: capacity is not the constraint —
+  trigger REFINED (round-68 bank): reopen on UNDERFITTING
+  SIGNAL (train wins vanish, critic stops fitting, pg dies),
+  not on promo stall (the old trigger fires on Nash ceilings
+  too, where bigger nets just draw faster). Promo stall alone
+  no longer reopens it.
 - Asymmetric upstream maps in curriculum: asymmetry belongs to
   rung 3 real pools, not the symmetric curriculum. Don't generate;
   rung 3 covers it.
