@@ -24,17 +24,29 @@ import rewards
 
 
 def _train_opponents(base: Path, student: str, champ_id: str, n: int,
-                     seed: int) -> list[str]:
-    """Frontier rivals with a guaranteed champ slot first.
+                     seed: int, champ_share: float = 0.25) -> list[str]:
+    """Frontier rivals with champ-share slots first.
 
     The eval target must be trained against, not merely whitelisted:
     PFSP weights can starve a whitelisted champ 0/60 (round-40
     forensics — Laplace 0.55 loses to beat-you 1.05 every draw).
-    Slot 0 is always the champ; the rest are frontier-sampled."""
+    The first round(n * champ_share) slots are the champ (first slot
+    always the champ when share > 0: the round-40 guaranteed slot);
+    the rest are frontier-sampled as before. share 0.0 waives the
+    guarantee (zero champ slots); 1.0 fills every slot with the champ.
+    At the default (n=4, share 0.25) this is exactly slot 0 champ +
+    3 PFSP draws with seeds seed+g — byte-identical to the old code."""
     if n <= 0:
         return []
-    opps = [champ_id]
-    for g in range(1, n):
+    if champ_share <= 0:
+        n_champ = 0
+    else:
+        n_champ = max(1, round(n * champ_share))
+        n_champ = min(n_champ, n)
+    opps = [champ_id] * n_champ
+    for g in range(n_champ, n):
+        # PFSP draws keep the legacy seed stride (seed+g with the same
+        # game index g), so train-4 runs are byte-identical to before.
         opps.append(archive.sample_opponents(
             base, student, 1, seed=seed + g, include=(champ_id,))[0])
     return opps
@@ -130,7 +142,7 @@ def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict, role: 
         base, cfg["maps"], cfg["train_games"], gen_num)
     for g, opp_id in enumerate(_train_opponents(
             base, student or champ_id, champ_id, cfg["train_games"],
-            cfg["seed"])):
+            cfg["seed"], cfg.get("champ_share", 0.25))):
         opp_w = archive.load_checkpoint(base, opp_id)
         for slot in (0, 1):
             me_w, other_w = (chal_w, opp_w) if slot == 0 else (opp_w, chal_w)

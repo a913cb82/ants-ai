@@ -840,7 +840,7 @@ def test_exploiter_chains_rival_weights_and_opt(tmp_path, monkeypatch):
     base = tmp_path / "archive"
     cfg = _exploiter_cfg()
     # drive to the first exploiter (gen 2, line A), then to the next
-    # line-A turn (gen 8: gens 5/11 belong to line B now).
+    # line-A turn (gen 8: folded — every exploiter gen runs line A).
     selfplay.run_generation(cfg, base, commit=False)
     selfplay.run_generation(cfg, base, commit=False)
     rep = selfplay.run_generation(cfg, base, commit=False)
@@ -2321,7 +2321,7 @@ def test_init_weights_seed_gen_zero_champion(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("hist_len,role", [
     (0, "challenger"), (1, "challenger"), (2, "exploiter"),
-    (3, "challenger"), (4, "challenger"), (5, "spoiler"),
+    (3, "challenger"), (4, "challenger"), (5, "exploiter"),
 ])
 def test_exploiter_triggers_every_third_generation(tmp_path, monkeypatch, hist_len, role):
     import archive
@@ -2341,7 +2341,8 @@ def test_exploiter_triggers_every_third_generation(tmp_path, monkeypatch, hist_l
     assert (hist_len % 3 == 2) is expected
     rep = selfplay.run_generation(cfg, base, commit=False)
     assert rep["exploiter"] is expected
-    # line-B turns (gen 5, 11, ...) run the spoiler, line A the exploiter.
+    # spoiler folded (round-72 post-mortem): every exploiter gen runs
+    # line A as "exploiter"; the spoiler role is never scheduled.
     assert captured["role"] == role
     assert archive.members(base)[-1]["role"] == captured["role"]
     assert archive.read_status(base)["exploiter"] is expected
@@ -2478,10 +2479,9 @@ def test_save_checkpoint_records_line_only_when_given(tmp_path):
 def test_exploiter_line_alternates_by_count():
     import selfplay
 
-    # k-th exploiter sits at gen_index 3k+2: even k -> line A (0),
-    # odd k -> spoiler on the fresh line (2); line 1 holds the stale
-    # line-B chain and is never scheduled. Two disruptors, one schedule.
-    assert [selfplay._exploiter_line(g) for g in (2, 5, 8, 11, 14)] == [0, 2, 0, 2, 0]
+    # spoiler folded (round-72 post-mortem): every exploiter gen runs
+    # line A (0); lines 1/2 hold stale history and are never scheduled.
+    assert [selfplay._exploiter_line(g) for g in (2, 5, 8, 11, 14)] == [0, 0, 0, 0, 0]
 
 
 def test_line_b_founds_from_supervised_base_never_champ(tmp_path):
@@ -2536,12 +2536,14 @@ def test_exploiter_gens_alternate_lines_end_to_end(tmp_path, monkeypatch):
     ids = [selfplay.run_generation(cfg, base, commit=False)["challenger"]
            for _ in range(12)]
     members = {m["id"]: m for m in archive.members(base)}
-    # gens 2, 5, 8, 11 are exploiters on lines 0, 2, 0, 2.
+    # spoiler folded (round-72 post-mortem): gens 2, 5, 8, 11 are all
+    # line-0 exploiters chaining a single tip; line 2 never scheduled.
     assert [members[i].get("line") for i in
-            (ids[2], ids[5], ids[8], ids[11])] == [0, 2, 0, 2]
-    # line 2's second gen continues the line-2 tip, not line A.
-    assert members[ids[11]]["parent"] == ids[5]
-    assert members[ids[8]]["parent"] == ids[2]
+            (ids[2], ids[5], ids[8], ids[11])] == [0, 0, 0, 0]
+    # single line-A chain: each tip continues the previous one.
+    assert members[ids[5]]["parent"] == ids[2]
+    assert members[ids[8]]["parent"] == ids[5]
+    assert members[ids[11]]["parent"] == ids[8]
 
 
 def _hill_game(score):
@@ -2780,10 +2782,9 @@ def test_spoiler_founding_is_random_never_g000(tmp_path):
 def test_exploiter_line_gives_spoiler_a_fresh_slot():
     import selfplay
 
-    # k-th exploiter sits at gen_index 3k+2: even k continues line A
-    # (0), odd k runs the spoiler on a FRESH line (2) — line 1 holds
-    # the stale line-B chain and is never scheduled (dies by neglect).
-    assert [selfplay._exploiter_line(g) for g in (2, 5, 8, 11)] == [0, 2, 0, 2]
+    # spoiler folded (round-72 post-mortem): every exploiter gen runs
+    # line A (0); lines 1/2 hold stale history and are never scheduled.
+    assert [selfplay._exploiter_line(g) for g in (2, 5, 8, 11)] == [0, 0, 0, 0]
 
 
 def test_line2_founding_is_random_with_line1_tip_present(tmp_path):
@@ -2841,18 +2842,20 @@ def test_spoiler_chains_line2_tip_line1_neglected(tmp_path, monkeypatch):
     ids = [selfplay.run_generation(cfg, base, commit=False)["challenger"]
            for _ in range(12)]
     members = {m["id"]: m for m in archive.members(base)}
-    # gens 2, 5, 8, 11 are exploiters on lines 0, 2, 0, 2.
+    # spoiler folded (round-72 post-mortem): gens 2, 5, 8, 11 are all
+    # line-0 exploiters chaining one tip; line 2 never scheduled, line 1
+    # stays dead by neglect. Spoiler founding/scales code stays dormant.
     assert [members[i].get("line") for i in
-            (ids[2], ids[5], ids[8], ids[11])] == [0, 2, 0, 2]
-    assert members[ids[5]]["role"] == "spoiler"
-    assert members[ids[11]]["role"] == "spoiler"
-    # line-2 chains its own tip, never the stale line-1 chain.
-    assert members[ids[11]]["parent"] == ids[5]
-    assert inits[1] == archive.load_checkpoint(base, ids[5])
-    # line-0 chains its own tip, unaffected by the spoiler move.
-    assert members[ids[2]]["role"] == "exploiter"
-    assert members[ids[8]]["parent"] == ids[2]
-    # the stale line-1 tip is untouched and never parented.
+            (ids[2], ids[5], ids[8], ids[11])] == [0, 0, 0, 0]
+    assert all(members[i]["role"] == "exploiter" for i in
+               (ids[2], ids[5], ids[8], ids[11]))
+    # line-0 chains its own tip across all four exploiter gens.
+    assert members[ids[5]]["parent"] == ids[2]
+    assert members[ids[8]]["parent"] == ids[5]
+    assert members[ids[11]]["parent"] == ids[8]
+    assert inits == []  # spoiler never ran, never founded
+    # both old rival lines untouched and never parented.
+    assert all(m.get("line") != 2 for m in members.values())
     assert all(m.get("parent") != stale for m in members.values())
     assert archive.last_exploiter(base, line=1) == stale
 
@@ -2903,3 +2906,120 @@ def test_drills_cycle_respects_least_recent_first(tmp_path):
     assert len(got) == 5
     assert got[:4] == pool[2:] + pool[:2]  # untrained boards first
     assert got[4] == pool[2]  # repeat follows the same order
+
+
+# --- round-72 post-mortem repair 1: spoiler fold (TDD) ---
+
+def test_spoiler_fold_alternation_all_line_zero():
+    import selfplay
+
+    # folded: every exploiter gen runs line A (0); spoiler never scheduled.
+    assert [selfplay._exploiter_line(g) for g in (2, 5, 8, 11)] == [0, 0, 0, 0]
+
+
+def test_spoiler_fold_end_to_end_single_line(tmp_path, monkeypatch):
+    import copy
+
+    import archive
+    import evaluate
+    import selfplay
+    import train
+
+    def fake_train(cfg, base, champ_id, champ_w, role="challenger",
+                   parent=None, opt_state=None, **kwargs):
+        cid = archive.save_checkpoint(
+            base, copy.deepcopy(champ_w), role,
+            champ_id if parent is None else parent,
+            line=kwargs.get("line"))
+        return cid, copy.deepcopy(champ_w), {"rows": 0}, None
+
+    def fake_eval(cfg, base, chal_id, chal_w, champ_id, champ_w, map_offset=0):
+        return {"wins": 0, "draws": 0, "games": 0, "win_rate": 0.0,
+                "margins": [], "mean_margin": 0.0}
+
+    monkeypatch.setattr(train, "train_generation", fake_train)
+    monkeypatch.setattr(evaluate, "evaluate", fake_eval)
+    monkeypatch.setattr(evaluate, "should_promote", lambda *a: False)
+    base = tmp_path / "archive"
+    cfg = _exploiter_cfg()
+    ids = [selfplay.run_generation(cfg, base, commit=False)["challenger"]
+           for _ in range(12)]
+    members = {m["id"]: m for m in archive.members(base)}
+    # gens 2, 5, 8, 11 are all line-0 exploiters chaining one tip.
+    assert [members[i].get("line") for i in
+            (ids[2], ids[5], ids[8], ids[11])] == [0, 0, 0, 0]
+    assert all(members[i]["role"] == "exploiter" for i in
+               (ids[2], ids[5], ids[8], ids[11]))
+    assert members[ids[5]]["parent"] == ids[2]
+    assert members[ids[8]]["parent"] == ids[5]
+    assert members[ids[11]]["parent"] == ids[8]
+    # line 2 never parented, never scheduled.
+    assert all(m.get("line") != 2 for m in members.values())
+    assert all(m.get("parent") != ids[5] or m["id"] == ids[8]
+               for m in members.values())
+
+
+# --- round-72 post-mortem repair 2: champ-share restoration (TDD) ---
+
+def _seeded_frontier(tmp_path):
+    import archive
+
+    base = tmp_path / "archive"
+    for _ in range(21):
+        archive.save_checkpoint(base, {"w": [1.0]}, "main", None)
+    archive.set_champion(base, "g020")
+    for old in ("g000", "g001"):
+        archive.record_result(base, "g020", old, 3, 0)
+    return base
+
+
+def test_train_opponents_default_share_reproduces_train4(tmp_path):
+    import archive
+    import train
+
+    base = _seeded_frontier(tmp_path)
+    # today's behavior: slot 0 champ + 3 PFSP draws with seeds seed+g.
+    expected = ["g019"] + [archive.sample_opponents(
+        base, "g020", 1, seed=3 + g, include=("g019",))[0]
+        for g in range(1, 4)]
+    got = train._train_opponents(base, "g020", "g019", 4, seed=3)
+    assert got == expected
+    assert got[0] == "g019" and len(got) == 4
+    # explicit default share matches the implicit default.
+    assert train._train_opponents(
+        base, "g020", "g019", 4, seed=3, champ_share=0.25) == expected
+
+
+def test_train_opponents_champ_share_30(tmp_path):
+    import train
+
+    base = _seeded_frontier(tmp_path)
+    opps = train._train_opponents(base, "g020", "g019", 30, seed=3,
+                                  champ_share=0.25)
+    assert len(opps) == 30
+    assert opps[0] == "g019"  # round-40 guaranteed-champ-slot invariant
+    assert 7 <= opps.count("g019") <= 8  # round(30 * 0.25)
+    # champ slots are first, contiguous.
+    n_champ = opps.count("g019")
+    assert opps[:n_champ] == ["g019"] * n_champ
+    assert "g019" not in opps[n_champ:]
+
+
+def test_train_opponents_share_zero_no_champ(tmp_path):
+    import train
+
+    base = _seeded_frontier(tmp_path)
+    # choice: share 0.0 waives the guaranteed slot — zero champ slots.
+    opps = train._train_opponents(base, "g020", "g019", 8, seed=3,
+                                  champ_share=0.0)
+    assert len(opps) == 8
+    assert "g019" not in opps
+
+
+def test_train_opponents_share_one_all_champ(tmp_path):
+    import train
+
+    base = _seeded_frontier(tmp_path)
+    opps = train._train_opponents(base, "g020", "g019", 6, seed=3,
+                                  champ_share=1.0)
+    assert opps == ["g019"] * 6

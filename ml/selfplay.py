@@ -58,6 +58,7 @@ def default_config() -> dict:
         "turns": 250,
         "train_draw_penalty_every": 0,
         "train_games": 4,
+        "champ_share": 0.25,
         "eval_games": 20,
         "temperature": 1.0,
         "lr": 1e-3,
@@ -88,6 +89,9 @@ def parse_args(argv: list[str] | None = None) -> dict:
     p.add_argument("--maps", nargs="+", default=None)
     p.add_argument("--turns", type=int, default=defaults["turns"])
     p.add_argument("--train-games", type=int, default=defaults["train_games"])
+    p.add_argument("--champ-share", type=float, default=defaults["champ_share"],
+                     help="fraction of train games vs the champion "
+                     "(first slots); 0 disables the champ slot")
     p.add_argument("--train-draw-penalty-every", type=int,
                      default=defaults["train_draw_penalty_every"],
                      help="every Nth train game prices draws as losses "
@@ -130,6 +134,7 @@ def parse_args(argv: list[str] | None = None) -> dict:
         "held_maps": held_maps,
         "turns": args.turns,
         "train_games": args.train_games,
+        "champ_share": args.champ_share,
         "train_draw_penalty_every": args.train_draw_penalty_every,
         "eval_games": args.eval_games,
         "temperature": args.temperature,
@@ -203,14 +208,14 @@ def publish(base: Path, report: dict, commit: bool) -> None:
 
 
 def _exploiter_line(gen_index: int) -> int:
-    """Which rival line owns this exploiter gen: A (0) or spoiler (2).
+    """Which rival line owns this exploiter gen: always line A (0).
 
-    The k-th exploiter sits at gen_index 3k+2; even k runs line A,
-    odd k runs the spoiler on a FRESH line index. Line 1 holds the
-    stale line-B chain and is never scheduled again (dies by neglect):
-    the old chain occupied slot 1, so the spoiler re-founds on slot 2
-    instead of chaining it."""
-    return 0 if ((gen_index - 2) // 3) % 2 == 0 else 2
+    Spoiler folded (round-72 post-mortem): the k-th exploiter sits at
+    gen_index 3k+2 but the spoiler line is no longer scheduled — every
+    exploiter gen continues line A. Lines 1 and 2 stay in history but
+    are never scheduled (dead by neglect). Spoiler role/scales/founding
+    code stays dormant but intact for a future regime."""
+    return 0
 
 
 def _exploiter_base(base: Path, cfg: dict, gen_index: int,
