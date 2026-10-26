@@ -120,6 +120,12 @@ need time — so stop reseeding and let one rival develop.
   9/15 gens knock. Graft fully vindicated.
 - Verdict: ALIVE, continue same (round 58). The main climbs
   again — alongside the rival, not beneath it.
+- Results (g893-g907): 1 PROMO (g897 exploiter .625).
+  Champ g891 -> g897. Main 4-5 knocks (.525/.575/.60/.55/
+  .50-border, zero promos — knocks, not takes). Rival 5/5
+  knocks. Caves late flicker (g907 mapgen1 1.0, cave1 .83);
+  lakes still unsustained.
+- Verdict: ALIVE, continue same (round 59).
 - Results (g728-g742): 0 PROMOTIONS. Champ g720 holds. Two
   rival knocks (g732 .60, g735 .575 — correctly unpromoted:
   Wilson lower, not raw eff, is the bar; no anomaly). Main

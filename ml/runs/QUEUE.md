@@ -13,8 +13,7 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 58: same config (3 crowns, main takes twice).
-  The climb is the main again.
+- Round 59: same config (alive both lines, 1 crown).
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
