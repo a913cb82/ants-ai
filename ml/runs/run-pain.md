@@ -19,5 +19,18 @@ conversion. This round breaks the indifference, not the symmetry.
   fights: elim collapses even on r1) -> back off to -1.5 or revert;
   next step is structural (rung 3 attacker-advantage boards), not
   shaping — this is the last cheap reward knob.
-- Results: pending.
-- Verdict: pending.
+- Results (g308-g322): TWO PROMOTIONS — g313 over g253 (0.62,
+  exploiter, third kamikaze crown) and g314 over g313 (0.62).
+  First promotions in 45 gens. Conversion 13% -> 24% -> 19%;
+  double-elims 22% -> 7%; no pacification (r1 44-56%).
+- Verdict: POSITIVE on outcomes — keep DEATH -2 as the new base.
+  Caveat: death rate was ALREADY low (8-17% by unique-ant sampling;
+  the 97% round-17 figure used different sampling) — so -2 didn't
+  cause a fall; it redirected existing combat into conversions
+  (double-elims collapsing is the signature). Attribution is to the
+  promotion resumption + conversion rise, not the death-rate story.
+  Replication needed: round 20 changes nothing (round-15 precedent).
+- Exploiter +3 DEATH re-examined: understood as combat SUBSIDY, not
+  a sign bug — kamikazes force decisive games and find holes (3
+  crowns), and Wilson self-corrects when mains beat them. Do not
+  touch unless exploiters stop biting.

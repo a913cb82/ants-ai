@@ -13,13 +13,14 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 19: asymmetric death (DEATH -2, KILL +1). Breaks 1-for-1
-  indifference; tests whether material preservation restores
-  conversion. Last cheap reward knob.
-- Round 18 verdict: NEGATIVE — vision wasn't the blocker (0 promos,
-  no signature, pg ~= 0). Wide field kept as infrastructure (free,
-  principled). Disease restated: 1-for-1 trades net 0, so nothing
-  preserves material.
+- Round 20: DEATH -2 replication (no new variable). Confirms
+  round 19 is regime change, not luck; revert on failure.
+- Round 19 verdict: POSITIVE — 2 promotions (g313 exploiter crown,
+  g314), conversion 13% -> 24% -> 19%, double-elims 22% -> 7%,
+  no pacification. DEATH -2 kept as new base. Caveat: death rate
+  was already low — -2 redirects combat, doesn't reduce it.
+  Exploiter +3 DEATH understood as combat subsidy (load-bearing);
+  do not touch unless exploiters stop biting.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
