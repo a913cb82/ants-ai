@@ -15,7 +15,10 @@ tools/maps/curriculum/README.md.
 
 - Round 69: outcome-gated shaping trial (idea 1 of user-ordered
   1-4). March/kill pay only on wins (rival kills always pay).
-  Plan in run-gated.md. impl34 builds ideas 3+4 on impl/ideas34.
+  Plan in run-gated.md. impl34 DONE (branch impl/ideas34:
+  draw-penalty + spoiler v2, 163 tests green, oasis pre-flight
+  clean — o1 draw 2-2 both-eliminated 40t, o2 decisive 6-0 37t).
+  Merge build 1 for round 71, build 2 for round 72.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
