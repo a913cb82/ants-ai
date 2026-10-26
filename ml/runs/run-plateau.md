@@ -51,3 +51,13 @@ as defense school (kill-zone forensics), not surgery target.
   (code uses z=1.0); both block them, promotion stands either way.
 - Verdict: HEALTHY — dry streak broken at one round, regime
   confirmed. Continue same config.
+- Results (g518-g532): 0 PROMOTIONS. 5 knocks >=.500 (best lower
+  0.439, bar never threatened). Train elim 60/47.5/47.5%; eval
+  raw W 48/300; deaths ~30%. Teeth dull-not-gone (two shutouts +
+  a 3W spike). Champ g513 holds. Pace 7/120 ≈ 1/17 (slipping).
+- Verdict: DRY-BUT-ALIVE — knocks in all 3 blocks fire the
+  tripwire exception; stopping rule needs consecutive drys (r31
+  dry, r32 promo, r33 dry: not triggered). PRE-COMMIT: round 34
+  dry (even with knocks) -> new variable = EXPLOITER DIVERSITY
+  (teeth observed dulling; small, reversible); round 34 promo ->
+  continue. No further deliberation needed at the verdict.
