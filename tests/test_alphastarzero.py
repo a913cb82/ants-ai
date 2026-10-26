@@ -2609,3 +2609,88 @@ def test_death_still_hurts_on_loss():
     ]
     rets = rewards.compute_returns(game, 0, records)
     assert rets[0] == rewards.DEATH + rewards.LOSS
+
+
+# --- idea 3: draw-penalty training games (turtle tax) ---
+
+def test_draw_penalty_treats_draw_as_loss():
+    import rewards
+
+    game = _hill_game([0, 0])  # draw
+    records = [{"turn": 1, "loc": [5, 5], "dest": [6, 6], "action": "s"}]
+    normal = rewards.compute_returns(game, 0, records)
+    assert normal == [0.0]  # draws keep no march subsidy, no terminal
+    pen = rewards.compute_returns(game, 0, records, draw_as_loss=True)
+    # draw pays like a loss: march gated, LOSS terminal lands.
+    assert pen == [rewards.LOSS]
+
+
+def test_draw_penalty_default_off_byte_identical():
+    import rewards
+
+    game = _game()
+    game["score"] = [2, 2]  # draw
+    game["length"] = 10
+    game["replaydata"]["food"] = [[5, 5, 1, 3, 0]]
+    game["replaydata"]["ants"] = [[5, 5, 1, 3, 1, "--"],
+                                 [4, 4, 1, 2, 0, "s"]]
+    game["replaydata"]["hills"] = [[9, 9, 1, 999]]
+    records = [
+        {"turn": 1, "loc": [5, 5], "dest": [6, 6], "action": "s"},
+        {"turn": 2, "loc": [4, 4], "dest": [5, 4], "action": "s"},
+        {"turn": 3, "loc": [5, 3], "dest": [5, 4], "action": "e"},
+    ]
+    scales = rewards.scales_for("challenger")
+    default = rewards.compute_returns(game, 0, records, scales, "challenger")
+    explicit = rewards.compute_returns(game, 0, records, scales,
+                                       "challenger", draw_as_loss=False)
+    assert default == explicit
+    assert sum(default) == rewards.FOOD + rewards.DEATH  # no terminal
+
+
+def test_draw_penalty_win_unchanged():
+    import math
+    import rewards
+
+    game = _hill_game([1, 0])  # win
+    records = [{"turn": 1, "loc": [5, 5], "dest": [6, 6], "action": "s"}]
+    scales = rewards.scales_for("challenger")
+    normal = rewards.compute_returns(game, 0, records, scales, "challenger")
+    pen = rewards.compute_returns(game, 0, records, scales,
+                                  "challenger", draw_as_loss=True)
+    assert pen == normal  # wins already pay: penalty changes nothing
+    closed = math.sqrt(32) - math.sqrt(18)
+    assert normal == [rewards.WIN + rewards.HILL_APPROACH * closed]
+
+
+def test_train_draw_penalty_every_flags_every_nth(tmp_path, monkeypatch):
+    import archive
+    import game_if
+    import rewards
+    import train
+
+    game = _hill_game([0, 0])  # drawn game: penalty visible in returns
+    recs = [{"turn": 1, "loc": [5, 5], "dest": [6, 6], "action": "s"}]
+
+    def fake_play(root, python, wa, wb, cfg, outdir, name_a="A", name_b="B"):
+        return {"game": game, "records_a": list(recs), "records_b": []}
+
+    monkeypatch.setattr(game_if, "play", fake_play)
+    monkeypatch.setattr(archive, "record_result", lambda *a, **k: None)
+    monkeypatch.setattr(archive, "log_game", lambda *a, **k: None)
+    monkeypatch.setattr(archive, "write_status", lambda *a, **k: None)
+    base = tmp_path / "archive"
+    cfg = {"turns": 10, "temperature": 0.0, "seed": 0, "train_games": 4,
+           "train_draw_penalty_every": 2}
+
+    def run(g):
+        return train._play_one(
+            (cfg, base, "g001", "g000", {"w": [1.0]}, {"w": [1.0]},
+             0, g, "challenger", "somemap"))
+
+    assert run(0)["rets"] == [0.0]  # game 1 of 2: normal draw
+    assert run(1)["rets"] == [rewards.LOSS]  # every 2nd: draw pays as loss
+    assert run(2)["rets"] == [0.0]
+    assert run(3)["rets"] == [rewards.LOSS]
+
+

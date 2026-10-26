@@ -56,6 +56,7 @@ def default_config() -> dict:
         "held_maps": held_maps,
         "turns": 250,
         "turns": 250,
+        "train_draw_penalty_every": 0,
         "train_games": 4,
         "eval_games": 20,
         "temperature": 1.0,
@@ -87,6 +88,10 @@ def parse_args(argv: list[str] | None = None) -> dict:
     p.add_argument("--maps", nargs="+", default=None)
     p.add_argument("--turns", type=int, default=defaults["turns"])
     p.add_argument("--train-games", type=int, default=defaults["train_games"])
+    p.add_argument("--train-draw-penalty-every", type=int,
+                     default=defaults["train_draw_penalty_every"],
+                     help="every Nth train game prices draws as losses "
+                     "(anti-turtle); 0 disables")
     p.add_argument("--eval-games", type=int, default=defaults["eval_games"])
     p.add_argument("--temperature", type=float, default=defaults["temperature"])
     p.add_argument("--lr", type=float, default=defaults["lr"])
@@ -125,6 +130,7 @@ def parse_args(argv: list[str] | None = None) -> dict:
         "held_maps": held_maps,
         "turns": args.turns,
         "train_games": args.train_games,
+        "train_draw_penalty_every": args.train_draw_penalty_every,
         "eval_games": args.eval_games,
         "temperature": args.temperature,
         "lr": args.lr,

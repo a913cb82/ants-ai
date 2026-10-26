@@ -39,6 +39,15 @@ def _train_opponents(base: Path, student: str, champ_id: str, n: int,
     return opps
 
 
+def _is_penalty_game(cfg: dict, g: int) -> bool:
+    """Every Nth train game of a gen prices draws as losses.
+
+    cfg train_draw_penalty_every=N flags games N, 2N, ... (1-indexed);
+    0/None/missing disables: behavior byte-identical to no penalty."""
+    n = cfg.get("train_draw_penalty_every", 0) or 0
+    return bool(n) and (g + 1) % n == 0
+
+
 def _play_one(args) -> dict:
     """One train game: play, price, record. Thread-safe via archive lock."""
     (cfg, base, chal_id, opp_id, me_w, other_w, slot, g, role,
@@ -63,7 +72,9 @@ def _play_one(args) -> dict:
     )
     game = out["game"]
     rows = out["records_a"] if slot == 0 else out["records_b"]
-    rets = rewards.compute_returns(game, slot, rows, rewards.scales_for(role), role)
+    rets = rewards.compute_returns(game, slot, rows, rewards.scales_for(role),
+                                   role,
+                                   draw_as_loss=_is_penalty_game(cfg, g))
     sa, sb = game["score"][0], game["score"][1]
     archive.record_result(base, first, second, sa, sb, kind="train")
     archive.log_game(base, chal_id, "train", first, second, sa, sb,

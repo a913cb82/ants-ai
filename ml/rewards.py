@@ -265,15 +265,21 @@ def _awards(game, me, records, scales):
     return awards, outcome(game, me), length, turns, keys
 
 
-def compute_returns(game, me, records, scales=None, role="challenger"):
+def compute_returns(game, me, records, scales=None, role="challenger",
+                    draw_as_loss=False):
     """Discounted return for each decision record.
 
     records: [{turn, loc, dest, action, ...}] logged by the bot for its
     own ants. Returns a parallel list of floats. scales selects the
     training role's event table (base game rewards by default); role
-    selects the outcome gate (payment follows purpose)."""
+    selects the outcome gate (payment follows purpose). draw_as_loss
+    prices DRAWN games as losses (anti-turtle incentive): the terminal
+    becomes LOSS and the loser's gate applies. The game record itself
+    is untouched — returns only."""
     scales = scales or scales_for("challenger")
     awards, end_value, length, turns, keys = _awards(game, me, records, scales)
+    # Penalty games: a draw stops being the safe fixed point.
+    eff = LOSS if (draw_as_loss and end_value == DRAW) else end_value
     by_kind: dict[str, list[float]] = {}
 
     # settle: same-turn credit plus GAMMA-discounted walk-back. "ant"
@@ -296,7 +302,7 @@ def compute_returns(game, me, records, scales=None, role="challenger"):
     # The subsidy for suicidal marching lives here; zeroing it on
     # draws and losses is what kills the Goodhart.
     gated = GATED_BY_ROLE.get(role, {"hill_approach", "kill"}) \
-        if end_value <= 0 else set()
+        if eff <= 0 else set()
     rets = [0.0] * len(records)
     for kind, arr in by_kind.items():
         if kind in gated:
@@ -310,8 +316,8 @@ def compute_returns(game, me, records, scales=None, role="challenger"):
     # distance is not causal distance. DRAW stays 0: under the
     # batch-mean baseline a uniform draw batch is already
     # advantage-neutral, matching promotion's half-win treatment.
-    if end_value:
-        terminal = scales["WIN"] if end_value > 0 else scales["LOSS"]
+    if eff:
+        terminal = scales["WIN"] if eff > 0 else scales["LOSS"]
         for i, _t in enumerate(turns):
             rets[i] += terminal
 
