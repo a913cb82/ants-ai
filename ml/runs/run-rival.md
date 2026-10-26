@@ -43,6 +43,20 @@ need time — so stop reseeding and let one rival develop.
   crown yet (last three crowns all rival-line) — if the main
   becomes a permanent sparring partner, the podium is just the
   rival lineage and pressure is one-directional again.
+- Results (g728-g742): 0 PROMOTIONS. Champ g720 holds. Two
+  rival knocks (g732 .60, g735 .575 — correctly unpromoted:
+  Wilson lower, not raw eff, is the bar; no anomaly). Main
+  gatekeeper soft (mean .29, best .475, worst .175 — below the
+  .40-.50 band, wobbling not collapsed). Drift measured: 21
+  entries over ids, STABLE (constant offset, not a leak —
+  hygiene deprioritized).
+- Verdict: DRY-BUT-ALIVE (knocks exist). Dry-after-promo is the
+  era's norm (r42:2, r43:2, r44:0, r45:0, r46:3, r47:0) —
+  quitting after one dry round would have missed r46's three
+  crowns. Continue same (round 48). Tripwire trips ONLY on a
+  knockless round (nothing >= .50 either line). Watch: main
+  softness (collapse = repeated 0-1W, not met) + rival fade
+  (g738 .325 — noise or peak?).
 - Results (g683-g697): 0 PROMOTIONS. Champ g681 holds. Main
   best .45 (zero knocks, margins all negative); rival knocks
   twice (g687 .60, g690 .55) then fades (.475, .40 — peaked

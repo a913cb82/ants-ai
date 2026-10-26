@@ -13,9 +13,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 47: climb consolidation (same config). Pre-commit
-  overridden: regime climbs 3/15, only the main stalls —
-  gatekeeper reframe. Watch main .45 stability + rival line.
+- Round 48: same config (dry-but-alive, knocks exist).
+  Tripwire trips only on a knockless round.
   (Round-35 verdict: APPARENT exhaustion, CONFOUNDED — clones'
   kl pinned 0.01, anchor dragged them to BC; see run-teeth2.md.)
 - Round 28 verdict: GAP STERILE (0 promos, g441 holds). Conversion
