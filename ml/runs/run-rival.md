@@ -91,6 +91,18 @@ need time — so stop reseeding and let one rival develop.
   continuing = main-side intervention live (menu: re-root best
   recent main, or bank rival pedigree into the main slot).
   Round 54 is strike one.
+- Results (g848-g862): 1 PROMO (g849 exploiter .625 over g798).
+  Champ g798 -> g849. STRIKE TWO: main knockless again (best
+  .45 x2, all-negative margins); rival 5/5 knocks (.60/.525/
+  .575/.525 + crown). Pre-commit FIRES.
+- Intervention (round 56): graft rival tip into the main slot
+  (set_main g862 -> g861, weights + banked opt, one-liner,
+  old tip revertible in-archive). Why the tip, not the best
+  (g852 .60): the chain is cumulative, tip = most developed.
+  Why not best-main (.45): recycles a loser (all-negative
+  margins, .45 ceiling). Risk named: sibling-mirror draws
+  (same stock, round-46 objection) — round 56 watches honeymoon
+  draws vs divergence-then-win.
 - Results (g728-g742): 0 PROMOTIONS. Champ g720 holds. Two
   rival knocks (g732 .60, g735 .575 — correctly unpromoted:
   Wilson lower, not raw eff, is the bar; no anomaly). Main

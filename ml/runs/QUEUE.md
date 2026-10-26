@@ -13,8 +13,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 55: same config (alive: 3 exploiter knocks).
-  Strike one on the main-knockless rule (needs two).
+- Round 56: grafted main (main := rival tip g861).
+  Watches honeymoon draws vs divergence-then-win.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
