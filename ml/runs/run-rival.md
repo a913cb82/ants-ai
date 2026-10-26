@@ -163,6 +163,14 @@ need time — so stop reseeding and let one rival develop.
   main knock breaks it). Promo drought 3 rounds — standing
   rule: not knock-drought, continue.
 - Verdict: ALIVE, continue same (round 63).
+- Results (g968-g982): 0 PROMOTIONS, 0 KNOCKS either line
+  (best .450). TRIPWIRE FIRES (first grafted-era knockless).
+  Drought 4. Both lines flat vs g924 — champ-outlier, not
+  main-stall. Re-root pointless (nothing to re-root from);
+  bank premature (queued disruption untried).
+- Next (round 64): big-board passenger trial (run-big.md).
+  8 + k (48 2h, scale control) + l (48 3h, multi-hill test).
+  Stay rule >10% train-decisive each; m/n held for later.
 - Results (g728-g742): 0 PROMOTIONS. Champ g720 holds. Two
   rival knocks (g732 .60, g735 .575 — correctly unpromoted:
   Wilson lower, not raw eff, is the bar; no anomaly). Main

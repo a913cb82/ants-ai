@@ -13,8 +13,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 63: same config (alive, solid main knock).
-  Promo drought 3 — still not knock-drought.
+- Round 64: big-board passenger trial (8 + k + l).
+  Stay rule >10% decisive each; m/n held for scale trial.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
