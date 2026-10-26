@@ -15,8 +15,10 @@ tools/maps/curriculum/README.md.
 
 - Round 71: penalty + full 12-board pool + 3:1 volume.
   Penalty every 4th game; train 30 opponents, workers 12.
-  Spoiler in line-1 slot (merged). Round-level attribution
-  shared; penalty game-control stays clean.
+  Spoiler in line-1 slot (merged). Drill fix merged (cycle
+  past pool size). 150-turn scratch proof: exit 0, 4:26/gen
+  (~65 min/round), peak 8.4GB of 15GB, all 12 covered.
+  Round-level attribution shared; penalty game-control clean.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
