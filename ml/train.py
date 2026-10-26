@@ -22,6 +22,23 @@ import game_if
 import rewards
 
 
+def _train_opponents(base: Path, student: str, champ_id: str, n: int,
+                     seed: int) -> list[str]:
+    """Frontier rivals with a guaranteed champ slot first.
+
+    The eval target must be trained against, not merely whitelisted:
+    PFSP weights can starve a whitelisted champ 0/60 (round-40
+    forensics — Laplace 0.55 loses to beat-you 1.05 every draw).
+    Slot 0 is always the champ; the rest are frontier-sampled."""
+    if n <= 0:
+        return []
+    opps = [champ_id]
+    for g in range(1, n):
+        opps.append(archive.sample_opponents(
+            base, student, 1, seed=seed + g, include=(champ_id,))[0])
+    return opps
+
+
 def _play_one(args) -> dict:
     """One train game: play, price, record. Thread-safe via archive lock."""
     (cfg, base, chal_id, opp_id, me_w, other_w, slot, g, role,
@@ -84,15 +101,9 @@ def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict, role: 
         gen_num = 0
     drill_maps = archive.next_drill_maps(
         base, cfg["maps"], cfg["train_games"], gen_num)
-    for g in range(cfg["train_games"]):
-        # Train at the frontier: the learner's rivals, not the champ's
-        # (correct when challenger == champ-copy, stale under lineage),
-        # restricted to recent members + champ (ancient weaklings teach
-        # beating weaklings; evals face the champ). Exploiters scout
-        # the podium, so their student is the champ.
-        opp_id = archive.sample_opponents(
-            base, student or champ_id, 1, seed=cfg["seed"] + g,
-            include=(champ_id,))[0]
+    for g, opp_id in enumerate(_train_opponents(
+            base, student or champ_id, champ_id, cfg["train_games"],
+            cfg["seed"])):
         opp_w = archive.load_checkpoint(base, opp_id)
         for slot in (0, 1):
             me_w, other_w = (chal_w, opp_w) if slot == 0 else (opp_w, chal_w)

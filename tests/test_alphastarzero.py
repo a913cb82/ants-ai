@@ -762,6 +762,21 @@ def test_opt_state_drops_reshaped_params():
                     assert v.shape == p.shape
 
 
+def test_train_opponents_guarantee_champ_slot(tmp_path):
+    import archive
+    import train
+
+    base = tmp_path / "archive"
+    for _ in range(21):
+        archive.save_checkpoint(base, {"w": [1.0]}, "main", None)
+    archive.set_champion(base, "g020")
+    for old in ("g000", "g001"):
+        archive.record_result(base, "g020", old, 3, 0)
+    opps = train._train_opponents(base, "g020", "g019", 4, seed=3)
+    assert opps[0] == "g019"  # the eval target is always trained against
+    assert len(opps) == 4
+
+
 def test_values_are_rotation_invariant():
     import torch
 

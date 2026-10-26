@@ -35,3 +35,14 @@ under lineage (lineage-era bug).
   mismatch (W7/D7 vs W8/D5, same wr) — promotion math comes from
   evaluate()'s in-process numbers, not jsonl parsing; revisit in
   a hygiene pass, not mid-regime.
+- Results (g623-g637): 0 PROMOTIONS. Knocks at 52.5% (g626/
+  g627, Wilson-blocked). Evals flat ~.40 effective. Champ g611.
+  Key forensic: champ sampled 0/60 train games — include=() only
+  whitelists, and Laplace 0.55 loses to beat-you 1.05 every draw.
+- Verdict: DRY-BUT-ALIVE by the tripwire rule (knocks = alive),
+  so no plateau — but the 0/60 is a REAL bug in the frontier
+  design, fixed structurally: slot 0 of every train batch is now
+  the champ, guaranteed (_train_opponents). This completes round
+  39's fix (whitelist ≠ slot), not a new variable. Round 41
+  tests the completed design; same tripwire (knockless dry =
+  plateau -> persistent exploiters).
