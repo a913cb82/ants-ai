@@ -13,18 +13,19 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 21: drill reservation + pg_abs logging (apparatus, no
-  behavior change). Rung-3 prerequisite; data accumulates.
+- Round 22: full-pool graduation (158 boards, drills live, held
+  evals return). 2-in-10 bar declared stale (pool exhaustion is
+  the stronger signal). Retreat on pool-wide draws.
 - Round 19 verdict: POSITIVE — 2 promotions (g313 exploiter crown,
   g314), conversion 13% -> 24% -> 19%, double-elims 22% -> 7%,
   no pacification. DEATH -2 kept as new base. Caveat: death rate
   was already low — -2 redirects combat, doesn't reduce it.
   Exploiter +3 DEATH understood as combat subsidy (load-bearing);
   do not touch unless exploiters stop biting.
-- Round 20 verdict: neither bar fired (0 promos, conversion
-  13% -> 20%, no collapse). Keep -2 (no evidence of harm, weak
-  evidence of help). No more pure replication — round 21 builds
-  rung-3 apparatus on the same config.
+- Round 21 verdict: apparatus works (drills sweep every 2 gens,
+  pg_abs 0.34-0.65 reveals hidden magnitude under ~0 signed pg —
+  gradients cancel, policy at equilibrium). Still stalled (0/15,
+  12%). Graduate: pool exhaustion > stale readiness bar.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
