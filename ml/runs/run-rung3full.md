@@ -17,5 +17,17 @@ it blocks the exit forever. Pool exhaustion is the stronger signal.
 - Failure criteria: pool-wide draws + 2x slower gens with nothing
   after 15 gens -> retreat to the 8-board pool (graduation
   reverted, bar reinstated in modified form).
-- Results: pending.
-- Verdict: pending.
+- Results (g353-g367): 0 PROMOTIONS. Champ g314 holds. Train
+  decisive 1/120 (0.8%) vs 13-24% on the 8-board pool; held evals
+  4/300 decisive. Drills perfect (60/60 unique, no repeats).
+  Gens FASTER (62-77s vs ~110s) — draws resolve quickly.
+  Only converter: tutorial1 (old-pool board). Random_walk tier
+  untouched (78/145 boards undrilled).
+- Verdict: STAY one final round per the conjunctive bar (draws yes,
+  slower no — staying is cheap). But sharpen the question: drills
+  guarantee coverage, NOT retention — with 4 games/gen each board
+  revisits every ~36 gens, so no board-specific learning can
+  accumulate. Round 23 finishes the sweep (random_walk tier!);
+  if the remaining 85 also draw, breadth is dead and we retreat —
+  the lesson being retention-beats-coverage (small rotating pools,
+  not one big pool).

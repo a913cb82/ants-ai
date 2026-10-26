@@ -13,9 +13,9 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 22: full-pool graduation (158 boards, drills live, held
-  evals return). 2-in-10 bar declared stale (pool exhaustion is
-  the stronger signal). Retreat on pool-wide draws.
+- Round 23: finish the sweep (~127/145 drilled, random_walk
+  tier). Final graduation judgment: converters/promotion or
+  retreat (retention beats coverage).
 - Round 19 verdict: POSITIVE — 2 promotions (g313 exploiter crown,
   g314), conversion 13% -> 24% -> 19%, double-elims 22% -> 7%,
   no pacification. DEATH -2 kept as new base. Caveat: death rate
