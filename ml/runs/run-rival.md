@@ -43,3 +43,16 @@ need time — so stop reseeding and let one rival develop.
   crown yet (last three crowns all rival-line) — if the main
   becomes a permanent sparring partner, the podium is just the
   rival lineage and pressure is one-directional again.
+- Results (g683-g697): 0 PROMOTIONS. Champ g681 holds. Main
+  best .45 (zero knocks, margins all negative); rival knocks
+  twice (g687 .60, g690 .55) then fades (.475, .40 — peaked
+  mid-round). Per-map: turtle maps sterile, decisive maps split.
+- Verdict: MAIN STALLED (one round after knocks — mechanism is
+  structural, not form): the main pays KL 0.8-2.3 toward BC
+  (g000, 200+ gens stale) while fighting a g681-era rival. The
+  anchor no longer binds (drift happened anyway) and now only
+  drags — toward obsolescence. Exploiters prove freedom works
+  (unanchored, thriving). Round 45: anchor relief
+  (--kl-anchor-beta 0.0, flag flip, no code). Success = main
+  knocks return; failure (collapse/flat + rival fades) =
+  structural -> re-root or bank.
