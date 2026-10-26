@@ -22,5 +22,15 @@ declined).
   beats itself+kill easily) -> teeth concept exhausted; next is
   rung-3-with-formula (full pool + working HA/concentration),
   not more teeth variants.
-- Results: pending.
-- Verdict: pending.
+- Results (g548-g562): 0 PROMOTIONS. BC exploiters wr .38-.47
+  (round's only near-misses); champ-clones crushed (wr .10/.20,
+  mm ≤-1.8). Champ g513 holds.
+- Verdict: APPARENT exhaustion, CONFOUNDED. Clone kl_anchor
+  pinned 0.01 — the BC anchor dragged champ-clones back to g000
+  mid-training (thrash between champ init, kill scales, BC
+  anchor). The test measured anchor-homogenization, not competent
+  pressure. Sharp follow-up pre-committed instead of the
+  rung-3 jump: exploiters run UNANCHORED (role==exploiter ->
+  kl 0; scouts drift, that's their job), both origins re-tested
+  clean. If clones still crushed -> teeth exhausted for real ->
+  rung-3-with-formula.

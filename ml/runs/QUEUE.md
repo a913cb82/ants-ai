@@ -13,8 +13,10 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 35: exploiter origin diversity (alternate g000/champ
-  base). Tests whether competent pressure restores teeth.
+- Round 36: unanchored exploiter retest (role==exploiter -> kl 0).
+  Clean competent-pressure test; rung-3-with-formula waits on it.
+  (Round-35 verdict: APPARENT exhaustion, CONFOUNDED — clones'
+  kl pinned 0.01, anchor dragged them to BC; see run-teeth2.md.)
 - Round 28 verdict: GAP STERILE (0 promos, g441 holds). Conversion
   38.6/39.3/44.3% — holds r27 gains, no full-pool conversion:
   gap 7%/5%/0% (2/51 decisive, both 0-0 racer trades). Raze wins

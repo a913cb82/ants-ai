@@ -2150,6 +2150,7 @@ def _mocked_generation(monkeypatch, captured):
     def fake_train(cfg, base, champ_id, champ_w, role="challenger",
                    parent=None, opt_state=None, **kwargs):
         captured["role"] = role
+        captured["kl_anchor_beta"] = kwargs.get("kl_anchor_beta")
         captured["init_w"] = copy.deepcopy(champ_w)
         cid = archive.save_checkpoint(base, copy.deepcopy(champ_w), role, champ_id if parent is None else parent)
         return cid, copy.deepcopy(champ_w), {"rows": 0}, None
@@ -2166,7 +2167,7 @@ def _mocked_generation(monkeypatch, captured):
 
 def _exploiter_cfg():
     return {"seed": 0, "arch": "base", "gamma": 0.97,
-            "promote_threshold": 0.5}
+            "promote_threshold": 0.5, "kl_anchor_beta": 0.01}
 
 
 def test_critic_warm_starts_baseline_and_persists(tmp_path, monkeypatch):
@@ -2244,6 +2245,22 @@ def test_exploiter_triggers_every_third_generation(tmp_path, monkeypatch, hist_l
     assert captured["role"] == ("exploiter" if expected else "challenger")
     assert archive.members(base)[-1]["role"] == captured["role"]
     assert archive.read_status(base)["exploiter"] is expected
+
+
+def test_exploiters_run_unanchored(tmp_path, monkeypatch):
+    import archive
+    import selfplay
+
+    captured: dict = {}
+    _mocked_generation(monkeypatch, captured)
+    base = tmp_path / "archive"
+    cfg = _exploiter_cfg()
+    assert cfg["kl_anchor_beta"] != 0.0  # anchor live in this cfg
+    selfplay.run_generation(cfg, base, commit=False)  # gen 0: challenger
+    assert captured["kl_anchor_beta"] == cfg["kl_anchor_beta"]
+    selfplay.append_history(base, {"gen": 97})  # history len 2: exploiter
+    selfplay.run_generation(cfg, base, commit=False)
+    assert captured["kl_anchor_beta"] == 0.0  # scouts drift free
 
 
 def test_exploiter_starts_from_fresh_weights(tmp_path, monkeypatch):
