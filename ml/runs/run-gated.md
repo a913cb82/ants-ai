@@ -24,3 +24,12 @@ Banked loop reopens with mechanism #1 (user-ordered 1-4).
   if the field stops winning at all, the gate starves it.
 - Results: pending.
 - Verdict: pending.
+- Results (g1073-g1087): FLAT. 0 promos (drought 10). Champ
+  g924 holds 10 rounds. NO STARVATION: 42 train wins/120,
+  pg healthy every gen, v falls all 15 gens — learning
+  continues. 2 weak knocks (.50 x2, unconverted). Mechanical
+  check satisfied at unit level (gate tests green); behavior
+  consistent (losses frequent, returns negative, wins persist).
+- Verdict: FLAT → continue per order (idea 2 next). Gate
+  alone was never required to break the Nash. No soften
+  (one round; revisit halve-not-zero if knockless x3).
