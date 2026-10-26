@@ -13,8 +13,9 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 64: big-board passenger trial (8 + k + l).
-  Stay rule >10% decisive each; m/n held for scale trial.
+- Round 65: second rival line (code: two tips + alternation
+  + tests). Line B = g000 + kill scales, persistent.
+  Pool back to 8; gap reprieved (round decides).
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)

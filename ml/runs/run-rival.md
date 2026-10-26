@@ -171,6 +171,27 @@ need time — so stop reseeding and let one rival develop.
 - Next (round 64): big-board passenger trial (run-big.md).
   8 + k (48 2h, scale control) + l (48 3h, multi-hill test).
   Stay rule >10% train-decisive each; m/n held for later.
+- Results (g983-g997): STERILE. k 0/10 draws, l 0/10 draws —
+  every passenger game a mirror draw. Pool REVERTS to 8.
+  Scale innocent at 48; m/n PARKED (48-sterile + horizon math
+  predict 72-sterile; no trial without new mechanism).
+- Discovery (10-board train table, 120 games): opens FIGHT
+  (rung1/2a 100% decisive), corridors fight (lakes/mg1/caves
+  75-80%), gap went 0/14 PEACEFUL. The disease is policy,
+  not boards: the population turtles where turtling is
+  possible (gap crossing = choice; 48s = distance) and fights
+  only where forced. Attacking first loses in mirror
+  (defender wins) so both turtle — incentive, not coverage.
+- Gap REPRIEVED (one round, 8-board pool): 0% is demotion-
+  bar by the letter, but judged during pool churn. Round 65
+  decides (still ≤10% → demotion case opens).
+- Next: SECOND RIVAL LINE (plan order). Design: line B fresh
+  predators — g000(BC) + kill scales, persistent within
+  itself, alternating with line A. Mechanism: naive +
+  kill-hungry vs a turtle field; the champ must defend,
+  which nobody forces now. If predators can't crack turtles
+  either → turtling is the Nash → bank. Needs code (two
+  tips, alternation, tests) — lead builds, round 65 runs it.
 - Results (g728-g742): 0 PROMOTIONS. Champ g720 holds. Two
   rival knocks (g732 .60, g735 .575 — correctly unpromoted:
   Wilson lower, not raw eff, is the bar; no anomaly). Main
