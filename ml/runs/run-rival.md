@@ -126,6 +126,17 @@ need time — so stop reseeding and let one rival develop.
   knocks. Caves late flicker (g907 mapgen1 1.0, cave1 .83);
   lakes still unsustained.
 - Verdict: ALIVE, continue same (round 59).
+- Results (g908-g922): 1 PROMO (g913 main .625 over g897).
+  Champ g897 -> g913 (main takes again). 9 knocks both lines.
+  Strike call DECLINED: strikes are round-level by definition
+  (x2 consecutive knockless rounds) — this round had a main
+  crown + 4 main knocks. Block-3 main fade (.375/.475/.400)
+  noted as watch, not a strike. g913 won on negative train
+  return (-2.47): outcome overriding dense, healthy or noise.
+  First solid per-map table: mg1 .635 (best board), gap .539
+  (draw-heavy positive), 2a_open .329 HOLE (24 losses).
+- Verdict: ALIVE, continue same (round 60). Watches: 2a hole
+  (persistent?) + block-3 fade (spread?).
 - Results (g728-g742): 0 PROMOTIONS. Champ g720 holds. Two
   rival knocks (g732 .60, g735 .575 — correctly unpromoted:
   Wilson lower, not raw eff, is the bar; no anomaly). Main
