@@ -13,8 +13,9 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 52: intent consolidation (same code, second exposure).
-  Re-ablate with a hard trigger: gap <= 0 -> revert to 7ch.
+- Round 53: post-revert regime (7ch restored, truncation shim
+  live). Knocks exist; tripwire quiet. Watch v (critic lost
+  its intent crutch — expect a one-gen wobble, not a break).
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)

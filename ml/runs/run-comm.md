@@ -67,3 +67,20 @@ state, only where that friendly occupies a window cell.
   -> axis barren, revert to 7ch, no third chance. Consolidation
   risks one automated round; a premature revert risks killing
   a slow-live axis the critic already prices.
+
+## Round 52 results (g803-g817): HARD TRIGGER FIRES
+
+- 0 promotions. Champ g798 holds. Correction for the record:
+  the round was NOT knockless (g811 main .60, g804 .575,
+  g813 .55, g808/g815 .525 — knocks by the standing raw->=.50
+  rule), so the regime tripwire does NOT fire; only the intent
+  trigger does.
+- Intent ratio FLAT: closing champ 6.1% vs 6.0% baseline (30
+  gens, frozen); only unpromoted tails drift (g817 11.5%).
+  Re-ablation identical (-1.2; deterministic same-champ same-
+  seed replay, so the ratio flatness carries the verdict).
+- Verdict: BARREN. Reverted to 7ch (revert commit); truncation
+  shim keeps 12ch-era weights loading game-exact. Do NOT build
+  bigger. Runner-up hypotheses (pheromone map, learned
+  messages, recurrence) stay parked behind a positive signal
+  that never came.
