@@ -14,5 +14,13 @@ as defense school (kill-zone forensics), not surgery target.
   regime has leveled; mine 45 gens of concentration data for the
   next variable (candidates: exam resolution, exploiter
   diversity, rung-3 with the working formula — NOT gap surgery).
-- Results: pending.
-- Verdict: pending.
+- Results (g458-g472): ONE PROMOTION — g464 over g441-era
+  (0.65, Wilson 0.539, mm +0.90). Champ g441 -> g464. Two more
+  knocks at 0.463 (g458, g470). Effective rate 50.7% (breaks
+  50%); raw eval wins 23%. Per-map: open 45%, rung2a 39%,
+  lakes 43%, cave2 18%, rest ~11%, gap 3% (defense school).
+  Promotion pace steady at ~1/15 (5 crowns in rounds 25-29).
+- Verdict: CLIMB — regime healthy, continue identical. Metric
+  hygiene note: future rounds must quote train-elim, eval-W, and
+  effective separately (this round mixed them); promotion pace
+  remains the cleanest regime signal.

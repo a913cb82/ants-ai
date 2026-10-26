@@ -13,9 +13,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 29: plateau watch (same config, climb-or-plateau).
-  Gap reframed as defense school (lead forensics: deaths cluster
-  at crossing rows 7-8) — forensics round stood down, no surgery.
+- Round 30: climb watch continues (same config, 4th). Promotion
+  pace ~1/15 steady; regime healthy until it plateaus.
 - Round 28 verdict: GAP STERILE (0 promos, g441 holds). Conversion
   38.6/39.3/44.3% — holds r27 gains, no full-pool conversion:
   gap 7%/5%/0% (2/51 decisive, both 0-0 racer trades). Raze wins
