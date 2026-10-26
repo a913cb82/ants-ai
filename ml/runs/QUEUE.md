@@ -13,8 +13,16 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 28: concentration consolidation (same config, momentum).
-  Gap-watch: last sterile board — falls or gets forensics.
+- Round 29: GAP FORENSICS (sterile 30 gens). Map-specific diagnosis:
+  replay-trace why gap attacks die (funnel geometry? HA mis-targets
+  across the gap? racer-trade equilibrium?). No pool surgery.
+- Round 28 verdict: GAP STERILE (0 promos, g441 holds). Conversion
+  38.6/39.3/44.3% — holds r27 gains, no full-pool conversion:
+  gap 7%/5%/0% (2/51 decisive, both 0-0 racer trades). Raze wins
+  regress to lone-racer trades (Walive mostly 0-3; best 11 open,
+  7 cave1 — r27's armies gone). Deaths flat (~23% unique-ant,
+  vs 17-20% r27 same-metric; no 90s relapse). g455/g456 knock
+  (0.575/0.60 raw, Wilson just under bar).
 - Round 19 verdict: POSITIVE — 2 promotions (g313 exploiter crown,
   g314), conversion 13% -> 24% -> 19%, double-elims 22% -> 7%,
   no pacification. DEATH -2 kept as new base. Caveat: death rate
