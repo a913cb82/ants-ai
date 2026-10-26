@@ -13,8 +13,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 61: same config (alive, g924 crown).
-  2a stays (contact bar, not win-rate).
+- Round 62: same config (alive, weak main knocks).
+  Knock-drought only; promo-drought isn't a tripwire.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)

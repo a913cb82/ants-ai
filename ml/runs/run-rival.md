@@ -148,6 +148,14 @@ need time — so stop reseeding and let one rival develop.
   fail. 2a stays as the open-ground whetstone. Regime fact
   banked: corridors are ours (mg1/gap), opens are theirs.
 - Verdict: ALIVE, continue same (round 61).
+- Results (g938-g952): 0 PROMOTIONS. Champ g924 holds. 3
+  knocks (g938/g947 main-borderline .50s, g951 rival .55).
+  No strike: strikes need round-level main-KNOCKLESS, and the
+  main knocked twice (weakly — noted). Promo-drought is not
+  knock-drought; conflating them would be goalpost-moving.
+  Texture honest: main soft (.50-borderline best), rival
+  stronger (.55-.70). Watch, not action.
+- Verdict: ALIVE, continue same (round 62).
 - Results (g728-g742): 0 PROMOTIONS. Champ g720 holds. Two
   rival knocks (g732 .60, g735 .575 — correctly unpromoted:
   Wilson lower, not raw eff, is the bar; no anomaly). Main
