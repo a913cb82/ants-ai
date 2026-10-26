@@ -21,7 +21,8 @@ new board.
 |------|------|-------|-----------|--------|
 | 1 | rung1_open (tiny + water, hills in sight) | 192 | contact: meet, fight, win | done, mastered, stays in pool |
 | 2 | rung 1 + rung2a/b/c/d + f/g/h + 2 small real boards (gen2p_00, gen2p_05) | 192–1600 | bigger ground: scouting, water routing, room to maneuver | in play (round 11; f/g/h join round 12) |
-| 2 staged | rung2k/l (48x48, 2/3 hills) + rung2m/n (72x72, 2/3 hills), scaled hand patterns | 2304–5184 | big-ground scouting/routing, multi-hill maneuver | staged (smoke first, pool entry by the rules below) |
+| 2 staged | rung2q (40x40 cavemap, amstan mapgen.py, 4 hills) + rung2r (40x40 maze, cell_maze --h_sym rotate, 4 hills) + rung2s (40x40 walk, mapgen.py rotational_symmetry 3, 4 hills), upstream-tool-built | 1600 | big-ground scouting/routing, multi-hill maneuver | staged (smoke clean 150t draws 2-2; pool entry by the rules below) |
+| k-p removed | rung2k/l (48x48) + rung2m/n (72x72) + rung2o/p (oasis) DELETED: k/l sterile 0/10 passengers round 64, m/n predicted sterile + never trialed, o/p scrapped for tool-built replacements despite o2 fighting 6-0 in smoke — user decision, files recoverable from git | — | — | cut |
 | 3 | full pool: all 148 real 2p maps | up to 24k | corridors, mazes, full variety, no forgetting | queued (needs 2-in-10 on rung 2) |
 
 ## Graduation rule
