@@ -61,12 +61,14 @@ list, not a schedule. Skip-the-queue rules in runs README.)
   revisit only if training works). Plan needed before launch.
 - Queued volume fix (user-ordered, 3:1): train 4 -> 30
   opponents (60 engine games vs the sacred 20-game exam)
-  + workers 8 -> 12. Tests the under-training hypothesis
-  (thin education, not field ceiling, explains weak knocks).
-  Exam byte-identical. Watches: wall-clock/gen, batch rows,
-  pg/v health, train wins per board, knock quality. Runs
-  after the 1-4 program (mid-trial changes confound). Dial
-  the level from data after one round.
+  + workers 8 -> 12. LANDS ROUND 71 together with idea 3
+  (penalty, build 1 merged) on the frozen 12-board pool:
+  pool is the legislated arena, penalty carries its own
+  within-round control (penalized vs normal games), volume
+  is the direct order. Round-level attribution shared —
+  honest; volume necessity testable later by dialing down.
+  Build 1 cherry-picked (default-off byte-identical); spoiler
+  merges after round 70 (changes line-1 defaults).
 - Follow-up chain: if oasis (idea 2) works → generator survey
   for more mechanics (hunger/low-food boards, central-hill
   king-of-hill). If oasis fails → map-mechanic axis likely
