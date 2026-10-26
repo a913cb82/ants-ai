@@ -59,6 +59,14 @@ need time — so stop reseeding and let one rival develop.
 - Verdict: ALIVE, continue same (round 50). Era pace: 8 crowns
   in ~120 gens (~1/15) — back to the historical baseline pace,
   now via the rival line.
+- Results (g773-g787): 0 PROMOTIONS. Champ g747 HOLDS (second
+  defense, 15/15 — entrenched AND tested, pushed to .475 four
+  times but never breached). 6 knocks (4 at .475, one draw
+  short, both lines). Main gate HOLDS (.20-.475, never 0-1W).
+  Rival pressure persistent (.450 -> .475 x3 -> .400 -> .475).
+- Verdict: ALIVE (knocks, no tripwire). Round 50 was NOT
+  knockless -> the queued plan fires: round 51 implements
+  lagged intent channels (run-comm.md). QUEUE updated.
 - Verdict: ALIVE, continue same (round 49). Rival owns the
   podium (7 crowns); main owns the gate (.20-.45). Staleness
   watch noted, no action — the main provides frontier variety

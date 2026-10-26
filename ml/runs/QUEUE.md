@@ -13,8 +13,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 50: same config (alive: crown defended, gate holds).
-  Era pace 1/15 via the rival line.
+- Round 51: lagged intent channels (code variable). 5 extra
+  channels, zero-init pad, gateway ablation decides.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)

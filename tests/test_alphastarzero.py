@@ -77,6 +77,11 @@ def test_window_shape_channels_dtype():
         "enemy_hill",
         "food",
         "own_sight",
+        "intent_n",
+        "intent_e",
+        "intent_s",
+        "intent_w",
+        "intent_stay",
     )
     assert set(w.flatten().tolist()) <= {0.0, 1.0}
 
@@ -639,8 +644,8 @@ def test_forward_is_rotation_equivariant():
     import model
 
     torch.manual_seed(3)
-    policy = model.CNNPolicy()
-    w = torch.rand(4, _C, _S, _S)
+    policy = model.CNNPolicy(channels=7)
+    w = torch.rand(4, 7, _S, _S)
     base = _probs(policy, w)
     for k in (1, 2, 3):
         got = _probs(policy, torch.rot90(w, k, (2, 3)))
@@ -654,8 +659,8 @@ def test_forward_is_flip_equivariant():
     import model
 
     torch.manual_seed(5)
-    policy = model.CNNPolicy()
-    w = torch.rand(4, _C, _S, _S)
+    policy = model.CNNPolicy(channels=7)
+    w = torch.rand(4, 7, _S, _S)
     base = _probs(policy, w)
     got = _probs(policy, torch.flip(w, (3,)))
     assert torch.allclose(base, got[:, list(model.UNFLIP)], atol=1e-5)
@@ -740,7 +745,7 @@ def test_padded_old_weights_give_identical_outputs():
     new.eval()
     with torch.no_grad():
         w6 = torch.rand(3, 6, _S, _S)
-        pad = torch.zeros(3, 1, _S, _S)
+        pad = torch.zeros(3, 6, _S, _S)  # own-sight + 5 intent zeros
         assert torch.equal(old(w6), new(torch.cat([w6, pad], dim=1)))
         assert torch.equal(old.values(w6),
                            new.values(torch.cat([w6, pad], dim=1)))
@@ -758,10 +763,10 @@ def test_opt_state_drops_reshaped_params():
     old(torch.rand(2, 6, 9, 9)).sum().backward()
     opt.step()  # populates momentum buffers
     blob = algorithm.serialize_opt(opt)
-    new = model.CNNPolicy()  # 7 channels now
+    new = model.CNNPolicy()  # 12 channels now
     opt2 = algorithm.make_optimizer(new)
     algorithm.load_opt_state(opt2, blob)  # must not raise ...
-    new(torch.rand(2, 7, 15, 15)).sum().backward()
+    new(torch.rand(2, 12, 15, 15)).sum().backward()
     opt2.step()  # ... nor crash here (the round-18 failure).
     cur = opt2.state_dict()["state"]
     params = [p for g in opt2.param_groups for p in g["params"]]
@@ -1167,6 +1172,117 @@ def test_rotation_permutes_actions_and_masks():
     for _ in range(4):
         a = algorithm.ROT_PERM[a]
     assert a == 0
+
+
+def test_intent_gate_blinds_with_env(monkeypatch):
+    import sys
+
+    sys.path.insert(0, str(ROOT / "tools"))
+    import AlphaAnt
+
+    prev = {(0, 0): [0.2] * 5}
+    assert AlphaAnt._intent_for_turn(prev) is prev
+    monkeypatch.setenv("AA_ZERO_INTENT", "1")
+    assert AlphaAnt._intent_for_turn(prev) is None
+
+
+def test_intent_channels_visible_only_on_friendly_cells():
+    import features
+
+    assert len(features.CHANNELS) == 12  # 7 game + 5 intent
+    ants = FakeAnts()
+    ants._mine = [(4, 4), (4, 5)]
+    intent = {
+        (4, 5): [0.1, 0.2, 0.3, 0.15, 0.25],  # friendly: shown
+        (4, 6): [1.0, 0.0, 0.0, 0.0, 0.0],  # enemy: hidden
+        (0, 0): [0.0, 0.0, 0.0, 0.0, 1.0],  # empty: nowhere
+    }
+    w = features.local_window(ants, (4, 4), radius=2, intent=intent)
+    assert w.shape == (12, 5, 5)
+    assert w[7:12, 2, 3].tolist() == pytest.approx([0.1, 0.2, 0.3, 0.15,
+                                                    0.25])
+    assert w[7:12, 2, 4].sum() == 0.0
+    assert w[7:12].sum() == 1.0  # exactly one friendly cell written
+    assert w[1, 2, 2] == 1.0 and w[1, 2, 3] == 1.0  # game unaffected
+    assert features.local_window(ants, (4, 4), radius=2)[7:12].sum() == 0.0
+
+
+def test_intent_update_follows_dest_and_averages_collisions():
+    import sys
+
+    sys.path.insert(0, str(ROOT / "tools"))
+    import AlphaAnt
+
+    m: dict = {}
+    counts: dict = {}
+    AlphaAnt._accumulate_intent(m, counts, (3, 4), [1.0, 0, 0, 0, 0])
+    AlphaAnt._accumulate_intent(m, counts, (3, 5), [0, 1.0, 0, 0, 0])
+    AlphaAnt._accumulate_intent(m, counts, (3, 5), [0, 0, 1.0, 0, 0])
+    assert m[(3, 4)] == [1.0, 0, 0, 0, 0]
+    assert m[(3, 5)] == [0, 0.5, 0.5, 0, 0]
+
+
+def test_rotate_item_permutes_intent_channels_with_actions():
+    import algorithm
+    import torch
+
+    w = torch.zeros(12, _S, _S)
+    w[7, 0, _S // 2] = 1.0  # intent-n marker at north-center
+    item = (w, 0, 1.0, [True] * 5, 0.0)
+    rw, ra, _, _, _ = algorithm._rotate_item(item, 1)
+    # spatial: north-center -> west-center; channel: n follows
+    # actions (ROT_PERM[0] == 3, the w slot at index 10).
+    assert rw[10, _S // 2, 0] == 1.0 and rw[7:12].sum() == 1.0
+    assert ra == 3
+    # legacy 7-channel rows rotate spatially, untouched otherwise.
+    narrow = torch.zeros(7, _S, _S)
+    narrow[0, 0, _S // 2] = 1.0
+    nw, _, _, _, _ = algorithm._rotate_item(
+        (narrow, 0, 1.0, [True] * 5, 0.0), 1)
+    assert nw.shape == (7, _S, _S) and nw[0, _S // 2, 0] == 1.0
+
+
+def test_d4_equivariant_with_intent():
+    import torch
+
+    import model
+
+    torch.manual_seed(1)
+    policy = model.CNNPolicy(arch="base")
+    policy.eval()
+    x = torch.rand(2, 12, 9, 9)
+    x[:, 7:12] *= 10.0  # intent dominates: misalignment can't hide
+    l0 = policy(x)
+    with torch.no_grad():
+        xr = torch.rot90(x, 1, (2, 3)).clone()
+        xr[:, 7:12] = xr[:, 7:12][:, list(model.INTENT_Q)]
+        lr = policy(xr)
+        xf = torch.flip(x, (3,)).clone()
+        xf[:, 7:12] = xf[:, 7:12][:, list(model.UNFLIP)]
+        lf = policy(xf)
+    assert torch.allclose(lr[:, list(model.UNROT[1])], l0, atol=1e-5)
+    assert torch.allclose(lf[:, list(model.UNFLIP)], l0, atol=1e-5)
+    assert torch.allclose(policy.values(xr), policy.values(x), atol=1e-5)
+
+
+def test_padded_wide_net_matches_narrow_on_zero_intent():
+    import torch
+
+    import model
+
+    torch.manual_seed(2)
+    narrow = model.CNNPolicy(channels=7, arch="base")
+    narrow.eval()
+    wide = model.CNNPolicy(arch="base")
+    wide.load_state_dict(
+        model.pad_in_channels(dict(narrow.state_dict()), wide), strict=True)
+    wide.eval()
+    x7 = torch.rand(2, 7, 9, 9)
+    x12 = torch.zeros(2, 12, 9, 9)
+    x12[:, :7] = x7
+    with torch.no_grad():
+        assert torch.equal(wide(x12), narrow(x7))
+        assert torch.equal(wide.values(x12), narrow.values(x7))
 
 
 def test_rotate_item_turns_window_action_mask_together():
@@ -1805,7 +1921,7 @@ def test_deep_arch_stays_in_param_budget():
 
     base = _count_params(model.CNNPolicy(arch="base"))
     deep = _count_params(model.CNNPolicy(arch="deep"))
-    assert base == 12102  # +1 channel: own_sight widens conv1/vconv1
+    assert base == 13542  # +1 sight +5 intent widen conv1/vconv1
     assert 9000 < deep < 14000  # same order, no budget blowout
 
 

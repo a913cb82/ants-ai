@@ -12,7 +12,12 @@ from features import ACTIONS
 # from the k-turns-CCW frame into the canonical frame. UNFLIP mirrors
 # a left-right flip (e<->w) back. Both are their own bookkeeping:
 # the game is symmetric, the network need not learn to be.
+# INTENT_Q is ROT_PERM's inverse: when the input window turns k CCW,
+# intent channels ride the action frame forward (channel c moves to
+# ROT_PERM^k[c]), so gather by INTENT_Q^k on input. UNFLIP is its own
+# inverse, so flips gather by UNFLIP directly.
 ROT_PERM = (3, 0, 1, 2, 4)
+INTENT_Q = (1, 2, 3, 0, 4)
 UNFLIP = (0, 3, 2, 1, 4)
 
 
@@ -29,8 +34,35 @@ def _unrot(k: int) -> tuple:
 UNROT = {k: _unrot(k) for k in range(4)}
 
 
+def _orient(x: torch.Tensor, k: int, flipped: bool) -> torch.Tensor:
+    """Input-side orientation transform: spatial turn/flip plus the
+    intent channels riding the action frame forward.
+
+    The output side maps back with UNROT[k] (then UNFLIP); the input
+    must present the coherent rotated view, so intent gathers by the
+    inverse perms (INTENT_Q^k, then UNFLIP). Game channels need no
+    channel perm (space is space). Narrow (pre-intent) inputs pass
+    through spatially only. Returns a fresh tensor (no view aliasing
+    into the caller's batch)."""
+    t = torch.rot90(x, k, (2, 3)) if k else x
+    t = torch.flip(t, (3,)) if flipped else t
+    if t.shape[1] >= features.INTENT_START + 5:
+        # Gathers follow spatial order: the flip's UNFLIP index first,
+        # then INTENT_Q^k — G[m] = Q^k[U[m]] inverts the output side's
+        # F = U∘P^k (map-back gathers UNFLIP, then UNROT[k]).
+        perm = ([UNFLIP[i] for i in range(5)] if flipped
+                else [0, 1, 2, 3, 4])
+        for _ in range(k % 4):
+            perm = [INTENT_Q[i] for i in perm]
+        game = t[:, :features.INTENT_START]
+        want = t[:, features.INTENT_START:features.INTENT_START + 5]
+        t = torch.cat([game, want[:, perm], t[:, features.INTENT_START + 5:]],
+                      dim=1)
+    return t
+
+
 class CNNPolicy(torch.nn.Module):
-    """Small convnet: (6, H, W) window -> 5 action logits + 1 value.
+    """Small convnet: (12, H, W) window -> 5 action logits + 1 value.
 
     arch="base": 2 conv layers (16/32ch), 5x5 receptive field, 2x2
     pool -> 128 dims, ~6.3k params. The periphery reaches the heads
@@ -45,7 +77,9 @@ class CNNPolicy(torch.nn.Module):
     value trunk, so actor gradients never fight critic gradients and
     vice versa. The value head is zero-initialized so early value
     estimates start at 0. Fully ant-local: no global inputs, no
-    memory, no communication.
+    memory; the 5 intent channels are neighbor-visible communication
+    (last turn's friendly distributions, seen only where friendlies
+    stand).
     """
 
     def __init__(
@@ -104,14 +138,11 @@ class CNNPolicy(torch.nn.Module):
         8 estimates of one distribution. The mean is exactly equivariant
         by group closure: no orientation is privileged, including at
         act time. Costs 8x the forward; the net is tiny."""
-        rots = [x]
-        for _ in range(3):
-            rots.append(torch.rot90(rots[-1], 1, (2, 3)))
         total = None
         count = 0
-        for k, r in enumerate(rots):
-            for flipped, t in ((False, r), (True, torch.flip(r, (3,)))):
-                out = self.head(self.trunk(t))
+        for k in range(4):
+            for flipped in (False, True):
+                out = self.head(self.trunk(_orient(x, k, flipped)))
                 if flipped:
                     out = out[:, list(UNFLIP)]
                 out = out[:, list(UNROT[k])]
@@ -121,24 +152,21 @@ class CNNPolicy(torch.nn.Module):
 
     def _d4_values(self, x: torch.Tensor) -> torch.Tensor:
         """Mean value over orientations: invariant by construction."""
-        rots = [x]
-        for _ in range(3):
-            rots.append(torch.rot90(rots[-1], 1, (2, 3)))
         total = None
         count = 0
-        for r in rots:
-            for t in (r, torch.flip(r, (3,))):
-                out = self.value(self.vtrunk(t))
+        for k in range(4):
+            for flipped in (False, True):
+                out = self.value(self.vtrunk(_orient(x, k, flipped)))
                 total = out if total is None else total + out
                 count += 1
         return total / count
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """x: (B, 6, H, W) -> logits (B, 5). D4-symmetrized."""
+        """x: (B, C, H, W) -> logits (B, 5). D4-symmetrized."""
         return self._d4_logits(x)
 
     def values(self, x: torch.Tensor) -> torch.Tensor:
-        """x: (B, 6, H, W) -> state values (B,). D4-invariant."""
+        """x: (B, C, H, W) -> state values (B,). D4-invariant."""
         return self._d4_values(x).squeeze(-1)
 
 
