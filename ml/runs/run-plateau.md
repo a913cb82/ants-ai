@@ -32,3 +32,15 @@ as defense school (kill-zone forensics), not surgery target.
   Teeth note: exploiters crushed all round (0-3W) — dulling as
   the main outgrows the fixed BC base, but they still force
   decisive exams; monitor, don't intervene while pace holds.
+- Results (g488-g502): 0 PROMOTIONS. Knocks every block
+  (52.5/57.5/52.5% effective; Wilson blocks all). Train elim
+  70/47.5/55% (still climbing); eval raw W 21/19/19; deaths
+  ~30%. Teeth dull-not-gone (g496 takes 4W). Champ g486 holds.
+- Verdict: BELOW PACE but not plateau (knocks fire the tripwire's
+  exception). Exam-size settled with math: at n=20 the bar needs
+  ~65% effective (a true-60% challenger lower-bounds 0.488 and
+  SHOULD hold — 11% estimate noise). Widening evals would promote
+  noise into champs and destabilize the main. The bar stands.
+  Stopping rule stated: TWO consecutive dry rounds (even with
+  knocks) -> new variable; the gate is fine, the policy would
+  need a new slope. Round 32 same config, gate-watch.

@@ -13,8 +13,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 31: same config (6th). Pace exactly on target; review
-  forced if a round prints 0 promos with no knocks.
+- Round 32: same config, gate-watch. Second dry round (even
+  with knocks) forces a new variable; the bar stands as is.
 - Round 28 verdict: GAP STERILE (0 promos, g441 holds). Conversion
   38.6/39.3/44.3% — holds r27 gains, no full-pool conversion:
   gap 7%/5%/0% (2/51 decisive, both 0-0 racer trades). Raze wins
