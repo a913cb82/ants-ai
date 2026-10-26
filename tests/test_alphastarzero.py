@@ -2669,7 +2669,7 @@ def test_draw_penalty_win_unchanged():
     assert normal == [rewards.WIN + rewards.HILL_APPROACH * closed]
 
 
-def test_train_draw_penalty_every_flags_every_nth(tmp_path, monkeypatch):
+def test_train_draw_penalty_flags_seeded_subset(tmp_path, monkeypatch):
     import archive
     import game_if
     import rewards
@@ -2686,18 +2686,65 @@ def test_train_draw_penalty_every_flags_every_nth(tmp_path, monkeypatch):
     monkeypatch.setattr(archive, "log_game", lambda *a, **k: None)
     monkeypatch.setattr(archive, "write_status", lambda *a, **k: None)
     base = tmp_path / "archive"
-    cfg = {"turns": 10, "temperature": 0.0, "seed": 0, "train_games": 4,
+    cfg = {"turns": 10, "temperature": 0.0, "seed": 0, "train_games": 8,
            "train_draw_penalty_every": 2}
 
     def run(g):
         return train._play_one(
-            (cfg, base, "g001", "g000", {"w": [1.0]}, {"w": [1.0]},
+            (cfg, base, "g003", "g000", {"w": [1.0]}, {"w": [1.0]},
              0, g, "challenger", "somemap"))
 
-    assert run(0)["rets"] == [0.0]  # game 1 of 2: normal draw
-    assert run(1)["rets"] == [rewards.LOSS]  # every 2nd: draw pays as loss
-    assert run(2)["rets"] == [0.0]
-    assert run(3)["rets"] == [rewards.LOSS]
+    # the challenger id pins the gen (g003 -> gen 3): expected flags come
+    # straight from the seeded assignment, and plumbing prices exactly
+    # the flagged draws as losses while the rest stay normal draws.
+    expected = [train._is_penalty_game(cfg, g, 3) for g in range(8)]
+    assert any(expected) and not all(expected)
+    for g, flagged in enumerate(expected):
+        assert run(g)["rets"] == [rewards.LOSS if flagged else 0.0]
+
+
+def test_penalty_assignment_is_deterministic():
+    import train
+
+    cfg = {"seed": 7, "train_draw_penalty_every": 4}
+    first = [train._is_penalty_game(cfg, g, 3) for g in range(60)]
+    again = [train._is_penalty_game(cfg, g, 3) for g in range(60)]
+    assert first == again  # same (seed, gen, g) -> same flag
+    assert any(first) and not all(first)  # a real draw, not all-or-nothing
+    other = [train._is_penalty_game(cfg, g, 4) for g in range(60)]
+    assert other != first  # the gen index breaks stride sync
+
+
+def test_penalty_spreads_across_boards(tmp_path):
+    import archive
+    import train
+
+    base = tmp_path / "archive"
+    pool = [f"board{i:02d}.map" for i in range(12)]
+    cfg = {"seed": 3, "train_draw_penalty_every": 4}
+    # one 60-game gen: the seeded draw spreads penalized games over
+    # the boards instead of dumping them onto stride-synced ones.
+    maps = archive.next_drill_maps(base, pool, 60, 0)
+    pen = {m for g, m in enumerate(maps)
+           if train._is_penalty_game(cfg, g, 0)}
+    assert len(pen) >= 10
+    # 15-gen horizon: every board sees BOTH normal and penalized games.
+    seen = {m: [False, False] for m in pool}
+    for gen in range(15):
+        maps = archive.next_drill_maps(base, pool, 60, gen)
+        for g, m in enumerate(maps):
+            seen[m][train._is_penalty_game(cfg, g, gen)] = True
+    assert all(all(v) for v in seen.values())
+
+
+def test_penalty_n_zero_disables():
+    import train
+
+    for cfg in ({"seed": 0, "train_draw_penalty_every": 0},
+                {"seed": 0, "train_draw_penalty_every": None},
+                {"seed": 0}):
+        assert not any(train._is_penalty_game(cfg, g, gen)
+                       for g in range(20) for gen in range(3))
 
 
 # --- idea 4: spoiler v2 in the line-B slot ---
