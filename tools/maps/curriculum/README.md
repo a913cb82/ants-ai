@@ -45,13 +45,15 @@ at any pool size (standing coverage rule). Train-side assignment
 spans the whole rung.
 
 FROZEN by user order (round 70): no entries, no exits until
-permitted. The frozen rung is rung1_open + every existing rung2
-map a-s (a,b,c,d,f,g,h,i,j,q,r,s = 13 boards; e was deleted as
-redundant long ago, k-p deleted by user order). c/h rejoin by
+permitted. The frozen rung2 pool is EVERY existing rung2 map
+a-s (a,b,c,d,f,g,h,i,j,q,r,s = 12 boards; e deleted as redundant
+long ago, k-p deleted by user order) and NO rung1 maps — rung2
+runs are rung2-only. (rung1 is not demoted; it is rung 1's eternal
+drill, simply outside this rung's pool. Watch: 2a's contact
+rate becomes the canary for rung1-skill rot.) c/h rejoin by
 this definition (not by promotion); q/r/s are members by
 legislation (stay rule moot — round-70 rates report-only).
-Passenger verdicts bank knowledge only. The rung-3 graduation
-conditional is moot while frozen.
+The rung-3 graduation conditional is moot while frozen.
 
 - Board promotion (staged -> pool): playable_2p, hills placed, one
 clean smoke (runs end to end, no crash) -> joins the next round
