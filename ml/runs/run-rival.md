@@ -156,6 +156,13 @@ need time — so stop reseeding and let one rival develop.
   Texture honest: main soft (.50-borderline best), rival
   stronger (.55-.70). Watch, not action.
 - Verdict: ALIVE, continue same (round 62).
+- Results (g953-g967): 0 PROMOTIONS. Champ g924 holds. 3
+  knocks: g953 main .575 (WITH margin +0.45 — first solid
+  main knock after the soft .50s), g963 rival .500 (soft),
+  g966 rival .525. Softness trend NOT confirmed (one solid
+  main knock breaks it). Promo drought 3 rounds — standing
+  rule: not knock-drought, continue.
+- Verdict: ALIVE, continue same (round 63).
 - Results (g728-g742): 0 PROMOTIONS. Champ g720 holds. Two
   rival knocks (g732 .60, g735 .575 — correctly unpromoted:
   Wilson lower, not raw eff, is the bar; no anomaly). Main

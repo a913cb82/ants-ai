@@ -13,8 +13,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 62: same config (alive, weak main knocks).
-  Knock-drought only; promo-drought isn't a tripwire.
+- Round 63: same config (alive, solid main knock).
+  Promo drought 3 — still not knock-drought.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
