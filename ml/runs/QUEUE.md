@@ -13,19 +13,19 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 23: finish the sweep (~127/145 drilled, random_walk
-  tier). Final graduation judgment: converters/promotion or
-  retreat (retention beats coverage).
+- Round 24: retreat to the known 8-board pool. Tests whether
+  conversion resumes (engine works, disease is generalization)
+  or stays dead (disease is learning itself).
 - Round 19 verdict: POSITIVE — 2 promotions (g313 exploiter crown,
   g314), conversion 13% -> 24% -> 19%, double-elims 22% -> 7%,
   no pacification. DEATH -2 kept as new base. Caveat: death rate
   was already low — -2 redirects combat, doesn't reduce it.
   Exploiter +3 DEATH understood as combat subsidy (load-bearing);
   do not touch unless exploiters stop biting.
-- Round 21 verdict: apparatus works (drills sweep every 2 gens,
-  pg_abs 0.34-0.65 reveals hidden magnitude under ~0 signed pg —
-  gradients cancel, policy at equilibrium). Still stalled (0/15,
-  12%). Graduate: pool exhaustion > stale readiness bar.
+- Rounds 22-23 verdict: RETREAT. Full pool draws everything
+  unfamiliar (1/240 decisive); drills cover but don't retain.
+  Lesson: retention beats coverage. Next synthesis: rotating
+  small windows.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)

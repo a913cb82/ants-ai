@@ -13,5 +13,16 @@ converters. The failure bar needs a final answer on the remaining
   RETREAT to the 8-board pool. Lesson: retention beats coverage;
   future variety comes from rotating small pools, never one big
   pool (4 games/gen cannot teach 145 boards).
-- Results: pending.
-- Verdict: pending.
+- Results (g368-g382): 0 PROMOTIONS. Train decisive 0/120;
+  held evals 2/300 (both one exploiter, g379, both colors — genuine
+  edge, below bar). Sweep reached 128/145 (random_walk tier
+  touched). Champ g314 frozen. Single new converter is an
+  unpromoted exploiter win, not lineage learning.
+- Verdict: RETREAT confirmed. Coverage without retention teaches
+  nothing: 4 games/gen cannot accumulate board-specific lessons
+  across 145 boards (36-gen revisits). Synthesis for after the
+  retreat: ROTATING small windows (retention within window,
+  coverage across windows) — neither one big pool (no retention)
+  nor one small pool forever (overfit). Sharp test first: round 24
+  retreats to the known 8; if conversion resumes immediately, the
+  engine works and the disease is generalization, not learning.
