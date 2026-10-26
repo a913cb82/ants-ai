@@ -44,6 +44,11 @@ at any pool size (standing coverage rule). Train-side assignment
 (drills) guarantees each board its games per gen; eval rotation
 spans the whole rung.
 
+FROZEN by user order (round 70): no entries, no exits until
+permitted. Passenger verdicts are report-only (rates banked,
+no pool change). The rung-3 graduation conditional is moot
+while frozen.
+
 - Board promotion (staged -> pool): playable_2p, hills placed, one
 clean smoke (runs end to end, no crash) -> joins the next round
 as a passenger. Stays if its train-game decisive rate exceeds 10%
