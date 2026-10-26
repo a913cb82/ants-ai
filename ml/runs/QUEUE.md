@@ -13,8 +13,9 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 25: hill-approach shaping (+0.5/tile, same-turn).
-  Shortens the discount horizon; suicide-watch on death rate.
+- Round 26: hill-approach consolidation (same config). Tests
+  whether spikes sustain + promotions continue, or round 25 was
+  another one-off.
 - Round 19 verdict: POSITIVE — 2 promotions (g313 exploiter crown,
   g314), conversion 13% -> 24% -> 19%, double-elims 22% -> 7%,
   no pacification. DEATH -2 kept as new base. Caveat: death rate

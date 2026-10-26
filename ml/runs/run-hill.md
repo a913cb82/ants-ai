@@ -19,5 +19,16 @@ per the rewards. Rung1 converts because its hills sit inside the
   diagnosis is wrong; next is pure-outcome ablation (the other
   fired conditional). SUICIDE-WATCH: hill-approach death rate
   spikes (marching into defenders) -> cut scale to 0.2 or gate.
-- Results: pending.
-- Verdict: pending.
+- Results (g398-g412): ONE PROMOTION — g400 over g314 (0.625,
+  EXPLOITER, 4th kamikaze crown). Champ g314 -> g400. HA channel
+  IS used (mass 51-65/game, ~40-50% of death mass); deaths steady
+  (93-97%, no suicide spike). Conversion: one-block spikes (2d
+  75%, 2c 50%, 2b 67%) that vanish — n=4-6/map noise, not
+  sustained. Marching works; razing still doesn't follow.
+- Verdict: WEAK POSITIVE — both bars fired (promotion + mass),
+  but conversion is spikes, not regime. Consolidate (round 26,
+  same config): if spikes sustain on some board + promotions
+  continue, the horizon fix is real. Pattern note: 4 of the last
+  5 crowns are kamikazes — the podium may be selecting for
+  suicide-racers; watch whether the main beats g400 (as g314
+  beat g313) or the crown sticks.
