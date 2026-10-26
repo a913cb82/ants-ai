@@ -37,3 +37,10 @@ state, only where that friendly occupies a window cell.
   do NOT build learned messages/recurrence.
 - Results: pending.
 - Verdict: pending.
+
+## Round 51 build (implemented, committed, smoke-verified)
+
+- 12-channel windows (7 game + 5 intent), dest-keyed T=1.0
+  wants, zero-init pad deploy, D4-coherent input orientation,
+  AA_ZERO_INTENT ablation gate. 160 tests green. Live smoke:
+  intent mass 0 at turn 0, flows thereafter.

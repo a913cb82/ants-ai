@@ -21,6 +21,7 @@ new board.
 |------|------|-------|-----------|--------|
 | 1 | rung1_open (tiny + water, hills in sight) | 192 | contact: meet, fight, win | done, mastered, stays in pool |
 | 2 | rung 1 + rung2a/b/c/d + f/g/h + 2 small real boards (gen2p_00, gen2p_05) | 192–1600 | bigger ground: scouting, water routing, room to maneuver | in play (round 11; f/g/h join round 12) |
+| 2 staged | rung2k/l (48x48, 2/3 hills) + rung2m/n (72x72, 2/3 hills), scaled hand patterns | 2304–5184 | big-ground scouting/routing, multi-hill maneuver | staged (smoke first, pool entry by the rules below) |
 | 3 | full pool: all 148 real 2p maps | up to 24k | corridors, mazes, full variety, no forgetting | queued (needs 2-in-10 on rung 2) |
 
 ## Graduation rule
@@ -68,6 +69,17 @@ diagnose rewards, don't touch the pool.
   rung 3 is real boards; the one proven map (rung3a open,
   decisive 3-0) survives as rung2e. Generator script removed with
   it; gen_rung2.py remains for rung 2.
+- Multi-hill boards need the generalized emitter (emit_multi in
+  gen_rung2.py): full per-side hill lists, swapped pairs, same
+  cell-by-cell 180-swap assertion, cross-hill sight rule, BFS
+  over every hill. Hand patterns scale (pond/gap/lakes/open);
+  upstream CLI cannot deliver 180-swap symmetry at any size
+  (0/50 across symmetry types/seeds — translate + hill
+  placement break it), so big boards are scaled hand designs.
+- Correction: upstream f/g/h are NOT 180-swap symmetric
+  (164-228 asymmetric cells each, verified). The symmetry note
+  below holds for hand boards only. f/g/h entered asymmetric
+  and convert anyway — judged per-map like everything else.
 - Smallest real boards (~1600 tiles: gen2p_00, tutorial1) draw
   BC-vs-random at 150 turns — passengers under test in round 11,
   judged by the per-map table (decisive or material-margin, else cut).
