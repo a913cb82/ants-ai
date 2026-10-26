@@ -13,8 +13,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 49: same config (alive: promo + 4 knocks).
-  Rival climbs, main gates.
+- Round 50: same config (alive: crown defended, gate holds).
+  Era pace 1/15 via the rival line.
   (Round-35 verdict: APPARENT exhaustion, CONFOUNDED — clones'
   kl pinned 0.01, anchor dragged them to BC; see run-teeth2.md.)
 - Round 28 verdict: GAP STERILE (0 promos, g441 holds). Conversion

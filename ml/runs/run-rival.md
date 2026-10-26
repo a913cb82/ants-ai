@@ -48,6 +48,17 @@ need time — so stop reseeding and let one rival develop.
   knocks (g744/g750/g753/g756). Champ g720 -> g747. Main
   wobbles (.20-.425, no collapse, no knocks in 10). Doctrine
   vindicated: the dry round bought the dominant crown.
+- Results (g758-g772): 0 PROMOTIONS. Champ g747 DEFENDS the
+  dominant crown (concedes two rival knocks g765 .600 / g768
+  .575, no challenger above .325). Main gate HOLDS (.20-.45
+  band, min W=1 once, no repeated 0-1W). Rival wave
+  rises-then-fades (.400 -> .450 -> .600 -> .575 -> .475).
+  Correction for the record: exploiters are NOT role-locked
+  (7 of 8 crowns this era are exploiter-line) — g765/g768 just
+  fell short of Wilson, the bar working as designed.
+- Verdict: ALIVE, continue same (round 50). Era pace: 8 crowns
+  in ~120 gens (~1/15) — back to the historical baseline pace,
+  now via the rival line.
 - Verdict: ALIVE, continue same (round 49). Rival owns the
   podium (7 crowns); main owns the gate (.20-.45). Staleness
   watch noted, no action — the main provides frontier variety
