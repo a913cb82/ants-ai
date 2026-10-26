@@ -262,15 +262,15 @@ def test_death_penalizes_dead_ant_only():
 def test_kill_credit_splits_among_nearby_attackers():
     import rewards
 
-    game = _game()
+    game = _game(score=[3, 1])  # win: kills pay, terminal lands too
     game["replaydata"]["ants"] = [[5, 5, 1, 3, 1, "--"]]  # enemy dies turn 3
     records = [
         {"turn": 3, "loc": [5, 4], "dest": [5, 4], "action": "stay"},
         {"turn": 3, "loc": [0, 0], "dest": [0, 0], "action": "stay"},
     ]
     rets = rewards.compute_returns(game, 0, records)
-    assert rets[0] == rewards.KILL
-    assert rets[1] == 0.0
+    assert rets[0] == rewards.KILL + rewards.WIN
+    assert rets[1] == rewards.WIN
 
 
 def test_one_for_one_trade_nets_negative():
@@ -278,8 +278,10 @@ def test_one_for_one_trade_nets_negative():
 
     # Asymmetric death: killing pays +1, dying costs -2. A 1-for-1
     # trade nets -1, so mutual annihilation is no longer free — the
-    # learner must preserve material to profit from combat.
-    game = _game()
+    # learner must preserve material to profit from combat. Pinned
+    # on a win (kills pay); on draws/losses the kill is gated and
+    # only the death lands (-2).
+    game = _game(score=[2, 0])  # win
     game["replaydata"]["ants"] = [
         [5, 5, 1, 3, 1, "--"],  # enemy dies turn 3
         [5, 4, 1, 3, 0, "s-"],  # own ant dies turn 3
@@ -289,7 +291,7 @@ def test_one_for_one_trade_nets_negative():
         {"turn": 3, "loc": [5, 4], "dest": [6, 4], "action": "s"},
     ]
     rets = rewards.compute_returns(game, 0, records)
-    assert rets[0] == rewards.KILL + rewards.DEATH == -1.0
+    assert rets[0] == rewards.KILL + rewards.DEATH + rewards.WIN
 
 
 def test_main_hill_price_rebalanced_rival_pinned(tmp_path):
@@ -308,7 +310,7 @@ def test_hill_approach_pays_for_closing():
     import rewards
     from grid import dist2
 
-    game = _game()
+    game = _game(score=[4, 0])  # win: the mechanism pays; gate off
     game["replaydata"]["hills"] = [[5, 9, 1, 99]]  # enemy hill
     game["replaydata"]["ants"] = [[5, 5, 1, 5, 0, "eee"]]
     records = [
@@ -317,13 +319,13 @@ def test_hill_approach_pays_for_closing():
     rets = rewards.compute_returns(game, 0, records)
     before = math.sqrt(dist2((5, 5), (5, 9), 10, 10))
     after = math.sqrt(dist2((5, 6), (5, 9), 10, 10))
-    assert rets[0] == rewards.HILL_APPROACH * (before - after)
+    assert rets[0] == rewards.WIN + rewards.HILL_APPROACH * (before - after)
 
 
 def test_hill_approach_ignores_opening_and_staying():
     import rewards
 
-    game = _game()
+    game = _game(score=[4, 0])  # win: mechanism active, terminal explicit
     game["replaydata"]["hills"] = [[5, 9, 1, 99]]
     game["replaydata"]["ants"] = [[5, 5, 1, 5, 0, "ew-"]]
     records = [
@@ -332,15 +334,15 @@ def test_hill_approach_ignores_opening_and_staying():
         {"turn": 3, "loc": [5, 5], "dest": [5, 5], "action": "stay"},
     ]
     rets = rewards.compute_returns(game, 0, records)
-    assert rets[0] > 0.0  # closed one tile
-    assert rets[1] == 0.0  # opened it back: no credit
-    assert rets[2] == 0.0  # stayed: no credit
+    assert rets[0] > rewards.WIN  # closed one tile: HA + terminal
+    assert rets[1] == rewards.WIN  # opened it back: terminal only
+    assert rets[2] == rewards.WIN  # stayed: terminal only
 
 
 def test_hill_approach_stays_same_turn_only():
     import rewards
 
-    game = _game()
+    game = _game(score=[4, 0])  # win: mechanism active, terminal explicit
     game["replaydata"]["hills"] = [[5, 9, 1, 99]]
     game["replaydata"]["ants"] = [[5, 5, 1, 5, 0, "eee"]]
     records = [
@@ -348,8 +350,9 @@ def test_hill_approach_stays_same_turn_only():
         {"turn": 2, "loc": [5, 4], "dest": [5, 5], "action": "e"},
     ]
     rets = rewards.compute_returns(game, 0, records)
-    assert rets[0] == 0.0  # opened: no credit, and no walk-back arrives
-    assert rets[1] > 0.0  # closed: same-turn credit only
+    assert rets[0] == rewards.WIN  # opened: terminal only, no walk-back
+    # closed one full tile (d 5 -> 4): same-turn credit + terminal.
+    assert rets[1] == rewards.WIN + rewards.HILL_APPROACH * 1.0
 
 
 def test_hill_approach_targets_first_hill_only():
@@ -359,25 +362,34 @@ def test_hill_approach_targets_first_hill_only():
     # while opening to the first pays nothing, even though min-nearest
     # would have paid. All ants see the same list, so all march the
     # same hill.
-    game = _game()
+    game = _game(score=[4, 0])  # win: mechanism active; gate off
     game["replaydata"]["hills"] = [[5, 0, 1, 99], [5, 9, 1, 99]]
     game["replaydata"]["ants"] = [[5, 4, 1, 5, 0, "e"]]
     records = [
         {"turn": 1, "loc": [5, 4], "dest": [5, 5], "action": "e"},
     ]
     rets = rewards.compute_returns(game, 0, records)
-    assert rets[0] == 0.0  # closes to second, opens to first: unpaid
+    # closes to second, opens to first: no approach, terminal only.
+    assert rets[0] == rewards.WIN
+
+
+def test_exploiter_gets_triple_kill_scales():
     import rewards
 
-    game = _game()
+    # Triple kill scales survive the gate (mechanism, not subsidy):
+    # on a win the rival's kill pays 3x the main's. Split out of the
+    # first-hill test, where the body sat without its own def.
+    game = _game(score=[4, 0])  # win
     game["replaydata"]["ants"] = [[5, 5, 1, 3, 1, "--"]]
     records = [
         {"turn": 3, "loc": [5, 4], "dest": [5, 4], "action": "stay"},
     ]
     base = rewards.compute_returns(game, 0, records)
     sharp = rewards.compute_returns(
-        game, 0, records, rewards.scales_for("exploiter"))
-    assert sharp[0] == 3 * base[0] == 3 * rewards.KILL
+        game, 0, records, rewards.scales_for("exploiter"),
+        role="exploiter")
+    assert base[0] == rewards.KILL + rewards.WIN
+    assert sharp[0] == 3 * rewards.KILL + rewards.WIN
 
 
 def test_exploiter_scales_keep_outcome():
@@ -2523,3 +2535,77 @@ def test_exploiter_gens_alternate_lines_end_to_end(tmp_path, monkeypatch):
     # line B's second gen continues the line-B tip, not line A.
     assert members[ids[11]]["parent"] == ids[5]
     assert members[ids[8]]["parent"] == ids[2]
+
+
+def _hill_game(score):
+    game = _game()
+    game["score"] = score
+    game["length"] = 10
+    # surviving enemy hill: approach credit without raze credit.
+    game["replaydata"]["hills"] = [[9, 9, 1, 999]]
+    return game
+
+
+def test_gated_shaping_zeroes_march_on_loss():
+    import math
+    import rewards
+
+    game = _hill_game([0, 1])  # loss
+    records = [{"turn": 1, "loc": [5, 5], "dest": [6, 6], "action": "s"}]
+    rets = rewards.compute_returns(game, 0, records)
+    # marching paid nothing: only the terminal loss remains.
+    assert rets[0] == rewards.LOSS
+
+
+def test_gated_shaping_zeroes_march_on_draw():
+    import rewards
+
+    game = _hill_game([0, 0])  # draw
+    records = [{"turn": 1, "loc": [5, 5], "dest": [6, 6], "action": "s"}]
+    rets = rewards.compute_returns(game, 0, records)
+    # draws keep no march subsidy either: turtling must pay nothing.
+    assert rets[0] == 0.0
+
+
+def test_wins_pay_march_and_kills():
+    import math
+    import rewards
+
+    game = _hill_game([1, 0])  # win
+    records = [{"turn": 1, "loc": [5, 5], "dest": [6, 6], "action": "s"}]
+    rets = rewards.compute_returns(game, 0, records)
+    closed = math.sqrt(32) - math.sqrt(18)
+    assert rets[0] == rewards.WIN + rewards.HILL_APPROACH * closed
+
+
+def test_main_kills_unpaid_on_loss_rival_kills_paid():
+    import rewards
+
+    game = _game()
+    game["score"] = [0, 1]  # loss
+    game["replaydata"]["ants"] = [[5, 5, 1, 3, 1, "--"]]
+    records = [
+        {"turn": 3, "loc": [5, 4], "dest": [5, 4], "action": "stay"},
+    ]
+    main = rewards.compute_returns(game, 0, records,
+                                   rewards.scales_for("challenger"),
+                                   role="challenger")
+    assert main[0] == rewards.LOSS  # useless aggression unpaid
+    rival = rewards.compute_returns(game, 0, records,
+                                    rewards.scales_for("exploiter"),
+                                    role="exploiter")
+    # pressure is the rival's job: its kills pay even in defeat.
+    assert rival[0] == 3.0 + rewards.LOSS
+
+
+def test_death_still_hurts_on_loss():
+    import rewards
+
+    game = _game()
+    game["score"] = [0, 1]  # loss
+    game["replaydata"]["ants"] = [[4, 4, 1, 2, 0, "s"]]
+    records = [
+        {"turn": 2, "loc": [4, 4], "dest": [5, 4], "action": "s"},
+    ]
+    rets = rewards.compute_returns(game, 0, records)
+    assert rets[0] == rewards.DEATH + rewards.LOSS

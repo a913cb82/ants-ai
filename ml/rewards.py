@@ -63,6 +63,18 @@ ROLE_OVERRIDES = {
 }
 
 
+# Payment follows purpose: dense credit is gated on winning. On a win
+# everything pays; on draw/loss the march subsidy (hill_approach)
+# pays nothing and the main's kills pay nothing (useless aggression
+# unpaid). The rival's kills always pay (pressure is its job -
+# winning aggression, not suicide). Dying always hurts and the
+# terminal outcome always lands: defeats must sting, wins must sing.
+GATED_BY_ROLE = {
+    "challenger": {"hill_approach", "kill"},
+    "exploiter": {"hill_approach"},
+}
+
+
 def scales_for(role: str) -> dict:
     """Full event scale table for a training role."""
     base = {
@@ -253,22 +265,24 @@ def _awards(game, me, records, scales):
     return awards, outcome(game, me), length, turns, keys
 
 
-def compute_returns(game, me, records, scales=None):
+def compute_returns(game, me, records, scales=None, role="challenger"):
     """Discounted return for each decision record.
 
     records: [{turn, loc, dest, action, ...}] logged by the bot for its
     own ants. Returns a parallel list of floats. scales selects the
-    training role's event table (base game rewards by default)."""
+    training role's event table (base game rewards by default); role
+    selects the outcome gate (payment follows purpose)."""
     scales = scales or scales_for("challenger")
     awards, end_value, length, turns, keys = _awards(game, me, records, scales)
-    rets = [0.0] * len(records)
+    by_kind: dict[str, list[float]] = {}
 
     # settle: same-turn credit plus GAMMA-discounted walk-back. "ant"
     # awards travel back along the credited ant's own path; "team"
     # awards reach every earlier decision.
     for event_turn, shares, scope, kind in awards:
+        arr = by_kind.setdefault(kind, [0.0] * len(records))
         for i, share in shares.items():
-            rets[i] += share
+            arr[i] += share
             if kind == "hill_approach":
                 continue  # same-turn only: walk-back would smear the
             # contingency (marching past the hill still pays).
@@ -276,7 +290,19 @@ def compute_returns(game, me, records, scales=None):
                 if j == i or t >= event_turn:
                     continue
                 if scope == "team" or (keys[i] is not None and keys[j] == keys[i]):
-                    rets[j] += share * (GAMMA ** (event_turn - t))
+                    arr[j] += share * (GAMMA ** (event_turn - t))
+
+    # outcome gate: marching/killing that doesn't win pays nothing.
+    # The subsidy for suicidal marching lives here; zeroing it on
+    # draws and losses is what kills the Goodhart.
+    gated = GATED_BY_ROLE.get(role, {"hill_approach", "kill"}) \
+        if end_value <= 0 else set()
+    rets = [0.0] * len(records)
+    for kind, arr in by_kind.items():
+        if kind in gated:
+            continue
+        for i, v in enumerate(arr):
+            rets[i] += v
 
     # terminal outcome broadcast to every decision, UNDISCOUNTED. A win
     # belongs to the opening move as much as the final one: discounting
@@ -292,7 +318,7 @@ def compute_returns(game, me, records, scales=None):
     return rets
 
 
-def decompose(game, me, records):
+def decompose(game, me, records, role="challenger"):
     """Undiscounted return mass by category, for tuning magnitudes.
 
     Dense shares conserve the event amount (one food totals FOOD),
@@ -300,7 +326,8 @@ def decompose(game, me, records):
     compute_returns — so it is reported separately as a PER-RECORD
     value ("terminal"), never multiplied by the row count. Comparing
     "terminal" against the dense totals shows the true scale ratio.
-    """
+    The outcome gate applies here too (role selects it): mass the
+    learner never receives must not appear in the ledger."""
     awards, end_value, _length, _turns, _keys = _awards(
         game, me, records, scales_for("challenger"))
     mass: dict[str, float] = {
@@ -309,6 +336,9 @@ def decompose(game, me, records):
     }
     for _turn, shares, _scope, kind in awards:
         mass[kind] += sum(shares.values())
+    if end_value <= 0:
+        for kind in GATED_BY_ROLE.get(role, {"hill_approach", "kill"}):
+            mass[kind] = 0.0
     mass["terminal"] = end_value
     mass["result"] = (
         "win" if end_value > 0 else ("loss" if end_value < 0 else "draw")

@@ -63,7 +63,7 @@ def _play_one(args) -> dict:
     )
     game = out["game"]
     rows = out["records_a"] if slot == 0 else out["records_b"]
-    rets = rewards.compute_returns(game, slot, rows, rewards.scales_for(role))
+    rets = rewards.compute_returns(game, slot, rows, rewards.scales_for(role), role)
     sa, sb = game["score"][0], game["score"][1]
     archive.record_result(base, first, second, sa, sb, kind="train")
     archive.log_game(base, chal_id, "train", first, second, sa, sb,
