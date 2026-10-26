@@ -13,8 +13,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 43: rival consolidation (same config). The chain
-  continues vs the new champ; watch for a third crown.
+- Round 44: climb continues (same config). Pace 4/30; watch
+  whether the main can take a rival-held crown.
   (Round-35 verdict: APPARENT exhaustion, CONFOUNDED — clones'
   kl pinned 0.01, anchor dragged them to BC; see run-teeth2.md.)
 - Round 28 verdict: GAP STERILE (0 promos, g441 holds). Conversion

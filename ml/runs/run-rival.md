@@ -33,3 +33,13 @@ need time — so stop reseeding and let one rival develop.
   program's meta-pattern (disruption eaten, draws return) breaks
   when the disruption keeps developing. Consolidate (round 43
   same): the rival chain continues vs the new champ.
+- Results (g668-g682): TWO MORE PROMOTIONS — g669 over g666
+  (0.675) and g681 over g669 (0.625), both rival-line. Champ
+  g666 -> g669 -> g681. Rival keeps developing (exploiter->
+  exploiter parent g678->g681 confirmed); worst rival gen still
+  3W+11D, no re-absorption. Main knocks continue (g671 .575).
+- Verdict: REGIME HEALTHY, climb pace 4/30. Keep riding same
+  config (round 44). Watch: main hasn't taken a rival-held
+  crown yet (last three crowns all rival-line) — if the main
+  becomes a permanent sparring partner, the podium is just the
+  rival lineage and pressure is one-directional again.
