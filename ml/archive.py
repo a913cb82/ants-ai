@@ -66,14 +66,15 @@ def set_champion(base: Path, cid: str) -> None:
     atomic_write_json(_paths(base)["dir"] / "champion.json", {"id": cid})
 
 
-def last_exploiter(base: Path = DEFAULT_DIR) -> str | None:
-    """Most recent exploiter id, or None before the first one.
+def last_exploiter(base: Path = DEFAULT_DIR, line: int = 0) -> str | None:
+    """Most recent exploiter id on the given line, or None.
 
-    The persistent rival chains from this id (weights + optimizer),
-    developing its own style over many gens instead of reseeding
-    every third gen."""
+    Two rival lines alternate exploiter gens (line A even counts,
+    line B odd). Entries without a line key are legacy line A.
+    The persistent rival chains from its own line's tip (weights +
+    optimizer), developing its own style over many gens."""
     for m in reversed(members(base)):
-        if m.get("role") == "exploiter":
+        if m.get("role") == "exploiter" and m.get("line", 0) == line:
             return m["id"]
     return None
 
@@ -136,14 +137,18 @@ def _next_id(base: Path) -> str:
     return f"g{(max(taken) + 1) if taken else 0:03d}"
 
 
-def save_checkpoint(base: Path, weights: dict, role: str, parent: str | None) -> str:
+def save_checkpoint(base: Path, weights: dict, role: str, parent: str | None,
+                    line: int | None = None) -> str:
     """Freeze new population member. Returns its id ("g000", ...)."""
     init(base)
     p = _paths(base)
     cid = _next_id(base)
     store(base, cid, weights)
+    row = {"id": cid, "role": role, "parent": parent}
+    if line is not None:
+        row["line"] = line
     with open(p["manifest"], "a") as f:
-        f.write(json.dumps({"id": cid, "role": role, "parent": parent}) + "\n")
+        f.write(json.dumps(row) + "\n")
     return cid
 
 

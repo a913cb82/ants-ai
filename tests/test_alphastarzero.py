@@ -827,7 +827,8 @@ def test_exploiter_chains_rival_weights_and_opt(tmp_path, monkeypatch):
     _mocked_generation(monkeypatch, captured)
     base = tmp_path / "archive"
     cfg = _exploiter_cfg()
-    # drive to the first exploiter (gen 2), then the second (gen 5)
+    # drive to the first exploiter (gen 2, line A), then to the next
+    # line-A turn (gen 8: gens 5/11 belong to line B now).
     selfplay.run_generation(cfg, base, commit=False)
     selfplay.run_generation(cfg, base, commit=False)
     rep = selfplay.run_generation(cfg, base, commit=False)
@@ -835,8 +836,8 @@ def test_exploiter_chains_rival_weights_and_opt(tmp_path, monkeypatch):
     first = rep["challenger"]
     w1 = archive.load_checkpoint(base, first)
     opt_path = base / "checkpoints" / (first + ".opt.json")
-    selfplay.append_history(base, {"gen": 97})
-    selfplay.append_history(base, {"gen": 98})
+    for g in (97, 98, 99, 100, 101):
+        selfplay.append_history(base, {"gen": g})
     rep2 = selfplay.run_generation(cfg, base, commit=False)
     assert rep2["exploiter"] is True
     assert captured["init_w"] == w1  # rival continues, not reseeds
@@ -2431,3 +2432,94 @@ def test_non_exploiter_copies_champion(tmp_path, monkeypatch):
     assert captured["init_w"] == champ_w
     assert captured["role"] == "challenger"
 
+
+
+def test_last_exploiter_tracks_lines_separately(tmp_path):
+    import archive
+
+    base = tmp_path / "archive"
+    assert archive.last_exploiter(base, line=1) is None
+    a0 = archive.save_checkpoint(base, {"w": [1.0]}, "exploiter", None, line=0)
+    archive.save_checkpoint(base, {"w": [1.5]}, "exploiter", a0)
+    b1 = archive.save_checkpoint(base, {"w": [2.0]}, "exploiter", None, line=1)
+    a1 = archive.save_checkpoint(base, {"w": [3.0]}, "exploiter", a0, line=0)
+    # default line 0 keeps legacy behavior (entries without a line key count).
+    assert archive.last_exploiter(base) == a1
+    assert archive.last_exploiter(base, line=0) == a1
+    assert archive.last_exploiter(base, line=1) == b1
+
+
+def test_save_checkpoint_records_line_only_when_given(tmp_path):
+    import archive
+
+    base = tmp_path / "archive"
+    a = archive.save_checkpoint(base, {"w": [1.0]}, "challenger", None)
+    b = archive.save_checkpoint(base, {"w": [2.0]}, "exploiter", None, line=1)
+    rows = {r["id"]: r for r in archive.members(base)}
+    assert "line" not in rows[a]
+    assert rows[b]["line"] == 1
+
+
+def test_exploiter_line_alternates_by_count():
+    import selfplay
+
+    # k-th exploiter sits at gen_index 3k+2: even k -> line A (0),
+    # odd k -> line B (1). Two independent disruptors, one schedule.
+    assert [selfplay._exploiter_line(g) for g in (2, 5, 8, 11, 14)] == [0, 1, 0, 1, 0]
+
+
+def test_line_b_founds_from_supervised_base_never_champ(tmp_path):
+    import archive
+    import selfplay
+
+    base = tmp_path / "archive"
+    archive.save_checkpoint(base, {"w": [1.0]}, "main", None)  # g000
+    champ = {"w": [9.0]}
+    # line B must be alien stock (naive attackers vs the turtle
+    # field), never a champ clone.
+    assert selfplay._exploiter_base(base, {"seed": 0}, 5, champ, line=1) == {"w": [1.0]}
+
+
+def test_line_b_falls_back_to_random_without_founding(tmp_path):
+    import selfplay
+
+    base = tmp_path / "archive"  # empty: no g000 to found from
+    champ = {"w": [9.0]}
+    w = selfplay._exploiter_base(base, {"seed": 0}, 5, champ, line=1)
+    assert w != champ and isinstance(w, dict) and "conv1.weight" in w
+
+
+def test_exploiter_gens_alternate_lines_end_to_end(tmp_path, monkeypatch):
+    import copy
+
+    import archive
+    import evaluate
+    import selfplay
+    import train
+
+    def fake_train(cfg, base, champ_id, champ_w, role="challenger",
+                   parent=None, opt_state=None, **kwargs):
+        cid = archive.save_checkpoint(
+            base, copy.deepcopy(champ_w), role,
+            champ_id if parent is None else parent,
+            line=kwargs.get("line"))
+        return cid, copy.deepcopy(champ_w), {"rows": 0}, None
+
+    def fake_eval(cfg, base, chal_id, chal_w, champ_id, champ_w, map_offset=0):
+        return {"wins": 0, "draws": 0, "games": 0, "win_rate": 0.0,
+                "margins": [], "mean_margin": 0.0}
+
+    monkeypatch.setattr(train, "train_generation", fake_train)
+    monkeypatch.setattr(evaluate, "evaluate", fake_eval)
+    monkeypatch.setattr(evaluate, "should_promote", lambda *a: False)
+    base = tmp_path / "archive"
+    cfg = _exploiter_cfg()
+    ids = [selfplay.run_generation(cfg, base, commit=False)["challenger"]
+           for _ in range(12)]
+    members = {m["id"]: m for m in archive.members(base)}
+    # gens 2, 5, 8, 11 are exploiters on lines 0, 1, 0, 1.
+    assert [members[i].get("line") for i in
+            (ids[2], ids[5], ids[8], ids[11])] == [0, 1, 0, 1]
+    # line B's second gen continues the line-B tip, not line A.
+    assert members[ids[11]]["parent"] == ids[5]
+    assert members[ids[8]]["parent"] == ids[2]

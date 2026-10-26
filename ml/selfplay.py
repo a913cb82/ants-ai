@@ -196,8 +196,16 @@ def publish(base: Path, report: dict, commit: bool) -> None:
         )
 
 
+def _exploiter_line(gen_index: int) -> int:
+    """Which rival line owns this exploiter gen: A (0) or B (1).
+
+    The k-th exploiter sits at gen_index 3k+2; even k runs line A,
+    odd k runs line B. Two independent disruptors, one schedule."""
+    return ((gen_index - 2) // 3) % 2
+
+
 def _exploiter_base(base: Path, cfg: dict, gen_index: int,
-                    champ_w: dict) -> dict:
+                    champ_w: dict, line: int = 0) -> dict:
     """Exploiter starting weights, alternating by exploiter count.
 
     The k-th exploiter sits at gen_index 3k+2. Even k resets to the
@@ -206,7 +214,16 @@ def _exploiter_base(base: Path, cfg: dict, gen_index: int,
     disruptive kill-heavy objectives). The main outgrew the fixed
     BC base (target practice), so competent pressure must come
     from the podium itself. Random init stays the fallback for
-    archives that started without founding weights."""
+    archives that started without founding weights.
+
+    Line B (the second disruptor) always founds from the supervised
+    base, never a champ clone: it must be alien stock (naive
+    attackers vs a turtling field), then it chains within itself."""
+    if line == 1:
+        try:
+            return archive.load_checkpoint(base, "g000")
+        except (FileNotFoundError, ValueError, KeyError):
+            return _random_weights(cfg["seed"] + gen_index, cfg.get("arch", "base"))
     k = (gen_index - 2) // 3
     if k % 2 == 1:
         return copy.deepcopy(champ_w)
@@ -237,15 +254,17 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
         champ_w = archive.load_checkpoint(base, champ_id)
     gen_index = len(read_history(base))
     exploiter = gen_index % 3 == 2
+    line = _exploiter_line(gen_index) if exploiter else None
     if exploiter:
-        # Persistent rival: continue the last exploiter's chain
+        # Persistent rival: continue this LINE's last exploiter chain
         # (weights + optimizer) instead of reseeding. Counter-styles
         # need time to develop; a fresh reseed every third gen never
-        # gets past target practice. First rival seeds from the
-        # founding/champ alternation, then the chain owns it.
-        rival = archive.last_exploiter(base)
+        # gets past target practice. The first rival of a line seeds
+        # from the founding alternation (line A) or the supervised
+        # base (line B: alien stock), then the chain owns it.
+        rival = archive.last_exploiter(base, line)
         if rival is None:
-            start_w = _exploiter_base(base, cfg, gen_index, champ_w)
+            start_w = _exploiter_base(base, cfg, gen_index, champ_w, line)
             opt_in = None
             parent = champ_id
         else:
@@ -280,7 +299,7 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
             anchor_w = None
     chal_id, chal_w, train_stats, opt_out = train.train_generation(
         cfg, base, champ_id, start_w, role=role, parent=parent,
-        opt_state=opt_in, anchor=anchor_w,
+        opt_state=opt_in, anchor=anchor_w, line=line,
         student=main_id if role == "challenger" else champ_id,
         # Scouts drift — that's their job. The anchor binds the main
         # to the supervised manifold; on exploiters it homogenizes

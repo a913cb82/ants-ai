@@ -77,14 +77,14 @@ def _play_one(args) -> dict:
     return {"rows": rows, "rets": rets}
 
 
-def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict, role: str = "challenger", parent: str | None = None, opt_state: dict | None = None, anchor: dict | None = None, kl_anchor_beta: float = 0.0, student: str | None = None) -> tuple[str, dict, dict, dict]:
+def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict, role: str = "challenger", parent: str | None = None, opt_state: dict | None = None, anchor: dict | None = None, kl_anchor_beta: float = 0.0, student: str | None = None, line: int | None = None) -> tuple[str, dict, dict, dict]:
     """Self-play training games -> (challenger id, weights, train stats, opt state).
 
     The snapshot's parent defaults to the champion; the continuous
     main passes its own last id so parents form chains, not stars.
     Incoming optimizer state (main lineage) is restored before
     training; outgoing state is returned for banking."""
-    chal_id = archive.save_checkpoint(base, copy.deepcopy(champ_w), role, parent if parent is not None else champ_id)
+    chal_id = archive.save_checkpoint(base, copy.deepcopy(champ_w), role, parent if parent is not None else champ_id, line=line if role == "exploiter" else None)
     chal_w = copy.deepcopy(champ_w)
     batch: list = []
     policy = algorithm.new_policy(chal_w)
