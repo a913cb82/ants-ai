@@ -13,9 +13,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 53: post-revert regime (7ch restored, truncation shim
-  live). Knocks exist; tripwire quiet. Watch v (critic lost
-  its intent crutch — expect a one-gen wobble, not a break).
+- Round 54: same config (alive: 2 knocks, revert clean).
+  Watch g832-type fades.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)

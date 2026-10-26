@@ -71,6 +71,14 @@ need time — so stop reseeding and let one rival develop.
 - Verdict (round 50): ALIVE (knocks, no tripwire). NOT
   knockless -> the queued plan fired: round 51 lagged intent
   channels (run-comm.md), reverted round 53 (barren).
+- Results (g818-g832): 0 PROMOTIONS. Champ g798 holds. Revert
+  CLEAN (gen-1 7-wide confirmed, zero crashes, truncation
+  exact). Critic wobble as predicted (one-gen re-fit bump
+  v~.9, then range-bound, fitting every gen — no break).
+  2 knocks (g822 .575, g827 .525). Lakes flickers (g827/g829
+  sweeps — best lakes signal yet); no map 0/15. Late fade
+  g832 (1W4D) bears watching.
+- Verdict: ALIVE, continue same (round 54).
 - Results (g728-g742): 0 PROMOTIONS. Champ g720 holds. Two
   rival knocks (g732 .60, g735 .575 — correctly unpromoted:
   Wilson lower, not raw eff, is the bar; no anomaly). Main
