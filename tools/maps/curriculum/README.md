@@ -45,9 +45,13 @@ at any pool size (standing coverage rule). Train-side assignment
 spans the whole rung.
 
 FROZEN by user order (round 70): no entries, no exits until
-permitted. Passenger verdicts are report-only (rates banked,
-no pool change). The rung-3 graduation conditional is moot
-while frozen.
+permitted. The frozen rung is rung1_open + every existing rung2
+map a-s (a,b,c,d,f,g,h,i,j,q,r,s = 13 boards; e was deleted as
+redundant long ago, k-p deleted by user order). c/h rejoin by
+this definition (not by promotion); q/r/s are members by
+legislation (stay rule moot — round-70 rates report-only).
+Passenger verdicts bank knowledge only. The rung-3 graduation
+conditional is moot while frozen.
 
 - Board promotion (staged -> pool): playable_2p, hills placed, one
 clean smoke (runs end to end, no crash) -> joins the next round

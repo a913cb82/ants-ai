@@ -13,12 +13,13 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 70: q/r/s PASSENGER trial (idea 2, tool-built 40s).
-  8-board pool + 3 passengers; verdict now REPORT-ONLY
-  (pool FROZEN by user order — rates banked, no entries).
-  Tripwire discounted (unfamiliar boards); passenger judgment
-  leads on knowledge, not membership. + standing matrix-cycle
-  diagnostic.
+- Round 70: q/r/s passenger trial (idea 2, tool-built 40s).
+  8-board pool + 3 passengers (c/h absent — rejoin round 71).
+  Verdict REPORT-ONLY: pool FROZEN as rung1 + rung2 a-s
+  existing (13 boards; c/h rejoin by definition, q/r/s
+  members by legislation, stay rule moot). Tripwire
+  discounted; passenger judgment leads on knowledge.
+  + standing matrix-cycle diagnostic.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
