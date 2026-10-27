@@ -16,9 +16,11 @@ tools/maps/curriculum/README.md.
 
 - Round 80 running: strike-two judgement (main knock/crown
   clears; main-knockless + rival knock/crown = graft #3).
-- Next: fleet synthesis in (review-fleet.md); Stage-0 impl
-  batch (adv-freeze + imitation probe + ghost audit) then
-  round 81 on the 9-board pool. Full plan: plan-next.md.
+- Stage-0 BUILT on impl/stage0, merge HELD for round-80
+  verdict (code quarantine): adv-freeze green + smoke flat;
+  ghost-chase 15.65% (lake 2x) confirms LOS leak; imitation
+  54.7% needs champ-self-agreement baseline before it
+  means anything (condition of merge review).
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
