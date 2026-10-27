@@ -62,3 +62,13 @@ incentive via boards; this attacks it via the ledger).
   rounds — same logic as the spoiler fold). Capacity stays
   parked, sharper reason: line A proves the net can knock;
   the binding constraint is the main's ledger, not its size.
+- Results (g1149-g1163, round 74): DIVERGENCE-THEN-WIN.
+  g1162 (graft lineage, line 0) over g924, eff .675 (10W/7D)
+  mm +1.05 nash 1.00. Champ g924 -> g1162. Drought ends
+  (14 rounds). Main knocks 3x (.575/.525/.55) — strike
+  EXPIRED. Not honeymoon (decisive margins, 7-8W mains),
+  not collapse. Same division of labor as graft #1: takes
+  arrive via kill-scales, mains knock. Train: s 0/60 draws
+  again + h/c near-locked (freeze holds — report only).
+- Verdict: graft takes, continue grafted line (round 75).
+  Watch g1163-vs-g1162 rematch + new-champ consolidation.
