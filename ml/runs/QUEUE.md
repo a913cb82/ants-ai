@@ -17,6 +17,11 @@ tools/maps/curriculum/README.md.
 - Round 86: same (tenure 42→57; activation gates:
   tenure 55+ or 3rd promo-less round). Jury exam BUILDS
   in parallel (activation gated, not live).
+- Jury BUILT on impl/juryexam (merge HELD for round 86):
+  --exam-jury-size, default 0 = legacy byte-identical
+  (proven); jury = 12 champ + 8 vs frontier/counters
+  incl. mandatory giant-killer. 6 tests, 264 green.
+  Activation needs a round boundary + gate verdict.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
