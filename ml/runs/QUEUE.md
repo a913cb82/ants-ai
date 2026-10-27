@@ -13,8 +13,11 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 80: same (strike-two terms set: main knock/crown
+- Round 80 running: strike-two judgement (main knock/crown
   clears; main-knockless + rival knock/crown = graft #3).
+- Next: fleet synthesis in (review-fleet.md); Stage-0 impl
+  batch (adv-freeze + imitation probe + ghost audit) then
+  round 81 on the 9-board pool. Full plan: plan-next.md.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
