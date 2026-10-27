@@ -13,8 +13,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 78: same (champ g1202, MAIN-line crown).
-  Watch consolidation + who tests the new champ.
+- Round 79: same (4 champs in 30 gens).
+  Pre-commit: rival crown + main knockless = strike one.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)

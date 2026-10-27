@@ -95,3 +95,12 @@ incentive via boards; this attacks it via the ledger).
   since g913. Sterile boards unchanged (freeze).
 - Verdict: climb continues, same config (round 78). Watch
   g1202 consolidation (holds? tested by whom?).
+- Results (g1209-g1223, round 78): 3 PROMOS — g1211 main
+  .625 (back-to-back main crowns ✓) → g1216 rival .625 →
+  g1219 rival .65. Champ g1202→g1211→g1216→g1219 in 15
+  gens (fastest rotation ever). Main takes once then stalls
+  (0/12, 1 knock g1214) — not formal re-stall (2 main
+  knocks: g1212/g1214) but rival owns the round.
+- Pre-commit round 79: one more rival crown with NO main
+  knock = strike one again. Watch main answers or rival
+  runs away.
