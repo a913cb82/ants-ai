@@ -14,11 +14,9 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- PROGRAM HALTED (OOM): selfplay balloons to ~14GB anon
-  in one process (workers 12 AND 8). Round 83 at 3/15
-  (g1287 FOURTH straight main crown .625, champ →g1287).
-  Profiler dispatched; no rounds until peak is cut.
-  Next: profile fix → verify gen → round 83c.
+- Round 83c: resume 12 gens (3/15 done) on FIXED memory
+  (profiler merged: 8x/row, 5.1GB→0.63GB, determinism
+  proven). Workers back to 12. Same config otherwise.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)

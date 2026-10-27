@@ -166,3 +166,10 @@ incentive via boards; this attacks it via the ledger).
   (FOURTH straight main crown); gen 2 OOM-killed again
   (13.8GB, workers 8 — not parallelism, the process
   itself balloons). PROGRAM HALTED. Profiler dispatched.
+- Profiler verdict (merged): rows held TWICE (python lists
+  + tensor copies, 59KB/row) + unchunked D4 critic forward
+  (1.2GB activations). Fix: compact-on-arrival + zero-copy
+  batch + chunked values + gc. 8x/row (5.1GB→0.63GB at
+  85k rows), determinism triple-proven, 261 green.
+  Cause of the era, not the round: batch grew with longer
+  competitive games; the balloon predates round 83.
