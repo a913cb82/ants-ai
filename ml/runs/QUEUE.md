@@ -13,9 +13,9 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 73 running: champ-share restore (~25%) + spoiler
-  fold, frozen 12, penalty on, volume held. Backstop clock
-  starts here (knockless 73 = strike one of two).
+- Round 74: graft #2 (main := line-A tip g1147).
+  Penalty OFF, frozen 12, volume + share held.
+  Watch honeymoon draws vs divergence (round-56 standard).
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)

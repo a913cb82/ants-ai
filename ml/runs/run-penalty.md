@@ -40,3 +40,25 @@ incentive via boards; this attacks it via the ledger).
   champ share restored (~25%). Round 73 = restore + fold.
 - Regime: ALIVE (2 line-A knocks .55/.50). Drought 13.
   STRIKE ONE on the main (0/11 knocks + rival knocks).
+- Results (g1134-g1148, round 73): STRIKE TWO (main 0/10,
+  best .35; rival knocks g1138 .50 + g1144 .55). 0 promos
+  (drought 14). Penalty flat AGAIN (.24 vs .23, valid
+  control) — idea 3 CLOSED (failed twice clean). Dilution
+  PARTIAL (knocks rival-only; main flat under full champ
+  exposure — main is ledger-starved, not dilution-starved).
+  Matrix 0 cycles. Volume steady (66.8 min).
+- CORRECTIONS to runner: (a) exploiters CAN promote (g924 +
+  7 crowns are exploiter-line; .50/.55 correctly Wilson-held,
+  not role-barred); (b) backstop clock NEVER started (round
+  73 had knocks — knockless-ness needs zero either line).
+- Intervention: GRAFT #2 (main := line-A tip g1147, weights
+  + banked opt, one-liner, old tip revertible). The round-66
+  novelty requirement is met by REBUTTAL, not novelty: the
+  collapse objection was falsified by graft #1's aftermath
+  (role-scales diverged, main crowned twice). Same operation,
+  same shape (.35-ceiling vs knocking stock), same watch:
+  honeymoon draws vs divergence-then-win (round-56 standard).
+- Penalty OFF from round 74 (falsified ideas don't tax future
+  rounds — same logic as the spoiler fold). Capacity stays
+  parked, sharper reason: line A proves the net can knock;
+  the binding constraint is the main's ledger, not its size.
