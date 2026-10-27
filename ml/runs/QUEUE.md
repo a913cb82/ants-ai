@@ -13,8 +13,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 76: same (grafted line, champ g1162).
-  Knock-rich regime — watch conversion (knocks → crowns?).
+- Round 77: same (ceiling .60 x3 — one win short).
+  Watches: ceiling breaks? collapse spreads?
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)

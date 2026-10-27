@@ -79,3 +79,11 @@ incentive via boards; this attacks it via the ledger).
   g1164 (g1163's child) .425 — rematch does NOT convert.
   Sterile trio unchanged (s 60D, gap 84D, h 59D — freeze).
 - Verdict: ALIVE, continue same (round 76).
+- Results (g1179-g1193, round 76): ALIVE. 7 knocks (3 main
+  + 4 rival), 0 promos. Champ g1162 holds. Eff ceiling .60
+  x3 (g1183/g1189/g1192) — one win short of the bar every
+  time. Third knock-rich round, zero crowns: conversion is
+  the question, not contact. Main dips late (g1193 .20) —
+  isolated or spread? Train: gap/h/s draw-locked (freeze).
+- Verdict: ALIVE, continue same (round 77). Watches:
+  ceiling breaks? g1193-type collapse spreads?
