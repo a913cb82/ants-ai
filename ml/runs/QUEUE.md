@@ -14,9 +14,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 87: JURY EXAM LIVE (--exam-jury-size 4).
-  Tripwire answered by measurement fix (re-root banned,
-  bank premature). Strike one live on the main.
+- Round 88: same, jury live. Strikes in champ-slice
+  units (r87 = count one). 2 more ⇒ role-change r90.
 - Jury BUILT on impl/juryexam (merge HELD for round 86):
   --exam-jury-size, default 0 = legacy byte-identical
   (proven); jury = 12 champ + 8 vs frontier/counters

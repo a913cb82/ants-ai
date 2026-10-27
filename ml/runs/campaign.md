@@ -211,3 +211,20 @@ incentive via boards; this attacks it via the ledger).
   (learning healthy); the convergent fix for conversion
   failure is the jury; gate (b) independently fires).
   Strike one rides along (main watch under jury exam).
+- Results (g1346-g1360, round 87): jury exam WORKS (first
+  round). g1356 won its champ slice 4W/2L/6D — jurors
+  contained it (g1355/g1307 splits), the exact job desc.
+  0 promos, 2 jury-held rival knocks (.55/.55). Mains 0/10
+  (best .475). Champ g1287 tenure 72.
+- STRIKE TWO overruled → STRIKE ONE, recalibrated (cause
+  recorded): the strike doctrine was calibrated on
+  champ-only knock rates; the jury mechanically suppresses
+  knocks (its job) — firing lineage surgery on jury-
+  suppressed counts double-counts the difficulty. New
+  units: champ-slice knocks (12 champ games, comparable
+  across exams). r87 = first count (main slice-knockless
+  + rival slice-knock g1356). New instrument ⇒ new series.
+- Pre-commit: 2 more consecutive jury-calibrated strike
+  rounds (r88+r89) ⇒ role-change Stage-2.4. Any main
+  champ-slice knock/crown clears. No lineage surgery under
+  a 1-round-old exam.
