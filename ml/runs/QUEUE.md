@@ -14,8 +14,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 84: same (g1287 consolidates). Watch fifth
-  crown vs rival answers vs second quiet round.
+- Round 85: same (6 knocks, g1287 at 27). Watch
+  tenure vs pressure (knocks → crowns?).
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)

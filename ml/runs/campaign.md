@@ -180,3 +180,9 @@ incentive via boards; this attacks it via the ledger).
   but soft — the main-line era pauses, no fifth crown.
   Runner's gate musing noted but rejected: the bar held
   correctly (2 promos in 4 rounds is healthy throughput).
+- Results (g1301-g1315, round 84): ALIVE. 6 knocks (3 main
+  + 3 rival: bests g1307 .575 / g1311 .60), 0 promos.
+  Champ g1287 holds 27 straight. pg flat, v healthy.
+  Knock-rich consolidation, not quiet. Watch tenure:
+  g1287 at 27 — pressure exists (6 knocks), jury exam
+  (Stage 1) is the queued answer if crowns stay rare.
