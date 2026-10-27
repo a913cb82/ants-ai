@@ -16,7 +16,9 @@ tools/maps/curriculum/README.md.
 
 - Round 81: graft #3 read (main := g1252) on SAME code +
   9-board pool (q/r/s out, ordered). Stage-0 merge held
-  for attribution; imitation baseline queued in parallel.
+  for attribution; imitation BASELINE IN: champ self-
+  agreement 57.9% vs student 56.6% (gap 1.2pts) — capacity
+  ACQUITTED, the 85% bar was unreachable by anyone.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
