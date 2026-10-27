@@ -198,3 +198,16 @@ incentive via boards; this attacks it via the ledger).
   tenure 55+ or third straight promo-less round — a healthy
   climb (promos 2 rounds ago) doesn't get its exam swapped
   mid-stride.
+- Results (g1331-g1345, round 86): TRIPWIRE + STRIKE ONE
+  (fresh) + GATE (b) FIRES. Main 0/10 knockless (best .45,
+  tail .20); sole knock rival g1332 .50 (Wilson-held).
+  Champ g1287 holds → tenure 57. Field cooling 6→2→1
+  knocks over r84-86. CORRECTION: the runner declined
+  activation for want of main-line knocks — that condition
+  is not in gate (b), which fires on promo-less x3 alone.
+  Gates are mechanical; activation proceeds.
+- Intervention: ACTIVATE jury exam round 87 (tripwire's
+  re-root horn is banned (graft-4), bank horn premature
+  (learning healthy); the convergent fix for conversion
+  failure is the jury; gate (b) independently fires).
+  Strike one rides along (main watch under jury exam).

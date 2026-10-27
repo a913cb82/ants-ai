@@ -14,9 +14,9 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 86: same (tenure 42→57; activation gates:
-  tenure 55+ or 3rd promo-less round). Jury exam BUILDS
-  in parallel (activation gated, not live).
+- Round 87: JURY EXAM LIVE (--exam-jury-size 4).
+  Tripwire answered by measurement fix (re-root banned,
+  bank premature). Strike one live on the main.
 - Jury BUILT on impl/juryexam (merge HELD for round 86):
   --exam-jury-size, default 0 = legacy byte-identical
   (proven); jury = 12 champ + 8 vs frontier/counters
