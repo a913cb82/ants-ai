@@ -154,6 +154,11 @@ def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict, role: 
     for out in games:
         batch.extend(algorithm.collect(policy, out["rows"], out["rets"]))
     losses, entropies, kls, pgs, vs, anchs, pgas = [], [], [], [], [], [], []
+    # Advantage freeze: one baseline per generation with the pre-update
+    # value net. Every epoch reuses this triple, so advantages cannot
+    # evaporate as the critic fits (recompute-per-minibatch did).
+    frozen_adv, frozen_mean, frozen_std = algorithm.frozen_advantages(
+        policy, batch)
     for _ in range(cfg["epochs"]):
         stats = algorithm.train_epoch(
             policy, opt, batch,
@@ -161,6 +166,7 @@ def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict, role: 
             entropy_beta=cfg["entropy_beta"], max_norm=cfg["max_norm"],
             minibatch=cfg["minibatch"],
             anchor=anchor_pol, kl_anchor_beta=kl_anchor_beta,
+            advantages=frozen_adv, bmean=frozen_mean, bstd=frozen_std,
         )
         losses.append(stats["loss"])
         entropies.append(stats["entropy"])

@@ -230,6 +230,30 @@ def _advantages(
     return rz - values.detach()
 
 
+def frozen_advantages(
+    policy: model.CNNPolicy, batch: list[BatchItem]
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """One-shot advantages with the PRE-UPDATE value net (per generation).
+
+    Returns (adv, bmean, bstd) in batch order: adv[i] belongs to
+    batch[i]. The caller passes the triple into every train_epoch call
+    so all minibatches of all epochs share one frozen baseline instead
+    of recomputing (return - value) from the current critic — which
+    evaporated advantages as the critic fit. Batch scale (bmean/bstd)
+    is per-generation, exactly as train_epoch computed it before."""
+    if not batch:
+        return (torch.zeros(0), torch.tensor(0.0), torch.tensor(1.0))
+    device = next(policy.parameters()).device
+    with torch.no_grad():
+        windows = torch.stack(
+            [w for w, _a, _r, _m, _o in batch]).to(device)
+        values = policy.values(windows).detach().cpu()
+    all_ret = torch.tensor(
+        [r for _w, _a, r, _m, _o in batch], dtype=torch.float32)
+    bmean, bstd = all_ret.mean(), all_ret.std(unbiased=False)
+    return _advantages(all_ret, values, bmean, bstd).detach(), bmean, bstd
+
+
 def train_epoch(
     policy: model.CNNPolicy,
     opt: torch.optim.Optimizer,
@@ -241,6 +265,9 @@ def train_epoch(
     minibatch: int = 64,
     anchor: model.CNNPolicy | None = None,
     kl_anchor_beta: float = 0.0,
+    advantages: torch.Tensor | None = None,
+    bmean: torch.Tensor | None = None,
+    bstd: torch.Tensor | None = None,
 ) -> dict[str, float]:
     """One PPO pass: clipped surrogate + value loss - beta * entropy.
 
@@ -250,6 +277,12 @@ def train_epoch(
     gave every minibatch unit variance by construction, amplifying noise
     into full-scale gradients.) Empty batch is a no-op (early
     elimination, lost records). Returns losses for the generation log.
+
+    Frozen-baseline mode: pass the (adv, bmean, bstd) triple from
+    frozen_advantages (computed once per generation with the pre-update
+    value net) and every minibatch of this epoch reuses it instead of
+    recomputing from the current critic. None (default) recomputes
+    exactly as before.
     """
     stats = {"loss": 0.0, "mean_return": 0.0, "entropy": 0.0, "kl": 0.0,
              "pg_loss": 0.0, "v_loss": 0.0, "steps": 0, "kl_anchor": 0.0,
@@ -258,16 +291,26 @@ def train_epoch(
         return stats
     stats["mean_return"] = sum(r for _w, _a, r, _m, _o in batch) / len(batch)
     # Batch-level return statistics: every minibatch is scored on the
-    # same scale, preserving the event-vs-noise magnitude gap.
+    # same scale, preserving the event-vs-noise magnitude gap. A frozen
+    # triple from frozen_advantages (one baseline per generation)
+    # overrides the recompute: the critic still fits every minibatch,
+    # but the policy gradient keeps the pre-update advantages.
     all_ret = torch.tensor(
         [r for _w, _a, r, _m, _o in batch], dtype=torch.float32)
-    bmean, bstd = all_ret.mean(), all_ret.std(unbiased=False)
+    if advantages is None or bmean is None or bstd is None:
+        bmean, bstd = all_ret.mean(), all_ret.std(unbiased=False)
+        frozen = None
+    else:
+        frozen = torch.as_tensor(advantages).detach().flatten()
+        assert len(frozen) == len(batch), (
+            f"frozen advantages {len(frozen)} != batch {len(batch)}")
     mb_size = min(minibatch, max(16, len(batch) // 4)) if batch else minibatch
     idx = torch.randperm(len(batch)).tolist()
     n_loss = n_pg = n_v = n_ent = n_kl = n_anch = n_pga = 0.0
     n_steps = 0
     for start in range(0, len(batch), mb_size):
-        mb = [batch[i] for i in idx[start:start + mb_size]]
+        mb_idx = idx[start:start + mb_size]
+        mb = [batch[i] for i in mb_idx]
         windows, masks, actions, returns, old = _tensors(policy, mb)
         logp = model.masked_log_softmax(policy, windows, masks)
         chosen = logp[range(len(mb)), actions]
@@ -276,7 +319,10 @@ def train_epoch(
         # Critic fits batch-standardized returns; advantages keep the
         # batch scale (no second standardization: noise minibatches must
         # stay small next to event minibatches).
-        adv = _advantages(returns, values, bmean, bstd)
+        if frozen is None:
+            adv = _advantages(returns, values, bmean, bstd)
+        else:
+            adv = frozen[mb_idx].to(returns.device)
         rz = (returns - bmean) / (bstd + 1e-8)  # value target (same scale)
         ratio = torch.exp(chosen - old)
         pg_rows = -torch.min(ratio * adv,
