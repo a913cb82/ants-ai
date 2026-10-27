@@ -72,3 +72,10 @@ incentive via boards; this attacks it via the ledger).
   again + h/c near-locked (freeze holds — report only).
 - Verdict: graft takes, continue grafted line (round 75).
   Watch g1163-vs-g1162 rematch + new-champ consolidation.
+- Results (g1164-g1178, round 75): ALIVE, emphatically.
+  10/15 knocks (6 main + 4 rival), 0 promos. Champ g1162
+  holds all 15 (consolidates). Main competitive again
+  (.60/.50/.50/.55/.525/.55 — g1166 .60 correctly gated).
+  g1164 (g1163's child) .425 — rematch does NOT convert.
+  Sterile trio unchanged (s 60D, gap 84D, h 59D — freeze).
+- Verdict: ALIVE, continue same (round 76).

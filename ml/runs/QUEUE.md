@@ -13,8 +13,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 75: grafted line continues (champ g1162).
-  Watch rematch + consolidation. Strike expired.
+- Round 76: same (grafted line, champ g1162).
+  Knock-rich regime — watch conversion (knocks → crowns?).
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
