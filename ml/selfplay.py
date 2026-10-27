@@ -60,6 +60,7 @@ def default_config() -> dict:
         "train_games": 4,
         "champ_share": 0.25,
         "eval_games": 20,
+        "exam_jury_size": 0,
         "temperature": 1.0,
         "lr": 1e-3,
         "epochs": 3,
@@ -97,6 +98,10 @@ def parse_args(argv: list[str] | None = None) -> dict:
                      help="every Nth train game prices draws as losses "
                      "(anti-turtle); 0 disables")
     p.add_argument("--eval-games", type=int, default=defaults["eval_games"])
+    p.add_argument("--exam-jury-size", type=int, default=defaults["exam_jury_size"],
+                     help="jury exam: challenger faces the champ (3/5 of games) "
+                     "plus this many PFSP-frontier jurors incl. the top "
+                     "recorded counter; 0 = champ-only legacy exam")
     p.add_argument("--temperature", type=float, default=defaults["temperature"])
     p.add_argument("--lr", type=float, default=defaults["lr"])
     p.add_argument("--epochs", type=int, default=defaults["epochs"])
@@ -137,6 +142,7 @@ def parse_args(argv: list[str] | None = None) -> dict:
         "champ_share": args.champ_share,
         "train_draw_penalty_every": args.train_draw_penalty_every,
         "eval_games": args.eval_games,
+        "exam_jury_size": args.exam_jury_size,
         "temperature": args.temperature,
         "lr": args.lr,
         "epochs": args.epochs,
