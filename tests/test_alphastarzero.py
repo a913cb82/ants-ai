@@ -269,18 +269,17 @@ def test_kill_credit_splits_among_nearby_attackers():
         {"turn": 3, "loc": [0, 0], "dest": [0, 0], "action": "stay"},
     ]
     rets = rewards.compute_returns(game, 0, records)
-    assert rets[0] == rewards.KILL + rewards.WIN
+    assert rets[0] == 2.0 + rewards.WIN  # challenger KILL (strike-two)
     assert rets[1] == rewards.WIN
 
 
-def test_one_for_one_trade_nets_negative():
+def test_won_trade_nets_zero_for_challenger():
     import rewards
 
-    # Asymmetric death: killing pays +1, dying costs -2. A 1-for-1
-    # trade nets -1, so mutual annihilation is no longer free — the
-    # learner must preserve material to profit from combat. Pinned
-    # on a win (kills pay); on draws/losses the kill is gated and
-    # only the death lands (-2).
+    # Strike-two: challenger KILL 2.0 forgives won trades (dense nets
+    # 0); the BASE asymmetry (+1/-2, net -1) still holds for unknown
+    # roles. Pinned on a win (kills pay); on draws/losses the kill is
+    # gated and only the death lands (-2).
     game = _game(score=[2, 0])  # win
     game["replaydata"]["ants"] = [
         [5, 5, 1, 3, 1, "--"],  # enemy dies turn 3
@@ -291,7 +290,7 @@ def test_one_for_one_trade_nets_negative():
         {"turn": 3, "loc": [5, 4], "dest": [6, 4], "action": "s"},
     ]
     rets = rewards.compute_returns(game, 0, records)
-    assert rets[0] == rewards.KILL + rewards.DEATH + rewards.WIN
+    assert rets[0] == 2.0 + rewards.DEATH + rewards.WIN  # won-trade dense nets 0
 
 
 def test_main_hill_price_rebalanced_rival_pinned(tmp_path):
@@ -299,8 +298,9 @@ def test_main_hill_price_rebalanced_rival_pinned(tmp_path):
 
     # The main's ledger was march-dominated (HA ~58/game vs outcome
     # +-5): marching paid even when it killed you. The rival keeps
-    # the winner's price; only the main's price falls.
-    assert rewards.scales_for("challenger")["HILL_APPROACH"] == 0.25
+    # the winner's price; the challenger now marches at it too
+    # (strike-two HA 0.5, still gated on wins).
+    assert rewards.scales_for("challenger")["HILL_APPROACH"] == 0.5
     assert rewards.scales_for("exploiter")["HILL_APPROACH"] == 0.5
 
 
@@ -319,7 +319,7 @@ def test_hill_approach_pays_for_closing():
     rets = rewards.compute_returns(game, 0, records)
     before = math.sqrt(dist2((5, 5), (5, 9), 10, 10))
     after = math.sqrt(dist2((5, 6), (5, 9), 10, 10))
-    assert rets[0] == rewards.WIN + rewards.HILL_APPROACH * (before - after)
+    assert rets[0] == rewards.WIN + 0.5 * (before - after)  # challenger HA
 
 
 def test_hill_approach_ignores_opening_and_staying():
@@ -352,7 +352,7 @@ def test_hill_approach_stays_same_turn_only():
     rets = rewards.compute_returns(game, 0, records)
     assert rets[0] == rewards.WIN  # opened: terminal only, no walk-back
     # closed one full tile (d 5 -> 4): same-turn credit + terminal.
-    assert rets[1] == rewards.WIN + rewards.HILL_APPROACH * 1.0
+    assert rets[1] == rewards.WIN + 0.5 * 1.0  # challenger HA
 
 
 def test_hill_approach_targets_first_hill_only():
@@ -388,7 +388,7 @@ def test_exploiter_gets_triple_kill_scales():
     sharp = rewards.compute_returns(
         game, 0, records, rewards.scales_for("exploiter"),
         role="exploiter")
-    assert base[0] == rewards.KILL + rewards.WIN
+    assert base[0] == 2.0 + rewards.WIN  # challenger KILL (strike-two)
     assert sharp[0] == 3 * rewards.KILL + rewards.WIN
 
 
@@ -397,7 +397,7 @@ def test_exploiter_scales_keep_outcome():
 
     assert rewards.scales_for("exploiter")["WIN"] == rewards.WIN
     assert rewards.scales_for("exploiter")["LOSS"] == rewards.LOSS
-    assert rewards.scales_for("challenger")["KILL"] == rewards.KILL
+    assert rewards.scales_for("challenger")["KILL"] == 2.0  # strike-two
 
 
 def test_hill_raze_credits_the_ant_on_the_hill():
@@ -2584,7 +2584,7 @@ def test_wins_pay_march_and_kills():
     records = [{"turn": 1, "loc": [5, 5], "dest": [6, 6], "action": "s"}]
     rets = rewards.compute_returns(game, 0, records)
     closed = math.sqrt(32) - math.sqrt(18)
-    assert rets[0] == rewards.WIN + rewards.HILL_APPROACH * closed
+    assert rets[0] == rewards.WIN + 0.5 * closed  # challenger HA
 
 
 def test_main_kills_unpaid_on_loss_rival_kills_paid():
@@ -2669,7 +2669,7 @@ def test_draw_penalty_win_unchanged():
                                   "challenger", draw_as_loss=True)
     assert pen == normal  # wins already pay: penalty changes nothing
     closed = math.sqrt(32) - math.sqrt(18)
-    assert normal == [rewards.WIN + rewards.HILL_APPROACH * closed]
+    assert normal == [rewards.WIN + 0.5 * closed]  # challenger HA
 
 
 def test_train_draw_penalty_flags_seeded_subset(tmp_path, monkeypatch):
