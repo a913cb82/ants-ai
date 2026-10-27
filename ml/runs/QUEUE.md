@@ -5,7 +5,8 @@ done (kept, with the round that proved it), dropped (tested, failed,
 with reason), parked (doctrine says not now).
 
 Doctrine (autoresearch-inspired): one idea per round, a fixed exam
-(15 gens, train 4, eval 20, Wilson bar > 0.5, borderline repeats),
+(15 gens, train 60 games / 30 opponents since round 71, eval 20,
+Wilson bar > 0.5, borderline repeats),
 a written plan with falsification criteria before launch, results
 appended after. Rounds stay sequential (single champion lineage).
 Pool entry/exit runs on the promotion/demotion rules in
@@ -22,51 +23,29 @@ tools/maps/curriculum/README.md.
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
 
-- Round 51 candidate: lagged intent channels (user proposal).
-  5 extra channels carrying last turn's friendly action
-  distributions, visible only where friendlies stand — comms
-  with ant-local state intact. Zero-init pad
-  (behavior-preserving deploy). Plan in run-comm.md. Gateway:
-  ablation gap decides; failure = axis barren, do not build
-  bigger. Queued behind the round-50 tripwire (a knockless
-  round reopens re-root-or-bank first).
-- Behind the gateway, in order: pheromone map (shared decaying
-  layer, 1-2ch, stigmergy); learned messages (CommNet-style,
-  two-stage forward, rotates with D4); recurrent hidden state
-  (needs sequence PPO — big, last resort). Frame stacking
-  (last-window channels) reviewed and passed over: intent
-  subsumes its motion cues where it matters (neighbors).
-- Staged: rung2q/r/s (40x40, 4 hills, upstream-tool-built:
-  cavemap/maze/walk). k-p batch deleted (k/l sterile, m/n
-  predicted sterile, o/p scrapped for tool-built). Pool entry
-  by the per-map trial rules: round 70 auditions q/r/s as
-  passengers (stay >10% decisive each).
+- Standing: map-mechanic axis MIXED (round-70 audition,
+  archive/run-gated.md: q 100% decisive, r 30% weak-over-bar,
+  s 0% sterile — all three members by legislation, rates banked).
+  q/r/s OUT for round 81 as ordered; generator-survey follow-up
+  gated on the round-81 shape. k/l sterile (archive/run-big.md),
+  m/n parked without a new mechanism, o/p scrapped for tool-built.
 - Conditional: rung 3 = full real pool (148 maps). Needs 2-in-10 on
   current pool. NO held-out splits at any size (standing rule):
   every rung board trains and evals every gen — per-gen coverage
-  arrives with the volume round; rotation covers at round level
-  until then. Graduation re-decided every round.
+  arrives with the volume round (landed round 71); rotation covers
+  at round level on smaller pools. Graduation re-decided every round.
 - Conditional: kill/death removal, pure-outcome ablations —
-  ESCALATED to idea 6 (last resort). Dense stalled 9 rounds
-  (60-68), but gating (idea 1) is the targeted fix first;
-  pure-outcome stays behind it. Note: mirrors make wins
-  luck-heavy, so this one risks noise — hence last.
+  idea 6 (last resort). Idea 1 (outcome-gated shaping) tried
+  round 69: FLAT, no starvation (archive/run-gated.md) — gating
+  alone doesn't break the Nash. Pure-outcome stays behind it.
+  Note: mirrors make wins luck-heavy, so this one risks
+  noise — hence last.
 - Idea 5 (queued): combat-proportional draw tiebreak. The
   dropped tiebreak paid survival (perverse); this variant
   prices FIGHTING in draws (kill-scaled), which is the exact
   missing incentive in a turtle field. Applies to TRAINING
   returns first (exam integrity: promotion still reads W/D;
   revisit only if training works). Plan needed before launch.
-- Queued volume fix (user-ordered, 3:1): train 4 -> 30
-  opponents (60 engine games vs the sacred 20-game exam)
-  + workers 8 -> 12. LANDS ROUND 71 together with idea 3
-  (penalty, build 1 merged) on the frozen 12-board pool:
-  pool is the legislated arena, penalty carries its own
-  within-round control (penalized vs normal games), volume
-  is the direct order. Round-level attribution shared —
-  honest; volume necessity testable later by dialing down.
-  Build 1 cherry-picked (default-off byte-identical); spoiler
-  merges after round 70 (changes line-1 defaults).
 - Follow-up chain: if oasis (idea 2) works → generator survey
   for more mechanics (hunger/low-food boards, central-hill
   king-of-hill). If oasis fails → map-mechanic axis likely
@@ -79,12 +58,28 @@ list, not a schedule. Skip-the-queue rules in runs README.)
   specialists), remaining generator survey (pool has room to 12).
 
 Each experiment ships with acceptance/falsification criteria in its
-plan file before launch. See Discard bar below for what it takes
-to drop one.
+plan file before launch. See the Discard bar in README.md for what
+it takes to drop one.
 
 ## done
 
-- Rounds 17-50 (condensed; detail in run-*.md): D4
+- Grafted climb (rounds 73-79, campaign.md): graft #2 takes —
+  drought ends round 74 (g1162, divergence-then-win, not
+  honeymoon); penalty OFF from round 74; ceiling breaks round 77
+  (g1202, first .65+ since the graft); fastest rotation round 78
+  (3 crowns in 15 gens); strike-one round 79 with the graft-#3
+  menu pre-committed (main-life 6→5→≤4 = role change, never #4).
+- Volume era (round 71, campaign.md): train 4 -> 30 opponents
+  (60 games) + workers 8 -> 12 on the frozen 12-board pool.
+  Landed clean (all 12 covered, pg healthy, ~63 min/round).
+  Necessity testable later by dialing down.
+- Rival era closed (rounds 42-68, archive/run-rival.md): 8 crowns
+  all rival-line; gatekeeper reframe round 46 (main gates ~.45,
+  rival climbs); graft #1 vindicated round 56
+  (divergence-then-win, mains crown again by round 58); BANK
+  round 68 with the turtle finding (attacking first loses, so
+  mirrors turtle — the equilibrium is the result, not the failure).
+- Rounds 17-50 (condensed; detail in archive/run-*.md): D4
   symmetrization (round 16, kept as hygiene); KL anchor (round
   17, kept at 0.01 until round 45 proved it irrelevant either
   way, now 0.0); wide field 15x15 + own-sight (round 18, kept,
@@ -96,7 +91,9 @@ to drop one.
   round 46 — main gates ~.45, rival climbs); ledger rebalance
   (round 46: main HA 0.5 -> 0.25, rival pinned 0.5; mechanism
   wrong for the main, regime kept climbing 3/15).
-- Rounds 13-16: exploiters with teeth (BC base + kill-heavy) +
+- Rounds 13-16 (archive/run-exploiters.md,
+  archive/run-lineage.md, archive/run-accumulate.md,
+  archive/run-symmetrize.md): exploiters with teeth (BC base + kill-heavy) +
   continuous main lineage + D4 symmetrization. 7 promotions in 60
   gens (g208, g212, g236, g245, g253 + 2 exploiter crowns g222,
   g246); chains depth 34; symmetrization kept as hygiene (100%
@@ -104,7 +101,8 @@ to drop one.
   bloodbaths (44 deaths) — conversion problem, not pacifism.
   Demotion bar now contact-based. All live as infrastructure.
 
-- Rung-2 extended pool (rounds 11-12): rung 1 + rung2a-d, then
+- Rung-2 extended pool (rounds 11-12; archive/run-tiebreak.md,
+  archive/run-rung2back.md): rung 1 + rung2a-d, then
   f/g/h/i/j staged in. Gap twin-bars, pond twin lakes, 2d back to
   4x4 texture, generated rung 3 deleted, e cut as redundant.
 - Eval on train pool (rounds 11-12): no split under 13 maps, evals
@@ -138,7 +136,33 @@ to drop one.
 
 ## dropped
 
-- Material tiebreak (round 11): mechanism worked (draws separated
+- Lagged intent channels (rounds 51-52, archive/run-comm.md):
+  no ablation gap after 30 gens (gap -1.2, intent ratio flat
+  6.1% vs 6.0%) → BARREN by hard trigger. Reverted to 7ch
+  (truncation shim keeps 12ch weights loading). Reopen if:
+  a positive intent signal on some other axis first — never
+  on this width alone.
+- Draw-penalty games (rounds 71-73, campaign.md): valid control
+  twice, penalty flat (.277 vs .272, then .24 vs .23) → idea 3
+  CLOSED (turtling is not a choice). OFF from round 74.
+  Reopen if: a new mechanism makes attack cheap first.
+- Spoiler line (rounds 71-72, campaign.md): naive+sparse+
+  persistent flatlines (0 train wins, .30 → .075 negative
+  slope) → idea 4 CLOSED and folded. Reopen if: capacity
+  acquitted AND the field shown attackable.
+- Second rival line B (rounds 65-68, archive/run-rival.md):
+  exam FAIL (0 train wins in 16, best eval .25) → folded to
+  single line A. Reopen if: single line converges AND a fresh
+  predator design (not naive+kill).
+- Outcome-gated shaping (round 69, archive/run-gated.md): FLAT
+  (HA-on-loss → 0 mechanical, learning continues) → closed as
+  a breaker; superseded by the penalty trial. Reopen if:
+  knockless x3 under a live regime (softer halve-not-zero gate).
+- Big-board k/l passengers (round 64, archive/run-big.md):
+  0/10 draws each → sterile; scale innocent at 48px. m/n parked
+  (predicted sterile, no trial without a new mechanism).
+- Material tiebreak (round 11, archive/run-tiebreak.md):
+  mechanism worked (draws separated
   -1.28..+1.65) but the incentive is perverse — survivors get paid,
   so not-fighting pays twice. Rung-1 peace 0.68 -> 0.75, decisive
   boards went quiet, 0 promotions. Reverted. Lesson: price winning,
@@ -160,9 +184,10 @@ to drop one.
   WEAK EVIDENCE (0/5 decayed vs 3/15 undecayed, confounded) —
   kept on theory (time distance != causal distance), not data.
   Reopen if undecayed ever stalls with early-game blindness.
-- Draw-as-loss (global): stays dropped — SUPERSEDED by idea 3
-  (selective draw-penalty games, fraction of train games).
-  If idea 3 works, this entry closes as its ancestor.
+- Draw-as-loss (global): stays dropped — idea 3 (selective
+  draw-penalty games) failed clean too (rounds 71-73, campaign.md),
+  so ancestor and child are both closed. Combat-proportional
+  variant (idea 5, open) is the live heir.
 - 60-turn evals: truncate before skill gaps compound. Dropped for
   eval-turns 150.
 - Pure-outcome ablation: still last resort (mirrors make wins
@@ -170,6 +195,10 @@ to drop one.
 
 ## parked
 
+- Comm follow-ups (archive/run-comm.md): pheromone map,
+  learned messages, recurrent hidden state — parked behind
+  a positive intent signal that never came. Frame stacking
+  passed over (intent subsumes its cues where it matters).
 - Curiosity/count-based exploration: maps are small, coverage is
   free. Revisit on full-pool mazes if scouting stalls.
 - Formation/cohesion rewards: constrains more than it teaches.

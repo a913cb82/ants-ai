@@ -1,4 +1,15 @@
-# Run: draw-penalty trial (round 71) — PLAN + VERDICT
+# Grafted climb (rounds 71+) — ACTIVE campaign log
+
+Owner: the runner. This file is append-only: each round gets a PLAN
+before launch and RESULTS after. It began life as the round-71
+draw-penalty trial (`run-penalty.md`); the penalty idea closed
+after round 73 (see QUEUE dropped) and the file continues as the
+active campaign record: volume era, graft #2, strike logic, and
+the round-80 graft-#3 gate. Closed era detail lives in
+archive/run-rival.md (rounds 42-68) and archive/run-gated.md
+(rounds 69-70); this file links back instead of retelling.
+
+# Round 71 and before: draw-penalty trial — PLAN + VERDICT (CLOSED)
 
 Idea 3 of 4: in a fraction of train games, draws pay like losses.
 Turtling stops being the safe fixed point (idea 2 attacks the
