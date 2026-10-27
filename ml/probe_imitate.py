@@ -73,6 +73,35 @@ def combat_rows(rows: list) -> list:
     return [r for r in rows if float(r.window[ENEMY].sum()) > 0]
 
 
+def self_agreement(policy, rows: list, temperature: float = 2.0,
+                   seed: int = 0, batch_size: int = 512) -> float:
+    """Bayes ceiling for the probe: champ-argmax vs champ-sampled
+    top-1 agreement at act-time temperature (multinomial over
+    softmax(logits / T), the AlphaAnt.py sampling rule).
+
+    A student can never beat this: the logged labels are single
+    samples, so even the champion disagrees with its own argmax
+    whenever sampling wanders. Seeded: identical seed -> identical
+    draws. Both sides unmasked (rows carry no blocked set)."""
+    import torch
+
+    if not rows:
+        return 0.0
+    torch.manual_seed(seed)
+    agree, n = 0, 0
+    policy.eval()
+    with torch.no_grad():
+        for i in range(0, len(rows), batch_size):
+            chunk = rows[i:i + batch_size]
+            logits = policy(torch.stack([r.window for r in chunk]))
+            argmax = logits.argmax(dim=1)
+            probs = torch.softmax(logits / temperature, dim=1)
+            samp = torch.multinomial(probs, 1).squeeze(1)
+            agree += int((samp == argmax).sum())
+            n += len(chunk)
+    return agree / n
+
+
 def distill(rows: list, arch: str = "base", epochs: int = 5,
             seed: int = 0) -> tuple:
     """Fresh-arch student fit on champion rows; returns (policy, stats)
