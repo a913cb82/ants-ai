@@ -14,8 +14,9 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 85: same (6 knocks, g1287 at 27). Watch
-  tenure vs pressure (knocks → crowns?).
+- Round 86: same (tenure 42→57; activation gates:
+  tenure 55+ or 3rd promo-less round). Jury exam BUILDS
+  in parallel (activation gated, not live).
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)

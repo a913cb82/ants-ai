@@ -186,3 +186,15 @@ incentive via boards; this attacks it via the ledger).
   Knock-rich consolidation, not quiet. Watch tenure:
   g1287 at 27 — pressure exists (6 knocks), jury exam
   (Stage 1) is the queued answer if crowns stay rare.
+- Results (g1316-g1330, round 85): ALIVE. 2 knocks (main
+  g1325 .50 + rival g1329 .55), 0 promos. Champ g1287
+  holds → tenure 42 (watch zone reached). CORRECTION (2nd
+  time): exploiters CAN promote (g924/g1267 crowns prove
+  it) — g1329 .55 was Wilson-held, not role-barred.
+  Gap ZERO wins all 15 (119D/1L, pure draw wall).
+- TRIGGER FIRES (pre-committed r84): knocking + holding
+  into the 40s ⇒ jury exam moves queued→BUILDING (impl
+  workstream now, parallel with rounds). ACTIVATION gated:
+  tenure 55+ or third straight promo-less round — a healthy
+  climb (promos 2 rounds ago) doesn't get its exam swapped
+  mid-stride.
