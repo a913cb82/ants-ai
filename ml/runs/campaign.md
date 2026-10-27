@@ -252,3 +252,14 @@ incentive via boards; this attacks it via the ledger).
 - Standing doctrine re-armed: r91 main-knockless + rival
   knocks ⇒ strike two ⇒ role-change Stage-2.4. Main
   slice knock/crown ⇒ cleared.
+- Results (g1407-g1421, round 91): STRIKE-TWO. Main
+  slice-knockless (best .250, margins to -2.1) + rival
+  slice-knocks g1411 .667 + g1420 .500 (jury-held).
+  0 promos (8th straight). Champ g1287 tenure 132.
+- Role-change: challenger KILL 2.0 + HA 0.5 (runner's
+  rec, adopted — fixes the won-trade arithmetic: +2-2=0
+  in wins instead of +1-2=-1; suicide still -2 always,
+  so no kamikaze incentive; rival untouched). NOT the
+  DEATH-gating variant (won-trades would still net -1).
+  Falsifier: r92 main slice best ≥.40 with ≥2 main wins
+  ⇒ keep; else revert and try the next variant.
