@@ -155,3 +155,10 @@ incentive via boards; this attacks it via the ledger).
   surviving all epochs instead of dying after the first.
   Rival line knockless (roles reversed). Role-change
   CANCELLED per pre-commit. The bug was the disease.
+- Round 83, gen 3: OOM-kill (exit 137, 13.7GB anon in one
+  python; third such kill in ~14h — workers ballooning,
+  cause unknown). 2/15 done: g1284 MAIN crown .625 over
+  g1277 (third straight main crown) + g1285 expl .50 held.
+  Runner halted per hygiene. Recovery: resume 13 gens at
+  workers 8 (throughput-only change, noted); re-OOM ⇒
+  stop and profile instead of retrying blind.

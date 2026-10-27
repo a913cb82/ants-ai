@@ -14,8 +14,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 83: same (revival confirmed, 2 main crowns).
-  Watch climb extends (main-line era?) + rival answers?
+- Round 83b: resume 13 gens (2/15 done, g1284 crowned)
+  at workers 8 (OOM recovery). Same config otherwise.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
