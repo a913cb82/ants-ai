@@ -104,3 +104,12 @@ incentive via boards; this attacks it via the ledger).
 - Pre-commit round 79: one more rival crown with NO main
   knock = strike one again. Watch main answers or rival
   runs away.
+- Results (g1224-g1238, round 79): STRIKE ONE (fresh
+  series). Rival crown g1228 .65 + main knockless 0/10
+  (best .35, margins ≤ -1.05 late). No intervention per
+  doctrine (strike one = warning; strike two = act).
+- Pre-committed strike-two menu (round 80 decides): graft
+  #3 (main := current rival tip, proven twice, reversible).
+  Falsification schedule: main-life 6→5→≤4 rounds across
+  grafts = role-ceiling wins → round 81+ changes the MAIN's
+  role/scales (the new variable), never graft #4.

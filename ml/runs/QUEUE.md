@@ -13,8 +13,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 79: same (4 champs in 30 gens).
-  Pre-commit: rival crown + main knockless = strike one.
+- Round 80: same (strike-two terms set: main knock/crown
+  clears; main-knockless + rival knock/crown = graft #3).
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
