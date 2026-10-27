@@ -14,8 +14,9 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 88: same, jury live. Strikes in champ-slice
-  units (r87 = count one). 2 more ⇒ role-change r90.
+- Round 89: same, jury live. Count-three watch:
+  main slice-knockless + rival slice-knock ⇒ role-change
+  r90; any main slice knock/crown clears everything.
 - Jury BUILT on impl/juryexam (merge HELD for round 86):
   --exam-jury-size, default 0 = legacy byte-identical
   (proven); jury = 12 champ + 8 vs frontier/counters

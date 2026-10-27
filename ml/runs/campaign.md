@@ -228,3 +228,10 @@ incentive via boards; this attacks it via the ledger).
   rounds (r88+r89) ⇒ role-change Stage-2.4. Any main
   champ-slice knock/crown clears. No lineage surgery under
   a 1-round-old exam.
+- Results (g1361-g1375, round 88): STRIKE-TWO-JURY (count
+  two). Main slice-knockless 10/10 (best slice 3/5/4);
+  rival slice-knock g1374 5/3/4 (.542). 0 promos (5th
+  straight). Champ g1287 tenure 87. Jury holds everything;
+  per-slice reporting working, pg flat, v healthy.
+- r89 decides: count three ⇒ role-change round 90;
+  main slice knock/crown ⇒ count CLEARED.
