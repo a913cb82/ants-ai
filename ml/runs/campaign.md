@@ -235,3 +235,11 @@ incentive via boards; this attacks it via the ledger).
   per-slice reporting working, pg flat, v healthy.
 - r89 decides: count three ⇒ role-change round 90;
   main slice knock/crown ⇒ count CLEARED.
+- Results (g1376-g1391, round 89): CLEARED. Main g1382
+  champ-slice 3W/6D/3L (.500 exactly, borderline KNOCK;
+  jury total .40 held). Rival knocks 3x (.50-.55, held).
+  0 promos (6th straight). Champ g1287 tenure 102.
+  Count resets entirely; NO role-change. The recalibration
+  validates itself: the slice unit caught what the jury
+  total hid (g1382 overall .40, slice .50).
+- Round 90: continue identical. Strikes from zero.

@@ -14,9 +14,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 89: same, jury live. Count-three watch:
-  main slice-knockless + rival slice-knock ⇒ role-change
-  r90; any main slice knock/crown clears everything.
+- Round 90: same, jury live. Strikes from zero
+  (slice units stand). Tenure 102 — age is the watch.
 - Jury BUILT on impl/juryexam (merge HELD for round 86):
   --exam-jury-size, default 0 = legacy byte-identical
   (proven); jury = 12 champ + 8 vs frontier/counters
