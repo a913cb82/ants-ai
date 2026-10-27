@@ -124,3 +124,14 @@ incentive via boards; this attacks it via the ledger).
   Falsification schedule: main-life 6→5→≤4 rounds across
   grafts = role-ceiling wins → round 81+ changes the MAIN's
   role/scales (the new variable), never graft #4.
+- Results (g1239-g1253, round 80): STRIKE TWO, mechanical.
+  Main 0/10 knockless (best .35, tail .125-.15) + rival
+  knocks g1240/g1246 .55 + g1252 .525, no crowns. Champ
+  g1228 holds. Graft #3 executed: main g1253 → g1252
+  (rival tip, opt banked, reversible).
+- Round 81 = graft #3 read on SAME code (half-life
+  comparability 6→5→? needs identical update) + user-ordered
+  9-board pool (q/r/s out — noted confound, inseparable).
+  Stage-0 merge held one more round for attribution. Watch:
+  main-life length (≤4 ⇒ role-ceiling wins ⇒ main-role
+  change, never graft #4).

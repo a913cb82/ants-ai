@@ -14,13 +14,9 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 80 running: strike-two judgement (main knock/crown
-  clears; main-knockless + rival knock/crown = graft #3).
-- Stage-0 BUILT on impl/stage0, merge HELD for round-80
-  verdict (code quarantine): adv-freeze green + smoke flat;
-  ghost-chase 15.65% (lake 2x) confirms LOS leak; imitation
-  54.7% needs champ-self-agreement baseline before it
-  means anything (condition of merge review).
+- Round 81: graft #3 read (main := g1252) on SAME code +
+  9-board pool (q/r/s out, ordered). Stage-0 merge held
+  for attribution; imitation baseline queued in parallel.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
