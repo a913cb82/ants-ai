@@ -14,11 +14,9 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 81: graft #3 read (main := g1252) on SAME code +
-  9-board pool (q/r/s out, ordered). Stage-0 merge held
-  for attribution; imitation BASELINE IN: champ self-
-  agreement 57.9% vs student 56.6% (gap 1.2pts) — capacity
-  ACQUITTED, the 85% bar was unreachable by anyone.
+- Round 82: adv-freeze live (Stage-0 merged), grafted
+  line + role UNCHANGED, 9-board. Revival test: main
+  knocks ⇒ bug was the disease; flat ⇒ role change r83.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)

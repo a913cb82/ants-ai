@@ -135,3 +135,15 @@ incentive via boards; this attacks it via the ledger).
   Stage-0 merge held one more round for attribution. Watch:
   main-life length (≤4 ⇒ role-ceiling wins ⇒ main-role
   change, never graft #4).
+- Results (g1254-g1268, round 81): ROLE-CEILING. Graft-3
+  main-life 0 knock-rounds (main 0/10, best raw 7/20) +
+  rival crown g1267 .675 (line-0, parent g1264). Champ
+  g1228→g1267. Honeymoon draws, zero divergence. 9-board
+  pool clean (all 9 covered; gap/h all-draws persist).
+- SEQUENCE OVERRIDE (causal grounds, recorded): the role-
+  ceiling was priced on buggy-code evidence (adv-evaporation
+  CONFIRMED). Fix-first, then judge: round 82 = adv-freeze
+  live (Stage-0 merged) with grafted line + role unchanged.
+  Main knocks resume ⇒ the bug was the disease, role-change
+  cancelled. Mains flat on FIXED code ⇒ role change
+  (Stage-2.4) round 83. Never graft #4 stands.
