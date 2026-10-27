@@ -66,13 +66,33 @@ def policy_weights(policy: model.CNNPolicy) -> dict:
     return model.state_dict_to_lists(policy)
 
 
+def compact_records(records: list[dict]) -> list[dict]:
+    """Nested-list windows -> float32 tensors, in place.
+
+    Records arrive from disk as nested python lists (~60KB/row for a
+    7x15x15 window); the learner only ever stacks them into tensors
+    (~6.3KB/row). Compacting at production keeps a single residency
+    instead of lists + tensors side by side. Values are bit-exact:
+    float32 -> python float -> float32 round-trips losslessly.
+    Non-window keys (action/legal) are untouched; tensor windows pass
+    through unchanged.
+    """
+    for rec in records:
+        w = rec.get("window")
+        if isinstance(w, list):
+            rec["window"] = torch.as_tensor(w, dtype=torch.float32)
+    return records
+
+
 def to_batch(
     records: list[dict], returns: list[float], logps: list[float]
 ) -> list[BatchItem]:
     """Decision rows + priced returns + behavior log-probs -> learner batch."""
     return [
         (
-            torch.tensor(rec["window"], dtype=torch.float32),
+            # as_tensor: zero-copy when compact_records already
+            # tensorized the window; bit-identical otherwise.
+            torch.as_tensor(rec["window"], dtype=torch.float32),
             model.ACTIONS.index(rec["action"]) if "action" in rec else 0,
             ret,
             rec.get("legal", [True] * len(model.ACTIONS)),
@@ -230,6 +250,14 @@ def _advantages(
     return rz - values.detach()
 
 
+# Values-forward chunk: the D4-symmetrized critic runs 8 orientations
+# per row, so a full-batch stack scales activations with the generation
+# size (85k rows x conv1 16ch = 1.2GB per feature map). Chunking keeps
+# the peak per-chunk; conv/relu/pool/linear have no batch coupling
+# (no norms), so per-row values are bit-identical at any chunk size.
+_VALUE_CHUNK = 1024
+
+
 def frozen_advantages(
     policy: model.CNNPolicy, batch: list[BatchItem]
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -245,9 +273,13 @@ def frozen_advantages(
         return (torch.zeros(0), torch.tensor(0.0), torch.tensor(1.0))
     device = next(policy.parameters()).device
     with torch.no_grad():
-        windows = torch.stack(
-            [w for w, _a, _r, _m, _o in batch]).to(device)
-        values = policy.values(windows).detach().cpu()
+        vals = []
+        for start in range(0, len(batch), _VALUE_CHUNK):
+            windows = torch.stack(
+                [w for w, _a, _r, _m, _o
+                 in batch[start:start + _VALUE_CHUNK]]).to(device)
+            vals.append(policy.values(windows).detach().cpu())
+        values = torch.cat(vals)
     all_ret = torch.tensor(
         [r for _w, _a, r, _m, _o in batch], dtype=torch.float32)
     bmean, bstd = all_ret.mean(), all_ret.std(unbiased=False)

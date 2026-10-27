@@ -7,6 +7,7 @@ bot file; returns trained weights and stats for the driver to judge.
 from __future__ import annotations
 
 import copy
+import gc
 import os
 import random
 import sys
@@ -99,7 +100,8 @@ def _play_one(args) -> dict:
         name_b=second,
     )
     game = out["game"]
-    rows = out["records_a"] if slot == 0 else out["records_b"]
+    rows = algorithm.compact_records(
+        out["records_a"] if slot == 0 else out["records_b"])
     rets = rewards.compute_returns(game, slot, rows, rewards.scales_for(role),
                                    role,
                                    draw_as_loss=_is_penalty_game(cfg, g, gen_index))
@@ -153,6 +155,12 @@ def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict, role: 
         games = list(pool.map(_play_one, jobs))
     for out in games:
         batch.extend(algorithm.collect(policy, out["rows"], out["rets"]))
+    # Free the per-game row holders before the PPO epochs: windows are
+    # already compacted to tensors shared with the batch, so games holds
+    # only duplicate references plus dict overhead. Peak from here on is
+    # tensors alone instead of rows + batch side by side.
+    del games
+    gc.collect()
     losses, entropies, kls, pgs, vs, anchs, pgas = [], [], [], [], [], [], []
     # Advantage freeze: one baseline per generation with the pre-update
     # value net. Every epoch reuses this triple, so advantages cannot
