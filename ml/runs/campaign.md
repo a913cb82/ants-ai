@@ -243,3 +243,12 @@ incentive via boards; this attacks it via the ledger).
   validates itself: the slice unit caught what the jury
   total hid (g1382 overall .40, slice .50).
 - Round 90: continue identical. Strikes from zero.
+- Results (g1392-g1406, round 90): STRIKE-ONE (fresh
+  series). Main slice-knockless 10/10 (range .225-.375,
+  best slice 2/5/5) + rival slice-knocks x3 (g1393 .625,
+  g1402 .500, g1405 .625 — all jury-held). 0 promos
+  (7th straight). Champ g1287 tenure 117. Main did NOT
+  build on g1382 (flicker, not stirring).
+- Standing doctrine re-armed: r91 main-knockless + rival
+  knocks ⇒ strike two ⇒ role-change Stage-2.4. Main
+  slice knock/crown ⇒ cleared.
