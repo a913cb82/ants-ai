@@ -14,9 +14,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 82: adv-freeze live (Stage-0 merged), grafted
-  line + role UNCHANGED, 9-board. Revival test: main
-  knocks ⇒ bug was the disease; flat ⇒ role change r83.
+- Round 83: same (revival confirmed, 2 main crowns).
+  Watch climb extends (main-line era?) + rival answers?
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)

@@ -147,3 +147,11 @@ incentive via boards; this attacks it via the ledger).
   Main knocks resume ⇒ the bug was the disease, role-change
   cancelled. Mains flat on FIXED code ⇒ role change
   (Stage-2.4) round 83. Never graft #4 stands.
+- Results (g1269-g1283, round 82): REVIVAL, emphatic.
+  2 MAIN crowns (g1271 .65, g1277 .62) + 4 near-knocks
+  (.53-.57). Champ g1267→g1271→g1277. pg_abs FLAT across
+  epochs every gen (freeze working); LEVEL unchanged
+  (.63-.67 vs .58-.75 baseline) — same gradients, now
+  surviving all epochs instead of dying after the first.
+  Rival line knockless (roles reversed). Role-change
+  CANCELLED per pre-commit. The bug was the disease.
