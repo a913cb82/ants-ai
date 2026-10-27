@@ -87,3 +87,11 @@ incentive via boards; this attacks it via the ledger).
   isolated or spread? Train: gap/h/s draw-locked (freeze).
 - Verdict: ALIVE, continue same (round 77). Watches:
   ceiling breaks? g1193-type collapse spreads?
+- Results (g1194-g1208, round 77): PROMO — g1202 MAIN-line
+  over g1162, eff .675 (11W/5D) mm +1.05 nash 1.00. Champ
+  g1162 -> g1202. Ceiling BROKEN (first .65+ since the
+  graft). 7 knocks, 1 converts. Collapse isolated (g1208
+  1W only). Main takes the podium — first main-role crown
+  since g913. Sterile boards unchanged (freeze).
+- Verdict: climb continues, same config (round 78). Watch
+  g1202 consolidation (holds? tested by whom?).
