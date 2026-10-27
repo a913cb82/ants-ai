@@ -14,9 +14,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 83c: resume 12 gens (3/15 done) on FIXED memory
-  (profiler merged: 8x/row, 5.1GB→0.63GB, determinism
-  proven). Workers back to 12. Same config otherwise.
+- Round 84: same (g1287 consolidates). Watch fifth
+  crown vs rival answers vs second quiet round.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)

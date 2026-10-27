@@ -173,3 +173,10 @@ incentive via boards; this attacks it via the ledger).
   85k rows), determinism triple-proven, 261 green.
   Cause of the era, not the round: batch grew with longer
   competitive games; the balloon predates round 83.
+- Results (g1289-g1300, round 83c): memory FIXED (12 gens
+  at workers 12, no OOM, no growth 12G→12G free). Champ
+  g1287 holds all 12 (consolidation). Mains knock 2x raw
+  (.525/.525, correctly gated), rival answers .575. ALIVE
+  but soft — the main-line era pauses, no fifth crown.
+  Runner's gate musing noted but rejected: the bar held
+  correctly (2 promos in 4 rounds is healthy throughput).
