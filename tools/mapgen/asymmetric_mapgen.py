@@ -72,11 +72,20 @@ class AsymmetricMap:
             print("m", "".join(row))
 
     # picks the dimensions of the map
-    def pick_dimensions(self):
+    # exact_rows/exact_cols pin fixed dims (default None = legacy draws).
+    def pick_dimensions(self, exact_rows=None, exact_cols=None):
         while True:
             while True:
-                self.rows = random.randint(self.min_dim, self.max_dim)
-                self.cols = random.randint(self.min_dim, self.max_dim)
+                self.rows = (
+                    exact_rows
+                    if exact_rows is not None
+                    else random.randint(self.min_dim, self.max_dim)
+                )
+                self.cols = (
+                    exact_cols
+                    if exact_cols is not None
+                    else random.randint(self.min_dim, self.max_dim)
+                )
 
                 self.row_t = random.randint(3, self.rows - 3)
                 self.col_t = random.randint(3, self.cols - 3)

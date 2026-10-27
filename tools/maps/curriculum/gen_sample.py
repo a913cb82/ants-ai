@@ -14,41 +14,43 @@ Usage:
 Filename provenance: <generator>_<key settings>_s<seed>.map, e.g.
 ``random_land80_s7.map``.
 
-MAP SOURCE SURVEY (tools/mapgen + Java):
-  Python generators under tools/mapgen/:
-  - random_map.RandomMap ......... CAPABLE. Explicit rows/cols/players/land
-    options; hills are the 2 player starts. Setting range: land 70-95%
-    (below 70% is swamp soup, above 95% an empty field).
-  - symmetric_mapgen.SymmetricMap . CAPABLE (with small-map tuning). Random
-    translational random-walk map; dims drawn from per_player_dim/
-    dim_bounds class attrs. Settings: target land 60-95% (tool default
-    band), extra walks 20-40 (tool default 30), min_start_distance scaled
-    to half the max toroidal hill distance (tool default 30 is impossible
-    below ~60x60 since hills sit ~17 apart on 20x28). Even dims required
-    (tool loops forever on odd dims, so odd dims skip this family).
-  - amstan cavemap (Cavemap) ..... CAPABLE. Explicit size/players/symmetry;
-    random-walk carve + cellular-automaton smooth. Settings: symmetry in
-    {translational, horizontal, point, rotational} (diagonal needs square
-    maps), smooth passes 2-5 (tool default 4; 0-1 leaves static, 6+
-    washes out), hills=1 placed uniformly then mirrored by symmetry.
-  - mapgen.py Grid ............... EXCLUDED (tool limit). Dims are drawn
-    from [min_dimensions, max_dimensions] and must also satisfy block /
-    lcm symmetry constraints; 0 exact-20x28 hits in 500 seeds (~1/28000
-    by construction). Cannot target fixed dims.
-  - cell_maze.CellMazeMap ........ EXCLUDED (tool limit). Dims derive from
-    area/aspect_ratio heuristics; no exact-size control.
-  - heightmap.HeightMapMap ...... EXCLUDED (tool limit). Needs a >=16x16
-    tile per player ( recurses forever for 2 players below ~32x32).
-  - asymmetric_mapgen ........... EXCLUDED (tool limit). min_players = 4,
-    cannot emit 2-player maps.
-  - McMaps.py .................... UNRUNNABLE here: `import Image` (pre-PIL
-    namespace) fails; vendoring/installing is out of scope.
-  Java generators (java/javac 25 available; all run headless, no GUI):
-  - MapGenerator.java ............ EXCLUDED (tool limit). Map size
-    constants 80-120, no dimension parameters; cannot do 20x28.
-  - SymmetricMapgen.java ......... EXCLUDED (tool limit). MIN_PLAYERS=4,
-    dims 70-120; cannot do 2-player 20x28.
-  - MapWalker.java is a helper, Test.java a harness (not generators).
+MAP SOURCE SURVEY, round 2 (plumbing fixes authorized; engine untouched):
+  - random_map.RandomMap ......... CAPABLE (unchanged). land 70-95%.
+  - symmetric_mapgen.SymmetricMap . CAPABLE (unchanged). land 60-95%,
+    walks 20-40, scaled min_start_distance, even dims only.
+  - amstan cavemap ............... CAPABLE (unchanged). symmetry in
+    {translational, horizontal, point, rotational}, smooth 2-5.
+  - mapgen.py Grid ............... CAPABLE (FIXED: exact_rows/exact_cols
+    kwargs threaded through tile_symmetric_grid -> pick_tile_dimensions;
+    None defaults = legacy path, byte-identical CLI output seeds 1-3).
+    Exact 20x28 pins block_size=1 + translations (10,14) (only pair
+    passing the lcm gate); seed drives h_loc + carving. Key `tileb1`;
+    odd dims skip (no even translation satisfies the gate).
+  - cell_maze.CellMazeMap ........ CAPABLE (no edit needed). Exact 20x28
+    via area=561 + aspect_ratio=1.4 + grid=(1,2) (tile (20,14) mirrored
+    to (20,28)); players=2, hills=1, seed via options; min_hill_dist=8
+    override (tool default 20 exceeds the max toroidal hill gap ~17).
+    Settings: maze_type in {prims, backtrack, growing} (cell carve),
+    openness 0.2-0.8 (braid fraction), cell_size 4-8, cell_width 1-3.
+  - asymmetric_mapgen ............ CAPABLE walk path (FIXED:
+    exact_rows/exact_cols kwargs on pick_dimensions; None = legacy).
+    min_players=2 + scaled min_start_distance=8 via instance attrs;
+    land band 60-90% (tool default), walks 50-90 (tool default 70).
+    Scatter path (add_random_land) HANGS at 20x28 (spins once land is
+    full) - walk only. Even dims required.
+  - heightmap.HeightMapMap ...... STILL EXCLUDED. Places exactly ONE hill
+    total and the 2-way tiling call is commented out; 2p needs hill
+    mirroring + tile heuristics = deep, not plumbing.
+  - McMaps.py .................... STILL EXCLUDED as a family. Pillow
+    13.0.0 installed OK; `import Image` shim applied (try/except PIL)
+    so the module imports. But no 2p/fixed-dim/hill entry exists:
+    random_box hardcodes 4 players + random sizes, cells() places no
+    hills, voronoi() writes PNGs only. Wiring = new generator.
+  - Java ......................... STILL EXCLUDED. MapGenerator: player
+    count is a lottery in map2String (rnd.nextInt(9) -> 2/4/8p), output
+    uses ants a/b not hills, sizes flow through shared MIN/MAX plus
+    halving logic. SymmetricMapgen: MIN_PLAYERS=4, dims 70-120, no
+    CLI. 2p 20x28 = rewrite, not constants.
 """
 
 import argparse
@@ -73,8 +75,9 @@ from ml.mapgen import is_playable_2p  # noqa: E402
 # the two families cannot coexist in sys.modules. Each generator imports
 # its upstream modules fresh with only its own dir on the path.
 _SHADOWED = (
-    "map", "terrain", "util", "symmetricmap", "cavemap",
-    "random_map", "symmetric_mapgen",
+    "map", "mapgen", "terrain", "util", "symmetricmap", "cavemap",
+    "random_map", "symmetric_mapgen", "cell_maze", "asymmetric_mapgen",
+    "McMaps",
 )
 
 
@@ -97,7 +100,8 @@ def _family_imports(first):
 
 
 MAX_TRIES = 10
-FAMILIES = ("random", "symwalk", "cavemap")
+FAMILIES = ("random", "symwalk", "cavemap", "gridwalk", "asymwalk",
+            "cellmaze")
 CAVE_SYMMETRIES = ("translational", "horizontal", "point", "rotational")
 
 
@@ -154,6 +158,10 @@ def symmetric_flag(text, rows, cols):
     if check(lambda r, c: (rows - 1 - r, cols - 1 - c)):
         return "y(rot180)"
     if check(lambda r, c: ((r + rows // 2) % rows, (c + cols // 2) % cols)):
+        return "y(trans)"
+    if cols % 2 == 0 and check(lambda r, c: (r, (c + cols // 2) % cols)):
+        return "y(trans)"
+    if rows % 2 == 0 and check(lambda r, c: ((r + rows // 2) % rows, c)):
         return "y(trans)"
     return "n"
 
@@ -246,16 +254,106 @@ def gen_cavemap(rng, rows, cols, hills, seed):
     return text, f"{sym}sm{smooth}"
 
 
+def gen_gridwalk(rng, rows, cols, hills, seed):
+    """Grid tile walk. Settings fixed by exactness: tile + block 1."""
+    from mapgen import Grid
+
+    if rows % 2 or cols % 2:
+        raise FamilySkipped("gridwalk needs even dims (lcm gate)")
+    random.seed(seed)
+    with contextlib.redirect_stderr(io.StringIO()):
+        g = Grid()
+        g.no_hills = hills
+        g.symmetry = "tile"
+        if not g.tile_symmetric_grid(2, rows, cols, 100, 1, 1,
+                                     exact_rows=rows, exact_cols=cols):
+            raise FamilySkipped(f"no valid tile grid at {rows}x{cols}")
+        g.squares = [["%" for _ in range(g.cols)] for _ in range(g.rows)]
+        g.add_starting_hills()
+        g.generate_basis_information()
+        g.add_land_with_recursive_backtracking()
+        g.add_extra_land_blocks()
+        g.add_extra_land_locs()
+        g.make_symmetric()
+        g.add_extra_hills()
+        g.translate()
+        text = (
+            f"rows {g.rows}\ncols {g.cols}\nplayers {g.no_players}\n"
+            + "".join("m " + "".join(r) + "\n" for r in g.squares)
+        )
+    return text, "tileb1"
+
+
+def gen_asymwalk(rng, rows, cols, hills, seed):
+    """Asymmetric walk. Settings: target land 60-90%, walks 50-90."""
+    from asymmetric_mapgen import AsymmetricMap
+
+    if rows % 2 or cols % 2:
+        raise FamilySkipped("asymwalk needs even dims (translation gate)")
+    target = rng.randint(60, 90)
+    walks = rng.randint(50, 90)
+    start_dist = int(0.5 * ((rows / 2) ** 2 + (cols / 2) ** 2) ** 0.5)
+    random.seed(seed)
+    with contextlib.redirect_stderr(io.StringIO()):
+        m = AsymmetricMap()
+        m.min_players = m.max_players = 2
+        m.min_start_distance = start_dist
+        m.min_land_proportion = max(0.30, (target - 3) / 100.0)
+        m.max_land_proportion = min(0.99, (target + 3) / 100.0)
+        m.no_extra_walks = walks
+        m.pick_dimensions(exact_rows=rows, exact_cols=cols)
+        m.map_data = [["%" for _ in range(m.cols)] for _ in range(m.rows)]
+        m.add_ants()
+        m.basis = m.get_basis()
+        m.start_walks()
+        m.add_land()  # walk path only; scatter hangs at this size
+        text = (
+            f"rows {m.rows}\ncols {m.cols}\nplayers {m.no_players}\n"
+            + "".join("m " + "".join(r) + "\n" for r in m.map_data)
+        )
+    return text, f"land{target}w{walks}"
+
+
+def gen_cellmaze(rng, rows, cols, hills, seed):
+    """CellMaze. Pins area/aspect/grid for exact 20x28; varies carve."""
+    from cell_maze import CellMazeMap
+
+    if (rows, cols) != (20, 28):
+        raise FamilySkipped("cellmaze pins are tuned for 20x28 only")
+    maze = rng.choice(["prims", "backtrack", "growing"])
+    openness = round(rng.uniform(0.2, 0.8), 2)
+    cell_size = round(rng.uniform(4.0, 8.0), 1)
+    cell_width = round(rng.uniform(1.0, 3.0), 1)
+    with contextlib.redirect_stderr(io.StringIO()):
+        m = CellMazeMap({"players": 2, "area": 561, "aspect_ratio": 1.4,
+                         "grid": (1, 2), "hills": hills, "seed": seed,
+                         "maze_type": maze, "openness": openness,
+                         "cell_size": cell_size, "cell_width": cell_width})
+        m.min_hill_dist = 8
+        m.generate()
+        buf = io.StringIO()
+        m.toText(buf)
+    key = f"{maze}o{int(openness * 100)}c{cell_size}w{cell_width}".replace(
+        ".0", "")
+    return buf.getvalue(), key
+
+
 GENERATORS = {
     "random": gen_random,
     "symwalk": gen_symwalk,
     "cavemap": gen_cavemap,
+    "gridwalk": gen_gridwalk,
+    "asymwalk": gen_asymwalk,
+    "cellmaze": gen_cellmaze,
 }
 
 FEELS = {
     "random": lambda lp: "open field" if lp > 90 else "scattered ponds",
     "symwalk": lambda lp: "winding corridors" if lp > 80 else "tight corridors",
     "cavemap": lambda lp: "smooth lakes" if lp > 85 else "cavernous pockets",
+    "gridwalk": lambda lp: "carved grid" if lp > 80 else "dense grid",
+    "asymwalk": lambda lp: "patchy walk" if lp > 80 else "tight walk",
+    "cellmaze": lambda lp: "braided maze" if lp > 80 else "tight maze",
 }
 
 

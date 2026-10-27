@@ -5,9 +5,12 @@ from math import sqrt
 from random import choice, random, randrange
 from typing import Any
 
-import Image
-import ImageChops
-import ImageDraw
+try:  # pre-Pillow namespace (original upstream imports)
+    import Image
+    import ImageChops
+    import ImageDraw
+except ImportError:  # Pillow>=10: `pip install pillow`, same library
+    from PIL import Image, ImageChops, ImageDraw
 
 MY_ANT = 0
 ANTS = 0

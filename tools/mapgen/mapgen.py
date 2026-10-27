@@ -35,6 +35,7 @@ class Grid:
     no_hills: int
 
     # sets up a grid with valid parameters for tile symmetry
+    # exact_rows/exact_cols pin fixed dims (default None = legacy draws).
     def tile_symmetric_grid(
         self,
         no_players,
@@ -43,6 +44,8 @@ class Grid:
         min_starting_distance,
         min_block_size,
         max_block_size,
+        exact_rows=None,
+        exact_cols=None,
     ):
         self.no_players = no_players
         self.min_dimensions = min_dimensions
@@ -51,7 +54,7 @@ class Grid:
         self.min_block_size = min_block_size
         self.max_block_size = max_block_size
 
-        if not self.pick_tile_dimensions():
+        if not self.pick_tile_dimensions(exact_rows, exact_cols):
             return False
 
         self.squares = [["%" for c in range(self.cols)] for r in range(self.rows)]
@@ -91,14 +94,29 @@ class Grid:
         return True
 
     # picks valid dimensions for a tile symmetric grid
-    def pick_tile_dimensions(self):
+    def pick_tile_dimensions(self, exact_rows=None, exact_cols=None):
         original_no_players = self.no_players
         for _d_attempt in range(200000):
             self.block_size = random.randint(self.min_block_size, self.max_block_size)
-            self.rows = random.randint(self.min_dimensions, self.max_dimensions)
-            self.cols = random.randint(self.rows, self.max_dimensions)
-            self.rows += 2 * self.block_size - self.rows % (2 * self.block_size)
-            self.cols += 2 * self.block_size - self.cols % (2 * self.block_size)
+            # Legacy order preserved: draw rows, draw cols, then round.
+            if exact_rows is None:
+                self.rows = random.randint(
+                    self.min_dimensions, self.max_dimensions
+                )
+            else:
+                self.rows = exact_rows
+            if exact_cols is None:
+                self.cols = random.randint(self.rows, self.max_dimensions)
+            else:
+                self.cols = exact_cols
+            if exact_rows is None:
+                self.rows += (
+                    2 * self.block_size - self.rows % (2 * self.block_size)
+                )
+            if exact_cols is None:
+                self.cols += (
+                    2 * self.block_size - self.cols % (2 * self.block_size)
+                )
 
             self.row_t = random.randint(3, self.rows - 3)
             self.col_t = random.randint(3, self.cols - 3)
