@@ -162,3 +162,7 @@ incentive via boards; this attacks it via the ledger).
   Runner halted per hygiene. Recovery: resume 13 gens at
   workers 8 (throughput-only change, noted); re-OOM ⇒
   stop and profile instead of retrying blind.
+- Round 83b, gen 1: g1287 MAIN crown .625 over g1284
+  (FOURTH straight main crown); gen 2 OOM-killed again
+  (13.8GB, workers 8 — not parallelism, the process
+  itself balloons). PROGRAM HALTED. Profiler dispatched.
