@@ -27,7 +27,10 @@ tools/maps/curriculum/README.md.
   one-off, no sustained ≥.40. Tenure 177, 11th straight
   quiet. Tool gaps flagged (no kill counters, no slice
   fields — standardize slice source for r95 verdict).
-- Round 95: second half of recognition window.
+- Round 95 done: ACQUITTED (slice never ≥.40 sustained,
+  decisiveness +.034). Channels stay; HANDS next.
+  Hands builder dispatched (intent logging + honest stays).
+  Round 96 = honest logging (falsifier in campaign).
   Signal ⇒ keep channels; flat ⇒ hands next.
 
 ## open (ordered — rethought every round boundary; a priority

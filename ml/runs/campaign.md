@@ -298,3 +298,12 @@ incentive via boards; this attacks it via the ledger).
   cost — watch, don't act).
 - Round 95 decides: signal ⇒ channels keep; flat ⇒
   representation acquitted, hands (interface) next.
+- Results (g1467-g1481, round 95): ACQUITTED. Main slice
+  never ≥.40 sustained (best .375 g1473; isolated .458/
+  .417 both exploiter-held). Decisiveness +.034 (noise).
+  0 promos (12th straight). Tenure ~192. Slice source
+  standardized (games.jsonl derivation, stated).
+- Next: HANDS (fleet-actions). Round 96 = honest logging
+  (intent+blocked rows, blocked-aware loss, kill fake-stay
+  rows). Falsifier: blocked rate >1% on combat turns ⇒
+  mechanics (swaps) r97; negligible ⇒ hands acquitted.
