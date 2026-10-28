@@ -465,3 +465,9 @@ incentive via boards; this attacks it via the ledger).
   throne. Champ g1660. Round 108 = stabilization
   watch: any champ holds 15, or mixture instrument
   goes on the drawing board.
+- Results (g1662-g1676, round 108): STABILIZING.
+  g1660 holds all 15 (tenure 15), zero promos.
+  Main slice best .458 (no clearing signal); 5 total
+  knocks all held. Decisive .74. The staircase levels
+  — thrones return. Round 109 = same vs g1660:
+  stability persists or staircase resumes?

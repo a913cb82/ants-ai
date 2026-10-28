@@ -80,6 +80,9 @@ tools/maps/curriculum/README.md.
 - Round 107 done: SURGE-WAS-REAL + DOUBLE CROWN
   (main g1658 .65 → expl g1660 .625). 6 crowns/6 rounds.
   Champ g1660. Round 108 = stabilization watch.
+- Round 108 done: STABILIZING (g1660 holds 15,
+  main slice best .458). Round 109 = stability
+  persists or staircase resumes, same vs g1660.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
