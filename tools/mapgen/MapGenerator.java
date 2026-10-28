@@ -10,7 +10,7 @@ public class MapGenerator {
     public final static int WATER_TILE = 0;
     public final static int LAND_TILE = 1;
     public final static int INVALID_TILE = -1;
-    private final static int ANT_START_POS_TILE = 2;
+    public final static int ANT_START_POS_TILE = 2;
 
     //Map size
     private final static int MAX_MAP_SIZE = 120;
@@ -35,6 +35,70 @@ public class MapGenerator {
 
     //If the map should be squared or not. diagMode forces the map to be square
     private boolean forceSquare = false;
+
+    //Optional fixed size for headless runs (0 = random MIN/MAX default).
+    private int fixedRows = 0;
+    private int fixedCols = 0;
+
+    public void setNbrOfPlayers(int n) {
+        if (n != 2 && n != 4 && n != 8) {
+            throw new IllegalArgumentException("players must be 2, 4 or 8");
+        }
+        nbrOfPlayers = n;
+    }
+
+    public void setSeed(long seed) {
+        rnd.setSeed(seed);
+        MapWalker.setSeed(seed);
+    }
+
+    public void setFixedSize(int rows, int cols) {
+        fixedRows = rows;
+        fixedCols = cols;
+    }
+
+    /**
+     * Headless entry point. Prints a parseable map to stdout (or --out FILE).
+     * usage: java MapGenerator [--players 2|4|8] [--seed N] [--rows R --cols C] [--out FILE]
+     */
+    public static void main(String[] args) {
+        MapGenerator gen = new MapGenerator();
+        String outFile = null;
+        try {
+            for (int i = 0; i < args.length; i++) {
+                if (args[i].equals("--players")) {
+                    gen.setNbrOfPlayers(Integer.parseInt(args[++i]));
+                } else if (args[i].equals("--seed")) {
+                    gen.setSeed(Long.parseLong(args[++i]));
+                } else if (args[i].equals("--rows")) {
+                    gen.fixedRows = Integer.parseInt(args[++i]);
+                } else if (args[i].equals("--cols")) {
+                    gen.fixedCols = Integer.parseInt(args[++i]);
+                } else if (args[i].equals("--out")) {
+                    outFile = args[++i];
+                } else {
+                    throw new IllegalArgumentException("unknown arg: " + args[i]);
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("usage: java MapGenerator [--players 2|4|8] [--seed N] [--rows R --cols C] [--out FILE]");
+            System.err.println("  " + e.getMessage());
+            System.exit(2);
+            return;
+        }
+        String text = gen.map2String(gen.generateMap());
+        if (outFile != null) {
+            try {
+                java.nio.file.Files.writeString(java.nio.file.Path.of(outFile), text);
+            } catch (java.io.IOException e) {
+                System.err.println("cannot write " + outFile + ": " + e.getMessage());
+                System.exit(1);
+                return;
+            }
+        } else {
+            System.out.print(text);
+        }
+    }
 
     /**
      * Generates a full map based on the map settings
@@ -64,48 +128,15 @@ public class MapGenerator {
     public String map2String(int[][] map) {
         int ant = 0;
 
-        // This is totaly the wrong place to put this, but it's a quick ahck
-        char[][] antss = {
-        		// 8 player
-        		{ 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h' },
-        		{ 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h' },
-        		{ 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h' },
-        		// 4 player
-        		{ 'a', 'a', 'b', 'c', 'b', 'c', 'd', 'd' },
-        		{ 'a', 'b', 'c', 'c', 'd', 'd', 'a', 'b' },
-        		{ 'a', 'b', 'a', 'b', 'c', 'd', 'c', 'd' },
-        		// 2 player
-        		{ 'a', 'a', 'a', 'a', 'b', 'b', 'b', 'b' },
-        		{ 'a', 'b', 'a', 'b', 'b', 'a', 'b', 'a' },
-        		{ 'a', 'b', 'b', 'a', 'a', 'b', 'b', 'a' }
-        };
-        int player_count = 0;
-        int sym = rnd.nextInt(9);
-        char[] ants = antss[sym];
-        switch (sym) {
-        // 8 players
-        case 0:
-        case 1:
-        case 2:
-        	player_count = 8;
-        	break;
-        // 4 players
-        case 3:
-        case 4:
-        case 5:
-        	player_count = 4;
-        	break;
-        // 2 players
-        case 6:
-        case 7:
-        case 8:
-        	player_count = 2;
-        	break;
-        }
+        // Start squares are hills ('0' + player), which is what the engine
+        // and ml.mapgen.is_playable_2p expect: every player owns a hill.
+        // The full map holds one mirrored copy per player, so the scan order
+        // below hands out exactly one distinct hill per player.
+        int player_count = nbrOfPlayers;
         StringBuilder sb = new StringBuilder();
         sb.append("players " + Integer.toString(player_count) + "\n");
         sb.append("rows " + Integer.toString(map.length) + "\n");
-        sb.append("cols " + Integer.toString(map.length) + "\n");
+        sb.append("cols " + Integer.toString(map[0].length) + "\n");
         for (int r = 0; r < map.length; r++) {
             sb.append(ROW_PREFIX);
             for (int c = 0; c < map[0].length; c++) {
@@ -117,7 +148,7 @@ public class MapGenerator {
                         sb.append(TILE_PREFIX + ".");
                         break;
                     case ANT_START_POS_TILE:
-                        sb.append(TILE_PREFIX + ants[ant++]);
+                        sb.append(TILE_PREFIX + (char) ('0' + ant++));
                         break;
                     case INVALID_TILE:
                         sb.append(TILE_PREFIX + " ");
@@ -142,8 +173,8 @@ public class MapGenerator {
      * The map will consist of WATER_TILE's and INVALID_TILE's
      */
     private int[][] createMapPart() {
-        int rows = rnd.nextInt(MAX_MAP_SIZE - MIN_MAP_SIZE) + MIN_MAP_SIZE;
-        int cols = rnd.nextInt(MAX_MAP_SIZE - MIN_MAP_SIZE) + MIN_MAP_SIZE;
+        int rows = fixedRows > 0 ? fixedRows : rnd.nextInt(MAX_MAP_SIZE - MIN_MAP_SIZE) + MIN_MAP_SIZE;
+        int cols = fixedCols > 0 ? fixedCols : rnd.nextInt(MAX_MAP_SIZE - MIN_MAP_SIZE) + MIN_MAP_SIZE;
 
         int[][] mapPart;
 
@@ -188,7 +219,7 @@ public class MapGenerator {
 
         while (true) {
             startRow = rnd.nextInt(map.length - MIN_START_DIST * 2) + MIN_START_DIST;
-            startCol = rnd.nextInt(map.length - MIN_START_DIST * 2) + MIN_START_DIST;
+            startCol = rnd.nextInt(map[0].length - MIN_START_DIST * 2) + MIN_START_DIST;
 
             //Make sure we don't start in a place that will be removed
             if ((diagMode && nbrOfPlayers == 2) || nbrOfPlayers == 8) {
@@ -218,7 +249,7 @@ public class MapGenerator {
 
         if (nbrOfPlayers == 2) {
             if (diagMode) {
-                fullMap = overlayMaps(fullMap, mirrorDiagonal(mapPart));
+                fullMap = overlayMaps(mapPart, mirrorDiagonal(mapPart));
             }
             else {
                 fullMap = new int[mapPart.length * 2][mapPart[0].length];
@@ -420,7 +451,7 @@ public class MapGenerator {
         addMapPart(res, map, 1, 1);
 
         for (int r = 0; r < res.length; r++) {
-            for (int c = 0; c < res.length; c++) {
+            for (int c = 0; c < res[0].length; c++) {
                 if (r == 0 || r == res.length - 1 ||
                         c == 0 || c == res[0].length - 1) {
                     res[r][c] = 0;

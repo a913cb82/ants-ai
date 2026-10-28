@@ -30,6 +30,68 @@ public class MapWalker {
         this.nbrOfWalkers = nbrOfWalkers;
     }
 
+    public static void setSeed(long seed) {
+        rnd.setSeed(seed);
+    }
+
+    /**
+     * Headless demo: fills a small part with walkers, mirrors it for a second
+     * player and prints a parseable 2-player map to stdout (or --out FILE).
+     * usage: java MapWalker [--seed N] [--out FILE]
+     */
+    public static void main(String[] args) {
+        long seed = System.currentTimeMillis();
+        String outFile = null;
+        try {
+            for (int i = 0; i < args.length; i++) {
+                if (args[i].equals("--seed")) {
+                    seed = Long.parseLong(args[++i]);
+                } else if (args[i].equals("--out")) {
+                    outFile = args[++i];
+                } else {
+                    throw new IllegalArgumentException("unknown arg: " + args[i]);
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("usage: java MapWalker [--seed N] [--out FILE]");
+            System.err.println("  " + e.getMessage());
+            System.exit(2);
+            return;
+        }
+        rnd.setSeed(seed);
+        int partRows = 14;
+        int partCols = 26;
+        int[][] part = new int[partRows][partCols];
+        int[] start = {partRows / 2, partCols / 2};
+        part = new MapWalker(4).fillMap(part, start);
+        // Second hill: 180-degree rotation of the start, like MapGenerator's
+        // 2-player mirror, so both players own a hill.
+        int[] start2 = {partRows - 1 - start[0], partCols - 1 - start[1]};
+        int[][] full = new int[partRows * 2][partCols];
+        for (int r = 0; r < partRows; r++) {
+            for (int c = 0; c < partCols; c++) {
+                full[r][c] = part[r][c];
+                full[full.length - 1 - r][c] = part[r][c];
+            }
+        }
+        full[start[0]][start[1]] = MapGenerator.ANT_START_POS_TILE;
+        full[start2[0]][start2[1]] = MapGenerator.ANT_START_POS_TILE;
+        MapGenerator gen = new MapGenerator();
+        gen.setNbrOfPlayers(2);
+        String text = gen.map2String(full);
+        if (outFile != null) {
+            try {
+                java.nio.file.Files.writeString(java.nio.file.Path.of(outFile), text);
+            } catch (java.io.IOException e) {
+                System.err.println("cannot write " + outFile + ": " + e.getMessage());
+                System.exit(1);
+                return;
+            }
+        } else {
+            System.out.print(text);
+        }
+    }
+
     /**
      * Fills the provided map with land
      */
@@ -54,7 +116,7 @@ public class MapWalker {
     private int[] pickRandomSquare() {
         int[] pos;
         do {
-            pos = new int[] {rnd.nextInt(tMap.length - 1), rnd.nextInt(tMap[0].length - 1)};
+            pos = new int[] {rnd.nextInt(tMap.length), rnd.nextInt(tMap[0].length)};
         } while (tMap[pos[0]][pos[1]] == -1);
 
         return pos;
