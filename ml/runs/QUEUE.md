@@ -42,6 +42,26 @@ tools/maps/curriculum/README.md.
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
 
+- Water-stuck axis (observed: ants idle at shores). Diver
+  reports in, fixes STAGED behind hands axis (no activation
+  until solution ideas + round-98 verdict):
+  (a) LOS-LEAK (losleak done): ghost runs BACKWARD — unseen
+  never invents enemies; teammate-seen marks in 12 B-tier
+  corners look exactly like own-visible except ch6=0, a flag
+  the net can't use (all 5 dest cells always ch6=1; base
+  5x5 RF smears corners). B-tier water misreads as LAND
+  (ch0≡0). Enemy-ON-cell reads fr=0 (safe!) + edist=0
+  (here!) — maximal attack-me, no danger flag. Matches
+  lakes 2x skew. Fixes ranked: F1 zero-fill B-tier entities
+  (gate L226-235 on in_circle; falsifier: corner probe 0 +
+  lake ghost == open); F2 fog-consistent fill (B water=0.5;
+  falsifier: dead-end stay-rate rises); F3 true per-ant
+  visibility (biggest shift/retrain; falsifier: ch6 varies
+  across dest cells). Pending: stuckmine (rates +
+  trapped-vs-turtle split), planahead (fix space in
+  constraints), ordereff (order gradient + randomize
+  verdict). Activate earliest round 99, one variable.
+
 - Standing: map-mechanic axis MIXED (round-70 audition,
   archive/run-gated.md: q 100% decisive, r 30% weak-over-bar,
   s 0% sterile — all three members by legislation, rates banked).
