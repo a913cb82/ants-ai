@@ -14,8 +14,11 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Revert scales (builder) → round 93 clean.
-  Force-ratio builds in parallel → live r94.
+- Round 93 running (reverted scales). Force-ratio BUILT
+  on impl/forceratio (merge HELD for round-93 verdict):
+  ch7 force-ratio + ch8 enemy-dist, 7ch-compat shim
+  bit-identical, D4 equivariance proven, ablation shows
+  signal, 281 green. Round 94 = recognition test.
 - Jury BUILT on impl/juryexam (merge HELD for round 86):
   --exam-jury-size, default 0 = legacy byte-identical
   (proven); jury = 12 champ + 8 vs frontier/counters
