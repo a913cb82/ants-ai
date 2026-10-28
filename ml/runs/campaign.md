@@ -307,3 +307,7 @@ incentive via boards; this attacks it via the ledger).
   (intent+blocked rows, blocked-aware loss, kill fake-stay
   rows). Falsifier: blocked rate >1% on combat turns ⇒
   mechanics (swaps) r97; negligible ⇒ hands acquitted.
+- Hands BUILT+MERGED (smoke pre-answers: blocked-row rate
+  0.093 overall, 9x the falsifier threshold — wild measure
+  confirms in r96). Train-intent (not downweight); fake
+  stays zeroed. 181 green. Round 96 = honest-logging live.

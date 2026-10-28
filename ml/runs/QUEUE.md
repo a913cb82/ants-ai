@@ -29,9 +29,9 @@ tools/maps/curriculum/README.md.
   fields — standardize slice source for r95 verdict).
 - Round 95 done: ACQUITTED (slice never ≥.40 sustained,
   decisiveness +.034). Channels stay; HANDS next.
-  Hands builder dispatched (intent logging + honest stays).
-  Round 96 = honest logging (falsifier in campaign).
-  Signal ⇒ keep channels; flat ⇒ hands next.
+- Hands BUILT+MERGED (smoke: blocked 0.093, 9x threshold).
+  Round 96 = HONEST LOGGING live. Wild blocked rate >1%
+  combat ⇒ swaps r97; negligible ⇒ hands acquitted.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
