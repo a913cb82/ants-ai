@@ -422,3 +422,15 @@ incentive via boards; this attacks it via the ledger).
   axis stays closed. Main g1586 .525 vs NEW champ
   (immediate knock on the throne). Champ g1585,
   tenure 0. 1 promo (ends 18-round drought).
+- Results (g1587-g1601, round 103): DOUBLE CROWN.
+  g1593 .700 (slice .625 + jury .812) over g1585, then
+  g1596 .650 (slice .625 + jury .688) over g1593.
+  Both g1287-lineage main-line (g1585 diverged @g1252).
+  Champ g1596. RETAKE per the letter — but the loud
+  report EXONERATES the jury: the retakes beat the
+  champ head-to-head AND the field (complete crowns,
+  not jury-carries); the soft throne self-corrected
+  in one round. Exam stands, credibility raised.
+  Main knocking already (g1598 .60, g1599 .575).
+  3 crowns in 2 rounds — regime HOT. Round 104 =
+  vs g1596: harden or fourth turnover?
