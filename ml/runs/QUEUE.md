@@ -83,6 +83,9 @@ tools/maps/curriculum/README.md.
 - Round 108 done: STABILIZING (g1660 holds 15,
   main slice best .458). Round 109 = stability
   persists or staircase resumes, same vs g1660.
+- Round 109 done: STABLE-THRONE (tenure 30, 7/15
+  slices ≥.50 all held). Rung review diver out;
+  round 110 = same vs g1660.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)

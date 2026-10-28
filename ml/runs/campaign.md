@@ -471,3 +471,10 @@ incentive via boards; this attacks it via the ledger).
   knocks all held. Decisive .74. The staircase levels
   — thrones return. Round 109 = same vs g1660:
   stability persists or staircase resumes?
+- Results (g1677-g1691, round 109): STABLE-THRONE.
+  g1660 holds again (tenure 30), zero promos.
+  7/15 gens take the main slice ≥.50 (best .667 g1680)
+  — knocking hard, converting nothing. Decisive .727.
+  Thrones are back. Per falsifier: RUNG REVIEW next —
+  review diver dispatched (board discrimination +
+  rung3 readiness) while round 110 runs same vs g1660.
