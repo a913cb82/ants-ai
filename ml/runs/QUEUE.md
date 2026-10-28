@@ -77,6 +77,9 @@ tools/maps/curriculum/README.md.
 - Round 106 done: MAIN-HARDENS (g1629 holds 15;
   surge mid-round all held, fade late). Round 107 =
   surge or fade, same vs g1629.
+- Round 107 done: SURGE-WAS-REAL + DOUBLE CROWN
+  (main g1658 .65 → expl g1660 .625). 6 crowns/6 rounds.
+  Champ g1660. Round 108 = stabilization watch.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)

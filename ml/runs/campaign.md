@@ -457,3 +457,11 @@ incentive via boards; this attacks it via the ledger).
   Churn was succession, not regime — stability returns.
   5th quiet round. Round 107 = same vs g1629:
   surge or fade — which was the trend?
+- Results (g1647-g1661, round 107): SURGE-WAS-REAL +
+  DOUBLE CROWN. Knocking resumed gen2 (4 knocks block1),
+  then main g1658 .65 (slice .625) over g1629, then
+  exploiter g1660 .625 (slice .542) over g1658.
+  6 crowns in 6 rounds — churn continues, no stable
+  throne. Champ g1660. Round 108 = stabilization
+  watch: any champ holds 15, or mixture instrument
+  goes on the drawing board.
