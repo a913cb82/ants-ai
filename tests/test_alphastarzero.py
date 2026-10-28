@@ -79,6 +79,7 @@ def test_window_shape_channels_dtype():
         "own_sight",
         "force_ratio",
         "enemy_dist",
+        "stall",
     )
     one_hot = w[:7].flatten().tolist()
     assert set(one_hot) <= {0.0, 1.0}
@@ -784,7 +785,7 @@ def test_padded_old_weights_give_identical_outputs():
     new.eval()
     with torch.no_grad():
         w7 = torch.rand(3, 7, _S, _S)
-        pad = torch.zeros(3, 2, _S, _S)
+        pad = torch.zeros(3, _C - 7, _S, _S)
         assert torch.equal(old(w7), new(torch.cat([w7, pad], dim=1)))
         assert torch.equal(old.values(w7),
                            new.values(torch.cat([w7, pad], dim=1)))
@@ -1850,7 +1851,7 @@ def test_deep_arch_stays_in_param_budget():
 
     base = _count_params(model.CNNPolicy(arch="base"))
     deep = _count_params(model.CNNPolicy(arch="deep"))
-    assert base == 12678  # +2 channels: force_ratio/enemy_dist widen conv1/vconv1
+    assert base == 12966  # +3 channels: force_ratio/enemy_dist/stall widen conv1/vconv1
     assert 9000 < deep < 14000  # same order, no budget blowout
 
 

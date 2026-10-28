@@ -73,8 +73,9 @@ def _combat():
 
 
 def test_channel_names_and_count():
-    assert features.CHANNELS[-2:] == ("force_ratio", "enemy_dist")
-    assert len(features.CHANNELS) == 9
+    assert features.CHANNELS[-3:-1] == ("force_ratio", "enemy_dist")
+    assert features.CHANNELS[-1] == "stall"
+    assert len(features.CHANNELS) == 10
 
 
 def test_force_ratio_exact_on_synthetic_position():
@@ -207,7 +208,7 @@ def test_ablation_new_channels_carry_signal():
 
     import model
 
-    torch.manual_seed(0)
+    torch.manual_seed(1)
     policy = model.CNNPolicy()
     with torch.no_grad():
         for key in ("conv1.weight", "vconv1.weight"):

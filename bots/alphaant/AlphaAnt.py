@@ -30,6 +30,10 @@ torch.set_num_threads(1)
 import features
 import model
 
+# Stall-memory gain: ch9 = clip(streak / STALL_K, 0, 1), K=8 turns to
+# saturate. One scalar, broadcast constant across the window.
+STALL_K = features.STALL_K
+
 WEIGHTS_PATH = Path(__file__).resolve().parent / "weights.json"
 
 # When set, every decision is appended as one JSON row per ant per turn
@@ -91,6 +95,14 @@ class AlphaAntBot:
         self._temperature = float(temperature) if temperature else 0.0
         self._turn = 0
         self._water = None  # impassable set, cached in do_setup
+        # Stall memory: cell -> same-cell streak. The engine exposes no
+        # ant ids, so position continuity is the identity proxy: an ant
+        # observed on the same cell as last turn keeps (and grows) its
+        # streak; a cell never seen starts at 0 (covers moves and
+        # dead-id replacements alike). Updated at end of turn, keyed by
+        # where each ant ends up, so intent-blocked moves carry their
+        # hysteresis to the fallback cell while free moves reset to 0.
+        self._stall: dict = {}
         record_dir = os.environ.get(RECORD_ENV)
         self._record_path = (
             Path(record_dir) / f"aa-{os.getpid()}.jsonl" if record_dir else None
@@ -180,6 +192,30 @@ class AlphaAntBot:
             if not revoked:
                 return
 
+    def _update_stall(self, mine, moves) -> None:
+        """Roll the stall memory forward one turn, keyed by end cells.
+
+        Same-cell (dest == origin, held or blocked-stay): streak + 1 up
+        to STALL_K saturation. Moved with intent reservation-blocked:
+        hysteresis carries (streak + 1) to the fallback cell. Free move:
+        reset to 0. Undecided (timeout, move None): keep the current
+        streak without increment. New cells default to 0 via dict miss.
+        """
+        nxt: dict = {}
+        for i, ant_loc in enumerate(mine):
+            origin = tuple(ant_loc)
+            if moves[i] is None:
+                nxt.setdefault(origin, self._stall.get(origin, 0))
+                continue
+            dest = tuple(moves[i]["dest"])
+            cur = self._stall.get(origin, 0)
+            if dest == origin or moves[i]["intent"] in moves[i]["blocked"]:
+                val = min(cur + 1, STALL_K)
+            else:
+                val = 0
+            nxt[dest] = max(val, nxt.get(dest, 0))
+        self._stall = nxt
+
     def do_turn(self, ants: Ants) -> None:
         self._turn += 1
         mine = ants.my_ants()
@@ -189,7 +225,13 @@ class AlphaAntBot:
         # stays sequential (ant i's blocked set needs ants 0..i-1's
         # destinations), but masking applies to precomputed logit rows.
         view = features.snapshot(ants, water=self._water)
-        windows = [features.local_window(ants, loc, view=view) for loc in mine]
+        windows = [
+            features.local_window(
+                ants, loc, view=view,
+                stall=min(self._stall.get(tuple(loc), 0) / STALL_K, 1.0),
+            )
+            for loc in mine
+        ]
         with torch.no_grad():
             logits = self.policy(torch.stack(windows))
         recording = self._record_path is not None
@@ -244,6 +286,7 @@ class AlphaAntBot:
                 break
         moves.extend([None] * (len(mine) - len(moves)))
         self._resolve(ants, mine, moves, logits, windows)
+        self._update_stall(mine, moves)
         for i, ant_loc in enumerate(mine):
             if moves[i] is None:
                 continue

@@ -21,15 +21,21 @@ OFFSETS = {"n": (-1, 0), "e": (0, 1), "s": (1, 0), "w": (0, -1), "stay": (0, 0)}
 
 # Third-dimension (channel) order of local_window: water, friendly ant,
 # friendly hill, enemy ant, enemy hill, food, own-sight flag, local
-# force-ratio, distance-to-nearest-enemy.
+# force-ratio, distance-to-nearest-enemy, stall-memory.
 CHANNELS = ("water", "own_ant", "own_hill", "enemy_ant", "enemy_hill",
-            "food", "own_sight", "force_ratio", "enemy_dist")
+            "food", "own_sight", "force_ratio", "enemy_dist",
+            "stall")
 
 WATER_CHANNEL = 0
 FOOD_CHANNEL = 5
 OWN_SIGHT_CHANNEL = 6
 FORCE_RATIO_CHANNEL = 7
 ENEMY_DIST_CHANNEL = 8
+STALL_CHANNEL = 9
+
+# Same-cell/blocked hysteresis gain: ch9 = clip(streak / STALL_K, 0, 1).
+# K=8 turns saturates: a week-long hold reads 1.0, a fresh ant 0.0.
+STALL_K = 8
 
 
 _sight_offsets: dict[tuple[int, int], list[tuple[int, int, int, int, bool]]] = {}
@@ -130,7 +136,7 @@ def dest_of(ants: Ants, loc: tuple[int, int], action: str) -> tuple[int, int]:
 
 def local_window(
     ants: Ants, loc: tuple[int, int], radius: int = DEFAULT_RADIUS,
-    view: View | None = None,
+    view: View | None = None, stall: float = 0.0,
 ) -> torch.Tensor:
     """Fully local, relative 1-hot state: (channels, height, width).
 
@@ -160,9 +166,18 @@ def local_window(
     vision sets as the 1-hot channels, and both are scalars, so a
     rotated position yields the rotated window (see
     tests/test_forceratio.py).
+
+    Channel 9 (stall) is the ant's own same-cell/blocked hysteresis:
+    clip(streak / STALL_K, 0, 1) broadcast constant over every cell,
+    including water and out-of-sight corners. Constant-by-construction
+    so a rotated window is the rotated constants (D4-safe trivially);
+    the caller (AlphaAnt.py) owns the streak memory, this function
+    only stamps it. Defaults to 0.0 (fresh ant), so replayed rows
+    from pre-stall checkpoints read as zero-streak.
     """
     size = 2 * radius + 1
     grid = _np.zeros((len(CHANNELS), size, size), dtype=_np.float32)
+    grid[STALL_CHANNEL, :, :] = stall
     r0, c0 = loc
     if view is None:
         view = View(ants)
