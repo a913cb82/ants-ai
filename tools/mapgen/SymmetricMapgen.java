@@ -6,40 +6,13 @@ public class SymmetricMapgen {
 
     public static void main(String[] args) {
         SymmetricMapgen map = new SymmetricMapgen();
-        long seed = System.currentTimeMillis();
-        boolean hasSeed = false;
-        for (int i = 0; i < args.length; i++) {
-            if (args[i].equals("--players") && i + 1 < args.length) {
-                int players = Integer.parseInt(args[++i]);
-                map.MIN_PLAYERS = players;
-                map.MAX_PLAYERS = players;
-            } else if (args[i].equals("--rows") && i + 1 < args.length) {
-                map.fixedRows = Integer.parseInt(args[++i]);
-            } else if (args[i].equals("--cols") && i + 1 < args.length) {
-                map.fixedCols = Integer.parseInt(args[++i]);
-            } else if (args[i].equals("--min_start_distance") && i + 1 < args.length) {
-                map.MIN_START_DISTANCE = Integer.parseInt(args[++i]);
-            } else if (args[i].equals("--seed") && i + 1 < args.length) {
-                seed = Long.parseLong(args[++i]);
-                hasSeed = true;
-            } else {
-                System.err.println("Usage: SymmetricMapgen [--players N] "
-                    + "[--rows R] [--cols C] [--min_start_distance D] [--seed N]");
-                System.exit(2);
-            }
-        }
-        if (hasSeed) {
-            map.rnd.setSeed(seed);
-        }
         map.randomWalkMap();
         System.out.print(map.printMap());
     }
 
     private Random rnd = new Random();
 
-    // Start squares print as hill digits so every player owns starting
-    // hills; the engine spawns ants on hills.
-    private final static char[] PRINT_OUTS = {'%', '.', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'};
+    private final static char[] PRINT_OUTS = {'%', '.', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'};
     private final static int WATER = 0;
     private final static int LAND = 1;
     private final static int A_ANT = 2;
@@ -47,16 +20,12 @@ public class SymmetricMapgen {
     private final static int[][] DIRECTIONS = {{-1, 0}, {1, 0}, {0, 1}, {0, -1}};
 
     //Game parameters
-    private int MIN_PLAYERS = 4;
-    private int MAX_PLAYERS = 10;
+    private final static int MIN_PLAYERS = 4;
+    private final static int MAX_PLAYERS = 10;
 
-    private int MIN_DIM = 70;
-    private int MAX_DIM = 120;
-    private int MIN_START_DISTANCE = 30;
-
-    //Fixed dimensions override the random MIN_DIM..MAX_DIM choice (< 0 keeps it random)
-    private int fixedRows = -1;
-    private int fixedCols = -1;
+    private final static int MIN_DIM = 70;
+    private final static int MAX_DIM = 120;
+    private final static int MIN_START_DISTANCE = 30;
 
     private final static double MIN_LAND_PROPORTION = 0.5;
     private final static double MAX_LAND_PROPORTION = 0.8;
@@ -104,16 +73,10 @@ public class SymmetricMapgen {
 
     //Picks the dimensions of the map
     private void pickDimensions() {
-        if (fixedRows > 11 && fixedCols > 11) {
-            rows = fixedRows;
-            cols = fixedCols;
-        }
         while (true) {
             while (true) {
-                if (fixedRows <= 11 || fixedCols <= 11) {
-                    rows = rnd.nextInt(MAX_DIM - MIN_DIM) + MIN_DIM;
-                    cols = rnd.nextInt(MAX_DIM - MIN_DIM) + MIN_DIM;
-                }
+                rows = rnd.nextInt(MAX_DIM - MIN_DIM) + MIN_DIM;
+                cols = rnd.nextInt(MAX_DIM - MIN_DIM) + MIN_DIM;
 
                 rowT = rnd.nextInt(rows - 8) + 4;
                 colT = rnd.nextInt(cols - 8) + 4;
@@ -191,7 +154,7 @@ public class SymmetricMapgen {
 
         int noLandSquares = rnd.nextInt(max - min) + min;
 
-        while(landSquares < noLandSquares || !isValid()) {
+        while(landSquares < noLandSquares || isValid()) {
             walkLocations();
 
             for (int i = 0; i < cLocs.length; i++) {
@@ -220,8 +183,7 @@ public class SymmetricMapgen {
             for (int i = 0; i < DIRECTIONS.length; i++) {
                 int[] newLoc = getLoc(tmpLoc, DIRECTIONS[i]);
 
-                if (visited[newLoc[0]][newLoc[1]] == 0
-                        && mapData[newLoc[0]][newLoc[1]] != WATER) {
+                if (visited[newLoc[0]][newLoc[1]] == 0) {
                     visited[newLoc[0]][newLoc[1]] = 1;
                     stack.add(newLoc);
                     squaresVisited++;

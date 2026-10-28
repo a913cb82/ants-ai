@@ -27,9 +27,6 @@ public class MapGenerator {
     //Only 2, 4 or 8 players are currently valid
     private int nbrOfPlayers = 8;
 
-    //Override for the random ant/hill assignment table (0-8); -1 keeps it random
-    private int symOverride = -1;
-
     //If the map should be divided diagonal. 8 players require diagMode. diagMode require width == height
     private boolean diagMode = false;
 
@@ -68,24 +65,22 @@ public class MapGenerator {
         int ant = 0;
 
         // This is totaly the wrong place to put this, but it's a quick ahck
-        // Start squares print as hills (uppercase = ant on hill) so every
-        // player owns starting hills; the engine spawns ants on hills.
         char[][] antss = {
         		// 8 player
-        		{ 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H' },
-        		{ 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H' },
-        		{ 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H' },
+        		{ 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h' },
+        		{ 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h' },
+        		{ 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h' },
         		// 4 player
-        		{ 'A', 'A', 'B', 'C', 'B', 'C', 'D', 'D' },
-        		{ 'A', 'B', 'C', 'C', 'D', 'D', 'A', 'B' },
-        		{ 'A', 'B', 'A', 'B', 'C', 'D', 'C', 'D' },
+        		{ 'a', 'a', 'b', 'c', 'b', 'c', 'd', 'd' },
+        		{ 'a', 'b', 'c', 'c', 'd', 'd', 'a', 'b' },
+        		{ 'a', 'b', 'a', 'b', 'c', 'd', 'c', 'd' },
         		// 2 player
-        		{ 'A', 'A', 'A', 'A', 'B', 'B', 'B', 'B' },
-        		{ 'A', 'B', 'A', 'B', 'B', 'A', 'B', 'A' },
-        		{ 'A', 'B', 'B', 'A', 'A', 'B', 'B', 'A' }
+        		{ 'a', 'a', 'a', 'a', 'b', 'b', 'b', 'b' },
+        		{ 'a', 'b', 'a', 'b', 'b', 'a', 'b', 'a' },
+        		{ 'a', 'b', 'b', 'a', 'a', 'b', 'b', 'a' }
         };
         int player_count = 0;
-        int sym = (symOverride >= 0) ? symOverride : rnd.nextInt(9);
+        int sym = rnd.nextInt(9);
         char[] ants = antss[sym];
         switch (sym) {
         // 8 players
@@ -110,7 +105,7 @@ public class MapGenerator {
         StringBuilder sb = new StringBuilder();
         sb.append("players " + Integer.toString(player_count) + "\n");
         sb.append("rows " + Integer.toString(map.length) + "\n");
-        sb.append("cols " + Integer.toString(map[0].length) + "\n");
+        sb.append("cols " + Integer.toString(map.length) + "\n");
         for (int r = 0; r < map.length; r++) {
             sb.append(ROW_PREFIX);
             for (int c = 0; c < map[0].length; c++) {
@@ -140,22 +135,6 @@ public class MapGenerator {
      */
     public void printMap(int[][] map) {
         System.out.println(map2String(map));
-    }
-
-    public void setSeed(long seed) {
-        rnd.setSeed(seed);
-    }
-
-    public void setNbrOfPlayers(int nbrOfPlayers) {
-        if (nbrOfPlayers != 2 && nbrOfPlayers != 4 && nbrOfPlayers != 8) {
-            throw new IllegalArgumentException(
-                "Only 2, 4 or 8 players are currently valid");
-        }
-        this.nbrOfPlayers = nbrOfPlayers;
-    }
-
-    public void setSymOverride(int sym) {
-        this.symOverride = sym;
     }
 
     /**
@@ -441,7 +420,7 @@ public class MapGenerator {
         addMapPart(res, map, 1, 1);
 
         for (int r = 0; r < res.length; r++) {
-            for (int c = 0; c < res[0].length; c++) {
+            for (int c = 0; c < res.length; c++) {
                 if (r == 0 || r == res.length - 1 ||
                         c == 0 || c == res[0].length - 1) {
                     res[r][c] = 0;

@@ -30,10 +30,6 @@ public class MapWalker {
         this.nbrOfWalkers = nbrOfWalkers;
     }
 
-    public static void setSeed(long seed) {
-        rnd.setSeed(seed);
-    }
-
     /**
      * Fills the provided map with land
      */

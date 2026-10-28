@@ -21,16 +21,12 @@ Working commands (all run from tools/mapgen/, outputs to stdout):
   its 2p tiling is disabled upstream, so this only asserts parseable output)
 - McMaps.py: ``python McMaps.py`` (no args; emits a cells maze with no
   player starts, NOT 2p: no hill-entry path exists upstream)
-- MapGenerator (java Test driver, run from tools/mapgen/):
-  ``javac -d <dir> *.java && java -cp <dir> Test --players 2 --seed 1``
-  (2p, playable; ant starts print as hills A/B)
-- SymmetricMapgen.java: ``java -cp <dir> SymmetricMapgen --players 2
-  --rows 40 --cols 40 --min_start_distance 10 --seed 1`` (2p, playable;
-  starts print as hill digits 0/1)
+
+NOTE: *.java generators belong to the implmapgen-java builder; this file
+covers the 8 Python generators only.
 """
 
 import io
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -209,85 +205,6 @@ def test_asymmetric_mapgen_2p_small(tmp_path):
     )
     assert proc.returncode == 0, proc.stderr[-2000:]
     out = tmp_path / "asym2p.map"
-    out.write_text(proc.stdout)
-    assert is_playable_2p(str(out))
-
-
-JAVA_SOURCES = [
-    "MapGenerator.java",
-    "MapWalker.java",
-    "SymmetricMapgen.java",
-    "Test.java",
-]
-
-
-def _java_toolchain():
-    javac = shutil.which("javac")
-    java = shutil.which("java")
-    if javac is None or java is None:
-        raise RuntimeError("java toolchain missing")
-    return javac, java
-
-
-def _compile_java(outdir):
-    javac, _ = _java_toolchain()
-    proc = subprocess.run(
-        [javac, "-d", str(outdir), *JAVA_SOURCES],
-        cwd=MAPGEN,
-        capture_output=True,
-        text=True,
-        timeout=300,
-    )
-    assert proc.returncode == 0, proc.stderr[-2000:]
-    return outdir
-
-
-def _run_java(classes_dir, classname, argv, timeout=600):
-    _, java = _java_toolchain()
-    return subprocess.run(
-        [java, "-cp", str(classes_dir), classname, *argv],
-        cwd=MAPGEN,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-    )
-
-
-def test_java_compiles(tmp_path):
-    _compile_java(tmp_path / "classes")
-
-
-def test_java_test_2p_playable(tmp_path):
-    """java Test must honor --players/--seed and emit a 2p-playable map."""
-    classes = _compile_java(tmp_path / "classes")
-    proc = _run_java(classes, "Test", ["--players", "2", "--seed", "1"])
-    assert proc.returncode == 0, proc.stderr[-2000:]
-    out = tmp_path / "javatest2p.map"
-    out.write_text(proc.stdout)
-    assert is_playable_2p(str(out))
-
-
-def test_java_symmetric_2p_playable(tmp_path):
-    """java SymmetricMapgen needs a 2p invocation (defaults are 4-10p)."""
-    classes = _compile_java(tmp_path / "classes")
-    proc = _run_java(
-        classes,
-        "SymmetricMapgen",
-        [
-            "--players",
-            "2",
-            "--rows",
-            "40",
-            "--cols",
-            "40",
-            "--min_start_distance",
-            "10",
-            "--seed",
-            "1",
-        ],
-    )
-    assert proc.returncode == 0, proc.stderr[-2000:]
-    out = tmp_path / "javasym2p.map"
     out.write_text(proc.stdout)
     assert is_playable_2p(str(out))
 
