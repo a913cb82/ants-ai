@@ -498,3 +498,7 @@ incentive via boards; this attacks it via the ledger).
   8 crowns in 10 rounds — staircase resumes at once.
   Champ g1719. Round 112 = vs g1719: harden or
   9th turnover?
+- Round 112 PAUSED mid-round (user): 8/15 gens done
+  (archive 1681→1689, champ g1719, no verdict).
+  Partial gens stand as committed history; round
+  verdict void. Runs paused.
