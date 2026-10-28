@@ -327,3 +327,11 @@ incentive via boards; this attacks it via the ledger).
   Fix works: blocked 0.379→0.049, cycles fire 20.5% of
   turns, no-cycle orders byte-identical. 187 green.
   Round 97 = swap mechanics live.
+- Results (g1497-g1511, round 97): HANDS-CONFIRMED.
+  Decisiveness .773 vs ~.48 baseline — games RESOLVE now.
+  Rival total-knock g1501 .525 (held; first knock from
+  zero). Slices lag (best .464, never ≥.40 sustained).
+  Gen time halved (197s — fewer ants alive). 0 promos
+  (14th straight). Tenure 222.
+- Round 98: continue same (scores chase behavior — watch
+  slices catch up). Then coordination channel if flat.
