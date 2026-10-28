@@ -39,10 +39,13 @@ def _offsets_for(radius: int, sight2: int) -> list[tuple[int, int, int, int, boo
     """(dr, dc, i, j, in_circle): the whole square, computed once.
 
     Cells inside the ant's own sight circle carry authoritative
-    content; cells outside it (corners of a wide window) carry
-    union-vision content — what teammates see — flagged by the
-    own_sight channel. The circle never changes mid-game, so the
-    per-cell check in local_window becomes a cached iteration list."""
+    content; cells outside it (corners of a wide window) read
+    0=empty-unseen on the entity channels, with the own_sight
+    channel as the mask. The circle never changes mid-game, so the
+    per-cell check in local_window becomes a cached iteration list.
+    Entity channels (ch1-ch5) fill only inside the circle; cells
+    outside it read 0=empty-unseen, with the own_sight channel as
+    the mask."""
     key = (radius, sight2)
     if key not in _sight_offsets:
         _sight_offsets[key] = [
@@ -87,8 +90,8 @@ def snapshot(ants, water=None) -> View:
     return View(ants, water)
 
 # Default view radius in tiles: 15x15 window. Corners (d2=98) sit
-# outside the sight circle (77), so they carry union-vision content —
-# what teammates see — flagged by the own_sight channel.
+# outside the sight circle (77), so they read 0=empty-unseen on the
+# entity channels, with the own_sight channel as the mask.
 DEFAULT_RADIUS = 7
 
 
@@ -138,11 +141,9 @@ def local_window(
 
     Two vision tiers: cells inside the ant's own sight circle
     (dr*dr+dc*dc <= viewradius2) are filled authoritatively, including
-    water. Cells outside the circle but inside the window carry
-    union-vision content — entities visible to any teammate — with
-    water left unknown (0); the own_sight channel (1/0) tells the
-    tiers apart. Far-side friendlies and distant hills are visible;
-    whether they are actionable now is marked. viewradius2 comes from
+    water. Cells outside the circle but inside the window read
+    0=empty-unseen on the entity channels (ch1-ch5); the own_sight
+    channel (1/0) marks the tiers. viewradius2 comes from
     the game settings and defaults to 77 when the wrapper does not
     provide it.
 
@@ -223,14 +224,14 @@ def local_window(
                            else (not ants.passable(cell))):
             grid[0, i, j] = 1.0
             continue
-        if cell in own_ants:
+        if cell in own_ants and in_circle:
             grid[1, i, j] = 1.0
-        if cell in own_hills:
+        if cell in own_hills and in_circle:
             grid[2, i, j] = 1.0
-        if cell in enemy_ants:
+        if cell in enemy_ants and in_circle:
             grid[3, i, j] = 1.0
-        if cell in enemy_hills:
+        if cell in enemy_hills and in_circle:
             grid[4, i, j] = 1.0
-        if cell in foods:
+        if cell in foods and in_circle:
             grid[5, i, j] = 1.0
     return torch.from_numpy(grid)

@@ -150,6 +150,10 @@ def test_window_marks_both_hills():
 
 
 def test_window_shows_union_content_beyond_own_circle():
+    # F1 (losfix): B-tier cells read 0=empty-unseen; the own_sight
+    # channel stays the mask. Union content beyond the own circle is
+    # no longer stamped into ch1-ch5 (it was indistinguishable from
+    # own-visible except ch6=0, a flag the net cannot use).
     import features
 
     ants = FakeAnts()
@@ -159,8 +163,8 @@ def test_window_shows_union_content_beyond_own_circle():
     w = features.local_window(ants, (4, 4), radius=3)
     food = w[features.CHANNELS.index("food")]
     sight = w[features.CHANNELS.index("own_sight")]
-    assert food[6][3] == 1.0  # union vision: a teammate sees it
-    assert sight[6][3] == 0.0  # but not actionable by me right now
+    assert food[6][3] == 0.0  # B-tier: zero-filled, unseen
+    assert sight[6][3] == 0.0  # mask intact
     assert food[5][3] == 1.0 and sight[5][3] == 1.0  # own circle: both
 
 
@@ -185,8 +189,8 @@ def test_window_shows_far_teammate_with_sight_flag():
     own = w[features.CHANNELS.index("own_ant")]
     sight = w[features.CHANNELS.index("own_sight")]
     assert own[3][3] == 1.0  # self still marked
-    assert own[6][3] == 1.0  # far teammate visible via union ...
-    assert sight[6][3] == 0.0  # ... flagged as beyond my own circle
+    assert own[6][3] == 0.0  # F1: B-tier teammate zero-filled ...
+    assert sight[6][3] == 0.0  # ... mask intact
 
 
 def test_window_full_radius_inside_default_sight():
