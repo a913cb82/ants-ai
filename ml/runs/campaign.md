@@ -363,3 +363,11 @@ incentive via boards; this attacks it via the ledger).
 - Stall-memory builder dispatched (1-bit same-cell/blocked
   hysteresis channel, ~0 params, D4-safe scalar, 9ch→10ch
   pad-compat so champ loads). Round 100 = memory live.
+- Stall-memory BUILT+MERGED: ch9=clip(streak/8), window-
+  constant (D4 by construction, proven 1e-6); 9ch champ
+  logits byte-identical on zero-streak (cold start clean);
+  199 green; smoke ch9 rate 0.050 (greedy champ 0.000 —
+  channel is for LEAVING). Identity by position continuity
+  (no ant ids; noted edge: cell turnover). Round 100 =
+  MEMORY LIVE (falsifier: dwell shifts left + water wins
+  hold; else memory acquitted, anti-stall shaping next).

@@ -45,6 +45,8 @@ tools/maps/curriculum/README.md.
   Round 99 done: GHOST-KILLED (lake gap closed .439
   vs .429, decisive .78; main flat, rivals knock x4).
   Stall-memory builder dispatched; round 100 = MEMORY.
+- Stall-memory BUILT+MERGED (ch9 rate 0.050 on smoke,
+  9ch-compat byte-identical). Round 100 = MEMORY LIVE.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
