@@ -350,3 +350,7 @@ incentive via boards; this attacks it via the ledger).
   (zero-fill B-tier entities; truth-first like honest
   logging; D4-safe geometric gate). Stall-memory follows
   on F1's verdict. LOS-fix builder dispatched.
+- LOS F1 BUILT+MERGED: gate L227-236, probe 1.0→0.0,
+  in-circle intel preserved, D4 proven (new equivariance
+  test), 182 green, smoke OK. 2 stale asserts updated
+  to F1 expectation. Round 99 = ghost-fill fix live.

@@ -41,6 +41,9 @@ tools/maps/curriculum/README.md.
   slice .500 borderline ⇒ STRIKE-ONE, ladder spent).
   OVERRIDE: water-stuck outranks coordination retry.
   LOS-F1 builder dispatched; round 99 = ghost-fill fix.
+- LOS F1 BUILT+MERGED (probe 1.0→0.0, D4 proven).
+  Round 99 = GHOST-FILL FIX LIVE (falsifier: lake ghost
+  rate falls to open rate AND/OR main slices move).
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
