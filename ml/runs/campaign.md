@@ -478,3 +478,10 @@ incentive via boards; this attacks it via the ledger).
   Thrones are back. Per falsifier: RUNG REVIEW next —
   review diver dispatched (board discrimination +
   rung3 readiness) while round 110 runs same vs g1660.
+- Pool review DONE: HOLD. 7/9 boards discriminate
+  (sd 16-22); gap (44% dec) + mg3 (23% dec) are draw-
+  leaning but clear the 10% stay-bar — no removal earned.
+  No swap candidate earns entry (q/r/s drawish, random
+  sterile, gen2p/tutorial drew). Graduate: NO (retention
+  unsolved, r22 precedent; needs rotating sub-pools +
+  pilot). Falsifiers set per option. Pool frozen.
