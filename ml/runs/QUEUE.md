@@ -67,6 +67,9 @@ tools/maps/curriculum/README.md.
   (.650), both complete (slice .625 + jury). Jury
   EXONERATED (soft throne self-corrected in one round).
   Champ g1596. Round 104 = harden or 4th turnover?
+- Round 104 done: HARDENED (g1596 holds 15, tenure 14;
+  main 3 slice-knocks held). Round 105 = crown watch
+  on main line, same vs g1596.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)

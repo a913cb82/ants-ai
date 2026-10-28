@@ -434,3 +434,11 @@ incentive via boards; this attacks it via the ledger).
   Main knocking already (g1598 .60, g1599 .575).
   3 crowns in 2 rounds — regime HOT. Round 104 =
   vs g1596: harden or fourth turnover?
+- Results (g1602-g1616, round 104): HARDENED. g1596
+  holds all 15 (tenure 14), zero promos, no alien-line
+  trace (main line pure g1596-descent). Main knocking
+  hard: 3 slice-knocks in 7 gens (g1610 .575/.583,
+  g1613 .550/.500, g1616 .500/.542 — all held).
+  Succession complete, throne legitimate. 4th straight
+  quiet round. Round 105 = same vs g1596, crown watch
+  on the g1610→g1616 main line.
