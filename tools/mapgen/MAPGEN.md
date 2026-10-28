@@ -15,5 +15,11 @@ headless, map on stdout, exit 0. Small 2p maps verified with
 | heightmap.py | `python heightmap.py --seed 1` (single-start map only: 2p tiling is disabled upstream, so not 2p-playable) |
 | McMaps.py | `python McMaps.py` (40x40 cells maze, no player starts: no hill-entry path upstream, so not 2p-playable) |
 
-Java files (`MapGenerator.java`, `MapWalker.java`, `SymmetricMapgen.java`,
-`Test.java`): assessed only, not fixed — see task report.
+Java files (compile: `javac -d <dir> *.java`, run with `java -cp <dir>`;
+never emit `.class` into the repo):
+- Test driver: `java -cp <dir> Test --players 2 --seed 1` (2p, playable;
+  starts print as hills A/B; `--players 4|8` also work; sizes 80-120px)
+- SymmetricMapgen: `java -cp <dir> SymmetricMapgen --players 2 --rows 40
+  --cols 40 --min_start_distance 10 --seed 1` (2p, playable; starts print
+  as hill digits 0/1; bare `java -cp <dir> SymmetricMapgen` keeps the
+  upstream 4-10p random behavior)
