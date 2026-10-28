@@ -30,8 +30,10 @@ tools/maps/curriculum/README.md.
 - Round 95 done: ACQUITTED (slice never ≥.40 sustained,
   decisiveness +.034). Channels stay; HANDS next.
 - Hands BUILT+MERGED (smoke: blocked 0.093, 9x threshold).
-  Round 96 = HONEST LOGGING live. Wild blocked rate >1%
-  combat ⇒ swaps r97; negligible ⇒ hands acquitted.
+  Round 96 done: TRIPWIRE (no total-knock either line),
+  ANSWERED by swaps (r87 precedent). Smoke stands
+  uncontradicted. Swaps builder dispatched (wild-rate
+  grounding first). Round 97 = mechanics.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)

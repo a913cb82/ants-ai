@@ -311,3 +311,14 @@ incentive via boards; this attacks it via the ledger).
   0.093 overall, 9x the falsifier threshold — wild measure
   confirms in r96). Train-intent (not downweight); fake
   stays zeroed. 181 green. Round 96 = honest-logging live.
+- Results (g1482-g1496, round 96): TRIPWIRE fires (no
+  total-knock either line: main best .375, rival best
+  .450). Blocked proxy UNMEASURABLE wild (no counters
+  emitted) — smoke 0.093 stands uncontradicted
+  (unmeasured ≠ zero). Tripwire ANSWERED by swaps per
+  r87 precedent (re-root banned, bank premature with
+  treatment in flight + learning healthy). 0 promos
+  (13th straight). Tenure 207.
+- Swaps builder dispatched (wild-rate grounding first).
+  Round 97 = mechanics (reserve destinations + swap/
+  cycle resolution).
