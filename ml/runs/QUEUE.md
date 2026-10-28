@@ -92,48 +92,20 @@ tools/maps/curriculum/README.md.
 - Round 111 done: SECOND-WIND + DOUBLE CROWN
   (main g1718 .65 → main g1719 .625). 8 crowns/10 rounds.
   Champ g1719. Round 112 = harden or 9th turnover?
+- Round 112 PAUSED at 8/15 (user): archive 1689,
+  champ g1719, no verdict. Partial stands, never
+  complete a partial — resume = fresh round from head.
+  See LOOP.md.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
 
-- Water-stuck axis (observed: ants idle at shores). Diver
-  reports in, fixes STAGED behind hands axis (no activation
-  until solution ideas + round-98 verdict):
-  (a) LOS-LEAK (losleak done): ghost runs BACKWARD — unseen
-  never invents enemies; teammate-seen marks in 12 B-tier
-  corners look exactly like own-visible except ch6=0, a flag
-  the net can't use (all 5 dest cells always ch6=1; base
-  5x5 RF smears corners). B-tier water misreads as LAND
-  (ch0≡0). Enemy-ON-cell reads fr=0 (safe!) + edist=0
-  (here!) — maximal attack-me, no danger flag. Matches
-  lakes 2x skew. Fixes ranked: F1 zero-fill B-tier entities
-  (gate L226-235 on in_circle; falsifier: corner probe 0 +
-  lake ghost == open); F2 fog-consistent fill (B water=0.5;
-  falsifier: dead-end stay-rate rises); F3 true per-ant
-  visibility (biggest shift/retrain; falsifier: ch6 varies
-  across dest cells). Activate earliest round 99,
-  one variable.
-  (d) STUCK-RATE (stuckmine done, archived replay
-  positions g1500/g1523): near-water stuck 4-5% (N=10)
-  vs 0.0% open — stuck is EXCLUSIVE to shoreline.
-  N=25 persists (2-4%). Trapped 74-91% (concave
-  pockets), turtle minority (hill-adjacent subset).
-  Starvation INVERTED: earliest-spawned stick most
-  (Q1 .042 > Q4 .021) — no late-list gradient.
-  Starter policy: 0 stuck in 6463 windows — stillness
-  is LEARNED (or learned-era), not engine artifact.
-  Analyzer at /tmp/stuck.py (re-runnable on new gens).
-  (b) NO-PLANNING (planahead done): confirmed pure
-  function of current window (model.py:47-48, :81/136;
-  AlphaAnt.py:193-194; only cross-turn state is turn
-  counter + water cache). Ranked: 1st stall-memory (1-bit
-  same-cell/blocked hysteresis channel, ~0 params, D4-safe
-  scalar; falsifier: dwell shifts left + water-map wins
-  hold); 2nd anti-stall shaping (stay-vs-water tax;
-  falsifier: dwell drops AND capture flat — else Goodhart
-  per tiebreak precedent); LAST intent-channel retry
-  (falsified r51-52, needs positive-signal axis first).
-
+- Water-stuck axis CLOSED (round 101): 1 kill (LOS F1
+  lake gap closed) + 2 acquittals (memory, shaping —
+  dwell irreducible geography 4.8-5.0%). Standing
+  meters: ml/probe_dwell.py + archived replay logs.
+  Code dormant: ch9 channel, --water-stall-tax (default
+  off). Reopen only on new evidence per discard bar.
 - Standing: map-mechanic axis MIXED (round-70 audition,
   archive/run-gated.md: q 100% decisive, r 30% weak-over-bar,
   s 0% sterile — all three members by legislation, rates banked).

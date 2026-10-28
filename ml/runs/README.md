@@ -15,6 +15,7 @@ tools/maps/curriculum/README.md. The idea backlog lives in QUEUE.md.
 | plan-next.md | program lead | staged roadmap (Stage 0/1/2) + bars |
 | review-fleet.md | review fleet | FROZEN 2026-10-28 synthesis — read-only |
 | campaign.md | runner | ACTIVE log (rounds 71+): volume era, grafts, strikes |
+| LOOP.md | program lead | pause/resume bookmark: state + exact round command |
 | archive/run-*.md | history | CLOSED topics, verbatim — verdict lines below, detail inside |
 
 Rules: a closed idea gets one verdict line in QUEUE plus its file
@@ -84,6 +85,7 @@ machinery before adding it.
 ## Index — living
 
 - QUEUE.md — backlog and verdict lines for every closed idea.
+- LOOP.md — pause/resume bookmark + exact round command.
 - plan-next.md — Stage-0 impl batch + Stage-1/2 mechanisms + bars.
 - review-fleet.md — 8-lens synthesis; verification table + ranked work.
 - campaign.md — rounds 71+: volume lands, penalty fails twice,
