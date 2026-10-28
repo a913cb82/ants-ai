@@ -371,3 +371,11 @@ incentive via boards; this attacks it via the ledger).
   (no ant ids; noted edge: cell turnover). Round 100 =
   MEMORY LIVE (falsifier: dwell shifts left + water wins
   hold; else memory acquitted, anti-stall shaping next).
+- Results (g1542-g1556, round 100): MAIN KNOCK g1554
+  total .525/champ-slice .500 (5W/2D/5L)/jury .562 —
+  FIRST main-line knock of the jury era (Wilson-held).
+  Dwell UNMEASURED (no instrumentation — our fault);
+  water soft (lakes didn't hold r99). Verdict DEFERRED:
+  dwell-measure job on r100 replays first (stuck.py
+  re-runnable), then memory works/acquitted. 0 promos
+  (17th straight). Tenure 267.

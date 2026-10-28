@@ -46,7 +46,11 @@ tools/maps/curriculum/README.md.
   vs .429, decisive .78; main flat, rivals knock x4).
   Stall-memory builder dispatched; round 100 = MEMORY.
 - Stall-memory BUILT+MERGED (ch9 rate 0.050 on smoke,
-  9ch-compat byte-identical). Round 100 = MEMORY LIVE.
+  9ch-compat byte-identical). Round 100 done: MAIN KNOCK
+  g1554 (first jury-era, held) but dwell unmeasured +
+  water soft ⇒ verdict DEFERRED. Dwell-measure job
+  dispatched (stuck.py on r100 replays); then memory
+  works/acquitted → r101.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
