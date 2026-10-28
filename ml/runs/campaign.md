@@ -485,3 +485,9 @@ incentive via boards; this attacks it via the ledger).
   sterile, gen2p/tutorial drew). Graduate: NO (retention
   unsolved, r22 precedent; needs rotating sub-pools +
   pilot). Falsifiers set per option. Pool frozen.
+- Results (g1692-g1706, round 110): THRONE-SECURE.
+  3rd hold (tenure 45), zero promos. Slice knocks
+  .542/.500 (cooling vs r109 .667); 2 totals held.
+  Decisive .693. Pool review acted on: HOLD (no change).
+  Round 111 = same vs g1660: siege cooling or
+  second wind?

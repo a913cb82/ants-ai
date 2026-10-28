@@ -86,6 +86,9 @@ tools/maps/curriculum/README.md.
 - Round 109 done: STABLE-THRONE (tenure 30, 7/15
   slices ≥.50 all held). Rung review diver out;
   round 110 = same vs g1660.
+- Round 110 done: THRONE-SECURE (3rd hold, tenure 45;
+  review acted on: HOLD). Round 111 = siege cooling
+  or second wind, same vs g1660.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
