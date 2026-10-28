@@ -61,6 +61,16 @@ list, not a schedule. Skip-the-queue rules in runs README.)
   trapped-vs-turtle split), planahead (fix space in
   constraints), ordereff (order gradient + randomize
   verdict). Activate earliest round 99, one variable.
+  (b) NO-PLANNING (planahead done): confirmed pure
+  function of current window (model.py:47-48, :81/136;
+  AlphaAnt.py:193-194; only cross-turn state is turn
+  counter + water cache). Ranked: 1st stall-memory (1-bit
+  same-cell/blocked hysteresis channel, ~0 params, D4-safe
+  scalar; falsifier: dwell shifts left + water-map wins
+  hold); 2nd anti-stall shaping (stay-vs-water tax;
+  falsifier: dwell drops AND capture flat — else Goodhart
+  per tiebreak precedent); LAST intent-channel retry
+  (falsified r51-52, needs positive-signal axis first).
 
 - Standing: map-mechanic axis MIXED (round-70 audition,
   archive/run-gated.md: q 100% decisive, r 30% weak-over-bar,
