@@ -450,3 +450,10 @@ incentive via boards; this attacks it via the ledger).
   Expl g1630 slice .708 vs new champ (held on total).
   Round 106 = vs g1629: does a main champ harden
   where jury champs churned?
+- Results (g1632-g1646, round 106): MAIN-HARDENS.
+  g1629 holds all 15 (tenure 15), zero promos.
+  Mid-round surge (3 straight totals ≥.50 g1639-41,
+  slices .542/.625 — all held), late fade (.250 g1644).
+  Churn was succession, not regime — stability returns.
+  5th quiet round. Round 107 = same vs g1629:
+  surge or fade — which was the trend?

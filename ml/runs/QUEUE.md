@@ -74,6 +74,9 @@ tools/maps/curriculum/README.md.
   (first main crown since g913). 4 crowns/4 rounds:
   no stable throne. Champ g1629. Round 106 = does
   a main champ harden?
+- Round 106 done: MAIN-HARDENS (g1629 holds 15;
+  surge mid-round all held, fade late). Round 107 =
+  surge or fade, same vs g1629.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
