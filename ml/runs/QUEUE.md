@@ -34,6 +34,8 @@ tools/maps/curriculum/README.md.
   ANSWERED by swaps (r87 precedent). Smoke stands
   uncontradicted. Swaps builder dispatched (wild-rate
   grounding first). Round 97 = mechanics.
+- Swaps BUILT+MERGED (wild 0.379 blocked, fix →0.049,
+  cycles 20.5%). Round 97 = MECHANICS LIVE.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)

@@ -322,3 +322,8 @@ incentive via boards; this attacks it via the ledger).
 - Swaps builder dispatched (wild-rate grounding first).
   Round 97 = mechanics (reserve destinations + swap/
   cycle resolution).
+- Swaps BUILT+MERGED: wild blocked-row 0.379 (!!), override
+  0.150 — disease 4x worse in real games than 40t smoke.
+  Fix works: blocked 0.379→0.049, cycles fire 20.5% of
+  turns, no-cycle orders byte-identical. 187 green.
+  Round 97 = swap mechanics live.
