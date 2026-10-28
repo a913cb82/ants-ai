@@ -85,21 +85,39 @@ def compact_records(records: list[dict]) -> list[dict]:
 
 
 def to_batch(
-    records: list[dict], returns: list[float], logps: list[float]
+    records: list[dict], returns: list[float], logps: list[float],
+    honest: bool = True,
 ) -> list[BatchItem]:
-    """Decision rows + priced returns + behavior log-probs -> learner batch."""
-    return [
-        (
+    """Decision rows + priced returns + behavior log-probs -> learner batch.
+
+    honest (default): a row whose intent differs from its taken action
+    because the intent was reservation-blocked trains the INTENT, with
+    the stored mask opened on it — the fallback was forced, not
+    preferred, so reinforcing it teaches second choice as taste.
+    honest=False reproduces the legacy behavior exactly (taken action
+    under the as-acted mask). Rows with no blocking are byte-identical
+    under either setting. collect() scores behavior log-probs on the
+    substituted pairs, so PPO's ratio stays on-policy by construction."""
+    items = []
+    for rec, ret, logp in zip(records, returns, logps, strict=True):
+        action = rec["action"] if "action" in rec else "stay"
+        mask = list(rec.get("legal", [True] * len(model.ACTIONS)))
+        intent = rec.get("intent")
+        blocked = rec.get("blocked") or []
+        if (honest and intent is not None and intent != action
+                and intent in blocked):
+            action = intent
+            mask[model.ACTIONS.index(intent)] = True
+        items.append((
             # as_tensor: zero-copy when compact_records already
             # tensorized the window; bit-identical otherwise.
             torch.as_tensor(rec["window"], dtype=torch.float32),
-            model.ACTIONS.index(rec["action"]) if "action" in rec else 0,
+            model.ACTIONS.index(action),
             ret,
-            rec.get("legal", [True] * len(model.ACTIONS)),
+            mask,
             logp,
-        )
-        for rec, ret, logp in zip(records, returns, logps, strict=True)
-    ]
+        ))
+    return items
 
 
 def _rotate_item(item: BatchItem, k: int) -> BatchItem:
@@ -116,12 +134,13 @@ def _rotate_item(item: BatchItem, k: int) -> BatchItem:
 
 
 def collect(
-    policy: model.CNNPolicy, records: list[dict], returns: list[float]
+    policy: model.CNNPolicy, records: list[dict], returns: list[float],
+    honest: bool = True,
 ) -> list[BatchItem]:
     """to_batch + behavior log-probs in one pass: the policy is frozen
     during collection, so these are the on-policy log-probs PPO's ratio
     needs later."""
-    items = to_batch(records, returns, [0.0] * len(returns))
+    items = to_batch(records, returns, [0.0] * len(returns), honest=honest)
     if not items:
         return items
     # Random rotation per row: the behavior log-probs are scored on the

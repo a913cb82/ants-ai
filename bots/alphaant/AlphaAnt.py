@@ -87,7 +87,6 @@ class AlphaAntBot:
         recording = self._record_path is not None
         rows = []
         reserved = set(mine)
-        undecided: tuple = ()
         for i, ant_loc in enumerate(mine):
             blocked = frozenset(
                 action
@@ -99,6 +98,12 @@ class AlphaAntBot:
             masked = model.mask_logits(
                 logits[i], windows[i], blocked, legal=legal
             )
+            # Honest logging: the want (pre-mask argmax of the raw
+            # logits) plus the reservation set that constrained it.
+            # The taken action stays the fallback the bot actually
+            # played; the learner decides what to reinforce from
+            # intent + blocked instead of blaming terrain.
+            intent = features.ACTIONS[int(torch.argmax(logits[i]))]
             if self._temperature > 0:
                 probs = torch.softmax(masked / self._temperature, dim=0)
                 action = features.ACTIONS[int(torch.multinomial(probs, 1))]
@@ -116,25 +121,16 @@ class AlphaAntBot:
                     "loc": list(ant_loc),
                     "dest": list(dest),
                     "action": action,
+                    "intent": intent,
+                    "blocked": sorted(blocked),
                     "window": windows[i].tolist(),
                     "legal": legal.tolist(),
                 })
             if ants.time_remaining() < 10:
-                undecided = tuple(mine[i + 1 :])
+                # Time ran out: undecided ants leave no rows. Logging
+                # them as stays forged supervision they never chose
+                # and starved late-order ants of real credit.
                 break
-        if undecided and recording:
-            # Time ran out: log the undecided ants as stays so training
-            # rows never starve late-order ants of credit.
-            for rest in undecided:
-                rest_window = features.local_window(ants, rest, view=view)
-                rows.append({
-                    "turn": self._turn,
-                    "loc": list(rest),
-                    "dest": list(rest),
-                    "action": "stay",
-                    "window": rest_window.tolist(),
-                    "legal": model.legal_mask(rest_window, frozenset()).tolist(),
-                })
         if recording and rows:
             with open(self._record_path, "a") as f:
                 for row in rows:
