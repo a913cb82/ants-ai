@@ -50,6 +50,11 @@ tools/maps/curriculum/README.md.
   MEMORY-ACQUITTED (dwell 4.81% in band, uniform;
   main knock g1554 one-off). Shaping builder dispatched;
   round 101 = STAY-VS-WATER TAX (Goodhart-guarded).
+- Shaping BUILT+MERGED (-0.05 same-turn, main-only,
+  enemy-near exempt; 12 tests green) + lead plumbing
+  (--water-stall-tax, default off). Round 101 = TAX LIVE
+  (dwell drops AND capture holds → works; dwell drops +
+  wins drop → GOODHART revert; dwell flat → axis closes).
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)

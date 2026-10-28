@@ -104,7 +104,8 @@ def _play_one(args) -> dict:
         out["records_a"] if slot == 0 else out["records_b"])
     rets = rewards.compute_returns(game, slot, rows, rewards.scales_for(role),
                                    role,
-                                   draw_as_loss=_is_penalty_game(cfg, g, gen_index))
+                                   draw_as_loss=_is_penalty_game(cfg, g, gen_index),
+                                   enable_water_stall=cfg.get("water_stall_tax", False))
     sa, sb = game["score"][0], game["score"][1]
     archive.record_result(base, first, second, sa, sb, kind="train")
     archive.log_game(base, chal_id, "train", first, second, sa, sb,

@@ -57,6 +57,7 @@ def default_config() -> dict:
         "turns": 250,
         "turns": 250,
         "train_draw_penalty_every": 0,
+        "water_stall_tax": False,
         "train_games": 4,
         "champ_share": 0.25,
         "eval_games": 20,
@@ -97,6 +98,10 @@ def parse_args(argv: list[str] | None = None) -> dict:
                      default=defaults["train_draw_penalty_every"],
                      help="every Nth train game prices draws as losses "
                      "(anti-turtle); 0 disables")
+    p.add_argument("--water-stall-tax", action=argparse.BooleanOptionalAction,
+                     default=defaults["water_stall_tax"],
+                     help="tax unproductive stays near water "
+                     "(anti-dwell shaping); default off = legacy")
     p.add_argument("--eval-games", type=int, default=defaults["eval_games"])
     p.add_argument("--exam-jury-size", type=int, default=defaults["exam_jury_size"],
                      help="jury exam: challenger faces the champ (3/5 of games) "
@@ -141,6 +146,7 @@ def parse_args(argv: list[str] | None = None) -> dict:
         "train_games": args.train_games,
         "champ_share": args.champ_share,
         "train_draw_penalty_every": args.train_draw_penalty_every,
+        "water_stall_tax": args.water_stall_tax,
         "eval_games": args.eval_games,
         "exam_jury_size": args.exam_jury_size,
         "temperature": args.temperature,

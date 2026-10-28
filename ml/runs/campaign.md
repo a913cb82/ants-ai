@@ -387,3 +387,9 @@ incentive via boards; this attacks it via the ledger).
   non-use, not slow learning). ch9 stays dormant (~free).
   Anti-stall shaping builder dispatched (stay-vs-water
   micro-tax, Goodhart guard armed). Round 101 = SHAPING.
+- Shaping BUILT+MERGED: STAY_NEAR_WATER=-0.05 same-turn,
+  stay + water-Chebyshev-1..2 + no-enemy-in-range;
+  main-only; byte-identical off (default). Taxed-row
+  rate 1.2% on scouts (brackets 4.81% dwell). 12 tests,
+  suite green. Lead-added --water-stall-tax plumbing
+  (default off = legacy; 188 green). Round 101 = TAX.
