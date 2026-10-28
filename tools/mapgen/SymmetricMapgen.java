@@ -5,9 +5,45 @@ import java.util.Stack;
 public class SymmetricMapgen {
 
     public static void main(String[] args) {
-        SymmetricMapgen map = new SymmetricMapgen();
+        long seed = System.currentTimeMillis();
+        String outFile = null;
+        try {
+            for (int i = 0; i < args.length; i++) {
+                if (args[i].equals("--seed")) {
+                    seed = Long.parseLong(args[++i]);
+                } else if (args[i].equals("--out")) {
+                    outFile = args[++i];
+                } else {
+                    throw new IllegalArgumentException("unknown arg: " + args[i]);
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("usage: java SymmetricMapgen [--seed N] [--out FILE]");
+            System.err.println("  " + e.getMessage());
+            System.exit(2);
+            return;
+        }
+        SymmetricMapgen map = new SymmetricMapgen(seed);
         map.randomWalkMap();
-        System.out.print(map.printMap());
+        String text = map.printMap();
+        if (outFile != null) {
+            try {
+                java.nio.file.Files.writeString(java.nio.file.Path.of(outFile), text);
+            } catch (java.io.IOException e) {
+                System.err.println("cannot write " + outFile + ": " + e.getMessage());
+                System.exit(1);
+                return;
+            }
+        } else {
+            System.out.print(text);
+        }
+    }
+
+    public SymmetricMapgen() {
+    }
+
+    public SymmetricMapgen(long seed) {
+        rnd.setSeed(seed);
     }
 
     private Random rnd = new Random();
@@ -63,7 +99,10 @@ public class SymmetricMapgen {
         for (int r = 0; r < rows; r++) {
             sb.append("m ");
             for (int c = 0; c < cols; c++) {
-                sb.append(PRINT_OUTS[mapData[r][c]]);
+                int v = mapData[r][c];
+                // Ant starts are printed as ant+hills ('A' + player), which is
+                // what the engine expects: every player owns a hill.
+                sb.append(v >= A_ANT ? (char) ('A' + v - A_ANT) : PRINT_OUTS[v]);
             }
             sb.append("\n");
         }
@@ -154,7 +193,7 @@ public class SymmetricMapgen {
 
         int noLandSquares = rnd.nextInt(max - min) + min;
 
-        while(landSquares < noLandSquares || isValid()) {
+        while(landSquares < noLandSquares || !isValid()) {
             walkLocations();
 
             for (int i = 0; i < cLocs.length; i++) {
@@ -183,7 +222,7 @@ public class SymmetricMapgen {
             for (int i = 0; i < DIRECTIONS.length; i++) {
                 int[] newLoc = getLoc(tmpLoc, DIRECTIONS[i]);
 
-                if (visited[newLoc[0]][newLoc[1]] == 0) {
+                if (visited[newLoc[0]][newLoc[1]] == 0 && mapData[newLoc[0]][newLoc[1]] != WATER) {
                     visited[newLoc[0]][newLoc[1]] = 1;
                     stack.add(newLoc);
                     squaresVisited++;
