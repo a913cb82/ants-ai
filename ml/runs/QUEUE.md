@@ -70,6 +70,10 @@ tools/maps/curriculum/README.md.
 - Round 104 done: HARDENED (g1596 holds 15, tenure 14;
   main 3 slice-knocks held). Round 105 = crown watch
   on main line, same vs g1596.
+- Round 105 done: TURNOVER — main g1629 crowns .725
+  (first main crown since g913). 4 crowns/4 rounds:
+  no stable throne. Champ g1629. Round 106 = does
+  a main champ harden?
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)

@@ -442,3 +442,11 @@ incentive via boards; this attacks it via the ledger).
   Succession complete, throne legitimate. 4th straight
   quiet round. Round 105 = same vs g1596, crown watch
   on the g1610→g1616 main line.
+- Results (g1617-g1631, round 105): TURNOVER. Main
+  g1629 CROWNS .725 (slice .583, jury .938!) over g1596
+  — knocking converted on the 5th knock, first MAIN
+  crown since g913 (46 rounds). 4th turnover in 4 rounds:
+  no stable throne in the post-hands game. Champ g1629.
+  Expl g1630 slice .708 vs new champ (held on total).
+  Round 106 = vs g1629: does a main champ harden
+  where jury champs churned?
