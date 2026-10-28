@@ -30,7 +30,7 @@ UNROT = {k: _unrot(k) for k in range(4)}
 
 
 class CNNPolicy(torch.nn.Module):
-    """Small convnet: (6, H, W) window -> 5 action logits + 1 value.
+    """Small convnet: (C, H, W) window -> 5 action logits + 1 value.
 
     arch="base": 2 conv layers (16/32ch), 5x5 receptive field, 2x2
     pool -> 128 dims, ~6.3k params. The periphery reaches the heads
@@ -134,11 +134,11 @@ class CNNPolicy(torch.nn.Module):
         return total / count
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """x: (B, 6, H, W) -> logits (B, 5). D4-symmetrized."""
+        """x: (B, C, H, W) -> logits (B, 5). D4-symmetrized."""
         return self._d4_logits(x)
 
     def values(self, x: torch.Tensor) -> torch.Tensor:
-        """x: (B, 6, H, W) -> state values (B,). D4-invariant."""
+        """x: (B, C, H, W) -> state values (B,). D4-invariant."""
         return self._d4_values(x).squeeze(-1)
 
 

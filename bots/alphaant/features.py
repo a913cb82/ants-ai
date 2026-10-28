@@ -1,12 +1,13 @@
 """Observation encoding for the AlphaAnt bot.
 
 Owns the action space (ACTIONS + OFFSETS) and the two things the bot
-sees: dest_of for movement, local_window for the 6-channel relative
+sees: dest_of for movement, local_window for the 9-channel relative
 state. No policy, no training.
 """
 
 from __future__ import annotations
 
+import math
 import numpy as _np
 import torch
 from typing import TYPE_CHECKING
@@ -19,13 +20,16 @@ ACTIONS = ("n", "e", "s", "w", "stay")
 OFFSETS = {"n": (-1, 0), "e": (0, 1), "s": (1, 0), "w": (0, -1), "stay": (0, 0)}
 
 # Third-dimension (channel) order of local_window: water, friendly ant,
-# friendly hill, enemy ant, enemy hill, food, own-sight flag.
+# friendly hill, enemy ant, enemy hill, food, own-sight flag, local
+# force-ratio, distance-to-nearest-enemy.
 CHANNELS = ("water", "own_ant", "own_hill", "enemy_ant", "enemy_hill",
-            "food", "own_sight")
+            "food", "own_sight", "force_ratio", "enemy_dist")
 
 WATER_CHANNEL = 0
 FOOD_CHANNEL = 5
 OWN_SIGHT_CHANNEL = 6
+FORCE_RATIO_CHANNEL = 7
+ENEMY_DIST_CHANNEL = 8
 
 
 _sight_offsets: dict[tuple[int, int], list[tuple[int, int, int, int, bool]]] = {}
@@ -61,7 +65,7 @@ class View:
     mid-game, so the bot builds it once in do_setup)."""
 
     __slots__ = (
-        "rows", "cols", "sight2", "own_ants", "own_hills",
+        "rows", "cols", "sight2", "attack2", "own_ants", "own_hills",
         "enemy_ants", "enemy_hills", "foods", "water",
     )
 
@@ -69,6 +73,7 @@ class View:
         self.rows = ants.rows
         self.cols = ants.cols
         self.sight2 = getattr(ants, "viewradius2", 77)
+        self.attack2 = getattr(ants, "attackradius2", 5) or 5
         self.own_ants = set(ants.my_ants())
         self.own_hills = set(ants.my_hills())
         self.enemy_ants = {pos for pos, _owner in ants.enemy_ants()}
@@ -85,6 +90,33 @@ def snapshot(ants, water=None) -> View:
 # outside the sight circle (77), so they carry union-vision content —
 # what teammates see — flagged by the own_sight channel.
 DEFAULT_RADIUS = 7
+
+
+_attack_offsets: dict[int, list[tuple[int, int]]] = {}
+
+
+def _offsets_in(attack2: int) -> list[tuple[int, int]]:
+    """(dr, dc) with 0 < dr*dr+dc*dc <= attack2: the engine kill range.
+
+    nearby_ants excludes the center cell (0 < dist), and the support
+    rule does not count the ant itself — so neither do we. Cached per
+    attack2; attackradius2=5 gives the 20-cell ring."""
+    if attack2 not in _attack_offsets:
+        _attack_offsets[attack2] = [
+            (dr, dc)
+            for dr in range(-attack2, attack2 + 1)
+            for dc in range(-attack2, attack2 + 1)
+            if 0 < dr * dr + dc * dc <= attack2
+        ]
+    return _attack_offsets[attack2]
+
+
+def _tdelta(a: int, b: int, n: int) -> int:
+    """Signed toroidal delta a-b in [-n/2, n/2]."""
+    d = (a - b) % n
+    if 2 * d > n:
+        d -= n
+    return d
 
 
 def dest_of(ants: Ants, loc: tuple[int, int], action: str) -> tuple[int, int]:
@@ -113,6 +145,20 @@ def local_window(
     whether they are actionable now is marked. viewradius2 comes from
     the game settings and defaults to 77 when the wrapper does not
     provide it.
+
+    Channels 7-8 are scalar combat fields, filled for every cell
+    including water (they describe the neighborhood, not the tile):
+    force_ratio is enemies minus friends with 0 < d2 <= attackradius2
+    of the cell (occupant excluded, raw float, positive =
+    outnumbered — the center cell is > 0 exactly when the focal ant
+    dies under the engine support rule); enemy_dist is the toroidal
+    distance to the nearest known enemy ant, divided by the window
+    diagonal (radius*sqrt(2)) and clipped to [0, 1], so 0 =
+    enemy-here and 1 = nothing near. No enemies known at all fills
+    1.0 (window max: far == safe). Both derive from the same union-
+    vision sets as the 1-hot channels, and both are scalars, so a
+    rotated position yields the rotated window (see
+    tests/test_forceratio.py).
     """
     size = 2 * radius + 1
     grid = _np.zeros((len(CHANNELS), size, size), dtype=_np.float32)
@@ -124,10 +170,55 @@ def local_window(
     enemy_ants = view.enemy_ants
     enemy_hills, foods = view.enemy_hills, view.foods
     water = view.water
+    # getattr: ml/bc.py rebuilds pre-force-ratio view-likes (a plain
+    # namespace) to replay archived windows; they carry no attack2.
+    attack2 = getattr(view, "attack2", 5) or 5
+    reach = set(_offsets_in(attack2))
+    max_d = radius * math.sqrt(2)
+    # Candidates near the window: exact, not approximate. An ant
+    # outside the force box cannot be within attack2 of any window
+    # cell; an enemy outside the dist box is past the clip, so min()
+    # never misses it unless no enemy is inside (all-ones fill).
+    fr_each = int(math.ceil(math.sqrt(attack2)))
+    fr_box = radius + fr_each
+    ed_box = radius + int(math.ceil(max_d))
+    friends = [
+        p for p in own_ants
+        if abs(_tdelta(p[0], r0, rows)) <= fr_box
+        and abs(_tdelta(p[1], c0, cols)) <= fr_box
+    ]
+    foes = [
+        p for p in enemy_ants
+        if abs(_tdelta(p[0], r0, rows)) <= fr_box
+        and abs(_tdelta(p[1], c0, cols)) <= fr_box
+    ]
+    near = [
+        p for p in enemy_ants
+        if abs(_tdelta(p[0], r0, rows)) <= ed_box
+        and abs(_tdelta(p[1], c0, cols)) <= ed_box
+    ]
     for dr, dc, i, j, in_circle in _offsets_for(radius, view.sight2):
         if in_circle:
             grid[OWN_SIGHT_CHANNEL, i, j] = 1.0
         cell = ((r0 + dr) % rows, (c0 + dc) % cols)
+        foes_n = sum(
+            1 for q in foes
+            if (_tdelta(q[0], cell[0], rows), _tdelta(q[1], cell[1], cols)) in reach
+        )
+        friends_n = sum(
+            1 for q in friends
+            if (_tdelta(q[0], cell[0], rows), _tdelta(q[1], cell[1], cols)) in reach
+        )
+        grid[FORCE_RATIO_CHANNEL, i, j] = foes_n - friends_n
+        if near:
+            best = min(
+                _tdelta(q[0], cell[0], rows) ** 2
+                + _tdelta(q[1], cell[1], cols) ** 2
+                for q in near
+            )
+            grid[ENEMY_DIST_CHANNEL, i, j] = min(1.0, math.sqrt(best) / max_d)
+        else:
+            grid[ENEMY_DIST_CHANNEL, i, j] = 1.0
         if in_circle and ((cell in water) if water is not None
                            else (not ants.passable(cell))):
             grid[0, i, j] = 1.0
