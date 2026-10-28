@@ -89,6 +89,9 @@ tools/maps/curriculum/README.md.
 - Round 110 done: THRONE-SECURE (3rd hold, tenure 45;
   review acted on: HOLD). Round 111 = siege cooling
   or second wind, same vs g1660.
+- Round 111 done: SECOND-WIND + DOUBLE CROWN
+  (main g1718 .65 → main g1719 .625). 8 crowns/10 rounds.
+  Champ g1719. Round 112 = harden or 9th turnover?
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)

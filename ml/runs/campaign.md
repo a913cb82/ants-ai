@@ -491,3 +491,10 @@ incentive via boards; this attacks it via the ledger).
   Decisive .693. Pool review acted on: HOLD (no change).
   Round 111 = same vs g1660: siege cooling or
   second wind?
+- Results (g1707-g1721, round 111): SECOND-WIND +
+  DOUBLE CROWN. Knocking returned (5 held), then main
+  g1718 .650 (slice .542) over g1660 (tenure ends 45),
+  then main g1719 .625 (slice .625) over g1718.
+  8 crowns in 10 rounds — staircase resumes at once.
+  Champ g1719. Round 112 = vs g1719: harden or
+  9th turnover?
