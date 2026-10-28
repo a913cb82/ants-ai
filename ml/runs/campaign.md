@@ -393,3 +393,13 @@ incentive via boards; this attacks it via the ledger).
   rate 1.2% on scouts (brackets 4.81% dwell). 12 tests,
   suite green. Lead-added --water-stall-tax plumbing
   (default off = legacy; 188 green). Round 101 = TAX.
+- Results (g1557-g1571, round 101): TAX live, knocks x3:
+  g1562 main .50, g1567 expl .60/champ-slice .50,
+  g1571 MAIN .525/champ-slice .583 — best main slice
+  of the jury era ⇒ clearing signal (continuity-only).
+  Main totals up (best .525/.50/.475/.45/.45 vs r100
+  .425+one-off). Dwell UNMEASURED again (stuck.py in
+  /tmp, not repo — pipeline not yet standing). Verdict
+  DEFERRED: dwell101 job on r101 replays vs 4.81%.
+  Wins NOT dropping ⇒ Goodhart guard quiet so far.
+  0 promos (18th straight). Tenure 282.

@@ -55,6 +55,9 @@ tools/maps/curriculum/README.md.
   (--water-stall-tax, default off). Round 101 = TAX LIVE
   (dwell drops AND capture holds → works; dwell drops +
   wins drop → GOODHART revert; dwell flat → axis closes).
+- Round 101 done: TAX live, 3 knocks (main slice .583
+  best jury-era ⇒ clearing signal), capture UP,
+  dwell pending ⇒ DEFERRED. dwell101 dispatched.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
