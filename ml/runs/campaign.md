@@ -413,3 +413,12 @@ incentive via boards; this attacks it via the ledger).
   dormant). Slice climb (.417→.417→.500→.583) is the
   post-hands learning curve, not any water variable.
   dwell probe committed to repo (standing meter).
+- Results (g1572-g1586, round 102): JURY-PROMO +
+  TAX-INERT. g1585 EXPLOITER CROWNS total .675 — first
+  crown in 19 rounds (~300 gens). Jury-carried (champ-
+  slice .375 vs g1287 [1W1D2L loss], jury .562) ⇒ SOFT
+  throne. Tax-off: mains re-climbed .45→.50→.525 +
+  crown happened without tax ⇒ acquittal validated,
+  axis stays closed. Main g1586 .525 vs NEW champ
+  (immediate knock on the throne). Champ g1585,
+  tenure 0. 1 promo (ends 18-round drought).

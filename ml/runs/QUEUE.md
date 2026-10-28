@@ -59,6 +59,10 @@ tools/maps/curriculum/README.md.
   noise, trapped flat). AXIS CLOSED. Tax OFF r102
   (acquittal test: climb continues → tax inert;
   collapse → tax mattered unseen). Dwell probe in repo.
+- Round 102 done: JURY-PROMO g1585 (.675, jury-carried,
+  SOFT) + TAX-INERT (climb held, acquittal validated).
+  Champ g1585 tenure 0. Round 103 = vs new champ:
+  does the throne harden or correct?
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
