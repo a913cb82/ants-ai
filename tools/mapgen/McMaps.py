@@ -1,13 +1,10 @@
 #!/usr/bin/python
 from collections import defaultdict
-from collections.abc import Iterable
 from math import sqrt
 from random import choice, random, randrange
 from typing import Any
 
-import Image
-import ImageChops
-import ImageDraw
+from PIL import Image, ImageChops, ImageDraw
 
 MY_ANT = 0
 ANTS = 0
@@ -510,9 +507,10 @@ def cells(
     size = (rows, cols)
     m = [[LAND for col in range(cols)] for row in range(rows)]
 
-    # ensure points is a dict with id's
+    # normalize to an ordered list; ids are indexes, coords stay tuples
     if type(points) is dict:
-        points = {point: x for x, point in enumerate(points)}
+        points = list(points.keys())
+    point_id = {point: i for i, point in enumerate(points)}
 
     # undirected node graph
     neighbor = defaultdict(list)
@@ -525,7 +523,7 @@ def cells(
             distances: Any = {loc: distance((row, col), loc, size) for loc in points}
             cutoff = min(distances.values()) + 1
             closest = [point for point, d in distances.items() if d <= cutoff]
-            comps: Any = {points[point] for point in closest}
+            comps: Any = {point_id[point] for point in closest}
             comps_found = len(comps) > 1
             nearest = closest
 
@@ -544,14 +542,12 @@ def cells(
                         # note: a path from one point to another could have 2 barrier sections if they touch
                         #       left and right or top and bottom due to wrapping
                         #       the path midpoint attempts to choose one and only one barrier section
-                        m_row, m_col = mid_point(
-                            points[nearest[0]], points[nearest[1]], size
-                        )
+                        m_row, m_col = mid_point(nearest[0], nearest[1], size)
                         if (
                             row_distance(m_row, row, rows) <= rows // 4
                             and col_distance(m_col, col, cols) <= cols // 4
                         ):
-                            barrier[tuple(nearest)].append((row, col))
+                            barrier[tuple(sorted(nearest))].append((row, col))
                     else:
                         pass
                         # barrier[tuple(nearest)].append((row, col))
@@ -563,10 +559,10 @@ def cells(
                 # note: a cell could wrap around vertically or horizontally
                 #       depending on the placement of other cells
                 #       this draws a barrier halfway around on the other side
-                nearest = distances.index(min(distances))
+                nearest = closest[0]
                 if (
-                    row_distance(row, points[nearest][0], rows) >= rows // 2
-                    or col_distance(col, points[nearest][1], cols) >= cols // 2
+                    row_distance(row, nearest[0], rows) >= rows // 2
+                    or col_distance(col, nearest[1], cols) >= cols // 2
                 ):
                     m[row][col] = BARRIER  # this barrier can't be carved
                 # m[row][col] = distances.index(closest[0])
@@ -583,15 +579,8 @@ def cells(
 
     # carve passages function to pass to maze function
     def carve(path):
-        # print('%s-%s (%s,%s)-(%s,%s) %s,%s' % (chr(path[0]+97), chr(path[1]+97),
-        #                                       points[path[0]][0], points[path[0]][1],
-        #                                       points[path[1]][0], points[path[1]][1],
-        #                                       m_row, m_col))
-        paths: Iterable[Any] = [path]
-        if comps is not None:
-            paths = zip(comps[path[0]], comps[path[1]], strict=False)
-        for path in paths:
-            path = tuple(sorted(path))
+        path = tuple(sorted(path))
+        if path in barrier:
             for row, col in barrier[path]:
                 m[row][col] = LAND
 
@@ -609,7 +598,7 @@ def cells(
 
 
 def growing_tree(nodes, carve, max_braids=1000, openness=0.5):
-    cells = [choice(nodes.keys())]
+    cells = [choice(list(nodes.keys()))]
     visited = cells[:]
     carved = defaultdict(list)  # modified node graph
     # carved[cells[0]].append(cells[0])
@@ -716,13 +705,12 @@ def map_to_png(m, output_filename):
 
 
 def main():
-    # map_to_png(sys.argv[1])
-    # seed(0)
-    size = (100, 100)
-    points = random_points_unique(400, size, 6, euclidean_distance)
-    cells(size, points, max_braids=choice((0, 1000)), openness=random())
-    # print(ant_map(m))
-    # map_to_png(m, "test.png")
+    # small cells maze on stdout as a parseable map; no player starts are
+    # placed (no hill-entry path exists upstream), so this is not 2p-playable
+    size = (40, 40)
+    points = random_points_unique(40, size, 6, euclidean_distance)
+    m = cells(size, points, max_braids=choice((0, 1000)), openness=random())
+    print(ant_map(m))
 
 
 def make_text(points, size):
@@ -748,11 +736,4 @@ def make_text(points, size):
 
 
 if __name__ == "__main__":
-    p = [(0, 0), (0, 1)]
-    s = (2, 2)
-    p, s, g = make_symmetric(p, s, randrange(2, 12))
-    t = make_text(p, s)
-    print(f"size: {s}\ngrid: {g}\n\n{t}")
-
-    # import cProfile
-    # cProfile.run('main()')
+    main()

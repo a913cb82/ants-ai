@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+import sys
+from optparse import OptionParser
 from random import randint
 
 from map import LAND, WATER, Map
@@ -8,6 +10,7 @@ class RandomMap(Map):
     def __init__(self, options=None):
         if options is None:
             options = {}
+        super().__init__(options)
         self.name = "random"
         self.rows = options.get("rows", (40, 120))
         self.cols = options.get("cols", (40, 120))
@@ -41,11 +44,30 @@ class RandomMap(Map):
             self.map[row][col] = player
 
 
-def main():
-    new_map = RandomMap()
+def main(argv=None):
+    parser = OptionParser()
+    parser.add_option("--rows", dest="rows", type="int", help="exact row count")
+    parser.add_option("--cols", dest="cols", type="int", help="exact col count")
+    parser.add_option(
+        "--players", dest="players", type="int", help="exact player count"
+    )
+    parser.add_option("--seed", dest="seed", type="int", help="random seed")
+    opts, _ = parser.parse_args(argv)
+
+    options = {}
+    if opts.rows is not None:
+        options["rows"] = opts.rows
+    if opts.cols is not None:
+        options["cols"] = opts.cols
+    if opts.players is not None:
+        options["players"] = opts.players
+    if opts.seed is not None:
+        options["seed"] = opts.seed
+
+    new_map = RandomMap(options)
     new_map.generate()
     new_map.toText()
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])
