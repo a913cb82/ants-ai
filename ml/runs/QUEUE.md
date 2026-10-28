@@ -36,8 +36,11 @@ tools/maps/curriculum/README.md.
   grounding first). Round 97 = mechanics.
 - Swaps BUILT+MERGED (wild 0.379 blocked, fix →0.049,
   cycles 20.5%). Round 97 done: HANDS-CONFIRMED
-  (decisive .773, rival knock .525 held). Round 98 =
-  continue same, watch slices.
+  (decisive .773, rival knock .525 held). Round 98 done:
+  STILL-CONFIRMED (decisive .737, slices flat, rival
+  slice .500 borderline ⇒ STRIKE-ONE, ladder spent).
+  OVERRIDE: water-stuck outranks coordination retry.
+  LOS-F1 builder dispatched; round 99 = ghost-fill fix.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)

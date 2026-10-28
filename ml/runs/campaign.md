@@ -335,3 +335,18 @@ incentive via boards; this attacks it via the ledger).
   (14th straight). Tenure 222.
 - Round 98: continue same (scores chase behavior — watch
   slices catch up). Then coordination channel if flat.
+- Results (g1512-g1526, round 98): STILL-CONFIRMED.
+  Decisiveness holds .737; main slices flat (best .417
+  one-off g1517, no sustain). Rival g1513 total .525 /
+  slice .500 (4W4D vs champ) — first jury-era rival
+  slice-knock, borderline, Wilson-held ⇒ STRIKE-ONE
+  (mechanical; ladder spent: graft-4 never, role-change
+  falsified — intervention flows via falsifiers now).
+  0 promos (15th straight). Tenure 237.
+- OVERRIDE (new evidence supersedes r98 brief default):
+  water-stuck divers returned mid-round with measurements
+  + ranked fixes — higher EV than coordination retry
+  (falsified r51-52, ranked LAST). Round 99 = LOS F1
+  (zero-fill B-tier entities; truth-first like honest
+  logging; D4-safe geometric gate). Stall-memory follows
+  on F1's verdict. LOS-fix builder dispatched.
