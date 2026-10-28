@@ -354,3 +354,12 @@ incentive via boards; this attacks it via the ledger).
   in-circle intel preserved, D4 proven (new equivariance
   test), 182 green, smoke OK. 2 stale asserts updated
   to F1 expectation. Round 99 = ghost-fill fix live.
+- Results (g1527-g1541, round 99): GHOST-KILLED on
+  geography prong — lake-vs-open train conv .439 vs .429
+  (2x skew GONE in one round); decisiveness .78 (up).
+  Main slices flat (best .417 g1533 one-off). Rival knocks
+  x4 incl g1528 total .600/champ-slice .583 (jury-held).
+  0 promos (16th straight). Tenure 252. F1 stays live.
+- Stall-memory builder dispatched (1-bit same-cell/blocked
+  hysteresis channel, ~0 params, D4-safe scalar, 9ch→10ch
+  pad-compat so champ loads). Round 100 = memory live.

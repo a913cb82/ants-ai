@@ -42,8 +42,9 @@ tools/maps/curriculum/README.md.
   OVERRIDE: water-stuck outranks coordination retry.
   LOS-F1 builder dispatched; round 99 = ghost-fill fix.
 - LOS F1 BUILT+MERGED (probe 1.0→0.0, D4 proven).
-  Round 99 = GHOST-FILL FIX LIVE (falsifier: lake ghost
-  rate falls to open rate AND/OR main slices move).
+  Round 99 done: GHOST-KILLED (lake gap closed .439
+  vs .429, decisive .78; main flat, rivals knock x4).
+  Stall-memory builder dispatched; round 100 = MEMORY.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
