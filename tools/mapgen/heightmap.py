@@ -27,7 +27,7 @@ class HeightMapMap(Map):
         for _ in range(iterations):
             row = randint(0, rows - 1)
             col = randint(0, cols - 1)
-            radius = randint(5, (rows + cols) / 4)
+            radius = randint(5, (rows + cols) // 4)
             radius2 = radius**2
             for d_row in range(-radius, radius + 1):
                 for d_col in range(-radius, radius + 1):
@@ -95,11 +95,11 @@ class HeightMapMap(Map):
                         break
                     else:
                         min_height = min(h.keys())
-                        if min_height >= hmap[c_row][c_col]:
-                            # point lower, move
+                        if min_height < hmap[c_row][c_col]:
+                            # neighbor lower, flow downhill
                             c_row, c_col = choice(h[min_height])
                         else:
-                            # no point lower
+                            # local minimum, water settles
                             break
         return water_map
 
@@ -144,7 +144,14 @@ class HeightMapMap(Map):
         land = self.get_random_option(self.land)
 
         height_map = self.generate_heights((rows, cols))
-        height_map = self.generate_rivers(height_map)
+        water_map = self.generate_rivers(height_map)
+        # erode river valleys into the heights so drainage reads as carved
+        # channels; sea/snow levels are found on the eroded heights, whose
+        # histogram is smooth (raw drainage counts spike at the minimum and
+        # would flood most of the map as sea)
+        for row in range(rows):
+            for col in range(cols):
+                height_map[row][col] -= water_map[row][col]
 
         # create histogram
         histo: defaultdict[int, int] = defaultdict(int)
@@ -202,8 +209,19 @@ class HeightMapMap(Map):
         self.make_wider()
 
 
-def main():
-    new_map = HeightMapMap()
+def main(argv=None):
+    import sys
+    from optparse import OptionParser
+
+    parser = OptionParser()
+    parser.add_option("--seed", dest="seed", type="int", help="random seed")
+    opts, _ = parser.parse_args(argv if argv is not None else sys.argv[1:])
+
+    options = {}
+    if opts.seed is not None:
+        options["seed"] = opts.seed
+
+    new_map = HeightMapMap(options)
     new_map.generate()
 
     # check that all land area is accessable

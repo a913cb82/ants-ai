@@ -254,6 +254,31 @@ class AsymmetricMap:
 
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--players", type=int, default=None, help="exact player count")
+    parser.add_argument("--min_dim", type=int, default=None, help="minimum rows/cols")
+    parser.add_argument("--max_dim", type=int, default=None, help="maximum rows/cols")
+    parser.add_argument(
+        "--min_start_distance",
+        type=int,
+        default=None,
+        help="minimum start distance between players",
+    )
+    parser.add_argument("--seed", type=int, default=None, help="random seed")
+    args = parser.parse_args()
+
+    if args.seed is not None:
+        random.seed(args.seed)
     example_map = AsymmetricMap()
+    if args.players is not None:
+        example_map.min_players = example_map.max_players = args.players
+    if args.min_dim is not None:
+        example_map.min_dim = args.min_dim
+    if args.max_dim is not None:
+        example_map.max_dim = args.max_dim
+    if args.min_start_distance is not None:
+        example_map.min_start_distance = args.min_start_distance
     example_map.random_walk_map()
     example_map.print_map()

@@ -222,6 +222,17 @@ class SymmetricMap:
 
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--players", type=int, default=None, help="exact player count")
+    parser.add_argument("--seed", type=int, default=None, help="random seed")
+    args = parser.parse_args()
+
+    if args.seed is not None:
+        random.seed(args.seed)
     example_map = SymmetricMap()
+    if args.players is not None:
+        example_map.min_players = example_map.max_players = args.players
     example_map.random_walk_map()
     example_map.print_map()
