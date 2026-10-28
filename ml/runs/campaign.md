@@ -287,3 +287,14 @@ incentive via boards; this attacks it via the ledger).
 - Round 94: force-ratio live (merged post-r93). Recognition
   test with teeth: outnumbered-engage moves or main slices
   move within r94-95; else hands (interface) next.
+- Results (g1452-g1466, round 94): NO-SIGNAL-YET (first
+  half). Best main .50 one-off (g1465, 10 draws, held);
+  no sustained ≥.40. Fighting-frequency proxy UNAVAILABLE
+  (no kill counters in games.jsonl — tool gap, flagged).
+  Champ-slice/jury-split fields also unemitted this round
+  (runners derived prior slices elsewhere — standardize
+  the slice source before r95 verdict). Tenure 177.
+  0 promos (11th straight). Gen time up 295→355s (9ch
+  cost — watch, don't act).
+- Round 95 decides: signal ⇒ channels keep; flat ⇒
+  representation acquitted, hands (interface) next.

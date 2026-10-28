@@ -23,10 +23,12 @@ tools/maps/curriculum/README.md.
   in any countable unit). NO tripwire (contact everywhere
   except the champ's slice). ALIVE-quiet. 0 promos (10th
   straight). Champ g1287 tenure 162 — watched, no gate.
-- Round 94: FORCE-RATIO live (recognition test). Falsifier:
-  outnumbered-engage rate moves or main slices move within
-  r94-95; else the hands (reservation/interface) are next.
-  (Jury line below is stale — jury live since r87; struck.)
+- Round 94 done: NO-SIGNAL-YET (first half). Best .50
+  one-off, no sustained ≥.40. Tenure 177, 11th straight
+  quiet. Tool gaps flagged (no kill counters, no slice
+  fields — standardize slice source for r95 verdict).
+- Round 95: second half of recognition window.
+  Signal ⇒ keep channels; flat ⇒ hands next.
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)
