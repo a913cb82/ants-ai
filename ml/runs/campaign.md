@@ -403,3 +403,13 @@ incentive via boards; this attacks it via the ledger).
   DEFERRED: dwell101 job on r101 replays vs 4.81%.
   Wins NOT dropping ⇒ Goodhart guard quiet so far.
   0 promos (18th straight). Tenure 282.
+- Dwell101 DONE: tax has ZERO bite. 4.81%→4.95%
+  (+0.14pp noise), trapped 83.1% (flat to a tenth).
+  Low-dwell gens shed turtles, not trapped — dwell is
+  irreducible geography, not a tunable margin.
+  ⇒ SHAPING-ACQUITTED. Axis CLOSED (1 kill F1 +
+  2 acquittals = complete answer). Tax OFF r102
+  (config only — default-off plumbing; code stays
+  dormant). Slice climb (.417→.417→.500→.583) is the
+  post-hands learning curve, not any water variable.
+  dwell probe committed to repo (standing meter).
