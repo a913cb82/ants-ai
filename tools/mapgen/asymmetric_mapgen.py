@@ -38,6 +38,10 @@ class AsymmetricMap:
     no_players = 0
     rows = cols = 0
     row_t = col_t = 0
+    # CLI overrides (None keeps the classic random behavior)
+    fixed_players: int | None = None
+    fixed_rows: int | None = None
+    fixed_cols: int | None = None
     land_squares = 0
     map_data: list = []
     basis: list = []
@@ -73,6 +77,25 @@ class AsymmetricMap:
 
     # picks the dimensions of the map
     def pick_dimensions(self):
+        if (
+            self.fixed_players is not None
+            and self.fixed_rows is not None
+            and self.fixed_cols is not None
+        ):
+            self.no_players = self.fixed_players
+            self.rows = self.fixed_rows
+            self.cols = self.fixed_cols
+            if self.rows % self.no_players != 0 or self.cols % self.no_players != 0:
+                raise ValueError("rows and cols must be divisible by players")
+            # Translating by a full per-player share keeps the lcm player
+            # count at no_players.
+            self.row_t = self.rows // self.no_players
+            self.col_t = self.cols // self.no_players
+            if not self.is_valid_start():
+                raise RuntimeError(
+                    "fixed dims give no valid start; lower --min_start_distance"
+                )
+            return
         while True:
             while True:
                 self.rows = random.randint(self.min_dim, self.max_dim)
@@ -254,6 +277,30 @@ class AsymmetricMap:
 
 
 if __name__ == "__main__":
+    from optparse import OptionParser
+
+    parser = OptionParser()
+    parser.add_option("--players", dest="players", type="int", default=None)
+    parser.add_option("--rows", dest="rows", type="int", default=None)
+    parser.add_option("--cols", dest="cols", type="int", default=None)
+    parser.add_option(
+        "--min_start_distance",
+        dest="min_start_distance",
+        type="int",
+        default=None,
+    )
+    parser.add_option("--seed", dest="seed", type="int", default=None)
+    opts, _ = parser.parse_args()
+
+    random.seed(opts.seed)
     example_map = AsymmetricMap()
+    if opts.players is not None:
+        example_map.fixed_players = opts.players
+    if opts.rows is not None:
+        example_map.fixed_rows = opts.rows
+    if opts.cols is not None:
+        example_map.fixed_cols = opts.cols
+    if opts.min_start_distance is not None:
+        example_map.min_start_distance = opts.min_start_distance
     example_map.random_walk_map()
     example_map.print_map()
