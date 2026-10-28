@@ -14,16 +14,19 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 93 running (reverted scales). Force-ratio BUILT
-  on impl/forceratio (merge HELD for round-93 verdict):
-  ch7 force-ratio + ch8 enemy-dist, 7ch-compat shim
-  bit-identical, D4 equivariance proven, ablation shows
-  signal, 281 green. Round 94 = recognition test.
-- Jury BUILT on impl/juryexam (merge HELD for round 86):
-  --exam-jury-size, default 0 = legacy byte-identical
-  (proven); jury = 12 champ + 8 vs frontier/counters
-  incl. mandatory giant-killer. 6 tests, 264 green.
-  Activation needs a round boundary + gate verdict.
+- Round 93 done: revert CLEAN (no whiplash, ≈r91 baseline).
+  Recount verdict: NEITHER line slice-knocked (main best
+  slice .417 g1448; rival best .458 g1441) nor total-knocked
+  (both best .475) — jury-split teeth only (g1451 2-0 vs
+  rivals; rivals .50-.688 vs jurors). NO strike count
+  (needs main-knockless + rival-KNOCK; rival didn't knock
+  in any countable unit). NO tripwire (contact everywhere
+  except the champ's slice). ALIVE-quiet. 0 promos (10th
+  straight). Champ g1287 tenure 162 — watched, no gate.
+- Round 94: FORCE-RATIO live (recognition test). Falsifier:
+  outnumbered-engage rate moves or main slices move within
+  r94-95; else the hands (reservation/interface) are next.
+  (Jury line below is stale — jury live since r87; struck.)
 
 ## open (ordered — rethought every round boundary; a priority
 list, not a schedule. Skip-the-queue rules in runs README.)

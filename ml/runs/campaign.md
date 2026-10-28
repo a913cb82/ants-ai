@@ -276,3 +276,14 @@ incentive via boards; this attacks it via the ledger).
   scales r93; representation (force-ratio channels,
   Stage-2 item 2) builds in parallel, live r94. Strike
   count discharged by experiment (new watch, same units).
+- Results (g1437-g1451, round 93): revert CLEAN, ALIVE-quiet.
+  Recount (runner mixed lines): main slice-best .417 (g1448),
+  rival slice-best .458 (g1441) — NEITHER knocked in slice
+  or total units (both totals best .475). Jury-split teeth
+  only: main g1451 2-0 vs rivals (.688 split); rivals
+  .50-.688 vs jurors. NO strike count (rival didn't knock
+  in any countable unit). NO tripwire (contact everywhere
+  except champ's slice). 0 promos (10th). Tenure 162.
+- Round 94: force-ratio live (merged post-r93). Recognition
+  test with teeth: outnumbered-engage moves or main slices
+  move within r94-95; else hands (interface) next.
