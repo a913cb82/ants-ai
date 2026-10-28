@@ -47,6 +47,18 @@ HILL_APPROACH = 0.25  # same-turn pay per tile closed toward the enemy
 # only if the rival's board play ever looks suicidal (it doesn't).
 HILL_RAZE = 10.0
 HILL_LOST = -10.0
+STAY_NEAR_WATER = -0.05  # same-turn micro-tax per unproductive stay
+# near water (Chebyshev-1..2, no enemy in attack range). Prices the
+# water-stuck dwell the stall-memory line acquitted: 1/20 of a food or
+# kill, so one taxed stay never outweighs a real event; 1/40 of a
+# death, so dodging the tax by moving is never worth dying for; 20
+# dwell-turns cost one food, so a habit of squatting by lakes
+# accumulates into mattering over a ~100-turn game. Same-turn only
+# (no walk-back): the taxed row alone pays, exactly once.
+ENABLE_WATER_STALL_TAX = False  # master switch, default OFF = legacy
+# returns. Opt-in per call via compute_returns(enable_water_stall=True)
+# or globally by flipping this (training enables it when the main
+# line is ready; rivals stay untaxed either way).
 WIN = 5.0
 LOSS = -5.0
 DRAW = 0.0
@@ -59,12 +71,14 @@ ROLE_OVERRIDES = {
     # HA override pins the RIVAL's march price at the old 0.5 while
     # the base (main) falls to 0.25 (round-46 ledger rebalance).
     "exploiter": {"FOOD": 0.5, "KILL": 3.0, "DEATH": 3.0,
-                  "HILL_APPROACH": 0.5},
+                  "HILL_APPROACH": 0.5, "STAY_NEAR_WATER": 0},
     # Spoiler (line-B rival): naive, hungry, persistent. No food or
     # march credit (nothing to unlearn about turtling), teeth kept,
     # dying hurts at the base rate. Hills and outcome as base.
+    # Neither rival pays the water-stall tax (main-line only): squatting
+    # is the main's disease; rivals are priced for pressure, not posture.
     "spoiler": {"FOOD": 0, "KILL": 3.0, "DEATH": -2.0,
-                "HILL_APPROACH": 0},
+                "HILL_APPROACH": 0, "STAY_NEAR_WATER": 0},
     # Challenger (round-92 revert): falsified experiment removed —
     # returns to base scales (KILL 1.0, HA 0.25, gated as before).
 }
@@ -91,6 +105,7 @@ def scales_for(role: str) -> dict:
         "FOOD": FOOD, "KILL": KILL, "DEATH": DEATH,
         "HILL_RAZE": HILL_RAZE, "HILL_LOST": HILL_LOST,
         "WIN": WIN, "LOSS": LOSS, "HILL_APPROACH": HILL_APPROACH,
+        "STAY_NEAR_WATER": STAY_NEAR_WATER,
     }
     base.update(ROLE_OVERRIDES.get(role, {}))
     return base
@@ -162,7 +177,29 @@ def dests_at(turns, dests, turn, pred=None):
     ]
 
 
-def _awards(game, me, records, scales):
+def _water_tiles(replaydata):
+    """Water tile set from the replay map render ('%' = WATER).
+
+    The engine stores the full map in replaydata["map"]["data"] as
+    rendered strings (tools/ants.py MAP_RENDER: WATER renders '%').
+    Missing data (synthetic tests) means no water: legacy behavior."""
+    data = replaydata.get("map", {}).get("data", [])
+    out = set()
+    for r, row in enumerate(data):
+        for c, ch in enumerate(row):
+            if ch == "%":
+                out.add((r, c))
+    return out
+
+
+def _cheb(a, b, rows, cols):
+    """Toroidal Chebyshev distance in tiles."""
+    dr = min(abs(a[0] - b[0]), rows - abs(a[0] - b[0]))
+    dc = min(abs(a[1] - b[1]), cols - abs(a[1] - b[1]))
+    return max(dr, dc)
+
+
+def _awards(game, me, records, scales, enable_water_stall=False):
     """Credit events: (awards, end_value, length, turns, keys).
 
     awards: [(turn, {idx: same-turn share}, scope, kind)]. Shares in one
@@ -272,11 +309,44 @@ def _awards(game, me, records, scales):
                                {i: scales["HILL_APPROACH"] * closed},
                                "ant", "hill_approach"))
 
+    # Water-stall micro-tax: a same-turn charge on unproductive stays
+    # near water. Fires iff the taken action is stay AND a water tile
+    # sits within Chebyshev-1..2 of the post-move tile AND no enemy is
+    # within attackradius2 that turn. The enemy-near exemption is the
+    # Goodhart guard: hill-adjacent holders legitimately stay to defend,
+    # and pricing their defense would teach pacifism (tiebreak-revert
+    # precedent). Moves and open-ground stays pay nothing. Ungated by
+    # outcome (a cost, not a subsidy: winners don't earn the right to
+    # dwell, losers don't get it for free) and same-turn only, like
+    # hill_approach. Rivals carry scale 0 (main-line only).
+    if enable_water_stall and scales.get("STAY_NEAR_WATER", 0):
+        water = _water_tiles(replaydata)
+        if water:
+            foe_at: dict[int, list] = {}
+            for (owner, _idx), traj in trajectories(replaydata).items():
+                if owner == me:
+                    continue
+                for t, loc in traj:
+                    foe_at.setdefault(t, []).append(loc)
+            for i, rec in enumerate(records):
+                if rec.get("action") != "stay":
+                    continue
+                dest = tuple(rec["dest"])
+                if not any(1 <= _cheb(dest, w, rows, cols) <= 2
+                           for w in water):
+                    continue
+                if any(dist2(dest, f, rows, cols) <= attack2
+                       for f in foe_at.get(rec["turn"], ())):
+                    continue
+                awards.append((rec["turn"],
+                               {i: scales["STAY_NEAR_WATER"]},
+                               "ant", "water_stall"))
+
     return awards, outcome(game, me), length, turns, keys
 
 
 def compute_returns(game, me, records, scales=None, role="challenger",
-                    draw_as_loss=False):
+                    draw_as_loss=False, enable_water_stall=None):
     """Discounted return for each decision record.
 
     records: [{turn, loc, dest, action, ...}] logged by the bot for its
@@ -286,8 +356,11 @@ def compute_returns(game, me, records, scales=None, role="challenger",
     prices DRAWN games as losses (anti-turtle incentive): the terminal
     becomes LOSS and the loser's gate applies. The game record itself
     is untouched — returns only."""
+    if enable_water_stall is None:
+        enable_water_stall = ENABLE_WATER_STALL_TAX
     scales = scales or scales_for("challenger")
-    awards, end_value, length, turns, keys = _awards(game, me, records, scales)
+    awards, end_value, length, turns, keys = _awards(
+        game, me, records, scales, enable_water_stall)
     # Penalty games: a draw stops being the safe fixed point.
     eff = LOSS if (draw_as_loss and end_value == DRAW) else end_value
     by_kind: dict[str, list[float]] = {}
@@ -299,7 +372,7 @@ def compute_returns(game, me, records, scales=None, role="challenger",
         arr = by_kind.setdefault(kind, [0.0] * len(records))
         for i, share in shares.items():
             arr[i] += share
-            if kind == "hill_approach":
+            if kind in ("hill_approach", "water_stall"):
                 continue  # same-turn only: walk-back would smear the
             # contingency (marching past the hill still pays).
             for j, t in enumerate(turns):
@@ -334,7 +407,8 @@ def compute_returns(game, me, records, scales=None, role="challenger",
     return rets
 
 
-def decompose(game, me, records, role="challenger"):
+def decompose(game, me, records, role="challenger",
+              enable_water_stall=None):
     """Undiscounted return mass by category, for tuning magnitudes.
 
     Dense shares conserve the event amount (one food totals FOOD),
@@ -344,11 +418,13 @@ def decompose(game, me, records, role="challenger"):
     "terminal" against the dense totals shows the true scale ratio.
     The outcome gate applies here too (role selects it): mass the
     learner never receives must not appear in the ledger."""
+    if enable_water_stall is None:
+        enable_water_stall = ENABLE_WATER_STALL_TAX
     awards, end_value, _length, _turns, _keys = _awards(
-        game, me, records, scales_for("challenger"))
+        game, me, records, scales_for("challenger"), enable_water_stall)
     mass: dict[str, float] = {
         "food": 0.0, "kill": 0.0, "death": 0.0, "hill": 0.0,
-        "hill_approach": 0.0,
+        "hill_approach": 0.0, "water_stall": 0.0,
     }
     for _turn, shares, _scope, kind in awards:
         mass[kind] += sum(shares.values())
