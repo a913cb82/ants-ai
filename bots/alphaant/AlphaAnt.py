@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """AlphaAnt: per-ant CNN policy bot (self-play student).
 
-Inference runs the torch CNNPolicy from model.py over the 6-channel
+Inference runs the torch CNNPolicy from model.py over the 9-channel
 local window, one ant at a time. Water and visible food are hard-masked
 from the window (the engine ignores moves into both); the live
 reservation set blocks already-claimed tiles so two ants never take the

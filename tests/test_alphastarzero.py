@@ -77,8 +77,15 @@ def test_window_shape_channels_dtype():
         "enemy_hill",
         "food",
         "own_sight",
+        "force_ratio",
+        "enemy_dist",
     )
-    assert set(w.flatten().tolist()) <= {0.0, 1.0}
+    one_hot = w[:7].flatten().tolist()
+    assert set(one_hot) <= {0.0, 1.0}
+    fr = w[features.CHANNELS.index("force_ratio")]
+    assert bool(((fr == fr.int()) & (fr.abs() <= 20)).all())
+    ed = w[features.CHANNELS.index("enemy_dist")]
+    assert bool(((ed >= 0) & (ed <= 1)).all())
 
 
 def test_window_center_marks_self():
@@ -766,17 +773,17 @@ def test_padded_old_weights_give_identical_outputs():
     import model
 
     torch.manual_seed(23)
-    old = model.CNNPolicy(channels=6)
+    old = model.CNNPolicy(channels=7)
     old.eval()
     blob = algorithm.policy_weights(old)
     new = algorithm.new_policy(blob)
     new.eval()
     with torch.no_grad():
-        w6 = torch.rand(3, 6, _S, _S)
-        pad = torch.zeros(3, 1, _S, _S)
-        assert torch.equal(old(w6), new(torch.cat([w6, pad], dim=1)))
-        assert torch.equal(old.values(w6),
-                           new.values(torch.cat([w6, pad], dim=1)))
+        w7 = torch.rand(3, 7, _S, _S)
+        pad = torch.zeros(3, 2, _S, _S)
+        assert torch.equal(old(w7), new(torch.cat([w7, pad], dim=1)))
+        assert torch.equal(old.values(w7),
+                           new.values(torch.cat([w7, pad], dim=1)))
 
 
 def test_opt_state_drops_reshaped_params():
@@ -786,15 +793,15 @@ def test_opt_state_drops_reshaped_params():
     import model
 
     torch.manual_seed(31)
-    old = model.CNNPolicy(channels=6)
+    old = model.CNNPolicy(channels=7)
     opt = algorithm.make_optimizer(old)
-    old(torch.rand(2, 6, 9, 9)).sum().backward()
+    old(torch.rand(2, 7, 9, 9)).sum().backward()
     opt.step()  # populates momentum buffers
     blob = algorithm.serialize_opt(opt)
-    new = model.CNNPolicy()  # 7 channels now
+    new = model.CNNPolicy()  # 9 channels now
     opt2 = algorithm.make_optimizer(new)
     algorithm.load_opt_state(opt2, blob)  # must not raise ...
-    new(torch.rand(2, 7, 15, 15)).sum().backward()
+    new(torch.rand(2, _C, 15, 15)).sum().backward()
     opt2.step()  # ... nor crash here (the round-18 failure).
     cur = opt2.state_dict()["state"]
     params = [p for g in opt2.param_groups for p in g["params"]]
@@ -1839,7 +1846,7 @@ def test_deep_arch_stays_in_param_budget():
 
     base = _count_params(model.CNNPolicy(arch="base"))
     deep = _count_params(model.CNNPolicy(arch="deep"))
-    assert base == 12102  # +1 channel: own_sight widens conv1/vconv1
+    assert base == 12678  # +2 channels: force_ratio/enemy_dist widen conv1/vconv1
     assert 9000 < deep < 14000  # same order, no budget blowout
 
 
