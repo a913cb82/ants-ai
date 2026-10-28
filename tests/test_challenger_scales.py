@@ -1,7 +1,6 @@
-"""Stage-2.4 strike-two: challenger role scales (KILL 2.0, HA 0.5).
+"""Round-92 revert: challenger returns to base scales (KILL 1.0, HA 0.25).
 
-TDD pin: scales only, no logic. Gating, base prices, and all other
-roles byte-identical.
+FALSIFIED experiment guard: challenger == base; gating unchanged.
 """
 
 import math
@@ -30,12 +29,13 @@ def _game(**kw):
     return base
 
 
-def test_challenger_scales_kill_2_ha_half():
+def test_challenger_scales_restored_to_base():
     import rewards
 
     s = rewards.scales_for("challenger")
-    assert s["KILL"] == 2.0
-    assert s["HILL_APPROACH"] == 0.5
+    assert s["KILL"] == 1.0
+    assert s["HILL_APPROACH"] == 0.25
+    assert s == rewards.scales_for("main")
 
 
 def test_other_roles_byte_identical():
@@ -61,11 +61,11 @@ def test_other_roles_byte_identical():
     assert rewards.GATED_BY_ROLE["spoiler"] == {"hill_approach"}
 
 
-def test_won_trade_nets_zero_suicide_nets_minus_two():
+def test_won_trade_nets_minus_one_suicide_nets_minus_two():
     import rewards
 
-    # Mutual kill in a WIN: +2 (kill) -2 (death) +5 terminal.
-    # Dense combat nets 0: forgiveness, not subsidy.
+    # Mutual kill in a WIN: +1 (kill) -2 (death) +5 terminal.
+    # Dense combat nets -1: restored base math.
     game = _game(score=[2, 0])
     game["replaydata"]["ants"] = [
         [5, 5, 1, 3, 1, "--"],  # enemy dies turn 3
@@ -76,8 +76,8 @@ def test_won_trade_nets_zero_suicide_nets_minus_two():
     ]
     s = rewards.scales_for("challenger")
     rets = rewards.compute_returns(game, 0, records, s, role="challenger")
-    assert rets[0] == 2.0 + rewards.DEATH + rewards.WIN
-    assert (2.0 + rewards.DEATH) == 0.0  # won-trade dense nets 0
+    assert rets[0] == 1.0 + rewards.DEATH + rewards.WIN
+    assert (1.0 + rewards.DEATH) == -1.0  # won-trade dense nets -1
     # Suicide (death, no kill) still nets -2 dense: no kamikaze.
     game2 = _game(score=[2, 0])
     game2["replaydata"]["ants"] = [[4, 4, 1, 2, 0, "s"]]
@@ -102,10 +102,10 @@ def test_challenger_gating_unchanged_rival_unchanged():
     se = rewards.scales_for("exploiter")
     game["score"] = [0, 1]
     assert rewards.compute_returns(game, 0, records, se, "exploiter") == [3.0 + rewards.LOSS]
-    # Challenger HA pays on wins at the rival's march price.
+    # Challenger HA pays on wins at the base march price.
     game2 = _game(score=[1, 0])
     game2["replaydata"]["hills"] = [[9, 9, 1, 999]]
     rec2 = [{"turn": 1, "loc": [5, 5], "dest": [6, 6], "action": "s"}]
     closed = math.sqrt(32) - math.sqrt(18)
     got = rewards.compute_returns(game2, 0, rec2, s, "challenger")
-    assert got == [rewards.WIN + 0.5 * closed]
+    assert got == [rewards.WIN + 0.25 * closed]

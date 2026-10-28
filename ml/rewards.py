@@ -65,12 +65,8 @@ ROLE_OVERRIDES = {
     # dying hurts at the base rate. Hills and outcome as base.
     "spoiler": {"FOOD": 0, "KILL": 3.0, "DEATH": -2.0,
                 "HILL_APPROACH": 0},
-    # Challenger (strike-two, round-47): forgiveness, not subsidy.
-    # Won 1-for-1 trades netted +1-2 = -1 even in wins — fighting
-    # priced negative even when it worked. KILL 2.0 makes won-trades
-    # net 0 in wins; suicide still nets -2 always (no kamikaze).
-    # HA 0.5 matches the rival's march price, still gated on wins.
-    "challenger": {"KILL": 2.0, "HILL_APPROACH": 0.5},
+    # Challenger (round-92 revert): falsified experiment removed —
+    # returns to base scales (KILL 1.0, HA 0.25, gated as before).
 }
 
 
