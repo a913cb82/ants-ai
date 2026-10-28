@@ -14,9 +14,8 @@ tools/maps/curriculum/README.md.
 
 ## trying
 
-- Round 92: ROLE-CHANGE live (challenger KILL 2.0 +
-  HA 0.5, jury live, all else held). Falsifier: main
-  slice ≥.40 + ≥2 wins ⇒ keep; else revert.
+- Revert scales (builder) → round 93 clean.
+  Force-ratio builds in parallel → live r94.
 - Jury BUILT on impl/juryexam (merge HELD for round 86):
   --exam-jury-size, default 0 = legacy byte-identical
   (proven); jury = 12 champ + 8 vs frontier/counters

@@ -263,3 +263,16 @@ incentive via boards; this attacks it via the ledger).
   DEATH-gating variant (won-trades would still net -1).
   Falsifier: r92 main slice best ≥.40 with ≥2 main wins
   ⇒ keep; else revert and try the next variant.
+- Results (g1422-g1436, round 92): REVERT. Falsifier
+  missed badly (main slice-best .167, 2 wins each in
+  g1425/g1428 but slice .167). Kill-rate FLAT (30→26→31,
+  no directional move — metric differs from lore 0.5/game
+  but within-round flatness stands). The price didn't
+  reach behavior ⇒ problem is UPSTREAM of incentive
+  (recognition, not reward — the force-ratio gap).
+  0 promos (9th straight). Champ g1287 tenure 147.
+- Redirection: NO second repricing (a DEATH-gate after
+  KILL 2.0 moved nothing is sunk-cost betting). Revert
+  scales r93; representation (force-ratio channels,
+  Stage-2 item 2) builds in parallel, live r94. Strike
+  count discharged by experiment (new watch, same units).
