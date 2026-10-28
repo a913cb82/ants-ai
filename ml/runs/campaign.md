@@ -379,3 +379,11 @@ incentive via boards; this attacks it via the ledger).
   dwell-measure job on r100 replays first (stuck.py
   re-runnable), then memory works/acquitted. 0 promos
   (17th straight). Tenure 267.
+- Dwell job DONE: NO leftward shift. R100 near-water
+  4.81% N=10 (band 4.1-7.9%), open 0.01%, trapped 83%
+  (band 82-91%) — uniform all 15 gens (2.7-8.3% spread,
+  no outliers). ⇒ MEMORY-ACQUITTED (channel fires at
+  5% of rows and the fast learner doesn't use it —
+  non-use, not slow learning). ch9 stays dormant (~free).
+  Anti-stall shaping builder dispatched (stay-vs-water
+  micro-tax, Goodhart guard armed). Round 101 = SHAPING.
