@@ -57,10 +57,18 @@ list, not a schedule. Skip-the-queue rules in runs README.)
   lake ghost == open); F2 fog-consistent fill (B water=0.5;
   falsifier: dead-end stay-rate rises); F3 true per-ant
   visibility (biggest shift/retrain; falsifier: ch6 varies
-  across dest cells). Pending: stuckmine (rates +
-  trapped-vs-turtle split), planahead (fix space in
-  constraints), ordereff (order gradient + randomize
-  verdict). Activate earliest round 99, one variable.
+  across dest cells). Activate earliest round 99,
+  one variable.
+  (d) STUCK-RATE (stuckmine done, archived replay
+  positions g1500/g1523): near-water stuck 4-5% (N=10)
+  vs 0.0% open — stuck is EXCLUSIVE to shoreline.
+  N=25 persists (2-4%). Trapped 74-91% (concave
+  pockets), turtle minority (hill-adjacent subset).
+  Starvation INVERTED: earliest-spawned stick most
+  (Q1 .042 > Q4 .021) — no late-list gradient.
+  Starter policy: 0 stuck in 6463 windows — stillness
+  is LEARNED (or learned-era), not engine artifact.
+  Analyzer at /tmp/stuck.py (re-runnable on new gens).
   (b) NO-PLANNING (planahead done): confirmed pure
   function of current window (model.py:47-48, :81/136;
   AlphaAnt.py:193-194; only cross-turn state is turn
