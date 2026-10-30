@@ -1,4 +1,4 @@
-"""Random mixed-generator maps: pick cavemap/walk/symmetric, roll valid args.
+"""Random mixed-generator maps: pick cavemap/random/symmetric, roll valid args.
 
 Contract per map: players N (2-4, default random), 1 hill per player,
 tiles x*y within 25% of 250*N, aspect x/y in [0.5, 2]. Emits the map
@@ -8,9 +8,9 @@ Each generator's validity rule (empirical, see MAPGEN*.md):
 - symmetric: rows AND cols divisible by N (translation symmetry).
 - cavemap: rotational symmetry supports 2/4 players only;
   translational supports any N but needs dims divisible by N.
-- walk: no exact dims (square bands only) and tile symmetry forces
-  coarse tilings; small end unlocks with block size 1-2. The sampler
-  sets bands around the budget and the retry harness validates output.
+- walk: square bands only and tile symmetry forces coarse tilings;
+  replaced by random (exact dims, no divisibility constraints).
+  walk sampler removed with it (dead code is not documentation).
 
 Usage: gen_mixed.py [--players 2|3|4] [--seed S] [--generator NAME]
 """
@@ -25,7 +25,7 @@ REPO = HERE.parents[3]
 MAPGEN = REPO / "tools" / "mapgen"
 AMSTAN = MAPGEN / "amstan"
 
-GENS = ("cavemap", "walk", "symmetric")
+GENS = ("cavemap", "random", "symmetric")
 TOL = 0.25  # tile budget tolerance around 250*N
 TRIES = 50
 
@@ -74,24 +74,19 @@ def sample_cavemap(n, rng):
             "--seed", str(rng.randrange(1 << 30))], AMSTAN
 
 
-def sample_walk(n, rng):
-    side = round((250 * n) ** 0.5)
-    lo = max(10, side - 6)
-    hi = side + 10
-    args = [sys.executable, str(MAPGEN / "mapgen.py"),
-            "--no_players", str(n),
-            "--min_dimensions", str(lo), "--max_dimensions", str(hi),
-            "--min_hills", "1", "--max_hills", "1",
-            "--min_starting_distance", str(rng.randint(25, 64)),
-            "--min_block_size", "1", "--max_block_size", "2",
-            "--seed", str(rng.randrange(1 << 30))]
-    if n in (2, 4) and rng.random() < 0.5:
-        args += ["--symmetry", "rotational", "--rotational_symmetry", str(n)]
-    return args, None
+def sample_random(n, rng):
+    # No divisibility constraints and no spacing knob: exact dims from
+    # the draw, one hill per player by default, validator gate controls
+    # hill separation after the fact.
+    rows, cols = pick_dims(n, rng, snap=1)
+    return [sys.executable, str(MAPGEN / "random_map.py"),
+            "--rows", str(rows), "--cols", str(cols),
+            "--players", str(n),
+            "--seed", str(rng.randrange(1 << 30))], None
 
 
 SAMPLERS = {"symmetric": sample_symmetric, "cavemap": sample_cavemap,
-            "walk": sample_walk}
+            "random": sample_random}
 
 
 def validate(text, n, min_hill_dist=4.0):
