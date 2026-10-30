@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import math
 import random
 import sys
 from collections import deque
@@ -226,11 +225,8 @@ class Grid:
 
     # returns a list of directions in random order
     def random_directions(self):
-        r_directions = []
         t = random.randint(0, 3)
-        for i in range(len(directions)):
-            r_directions.append(cdirections[(i + t) % 4])
-        return r_directions
+        return [cdirections[(i + t) % 4] for i in range(4)]
 
     # randomly picks a location inside the map
     def random_loc(self):
@@ -238,12 +234,16 @@ class Grid:
 
     # returns the new location after moving in a particular direction
     def get_loc(self, loc, direction):
+        rows = self.rows
+        cols = self.cols
         dr, dc = directions[direction]
-        return [(loc[0] + dr) % self.rows, (loc[1] + dc) % self.cols]
+        return [(loc[0] + dr) % rows, (loc[1] + dc) % cols]
 
     # returns the new location after translating it by t_amount = [rt, ct]
     def get_translate_loc(self, loc, t_amount):
-        return [(loc[0] + t_amount[0]) % self.rows, (loc[1] + t_amount[1]) % self.cols]
+        rows = self.rows
+        cols = self.cols
+        return [(loc[0] + t_amount[0]) % rows, (loc[1] + t_amount[1]) % cols]
 
     # returns a symmetrically equivalent location as specified by num
     def get_symmetric_loc(self, loc, num):
@@ -294,12 +294,15 @@ class Grid:
 
     # makes a block inside the map
     def make_block(self, loc, block_size):
-        block = []
-
-        for row_t in range(block_size):
-            for col_t in range(block_size):
-                block.append(self.get_translate_loc(loc, [row_t, col_t]))
-        return block
+        rows = self.rows
+        cols = self.cols
+        r0 = loc[0]
+        c0 = loc[1]
+        return [
+            [(r0 + row_t) % rows, (c0 + col_t) % cols]
+            for row_t in range(block_size)
+            for col_t in range(block_size)
+        ]
 
     # returns the new block after moving in a particular direction
     def get_block(self, block, direction):
@@ -310,9 +313,18 @@ class Grid:
 
     # returns the adjacent block in a given direction
     def get_adjacent_block(self, block, direction):
-        for _n in range(int(math.sqrt(len(block)))):
-            block = self.get_block(block, direction)
-        return block
+        # Shifting every cell of a block_size x block_size block one step
+        # at a time, block_size times, is exactly one block_size-step shift
+        # of the corner (mod arithmetic associates), followed by rebuilding
+        # the block. Same cells, same order, no RNG involved.
+        dr, dc = directions[direction]
+        n = self.block_size
+        corner = block[0]
+        n_loc = [
+            (corner[0] + dr * n) % self.rows,
+            (corner[1] + dc * n) % self.cols,
+        ]
+        return self.make_block(n_loc, n)
 
     # returns the euclidean distance (squared) between two squares
     def dist(self, loc1, loc2):
@@ -511,8 +523,8 @@ class Grid:
         locs_to_add = int(0.5 * len(w_locs))
         for _w in range(locs_to_add):
             r_square = random.randint(0, len(w_locs) - 1)
-            self.add_land(w_locs[r_square])
-            w_locs.remove(w_locs[r_square])
+            loc = w_locs.pop(r_square)
+            self.add_land(loc)
             if len(w_locs) == 0:
                 break
 
@@ -526,10 +538,7 @@ class Grid:
 
     # randomly translates the map
     def translate(self):
-        old_map = [["%" for c in range(self.cols)] for r in range(self.rows)]
-        for r in range(self.rows):
-            for c in range(self.cols):
-                old_map[r][c] = self.squares[r][c]
+        old_map = [row[:] for row in self.squares]
 
         t_loc = [random.randint(1, self.rows - 2), random.randint(1, self.cols - 2)]
 
