@@ -94,8 +94,14 @@ SAMPLERS = {"symmetric": sample_symmetric, "cavemap": sample_cavemap,
             "walk": sample_walk}
 
 
-def validate(text, n):
-    """Structural check: parseable, N players, N hills, budget, aspect."""
+def validate(text, n, min_hill_dist=4.0):
+    """Structural check: parseable, N players, N hills, budget, aspect.
+
+    min_hill_dist: minimum pairwise toroidal hill distance. Kills
+    corner-touching degeneracy (e.g. rotational twins landing one
+    diagonal step apart through the wrap); default 4.0 passes every
+    healthy demo map (floor 5.0) and rejects the 1.4 case.
+    """
     lines = text.splitlines()
     try:
         rows = int(next(l for l in lines if l.startswith("rows")).split()[1])
@@ -105,10 +111,19 @@ def validate(text, n):
         return False, "unparseable header"
     if players != n:
         return False, f"players {players} != {n}"
-    hills = sum(l.count(str(d)) for l in lines if l.startswith("m ")
-                for d in range(10))
-    if hills != n:
-        return False, f"hills {hills} != {n}"
+    hills = [(r, c) for r, row in enumerate(
+        [l[2:] for l in lines if l.startswith("m ")])
+        for c, ch in enumerate(row) if ch.isdigit()]
+    if len(hills) != n:
+        return False, f"hills {len(hills)} != {n}"
+    import math
+    for i in range(len(hills)):
+        for j in range(i + 1, len(hills)):
+            dr = abs(hills[i][0] - hills[j][0]) % rows
+            dc = abs(hills[i][1] - hills[j][1]) % cols
+            d = math.sqrt(min(dr, rows - dr) ** 2 + min(dc, cols - dc) ** 2)
+            if d < min_hill_dist:
+                return False, f"hills {d:.1f} apart < {min_hill_dist}"
     tiles = rows * cols
     if abs(tiles - 250 * n) > TOL * 250 * n:
         return False, f"tiles {tiles} outside budget"
@@ -117,7 +132,7 @@ def validate(text, n):
     return True, "ok"
 
 
-def generate_one(gen, n, rng):
+def generate_one(gen, n, rng, min_hill_dist=4.0):
     """Sample args for one generator until output validates (fail loud).
 
     Returns (map_text, argv, workdir): argv is the exact subprocess
@@ -136,7 +151,7 @@ def generate_one(gen, n, rng):
         if proc.returncode != 0:
             last = (proc.stderr.strip().splitlines() or ["exit 1"])[-1][:100]
             continue
-        ok, reason = validate(proc.stdout, n)
+        ok, reason = validate(proc.stdout, n, min_hill_dist)
         if ok:
             return proc.stdout, argv, cwd
         last = reason
@@ -148,17 +163,20 @@ def main(argv=None):
     p.add_argument("--players", type=int, choices=(2, 3, 4), default=None)
     p.add_argument("--seed", type=int, default=None)
     p.add_argument("--generator", choices=GENS, default=None)
+    p.add_argument("--min-hill-dist", type=float, default=4.0,
+                     help="minimum pairwise toroidal hill distance")
     args = p.parse_args(argv)
     rng = random.Random(args.seed)
     n = args.players or rng.choice([2, 3, 4])
     gen = args.generator or rng.choice(GENS)
-    text, argv, cwd = generate_one(gen, n, rng)
+    text, argv, cwd = generate_one(gen, n, rng, args.min_hill_dist)
     script = Path(argv[1]).name
     meta = [f"# generator: {script}",
             f"# args: {' '.join(argv[2:])}"]
     if cwd is not None:
         meta.append(f"# cwd: {cwd.relative_to(REPO)}")
-    meta.append(f"# gen_mixed seed: {args.seed} (players {n}, type {gen})")
+    meta.append(f"# gen_mixed seed: {args.seed} (players {n}, type {gen},"
+                f" min-hill-dist {args.min_hill_dist})")
     sys.stdout.write("\n".join(meta) + "\n" + text)
     rows = next(l for l in text.splitlines() if l.startswith("rows"))
     cols = next(l for l in text.splitlines() if l.startswith("cols"))

@@ -28,9 +28,13 @@ def test_pick_dims_snap_divisible():
 
 
 def test_validate_accepts_good_map():
+    text = Path("/tmp/mixed-demo/mixed_symmetric_p2_20x28_s102.map").read_text()
+    ok, reason = gen_mixed.validate(text, 2)
+    assert ok, reason
+    # The old unrated fixture has hills 3.0 apart: gate correctly rejects.
     text = Path("/tmp/mapgen-3p-24x32/random_a.map").read_text()
     ok, reason = gen_mixed.validate(text, 3)
-    assert ok, reason
+    assert not ok and "apart" in reason, reason
 
 
 def test_validate_rejects_bad_maps():
@@ -56,6 +60,25 @@ def test_metadata_header_present_and_valid():
     assert "# args:" in out and "# gen_mixed seed: 42" in out
     ok, reason = gen_mixed.validate(out, 2)
     assert ok, reason
+
+
+def test_validate_rejects_degenerate_hill_twins():
+    import math
+    text = Path("/tmp/mixed-demo/mixed_cavemap_p2_18x28_s104.map").read_text()
+    ok, reason = gen_mixed.validate(text, 2)
+    assert not ok and "apart" in reason, reason
+    # ...but every other demo map passes the default gate.
+    for f in Path("/tmp/mixed-demo").glob("*.map"):
+        if f.name == "mixed_cavemap_p2_18x28_s104.map":
+            continue
+        n = int([l for l in f.read_text().splitlines()
+                 if l.startswith("players")][0].split()[1])
+        ok, reason = gen_mixed.validate(f.read_text(), n)
+        assert ok, (f.name, reason)
+    # Threshold is honored: the 5.0 walk map fails a 6.0 gate.
+    text = Path("/tmp/mixed-demo/mixed_walk_p4_30x36_s103.map").read_text()
+    ok, _ = gen_mixed.validate(text, 4, min_hill_dist=6.0)
+    assert not ok
 
 
 def test_end_to_end_each_generator():
