@@ -1,0 +1,51 @@
+"""Sampling tests for the mixed-generator script (TDD: fails until implemented)."""
+import random
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools" / "maps" / "curriculum"))
+
+import gen_mixed
+
+
+def test_pick_dims_hits_budget_and_aspect():
+    for n in (2, 3, 4):
+        for seed in range(20):
+            rng = random.Random(seed)
+            rows, cols = gen_mixed.pick_dims(n, rng, snap=1)
+            tiles = rows * cols
+            assert abs(tiles - 250 * n) <= 0.25 * 250 * n, (n, rows, cols)
+            assert 0.5 <= cols / rows <= 2.0, (n, rows, cols)
+            assert rows % 1 == 0 and cols % 1 == 0
+
+
+def test_pick_dims_snap_divisible():
+    for n in (2, 3, 4):
+        rng = random.Random(7)
+        for _ in range(20):
+            rows, cols = gen_mixed.pick_dims(n, rng, snap=n)
+            assert rows % n == 0 and cols % n == 0, (n, rows, cols)
+
+
+def test_validate_accepts_good_map():
+    text = Path("/tmp/mapgen-3p-24x32/random_a.map").read_text()
+    ok, reason = gen_mixed.validate(text, 3)
+    assert ok, reason
+
+
+def test_validate_rejects_bad_maps():
+    text = Path("/tmp/mapgen-3p-24x32/random_a.map").read_text()
+    ok, _ = gen_mixed.validate(text, 2)  # wrong player count
+    assert not ok
+    lines = text.splitlines()
+    lines[0] = "rows 200"  # blow the tile budget
+    ok, _ = gen_mixed.validate("\n".join(lines), 3)
+    assert not ok
+
+
+def test_end_to_end_each_generator():
+    for gen, n in (("symmetric", 2), ("cavemap", 3), ("walk", 2),
+                   ("symmetric", 4), ("cavemap", 2), ("walk", 3)):
+        text = gen_mixed.generate_one(gen, n, random.Random(11))
+        ok, reason = gen_mixed.validate(text, n)
+        assert ok, (gen, n, reason)
