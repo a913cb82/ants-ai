@@ -43,9 +43,24 @@ def test_validate_rejects_bad_maps():
     assert not ok
 
 
+def test_metadata_header_present_and_valid():
+    import subprocess
+    proc = subprocess.run(
+        [sys.executable, str(Path(__file__).resolve().parents[1]
+         / "tools" / "maps" / "curriculum" / "gen_mixed.py"),
+         "--seed", "42", "--players", "2", "--generator", "symmetric"],
+        capture_output=True, text=True, timeout=180)
+    assert proc.returncode == 0, proc.stderr
+    out = proc.stdout
+    assert out.startswith("# generator: symmetric_mapgen.py\n")
+    assert "# args:" in out and "# gen_mixed seed: 42" in out
+    ok, reason = gen_mixed.validate(out, 2)
+    assert ok, reason
+
+
 def test_end_to_end_each_generator():
     for gen, n in (("symmetric", 2), ("cavemap", 3), ("walk", 2),
                    ("symmetric", 4), ("cavemap", 2), ("walk", 3)):
-        text = gen_mixed.generate_one(gen, n, random.Random(11))
+        text, _, _ = gen_mixed.generate_one(gen, n, random.Random(11))
         ok, reason = gen_mixed.validate(text, n)
         assert ok, (gen, n, reason)

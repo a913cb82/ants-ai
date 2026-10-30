@@ -118,7 +118,11 @@ def validate(text, n):
 
 
 def generate_one(gen, n, rng):
-    """Sample args for one generator until output validates (fail loud)."""
+    """Sample args for one generator until output validates (fail loud).
+
+    Returns (map_text, argv, workdir): argv is the exact subprocess
+    invocation (with its --seed), workdir the cwd or None for repo root.
+    """
     sampler = SAMPLERS[gen]
     last = "no attempts"
     for _ in range(TRIES):
@@ -134,7 +138,7 @@ def generate_one(gen, n, rng):
             continue
         ok, reason = validate(proc.stdout, n)
         if ok:
-            return proc.stdout
+            return proc.stdout, argv, cwd
         last = reason
     raise RuntimeError(f"{gen} 2p arguments failed after {TRIES}: {last}")
 
@@ -148,8 +152,14 @@ def main(argv=None):
     rng = random.Random(args.seed)
     n = args.players or rng.choice([2, 3, 4])
     gen = args.generator or rng.choice(GENS)
-    text = generate_one(gen, n, rng)
-    sys.stdout.write(text)
+    text, argv, cwd = generate_one(gen, n, rng)
+    script = Path(argv[1]).name
+    meta = [f"# generator: {script}",
+            f"# args: {' '.join(argv[2:])}"]
+    if cwd is not None:
+        meta.append(f"# cwd: {cwd.relative_to(REPO)}")
+    meta.append(f"# gen_mixed seed: {args.seed} (players {n}, type {gen})")
+    sys.stdout.write("\n".join(meta) + "\n" + text)
     rows = next(l for l in text.splitlines() if l.startswith("rows"))
     cols = next(l for l in text.splitlines() if l.startswith("cols"))
     print(f"{gen} {rows} {cols} players {n} hills 1", file=sys.stderr)
