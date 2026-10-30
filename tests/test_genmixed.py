@@ -64,13 +64,11 @@ def test_metadata_header_present_and_valid():
 
 def test_validate_rejects_degenerate_hill_twins():
     import math
-    text = Path("/tmp/mixed-demo/mixed_cavemap_p2_18x28_s104.map").read_text()
-    ok, reason = gen_mixed.validate(text, 2)
+    text = Path("/tmp/mapgen-3p-24x32/random_a.map").read_text()
+    ok, reason = gen_mixed.validate(text, 3)
     assert not ok and "apart" in reason, reason
-    # ...but every other demo map passes the default gate.
+    # ...but every current mixed-demo map passes the default gate.
     for f in Path("/tmp/mixed-demo").glob("*.map"):
-        if f.name == "mixed_cavemap_p2_18x28_s104.map":
-            continue
         n = int([l for l in f.read_text().splitlines()
                  if l.startswith("players")][0].split()[1])
         ok, reason = gen_mixed.validate(f.read_text(), n)
