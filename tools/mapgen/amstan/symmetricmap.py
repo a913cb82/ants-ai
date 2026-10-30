@@ -40,6 +40,12 @@ class SymmetricMap(Map):
                 self.size.x / num_players * self.translation_factor.x,
                 self.size.y / num_players * self.translation_factor.y,
             )
+            # Integer per-player lattice steps. The components above are
+            # integral (dims are divisible by num_players), so int() is
+            # exact; hoisting them avoids Point mul/add/normalize churn
+            # in the per-cell vector computation below.
+            self._step_x = int(self.translation.x)
+            self._step_y = int(self.translation.y)
 
         # test the symmetry
         assert len(self.symmetry_vector(Point(0, 0))) > 0
@@ -124,8 +130,20 @@ class SymmetricMap(Map):
         return points
 
     def vector_translational(self, origin):
+        ox = origin.x
+        oy = origin.y
+        step_x = self._step_x
+        step_y = self._step_y
+        width = self.size.x
+        height = self.size.y
+        # Identical points to (origin + self.translation * playerid)
+        # .normalize(self.size): the steps are integral, so
+        # ox + int(tx * pid) == (ox + step_x * pid), modded the same way.
         return [
-            (origin + self.translation * playerid).normalize(self.size)
+            Point(
+                (ox + step_x * playerid) % width,
+                (oy + step_y * playerid) % height,
+            )
             for playerid in range(len(self.players))
         ]
 
