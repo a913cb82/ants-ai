@@ -5,6 +5,14 @@ import random
 import sys
 
 
+# Direction deltas shared by the hot loops. Order matches
+# SymmetricMap.directions.values() (N, S, E, W); _WALK_DELTAS matches
+# SymmetricMap.cdirections order (N, E, S, W). Tuple lookup avoids a
+# per-call list() copy and dict lookup with identical neighbor order.
+_NEIGHBOR_DELTAS = ((-1, 0), (1, 0), (0, 1), (0, -1))
+_WALK_DELTAS = ((-1, 0), (0, 1), (1, 0), (0, -1))
+
+
 # functions
 def gcd(a, b):
     while b:
@@ -55,18 +63,19 @@ class SymmetricMap:
     # makes a map by performing a bunch of random walks carving out water
     def random_walk_map(self):
         self.pick_dimensions()
-        self.map_data = [["%" for c in range(self.cols)] for r in range(self.rows)]
+        self.map_data = [["%"] * self.cols for _r in range(self.rows)]
         self.add_ants()
         self.start_walks()
         self.add_walk_land()
 
     # outputs the map
     def print_map(self):
-        print("rows", self.rows)
-        print("cols", self.cols)
-        print("players", self.no_players)
-        for row in self.map_data:
-            print("m", "".join(row))
+        # Single write; bytes are identical to the old per-row prints
+        # ("rows %s\n", "m %s\n", ... with sep=" ", end="\n").
+        lines = ["rows " + str(self.rows), "cols " + str(self.cols),
+                 "players " + str(self.no_players)]
+        lines.extend("m " + "".join(row) for row in self.map_data)
+        sys.stdout.write("\n".join(lines) + "\n")
 
     # picks the dimensions of the map
     def pick_dimensions(self):
@@ -138,9 +147,18 @@ class SymmetricMap:
 
     # walks the random walk locations
     def walk_locations(self):
-        for c in range(len(self.c_locs)):
-            d = self.cdirections[random.randint(0, 3)]
-            self.c_locs[c] = self.get_loc(self.c_locs[c], d)
+        # Same RNG sequence (one randint(0, 3) per loc, in order) and same
+        # wrap arithmetic as get_loc; deltas are indexed directly instead
+        # of going through cdirections + the directions dict.
+        deltas = _WALK_DELTAS
+        rows = self.rows
+        cols = self.cols
+        randint = random.randint
+        locs = self.c_locs
+        for c in range(len(locs)):
+            dr, dc = deltas[randint(0, 3)]
+            loc = locs[c]
+            locs[c] = [(loc[0] + dr) % rows, (loc[1] + dc) % cols]
 
     # returns the new location after moving in a particular direction
     def get_loc(self, loc, direction):
@@ -149,10 +167,13 @@ class SymmetricMap:
 
     # return the neighbors of the given location
     def get_neighbors(self, loc):
-        n = []
-        for d in list(self.directions.values()):
-            n.append(((loc[0] + d[0]) % self.rows, (loc[1] + d[1]) % self.cols))
-        return n
+        # Same order as before (N, S, E, W) without the list() copy.
+        r0 = loc[0]
+        c0 = loc[1]
+        rows = self.rows
+        cols = self.cols
+        return [((r0 + dr) % rows, (c0 + dc) % cols)
+                for dr, dc in _NEIGHBOR_DELTAS]
 
     # returns the new location after translating it by (rtranslate, ctranslate)
     def get_translate_loc(self, loc):
@@ -160,12 +181,21 @@ class SymmetricMap:
 
     # fills in all symmetrically equivalent squares with the given type
     def fill_squares(self, loc, type):
+        # Same writes in the same order; translate arithmetic inlined.
+        data = self.map_data
+        row_t = self.row_t
+        col_t = self.col_t
+        rows = self.rows
+        cols = self.cols
+        r = loc[0]
+        c = loc[1]
         value = type
         for _n in range(self.no_players):
-            self.map_data[loc[0]][loc[1]] = value
+            data[r][c] = value
             if type == "0":
                 value = chr(ord(value) + 1)
-            loc = self.get_translate_loc(loc)
+            r = (r + row_t) % rows
+            c = (c + col_t) % cols
 
     # checks whether the players start far enough apart
     def is_valid_start(self):
@@ -178,24 +208,59 @@ class SymmetricMap:
 
     # checks whether the players can reach every non-wall square
     def is_valid(self):
-        start_loc = self.a_loc
-        visited = [[False for c in range(self.cols)] for r in range(self.rows)]
-        visited[start_loc[0]][start_loc[1]] = True
+        # Flood-fill count; the reachable set (and hence the count) does
+        # not depend on traversal order, so a flat bytearray + explicit
+        # stack gives the same boolean with fewer calls/allocations.
+        rows = self.rows
+        cols = self.cols
+        data = self.map_data
+        start = self.a_loc
+        visited = bytearray(rows * cols)
+        sr = start[0]
+        sc = start[1]
+        first = sr * cols + sc
+        visited[first] = 1
         squaresVisited = 1
-
-        stack = [start_loc]
+        stack = [first]
         while stack:
-            c_loc = stack.pop()
-            for d in self.directions:
-                n_loc = self.get_loc(c_loc, d)
-
-                if (
-                    not visited[n_loc[0]][n_loc[1]]
-                    and self.map_data[n_loc[0]][n_loc[1]] != "%"
-                ):
-                    stack.append(n_loc)
-                    visited[n_loc[0]][n_loc[1]] = True
-                    squaresVisited += 1
+            idx = stack.pop()
+            r, c = divmod(idx, cols)
+            # north
+            nr = r - 1
+            if nr < 0:
+                nr += rows
+            nidx = nr * cols + c
+            if not visited[nidx] and data[nr][c] != "%":
+                visited[nidx] = 1
+                squaresVisited += 1
+                stack.append(nidx)
+            # south
+            nr = r + 1
+            if nr >= rows:
+                nr -= rows
+            nidx = nr * cols + c
+            if not visited[nidx] and data[nr][c] != "%":
+                visited[nidx] = 1
+                squaresVisited += 1
+                stack.append(nidx)
+            # east
+            nc = c + 1
+            if nc >= cols:
+                nc -= cols
+            nidx = r * cols + nc
+            if not visited[nidx] and data[r][nc] != "%":
+                visited[nidx] = 1
+                squaresVisited += 1
+                stack.append(nidx)
+            # west
+            nc = c - 1
+            if nc < 0:
+                nc += cols
+            nidx = r * cols + nc
+            if not visited[nidx] and data[r][nc] != "%":
+                visited[nidx] = 1
+                squaresVisited += 1
+                stack.append(nidx)
 
         return squaresVisited == self.land_squares
 
@@ -208,6 +273,10 @@ class SymmetricMap:
     # adds land to a map of water
     def add_walk_land(self):
         # random.gauss(2,10)
+        # Local bindings only; RNG calls, fill order, and puddle logic
+        # are unchanged.
+        data = self.map_data
+        no_players = self.no_players
         no_land_squares = random.randint(
             int(self.min_land_proportion * self.rows * self.cols),
             int(self.max_land_proportion * self.rows * self.cols),
@@ -217,24 +286,24 @@ class SymmetricMap:
             self.walk_locations()
 
             for c_loc in self.c_locs:
-                if self.map_data[c_loc[0]][c_loc[1]] == "%":
-                    self.land_squares += self.no_players
+                if data[c_loc[0]][c_loc[1]] == "%":
+                    self.land_squares += no_players
                     self.fill_squares(c_loc, ".")
 
                     # fill in isolated water
                     wchecks = [
                         s
                         for s in self.get_neighbors(c_loc)
-                        if self.map_data[s[0]][s[1]] == "%"
+                        if data[s[0]][s[1]] == "%"
                     ]
                     for check_sq in wchecks:
                         is_puddle = True
                         for cn in self.get_neighbors(check_sq):
-                            if self.map_data[cn[0]][cn[1]] == "%":
+                            if data[cn[0]][cn[1]] == "%":
                                 is_puddle = False
                                 break
                         if is_puddle:
-                            self.land_squares += self.no_players
+                            self.land_squares += no_players
                             self.fill_squares(check_sq, ".")
 
         print(
