@@ -82,7 +82,7 @@ def sample_walk(n, rng):
             "--no_players", str(n),
             "--min_dimensions", str(lo), "--max_dimensions", str(hi),
             "--min_hills", "1", "--max_hills", "1",
-            "--min_starting_distance", str(rng.randint(5, 12)),
+            "--min_starting_distance", str(rng.randint(25, 64)),
             "--min_block_size", "1", "--max_block_size", "2",
             "--seed", str(rng.randrange(1 << 30))]
     if n in (2, 4) and rng.random() < 0.5:
