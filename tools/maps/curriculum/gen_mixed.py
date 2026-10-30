@@ -16,7 +16,6 @@ Usage: gen_mixed.py [--players 2|3|4] [--seed S] [--generator NAME]
 """
 import argparse
 import random
-import subprocess
 import sys
 from pathlib import Path
 
@@ -28,6 +27,85 @@ AMSTAN = MAPGEN / "amstan"
 GENS = ("cavemap", "walk", "symmetric")
 TOL = 0.25  # tile budget tolerance around 250*N
 TRIES = 50
+
+_GENMODS = {}
+
+
+def _load_genmods():
+    """Import generator modules in-process (once, before any fork).
+
+    Top modules load under unique keys; the amstan chain takes the plain
+    dependency keys its absolute imports expect ('map' is amstan's here -
+    nothing else in this process wants it). Plain keys are snapshotted
+    before loading and restored after: the import statements only need
+    them at exec time (later calls use already-bound references), so a
+    host process (e.g. pytest) never sees the shadowing. Without this,
+    tools/mapgen/random_map's `from map import` resolves to amstan's Map
+    in the same session. Call before creating any
+    fork-based pool so workers inherit the loaded modules.
+    """
+    if _GENMODS:
+        return
+    import importlib.util
+    plain = ("util", "terrain", "map", "symmetricmap", "cavemap")
+    saved = {k: sys.modules[k] for k in plain if k in sys.modules}
+
+    def load(key, path):
+        spec = importlib.util.spec_from_file_location(key, path)
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[key] = mod
+        spec.loader.exec_module(mod)
+        return mod
+
+    _GENMODS["walk"] = load("walk_mapgen", str(MAPGEN / "mapgen.py"))
+    _GENMODS["symmetric"] = load("symmetric_mapgen",
+                                   str(MAPGEN / "symmetric_mapgen.py"))
+    for key, name in (("util", "util.py"), ("terrain", "terrain.py"),
+                      ("map", "map.py"),
+                      ("symmetricmap", "symmetricmap.py"),
+                      ("cavemap", "cavemap.py")):
+        load(key, str(AMSTAN / name))
+    _GENMODS["cavemap"] = load("amstan_mapgen", str(AMSTAN / "mapgen.py"))
+    for k in plain:
+        if k in saved:
+            sys.modules[k] = saved[k]
+        else:
+            sys.modules.pop(k, None)
+
+
+def _run_in_process(gen, argv, cwd=None):
+    """Run the generator's main() in-process: (returncode, stdout, stderr).
+
+    Same code, same seed, same random-call order as the old subprocess
+    path, so output is byte-identical (pinned by
+    test_inprocess_matches_subprocess). argv mirrors the old invocation
+    ([python, script, *flags]); mains read flags via patched sys.argv.
+    Never raises: crashes and SystemExit become (1, "", reason).
+    No timeout: every loop in these scripts is iteration-bounded. cwd is
+    accepted and ignored (in-process execution has no working directory;
+    kept so callers mirror the old subprocess invocation).
+    """
+    _load_genmods()
+    import io
+    from contextlib import redirect_stderr, redirect_stdout
+    mod = _GENMODS[gen]
+    out, err = io.StringIO(), io.StringIO()
+    old_argv = sys.argv
+    sys.argv = [Path(argv[1]).name, *argv[2:]]
+    try:
+        with redirect_stdout(out), redirect_stderr(err):
+            try:
+                rc = mod.main(None)
+            except SystemExit as e:
+                rc = e.code if isinstance(e.code, int) else 1
+            if rc is None:
+                rc = 0
+    except Exception as e:  # noqa: BLE001 - crash becomes a reason
+        err.write(f"{type(e).__name__}: {e}")
+        rc = 1
+    finally:
+        sys.argv = old_argv
+    return rc, out.getvalue(), err.getvalue()
 
 
 def pick_dims(n, rng, snap=1):
@@ -146,18 +224,13 @@ def _generate_deterministic(gen, n, subseed, min_hill_dist=4.0):
     last = "no attempts"
     for _ in range(TRIES):
         argv, cwd = sampler(n, srng)
-        try:
-            proc = subprocess.run(argv, cwd=cwd, capture_output=True,
-                                  text=True, timeout=120)
-        except subprocess.TimeoutExpired:
-            last = "timeout"
+        rc, out_text, err_text = _run_in_process(gen, argv)
+        if rc != 0:
+            last = (err_text.strip().splitlines() or ["exit 1"])[-1][:100]
             continue
-        if proc.returncode != 0:
-            last = (proc.stderr.strip().splitlines() or ["exit 1"])[-1][:100]
-            continue
-        ok, reason = validate(proc.stdout, n, min_hill_dist)
+        ok, reason = validate(out_text, n, min_hill_dist)
         if ok:
-            return proc.stdout, argv, cwd
+            return out_text, argv, cwd
         last = reason
     raise RuntimeError(f"{gen} {n}p arguments failed after {TRIES}: {last}")
 
@@ -165,7 +238,7 @@ def _generate_deterministic(gen, n, subseed, min_hill_dist=4.0):
 def generate_one(gen, n, rng, min_hill_dist=4.0):
     """Sample args for one generator until output validates (fail loud).
 
-    Returns (map_text, argv, workdir): argv is the exact subprocess
+    Returns (map_text, argv, workdir): argv mirrors the old subprocess
     invocation (with its --seed), workdir the cwd or None for repo root.
     Deterministic in rng: draws one subseed, everything else derives.
     """
@@ -184,13 +257,33 @@ def render(text, argv, cwd, seed_note):
     return "\n".join(meta) + "\n" + text
 
 
+def _batch_task(plan):
+    """Top-level for pickling: pure function of the plan tuple.
+
+    Returns (filename, content). Raises on exhaustion (the pool
+    propagates it, so a failed batch writes nothing: all-or-nothing).
+    """
+    i, gen, n, subseed, min_hill_dist, seed, count = plan
+    text, argv, cwd = _generate_deterministic(gen, n, subseed,
+                                              min_hill_dist)
+    dims = {}
+    for line in text.splitlines():
+        if line.startswith("rows ") or line.startswith("cols "):
+            k, v = line.split()
+            dims[k] = v
+    name = f"mixed_{i:03d}_{gen}_p{n}_{dims['rows']}x{dims['cols']}.map"
+    return name, render(text, argv, cwd, f"{seed} batch {i}/{count}")
+
+
 def run_batch(count, out_dir, seed, gen_pin, n_pin, min_hill_dist, jobs):
     """Generate count maps into out_dir (descriptive filenames, headers).
 
     Per-map (gen, n, subseed) triples are pre-drawn serially from the
     master RNG, so worker execution order cannot affect output: the same
-    seed emits byte-identical batches with jobs=1 or jobs=N."""
-    from concurrent.futures import ThreadPoolExecutor
+    seed emits byte-identical batches with jobs=1 or jobs=N. Workers are
+    forked processes running the generators in-process (no per-map
+    interpreter startup); failures propagate and the batch writes
+    nothing (all-or-nothing)."""
     rng = random.Random(seed)
     plans = []
     for _ in range(count):
@@ -199,26 +292,20 @@ def run_batch(count, out_dir, seed, gen_pin, n_pin, min_hill_dist, jobs):
         plans.append((gen, n, rng.randrange(1 << 30)))
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
-
-    def one(job):
-        i, (gen, n, subseed) = job
-        text, argv, cwd = _generate_deterministic(gen, n, subseed,
-                                                  min_hill_dist)
-        dims = {}
-        for line in text.splitlines():
-            if line.startswith("rows ") or line.startswith("cols "):
-                k, v = line.split()
-                dims[k] = v
-        name = f"mixed_{i:03d}_{gen}_p{n}_{dims['rows']}x{dims['cols']}.map"
-        (out / name).write_text(
-            render(text, argv, cwd, f"{seed} batch {i}/{count}"))
-        return name
-
-    with ThreadPoolExecutor(max_workers=max(1, jobs)) as ex:
-        names = list(ex.map(one, enumerate(plans)))
-    for name in names:
+    _load_genmods()  # before any fork: workers inherit loaded modules
+    plans = [(i, gen, n, sub, min_hill_dist, seed, count)
+             for i, (gen, n, sub) in enumerate(plans)]
+    if jobs == 1:
+        results = [_batch_task(p) for p in plans]
+    else:
+        import multiprocessing
+        ctx = multiprocessing.get_context("fork")
+        with ctx.Pool(processes=max(1, jobs)) as pool:
+            results = pool.map(_batch_task, plans)
+    for name, content in results:
+        (out / name).write_text(content)
         print(f"wrote {name}", file=sys.stderr)
-    return names
+    return [name for name, _ in results]
 
 
 def main(argv=None):

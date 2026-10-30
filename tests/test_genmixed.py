@@ -79,6 +79,39 @@ def test_validate_rejects_degenerate_hill_twins():
     assert not ok
 
 
+def test_inprocess_matches_subprocess():
+    """In-process generation must equal subprocess output byte-for-byte.
+    The gate for deleting the subprocess path."""
+    import subprocess
+    import sys
+    import gen_mixed
+    root = Path(__file__).resolve().parents[1]
+    cases = [
+        ("walk", None,
+         ["--no_players", "2", "--min_dimensions", "20",
+          "--max_dimensions", "40", "--min_hills", "1", "--max_hills", "1",
+          "--min_starting_distance", "9", "--symmetry", "rotational",
+          "--rotational_symmetry", "4"]),
+        ("symmetric", None,
+         ["--players", "2", "--rows", "16", "--cols", "24",
+          "--min_start_distance", "10"]),
+        ("cavemap", "amstan",
+         ["--players", "2", "--rows", "16", "--cols", "24",
+          "--hills", "1", "--symmetry", "rotational"]),
+    ]
+    for gen, sub, flags in cases:
+        script = root / "tools" / "mapgen" / (sub or "") / (
+            "mapgen.py" if gen != "symmetric" else "symmetric_mapgen.py")
+        for seed in (5, 6):
+            argv = [sys.executable, str(script), *flags, "--seed", str(seed)]
+            cwd = str(root / "tools" / "mapgen" / sub) if sub else None
+            rc, out, _ = gen_mixed._run_in_process(gen, argv, cwd)
+            proc = subprocess.run(argv, cwd=cwd, capture_output=True,
+                                  text=True, timeout=300)
+            assert rc == proc.returncode == 0, (gen, seed)
+            assert out == proc.stdout, (gen, seed)
+
+
 def test_batch_determinism_and_parallel_equivalence(tmp_path):
     import subprocess
     import sys

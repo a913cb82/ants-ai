@@ -313,7 +313,7 @@ class SymmetricMap:
         )
 
 
-if __name__ == "__main__":
+def main(argv=None):
     from optparse import OptionParser
 
     parser = OptionParser()
@@ -327,7 +327,7 @@ if __name__ == "__main__":
         default=None,
     )
     parser.add_option("--seed", dest="seed", type="int", default=None)
-    opts, _ = parser.parse_args()
+    opts, _ = parser.parse_args(argv)
 
     random.seed(opts.seed)
     example_map = SymmetricMap()
@@ -341,3 +341,8 @@ if __name__ == "__main__":
         example_map.min_start_distance = opts.min_start_distance
     example_map.random_walk_map()
     example_map.print_map()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

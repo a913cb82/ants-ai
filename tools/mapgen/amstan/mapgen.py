@@ -23,9 +23,8 @@ def mapgen(mapsizex, mapsizey, carver, symmetry, players, hills, seed):
     print(map)
 
 
-if __name__ == "__main__":
+def main(argv=None):
     import optparse
-    import sys
 
     parser = optparse.OptionParser(usage="""Usage: %prog [options]\n""")
 
@@ -64,6 +63,13 @@ if __name__ == "__main__":
         help="Seed for the random number generator",
     )
 
-    opts, _ = parser.parse_args(sys.argv)
+    opts, _ = parser.parse_args(argv)
 
     mapgen(**eval(str(opts)))
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+
+    sys.exit(main())
