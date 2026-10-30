@@ -541,6 +541,69 @@ class Grid:
                 self.squares[r][c] = old_map[o_loc[0]][o_loc[1]]
 
 
+def _build_grid(opts, symmetry, no_hills):
+    """Build the water-filled grid, or return a failure reason.
+
+    Never raises: unexpected crashes become reasons so the caller can
+    fall back to the other symmetry (unset --symmetry) or fail loud
+    (explicit --symmetry). Same CLI args in, same contract out.
+    """
+    grid = Grid()
+    grid.no_hills = no_hills
+    grid.symmetry = symmetry
+    if symmetry == "rotational":
+        if opts.no_players not in (-1, 2, 4, 8):
+            return None, "Invalid number of players for a rotationally symmetric map"
+        if opts.rotational_symmetry != -1 and (
+            (
+                opts.no_players == 2
+                and (opts.rotational_symmetry < 1 or opts.rotational_symmetry > 5)
+            )
+            or (
+                opts.no_players == 4
+                and (opts.rotational_symmetry < 1 or opts.rotational_symmetry > 3)
+            )
+            or (opts.no_players == 8 and opts.rotational_symmetry != 1)
+            or (opts.rotational_symmetry < 0 or opts.rotational_symmetry > 5)
+        ):
+            return None, "Invalid rotational symmetry type for the number of players"
+        try:
+            ok = grid.rotationally_symmetric_grid(
+                opts.no_players,
+                opts.min_dimensions,
+                opts.max_dimensions,
+                opts.min_starting_distance,
+                opts.min_block_size,
+                opts.max_block_size,
+                opts.rotational_symmetry,
+            )
+        except Exception as exc:  # noqa: BLE001 - crash becomes a reason
+            return None, f"rotational grid failed: {exc}"
+        if not ok:
+            return None, (
+                "Failed to create a valid rotationally symmetric grid with "
+                f"{opts.no_players} players"
+            )
+    else:
+        try:
+            ok = grid.tile_symmetric_grid(
+                opts.no_players,
+                opts.min_dimensions,
+                opts.max_dimensions,
+                opts.min_starting_distance,
+                opts.min_block_size,
+                opts.max_block_size,
+            )
+        except Exception as exc:  # noqa: BLE001 - crash becomes a reason
+            return None, f"tile grid failed: {exc}"
+        if not ok:
+            return None, (
+                "Failed to create a valid tile symmetric grid with "
+                f"{opts.no_players} players"
+            )
+    return grid, None
+
+
 def main(argv):
     usage = """Usage: %prog [options]\n"""
     parser = OptionParser(usage=usage)
@@ -634,96 +697,50 @@ def main(argv):
     if (
         opts.no_players < min_players and opts.no_players != -1
     ) or opts.no_players > max_players:
-        print("Invalid number of players")
-        return
+        print("Invalid number of players", file=sys.stderr)
+        return 1
     if opts.min_hills < 1 or opts.max_hills < opts.min_hills:
-        print("Invalid min/max number of hills per player")
-        return
+        print("Invalid min/max number of hills per player", file=sys.stderr)
+        return 1
     if opts.min_dimensions < 1 or opts.max_dimensions < opts.min_dimensions:
-        print("Invalid min/max dimensions parameters")
-        return
+        print("Invalid min/max dimensions parameters", file=sys.stderr)
+        return 1
     if opts.min_block_size < 1 or opts.max_block_size < opts.min_block_size:
-        print("Invalid min/max block size parameters")
-        return
-    if opts.symmetry == "rotational":
-        if (
-            opts.no_players != -1
-            and opts.no_players != 2
-            and opts.no_players != 4
-            and opts.no_players != 8
-        ):
-            print("Invalid number of players for a rotationally symmetric map")
-            return
-        if opts.rotational_symmetry != -1 and (
-            (
-                opts.no_players == 2
-                and (opts.rotational_symmetry < 1 or opts.rotational_symmetry > 5)
-            )
-            or (
-                opts.no_players == 4
-                and (opts.rotational_symmetry < 1 or opts.rotational_symmetry > 3)
-            )
-            or (opts.no_players == 8 and opts.rotational_symmetry != 1)
-            or (opts.rotational_symmetry < 0 or opts.rotational_symmetry > 5)
-        ):
-            print("Invalid rotational symmetry type for the number of players")
-            return
-
+        print("Invalid min/max block size parameters", file=sys.stderr)
+        return 1
     random.seed(opts.seed)
 
-    # creates the map
-    grid = Grid()
+    # works out how many hills to have (rolled once: shared by all attempts,
+    # so the RNG stream is identical to before on explicit --symmetry runs)
+    no_hills = random.randint(opts.min_hills, opts.max_hills)
 
-    # works out how many hills to have
-    grid.no_hills = random.randint(opts.min_hills, opts.max_hills)
-
-    # works out the type of symmetry
+    # works out the type of symmetry. An explicit request is honored exactly;
+    # an unset --symmetry tries rotational first, then tile (deterministic
+    # fallback, no seed roulette: the same settings succeed on every seed
+    # whenever either symmetry can satisfy them).
     if opts.symmetry == "rotational":
-        grid.symmetry = "rotational"
+        attempts = ("rotational",)
     elif opts.symmetry == "tile":
-        grid.symmetry = "tile"
+        attempts = ("tile",)
     elif opts.symmetry:
-        print("invalid symmetry type")
-        return
+        print("invalid symmetry type", file=sys.stderr)
+        return 1
     else:
-        if (opts.no_players == -1 or opts.no_players % 2 == 0) and random.randint(0, 5):
-            grid.symmetry = "rotational"
-        else:
-            grid.symmetry = "tile"
+        attempts = ("rotational", "tile")
 
-    # constructs a water filled grid
-    if grid.symmetry == "rotational":
-        if not grid.rotationally_symmetric_grid(
-            opts.no_players,
-            opts.min_dimensions,
-            opts.max_dimensions,
-            opts.min_starting_distance,
-            opts.min_block_size,
-            opts.max_block_size,
-            opts.rotational_symmetry,
-        ):
-            print(
-                "Failed to create a valid rotationally symmetric grid with",
-                opts.no_players,
-                "players",
-            )
-            return
+    grid = None
+    failures = []
+    for symmetry in attempts:
+        candidate, reason = _build_grid(opts, symmetry, no_hills)
+        if reason is None:
+            grid = candidate
+            break
+        failures.append(f"{symmetry}: {reason}")
 
-    elif grid.symmetry == "tile" and not grid.tile_symmetric_grid(
-        opts.no_players,
-        opts.min_dimensions,
-        opts.max_dimensions,
-        opts.min_starting_distance,
-        opts.min_block_size,
-        opts.max_block_size,
-    ):
-        print(
-            "Failed to create a valid tile symmetric grid with",
-            opts.no_players,
-            "players and block size",
-            grid.block_size,
-        )
-        return
+    if grid is None:
+        for failure in failures:
+            print(failure, file=sys.stderr)
+        return 1
 
     grid.generate_basis_information()
     grid.add_land_with_recursive_backtracking()
@@ -734,7 +751,8 @@ def main(argv):
     grid.translate()  # this will make it (even) harder to determine some symmetries
 
     grid.print_grid()
+    return 0
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    sys.exit(main(sys.argv[1:]))

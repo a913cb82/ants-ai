@@ -88,6 +88,56 @@ def _check_small_2p(out):
     assert (first, second) == (1, 1), f"hills={first, second}"
 
 
+def test_walk_unset_symmetry_6p_all_seeds(tmp_path):
+    """Unset symmetry must not roulette: 6p tile-capable settings succeed
+    on EVERY seed. Pre-fix: 5/6 seeds chose rotational and crashed with
+    IndexError (rotational only supports 2/4/8 players)."""
+    for seed in range(1, 7):
+        proc = subprocess.run(
+            [PY, "tools/mapgen/mapgen.py", "--no_players", "6",
+             "--min_dimensions", "24", "--max_dimensions", "48",
+             "--min_hills", "1", "--max_hills", "1",
+             "--min_block_size", "1", "--max_block_size", "2",
+             "--seed", str(seed)],
+            cwd=ROOT, capture_output=True, text=True, timeout=300,
+        )
+        assert proc.returncode == 0, f"seed {seed}: {proc.stderr[-300:]}"
+        assert proc.stdout.startswith("rows "), f"seed {seed}: {proc.stdout[:80]}"
+
+
+def test_walk_failure_protocol():
+    """Unsatisfiable settings fail loud: nonzero exit, empty stdout,
+    reason on stderr. Pre-fix: exit 0 with the message on stdout."""
+    proc = subprocess.run(
+        [PY, "tools/mapgen/mapgen.py", "--no_players", "2",
+         "--min_dimensions", "20", "--max_dimensions", "21",
+         "--min_hills", "1", "--max_hills", "1", "--symmetry", "tile",
+         "--min_block_size", "3", "--max_block_size", "4",
+         "--seed", "1"],
+        cwd=ROOT, capture_output=True, text=True, timeout=300,
+    )
+    assert proc.returncode != 0
+    assert proc.stdout == ""
+    assert proc.stderr.strip() != ""
+
+
+def test_walk_stays_fast():
+    """Efficiency guard: a small walk mapgen completes well under 2s."""
+    import time
+    t = time.time()
+    proc = subprocess.run(
+        [PY, "tools/mapgen/mapgen.py", "--no_players", "2",
+         "--min_dimensions", "20", "--max_dimensions", "40",
+         "--min_hills", "1", "--max_hills", "1",
+         "--min_starting_distance", "9", "--symmetry", "rotational",
+         "--rotational_symmetry", "4", "--seed", "1"],
+        cwd=ROOT, capture_output=True, text=True, timeout=300,
+    )
+    assert proc.returncode == 0
+    assert proc.stdout.startswith("rows ")
+    assert time.time() - t < 2.0
+
+
 def test_walk_mapgen_2p(tmp_path):
     """python tools/mapgen/mapgen.py --no_players 2 --min_dimensions 20
     --max_dimensions 40 --min_hills 1 --max_hills 1 --min_starting_distance 9
