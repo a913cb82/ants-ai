@@ -79,6 +79,42 @@ def test_validate_rejects_degenerate_hill_twins():
     assert not ok
 
 
+def test_batch_determinism_and_parallel_equivalence(tmp_path):
+    import subprocess
+    import sys
+    script = (Path(__file__).resolve().parents[1]
+              / "tools" / "maps" / "curriculum" / "gen_mixed.py")
+    a = tmp_path / "a"
+    b = tmp_path / "b"
+    for d, jobs in ((a, 1), (b, 4)):
+        proc = subprocess.run(
+            [sys.executable, str(script), "--count", "6",
+             "--out-dir", str(d), "--seed", "777", "--jobs", str(jobs)],
+            capture_output=True, text=True, timeout=600)
+        assert proc.returncode == 0, proc.stderr[-300:]
+    fa = sorted(p.read_bytes() for p in a.glob("*.map"))
+    fb = sorted(p.read_bytes() for p in b.glob("*.map"))
+    assert len(fa) == 6 and fa == fb  # serial == parallel, same seed
+    for content in fa:
+        text = content.decode()
+        assert text.startswith("# generator: ")
+        n = int([l for l in text.splitlines()
+                 if l.startswith("players")][0].split()[1])
+        ok, reason = gen_mixed.validate(text, n)
+        assert ok, reason
+
+
+def test_batch_requires_out_dir(tmp_path):
+    import subprocess
+    import sys
+    script = (Path(__file__).resolve().parents[1]
+              / "tools" / "maps" / "curriculum" / "gen_mixed.py")
+    proc = subprocess.run(
+        [sys.executable, str(script), "--count", "3", "--seed", "1"],
+        capture_output=True, text=True, timeout=120)
+    assert proc.returncode != 0
+
+
 def test_end_to_end_each_generator():
     for gen, n in (("symmetric", 2), ("cavemap", 3), ("walk", 2),
                    ("symmetric", 4), ("cavemap", 2), ("walk", 3)):

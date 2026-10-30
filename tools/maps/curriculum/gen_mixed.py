@@ -136,16 +136,16 @@ def validate(text, n, min_hill_dist=4.0):
     return True, "ok"
 
 
-def generate_one(gen, n, rng, min_hill_dist=4.0):
-    """Sample args for one generator until output validates (fail loud).
-
-    Returns (map_text, argv, workdir): argv is the exact subprocess
-    invocation (with its --seed), workdir the cwd or None for repo root.
-    """
+def _generate_deterministic(gen, n, subseed, min_hill_dist=4.0):
+    """Pure function of (gen, n, subseed): every draw comes from a private
+    Random(subseed), so retries advance a deterministic stream and the
+    same inputs always emit the same map. Parallel-safe by construction.
+    Returns (map_text, argv, workdir)."""
+    srng = random.Random(subseed)
     sampler = SAMPLERS[gen]
     last = "no attempts"
     for _ in range(TRIES):
-        argv, cwd = sampler(n, rng)
+        argv, cwd = sampler(n, srng)
         try:
             proc = subprocess.run(argv, cwd=cwd, capture_output=True,
                                   text=True, timeout=120)
@@ -159,7 +159,66 @@ def generate_one(gen, n, rng, min_hill_dist=4.0):
         if ok:
             return proc.stdout, argv, cwd
         last = reason
-    raise RuntimeError(f"{gen} 2p arguments failed after {TRIES}: {last}")
+    raise RuntimeError(f"{gen} {n}p arguments failed after {TRIES}: {last}")
+
+
+def generate_one(gen, n, rng, min_hill_dist=4.0):
+    """Sample args for one generator until output validates (fail loud).
+
+    Returns (map_text, argv, workdir): argv is the exact subprocess
+    invocation (with its --seed), workdir the cwd or None for repo root.
+    Deterministic in rng: draws one subseed, everything else derives.
+    """
+    return _generate_deterministic(gen, n, rng.randrange(1 << 30),
+                                   min_hill_dist)
+
+
+def render(text, argv, cwd, seed_note):
+    """Prepend the # metadata header (parser-safe by repo convention)."""
+    script = Path(argv[1]).name
+    meta = [f"# generator: {script}",
+            f"# args: {' '.join(argv[2:])}"]
+    if cwd is not None:
+        meta.append(f"# cwd: {cwd.relative_to(REPO)}")
+    meta.append(f"# gen_mixed seed: {seed_note}")
+    return "\n".join(meta) + "\n" + text
+
+
+def run_batch(count, out_dir, seed, gen_pin, n_pin, min_hill_dist, jobs):
+    """Generate count maps into out_dir (descriptive filenames, headers).
+
+    Per-map (gen, n, subseed) triples are pre-drawn serially from the
+    master RNG, so worker execution order cannot affect output: the same
+    seed emits byte-identical batches with jobs=1 or jobs=N."""
+    from concurrent.futures import ThreadPoolExecutor
+    rng = random.Random(seed)
+    plans = []
+    for _ in range(count):
+        gen = gen_pin or rng.choice(GENS)
+        n = n_pin or rng.choice([2, 3, 4])
+        plans.append((gen, n, rng.randrange(1 << 30)))
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+
+    def one(job):
+        i, (gen, n, subseed) = job
+        text, argv, cwd = _generate_deterministic(gen, n, subseed,
+                                                  min_hill_dist)
+        dims = {}
+        for line in text.splitlines():
+            if line.startswith("rows ") or line.startswith("cols "):
+                k, v = line.split()
+                dims[k] = v
+        name = f"mixed_{i:03d}_{gen}_p{n}_{dims['rows']}x{dims['cols']}.map"
+        (out / name).write_text(
+            render(text, argv, cwd, f"{seed} batch {i}/{count}"))
+        return name
+
+    with ThreadPoolExecutor(max_workers=max(1, jobs)) as ex:
+        names = list(ex.map(one, enumerate(plans)))
+    for name in names:
+        print(f"wrote {name}", file=sys.stderr)
+    return names
 
 
 def main(argv=None):
@@ -169,19 +228,26 @@ def main(argv=None):
     p.add_argument("--generator", choices=GENS, default=None)
     p.add_argument("--min-hill-dist", type=float, default=4.0,
                      help="minimum pairwise toroidal hill distance")
+    p.add_argument("--count", type=int, default=1,
+                     help="maps per invocation; >1 writes files to --out-dir")
+    p.add_argument("--out-dir", default=None,
+                     help="required with --count > 1")
+    p.add_argument("--jobs", type=int, default=8,
+                     help="batch workers (execution order cannot affect output)")
     args = p.parse_args(argv)
+    if args.count > 1:
+        if args.out_dir is None:
+            p.error("--count > 1 requires --out-dir")
+        run_batch(args.count, args.out_dir, args.seed, args.generator,
+                  args.players, args.min_hill_dist, args.jobs)
+        return 0
     rng = random.Random(args.seed)
     n = args.players or rng.choice([2, 3, 4])
     gen = args.generator or rng.choice(GENS)
     text, argv, cwd = generate_one(gen, n, rng, args.min_hill_dist)
-    script = Path(argv[1]).name
-    meta = [f"# generator: {script}",
-            f"# args: {' '.join(argv[2:])}"]
-    if cwd is not None:
-        meta.append(f"# cwd: {cwd.relative_to(REPO)}")
-    meta.append(f"# gen_mixed seed: {args.seed} (players {n}, type {gen},"
-                f" min-hill-dist {args.min_hill_dist})")
-    sys.stdout.write("\n".join(meta) + "\n" + text)
+    sys.stdout.write(render(text, argv, cwd,
+                            f"{args.seed} (players {n}, type {gen},"
+                            f" min-hill-dist {args.min_hill_dist})"))
     rows = next(l for l in text.splitlines() if l.startswith("rows"))
     cols = next(l for l in text.splitlines() if l.startswith("cols"))
     print(f"{gen} {rows} {cols} players {n} hills 1", file=sys.stderr)
