@@ -80,8 +80,8 @@ def test_validate_rejects_degenerate_hill_twins():
 
 
 def test_end_to_end_each_generator():
-    for gen, n in (("symmetric", 2), ("cavemap", 3), ("random", 2),
-                   ("symmetric", 4), ("cavemap", 2), ("random", 3)):
+    for gen, n in (("symmetric", 2), ("cavemap", 3), ("walk", 2),
+                   ("symmetric", 4), ("cavemap", 2), ("walk", 3)):
         text, _, _ = gen_mixed.generate_one(gen, n, random.Random(11))
         ok, reason = gen_mixed.validate(text, n)
         assert ok, (gen, n, reason)
