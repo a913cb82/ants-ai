@@ -28,31 +28,38 @@ def _h(challenger, champion="g000", promoted=False, wins=0, draws=0,
             "eval": ev, "nash": nash or {}, "config": {}}
 
 
-def test_bt_fit_orders_transitive_panel():
+def test_running_elo_orders_transitive_panel():
     import dashboard
 
-    ev = {"a vs b": [3.0, 0.0], "b vs a": [0.0, 3.0],
-          "b vs c": [3.0, 0.0], "c vs b": [0.0, 3.0]}
-    r = dashboard.bt_fit(["a", "b", "c"], ev, iters=200)
-    assert r["a"] > r["b"] > r["c"]
+    ids = ["g000", "a", "b", "c"]
+    per_gen = [{(1, 2): [3.0, 0.0]}, {(2, 3): [3.0, 0.0]}]
+    hist = [{"challenger": "a", "champion": "g000"},
+            {"challenger": "b", "champion": "g000"}]
+    s = dashboard.running_elo(hist, ids, per_gen)
+    assert s["cand"][0] > s["cand"][1] > 0  # a beat b, b beat c
 
 
-def test_bt_fit_draws_shrink_and_empty_member_zero():
+def test_running_elo_draws_shrink_and_empty_stays_zero():
     import dashboard
 
-    ev = {"a vs b": [0.5, 0.5], "b vs a": [0.5, 0.5]}
-    r = dashboard.bt_fit(["a", "b", "lonely"], ev, iters=200)
-    assert abs(r["a"] - r["b"]) < 1e-6
-    assert r["lonely"] == 0.0
+    ids = ["g000", "a", "b", "lonely"]
+    per_gen = [{(1, 2): [2.0, 2.0]}, {}]
+    hist = [{"challenger": "a", "champion": "g000"},
+            {"challenger": "lonely", "champion": "g000"}]
+    s = dashboard.running_elo(hist, ids, per_gen)
+    assert s["cand"][0] == s["champ"][0] == 0.0  # all-square draw
+    assert s["cand"][1] == 0.0  # lonely never plays: exactly zero
 
 
-def test_bt_elo_zero_is_panel_mean():
+def test_running_elo_zero_is_g000_pinned():
     import dashboard
 
-    ev = {"x vs g000": [4.0, 0.0], "g000 vs x": [0.0, 4.0]}
-    elos = dashboard.anchored_elo(["g000", "x"], ev, ["g000"], iters=200)
-    assert abs(elos["g000"]) < 1e-9
-    assert elos["x"] > 100  # decisive sweep reads as a large Elo gap
+    ids = ["g000", "x"]
+    per_gen = [{(0, 1): [0.0, 4.0]}]  # x sweeps g000 4-0
+    hist = [{"challenger": "x", "champion": "g000"}]
+    s = dashboard.running_elo(hist, ids, per_gen)
+    assert s["refs"]["g000"] == [0.0]  # pinned zero never moves
+    assert s["cand"][0] > 100  # decisive sweep reads as a large gap
 
 
 def test_panel_is_bc_plus_last_three_deposed():
@@ -246,28 +253,30 @@ def test_merge_pairs_sums_overlap():
     assert m["b vs c"] == [2.0, 0.0]
 
 
-def test_bt_fit_sees_train_only_members():
+def test_running_elo_sees_train_only_members():
     import dashboard
 
-    ev = {"x vs g000": [1.0, 0.0], "g000 vs x": [0.0, 1.0]}
-    tr = {"lonely vs x": [4.0, 0.0], "x vs lonely": [0.0, 4.0]}
-    eval_only = dashboard.bt_fit(["g000", "x", "lonely"], ev, iters=200)
-    assert eval_only["lonely"] == 0.0  # no eval games: exactly 0
-    both = dashboard.bt_fit(["g000", "x", "lonely"],
-                            dashboard.merge_pairs(ev, tr), iters=200)
-    assert both["lonely"] > both["x"]  # 4-0 train sweep moves the rating
+    ids = ["g000", "x", "lonely"]
+    # lonely's only games are a 4-0 sweep of x, logged merged per gen.
+    # buckets key (i,j) stores [wins_i, wins_j]: x=0, lonely=4.
+    per_gen = [{(1, 2): [0.0, 4.0]}]
+    hist = [{"challenger": "lonely", "champion": "g000"}]
+    s = dashboard.running_elo(hist, ids, per_gen)
+    assert s["cand"][0] > s["champ"][0]  # sweep moves it at once
+    assert s["cand"][0] > 50
 
 
-def test_elo_duel_candidate_above_champ_pre_promotion():
+def test_running_elo_duel_candidate_above_champ_pre_promotion():
     import dashboard
 
-    hist = [_h("g001", "g000"), _h("g002", "g000", True, 5, 0, 6),
-            _h("g003", "g002")]
-    elos = {"g000": -10.0, "g001": 0.0, "g002": 30.0, "g003": 5.0}
-    d = dashboard.elo_duel(hist, elos)
-    assert d["cand"] == [0.0, 30.0, 5.0]
-    assert d["champ"] == [-10.0, -10.0, 30.0]  # defender, then new throne
-    assert d["cand"][1] > d["champ"][1]  # staircase: takes the crown
+    ids = ["g000", "g001", "g002", "g003"]
+    per_gen = [{(0, 1): [0.0, 5.0]}, {(1, 2): [0.0, 5.0]}]
+    hist = [{"challenger": "g001", "champion": "g000",
+             "promoted": True},
+            {"challenger": "g002", "champion": "g001"}]
+    s = dashboard.running_elo(hist, ids, per_gen)
+    assert s["cand"][0] > s["champ"][0]  # g001 takes the crown
+    assert s["cand"][1] > s["champ"][1]  # staircase: g002 takes it
 
 
 def test_turn_mismatch_ranges():
@@ -358,7 +367,7 @@ def test_snapshot_duel_cand_above_champ(tmp_path):
     assert elo["turn_note"] == []  # matching turns: nothing to disclose
 
 
-# --- R4: causal Elo (quantized refits, g000 anchor) ---
+# --- running Elo: one sequential pass, gen 0 -> G (no windows/refits) ---
 
 def _mini_history(base, n_gens, tag="c"):
     """Tiny archive: every challenger beats the champ 3-1 in train+eval."""
@@ -390,22 +399,20 @@ def _mini_history(base, n_gens, tag="c"):
     return g000
 
 
-def test_causal_step_held_within_window():
+def test_running_elo_same_games_same_values():
     import dashboard
 
+    # No windows anymore: the pass reads each gen's games at once.
+    # Same games -> same values (the old step-held constancy).
     ids = ["g000", "c001", "c002"]
     per_gen = [{(0, 1): [3.0, 1.0]}, {}, {}]
-    refits = dashboard.causal_refits(ids, per_gen, step=2)
-    assert len(refits) == 2  # gens 0 and 2
-    s = dashboard.causal_duel(
-        [{"challenger": "c001", "champion": "g000"},
-         {"challenger": "c001", "champion": "g000", "promoted": True},
-         {"challenger": "c002", "champion": "c001"}],
-        ids, refits, per_gen, step=2)
+    hist = [{"challenger": "c001", "champion": "g000"},
+            {"challenger": "c001", "champion": "g000",
+             "promoted": True},
+            {"challenger": "c002", "champion": "c001"}]
+    s = dashboard.running_elo(hist, ids, per_gen)
     assert s["cand"][0] == s["cand"][1]  # same games (gen 0 only)
-    # crowned converges: window joint-fit vs member-local readout of the
-    # same games agree to 0.01 Elo (far below the 1dp display precision).
-    assert abs(s["champ"][2] - s["cand"][1]) < 0.01
+    assert abs(s["champ"][2] - s["cand"][1]) < 0.01  # crowned converges
 
 
 def test_duel_candidate_uses_own_gen_games():
@@ -414,15 +421,12 @@ def test_duel_candidate_uses_own_gen_games():
     import dashboard
 
     ids = ["g000", "c001", "c002", "c003"]
-    # window refit reads gen 0 only (step 15); c001 sweeps c002 10-0 in
-    # gen 1, c003 never plays at all.
+    # c001 sweeps c002 10-0 in gen 1, c003 never plays at all.
     per_gen = [{}, {(1, 2): [10.0, 0.0]}, {}]
-    refits = dashboard.causal_refits(ids, per_gen, step=15)
-    s = dashboard.causal_duel(
-        [{"challenger": "c001", "champion": "g000"},
-         {"challenger": "c001", "champion": "g000"},
-         {"challenger": "c003", "champion": "g000"}],
-        ids, refits, per_gen, step=15)
+    hist = [{"challenger": "c001", "champion": "g000"},
+            {"challenger": "c001", "champion": "g000"},
+            {"challenger": "c003", "champion": "g000"}]
+    s = dashboard.running_elo(hist, ids, per_gen)
     assert s["cand"][1] > 50  # 10-0 sweep rates far above any prior rail
     assert s["cand"][2] != s["cand"][1]  # gameless c003 sits elsewhere
 
@@ -433,42 +437,40 @@ def test_duel_champ_turnover_immediate():
 
     ids = ["g000", "c001"]
     per_gen = [{}, {(0, 1): [0.0, 8.0]}]  # c001 sweeps g000 8-0 in gen 1
-    refits = dashboard.causal_refits(ids, per_gen, step=15)
-    s = dashboard.causal_duel(
-        [{"challenger": "c001", "champion": "g000", "promoted": True},
-         {"challenger": "c002", "champion": "c001"}],
-        ids, refits, per_gen, step=15)
-    # c001 defended never (challenger is unknown c002) but its own line
-    # as champ reads its 8-0, not the unseen rail.
+    hist = [{"challenger": "c001", "champion": "g000",
+             "promoted": True},
+            {"challenger": "c002", "champion": "c001"}]
+    s = dashboard.running_elo(hist, ids, per_gen)
     assert s["champ"][1] > 50
 
 
-def test_causal_prefix_property_truncated_windows():
+def test_running_elo_prefix_stable():
     import dashboard
 
     ids = ["g000", "c001", "c002"]
     full = [{(0, 1): [3.0, 1.0]}, {(0, 2): [0.0, 4.0]}, {(1, 2): [2.0, 2.0]}]
-    part = full[:2]
-    rf = dashboard.causal_refits(ids, full, step=1)
-    rp = dashboard.causal_refits(ids, part, step=1)
-    assert len(rf) == 3 and len(rp) == 2
-    for r in range(2):  # later windows cannot move earlier refits
-        assert rp[r] == rf[r]
+    hist = [{"challenger": "c001", "champion": "g000"},
+            {"challenger": "c002", "champion": "g000"},
+            {"challenger": "c002", "champion": "g000"}]
+    a = dashboard.running_elo(hist, ids, full)
+    b = dashboard.running_elo(hist[:2], ids, full[:2])
+    # later games never move earlier ratings (bitwise: same trajectory).
+    assert a["cand"][:2] == b["cand"]
+    assert a["champ"][:2] == b["champ"]
 
 
-def test_causal_g000_anchor_only():
+def test_running_elo_g000_pinned():
     import dashboard
 
     ids = ["g000", "c001"]
-    refits = dashboard.causal_refits(ids, [{(0, 1): [1.0, 3.0]}], step=15)
-    s = dashboard.causal_duel(
-        [{"challenger": "c001", "champion": "g000"}], ids, refits,
-        [{(0, 1): [1.0, 3.0]}], step=15)
+    per_gen = [{(0, 1): [1.0, 3.0]}]
+    hist = [{"challenger": "c001", "champion": "g000"}]
+    s = dashboard.running_elo(hist, ids, per_gen)
     assert s["refs"]["g000"] == [0.0]  # the zero never moves
     assert s["cand"][0] > 0  # 3-1 winner above the g000 zero
 
 
-def test_causal_twin_archives_agree_on_shared_gens(tmp_path):
+def test_running_elo_twin_archives_agree_on_shared_gens(tmp_path):
     import dashboard
 
     full = tmp_path / "full"
@@ -483,13 +485,13 @@ def test_causal_twin_archives_agree_on_shared_gens(tmp_path):
     for k in ("cand", "champ"):
         for a, b in zip(ef[k][:20], et[k][:20]):
             assert (a is None and b is None) or abs(a - b) < 1e-9
-    # staircase reads at a window boundary (gen 30: cand's own games are
-    # in refit 2, so the candidate line is meaningful there, not unseen)
+    # staircase: every challenger beats the champ 3-1, so the candidate
+    # reads above the champ at the shared gens (no window lag anymore).
     assert ef["cand"][30] > ef["champ"][30]
 
 
 @pytest.mark.slow
-def test_causal_board_perf_real_archive():
+def test_running_elo_board_perf_real_archive():
     import time
 
     import dashboard
@@ -497,8 +499,7 @@ def test_causal_board_perf_real_archive():
     base = Path("/home/abrai/projects/ants-ai/ml/archive")
     if not (base / "history.jsonl").exists():
         pytest.skip("no live archive here")
-    for c in (dashboard._causal_cache, dashboard._bt_digest_cache,
-              dashboard._nash_cache,
+    for c in (dashboard._elo_cache, dashboard._nash_cache,
               dashboard._games_cache,
               dashboard._grouped_cache, dashboard._history_cache):
         c.clear()
@@ -509,12 +510,12 @@ def test_causal_board_perf_real_archive():
     t0 = time.time()
     dashboard.snapshot(base)
     warm = time.time() - t0
-    print(f"\ncausal board: cold {cold:.1f}s warm {warm:.2f}s")
-    assert cold < 60  # cold-start budget; actual reported in CURVES_VERIFY
+    print(f"\nrunning board: cold {cold:.1f}s warm {warm:.2f}s")
+    assert cold < 60  # cold-start budget; actuals reported at review
     assert warm < 10
 
 
-def test_causal_streaming_extend_matches_rebuild(tmp_path):
+def test_running_elo_streaming_extend_matches_rebuild(tmp_path):
     import dashboard
 
     base = tmp_path / "arch"
@@ -523,7 +524,7 @@ def test_causal_streaming_extend_matches_rebuild(tmp_path):
     s1 = dashboard.snapshot(base)["board"]["elo"]
     _mini_history(base, 15, tag="d")  # same dir, more gens (d016..d030)
     s2 = dashboard.snapshot(base)["board"]["elo"]
-    assert s2["cand"][:20] == s1["cand"][:20]  # extend reuses stored refits
+    assert s2["cand"][:20] == s1["cand"][:20]  # extend continues theta
     assert s2["champ"][:20] == s1["champ"][:20]
     assert len(s2["cand"]) == 35
 
@@ -539,7 +540,7 @@ def test_concurrent_snapshots_never_race(tmp_path):
     base.mkdir()
     _mini_history(base, 12)
     dashboard._nash_cache.clear()
-    dashboard._causal_cache.clear()
+    dashboard._elo_cache.clear()
     with ThreadPoolExecutor(max_workers=4) as ex:
         boards = list(ex.map(lambda _: dashboard.snapshot(base)["board"],
                              range(4)))

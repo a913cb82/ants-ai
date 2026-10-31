@@ -502,3 +502,8 @@ incentive via boards; this attacks it via the ledger).
   (archive 1681→1689, champ g1719, no verdict).
   Partial gens stand as committed history; round
   verdict void. Runs paused.
+- Dashboard: Elo is one running pass now (gen 0->G over all pairs,
+  no windows/refits/anchoring). g000 pinned at 0; per-gen gauge lock
+  keeps the scale fixed. Cold 4.4s / warm 0.5s (pass itself 0.2s).
+  Same story on the board (staircase, thrones, turnover all read).
+  Training math untouched; tests 33/33 in test_curves.py.

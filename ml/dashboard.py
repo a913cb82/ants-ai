@@ -586,7 +586,6 @@ def summarize_maps(games: list[dict]) -> list[dict]:
 # archive. snapshot() only wires them to cached files.
 
 _BT_ELO_SCALE = 400.0 / math.log(10)  # logit -> Elo, like 400*log10 odds
-_BT_ITERS = 100  # MM converges long before this on ~25k played pairs
 _BT_REG = 1.0  # virtual win+loss vs a rating-0 opponent: shrinks the
 # data-poor toward 0 instead of stranding them at +/-inf
 _KNOCK_EFF = 0.50  # challenging at even money counts as knocking
@@ -660,124 +659,6 @@ def merge_pairs(*dicts: dict) -> dict:
     return out
 
 
-def _mm_run(n: int, totals: dict, theta: list[float], iters: int,
-            tol: float) -> list[float]:
-    """Gauss-Seidel MM sweeps over played pairs (Hunter 2004), in place.
-
-    totals maps (i, j), i<j, to [wins_ij, wins_ji] WITHOUT the Laplace
-    prior (added here, +1/+1 per pair, cf. archive._head_to_head) plus
-    the virtual-opponent regularizer: one virtual win and 2*_BT_REG
-    virtual games vs a rating-0 opponent per member. Shared by the
-    one-shot bt_fit and the warm-started causal refits; tol<=0 runs all
-    `iters` sweeps (bt_fit parity), otherwise stops when no log-rating
-    moves more than tol."""
-    adj: list[list[tuple[int, float]]] = [[] for _ in range(n)]
-    wins = [0.0] * n
-    for (i, j), w in totals.items():
-        mine, theirs = w[0] + 1.0, w[1] + 1.0
-        total = mine + theirs
-        adj[i].append((j, total))
-        adj[j].append((i, total))
-        wins[i] += mine
-        wins[j] += theirs
-    theta = list(theta)
-    for _ in range(iters):
-        maxd = 0.0
-        for i in range(n):
-            denom = 2.0 * _BT_REG / (theta[i] + 1.0)
-            for j, total in adj[i]:
-                denom += total / (theta[i] + theta[j])
-            new = (wins[i] + _BT_REG) / denom if denom > 0 else theta[i]
-            if new > 0 and theta[i] > 0:
-                d = abs(math.log(new) - math.log(theta[i]))
-                if d > maxd:
-                    maxd = d
-            theta[i] = new
-        if tol > 0 and maxd < tol:
-            break
-    return theta
-
-
-def bt_fit(ids: list[str], ev: dict, iters: int = _BT_ITERS) -> dict:
-    """Regularized Bradley-Terry ratings (logit) over train+eval pairs.
-
-    Train games are valid engine games, so the fit takes both matrices
-    merged (train + eval game-log pairs, see gen_pair_buckets): ~25k
-    unordered pairs. Sparse MM (Hunter 2004): each sweep touches only
-    played pairs, ~0.5s cold (100 sweeps), cached per matrix-digest like
-    Nash. Draws ride as half-wins, the codebase-wide outcome_of
-    convention. Turn-count confound, disclosed not corrected: gens
-    g031-g045 ran train 60 vs eval 150 turns (see turn_mismatch); both
-    eras' games mix into one fit, so cross-era Elo gaps partly reflect
-    game length. Members with no games anywhere sit at exactly 0.
-    Regularization is the same +1/+1 Laplace prior archive._head_to_head
-    uses, plus one virtual win AND one virtual loss vs a rating-0
-    opponent per member: thin samples shrink toward the pack."""
-    n = len(ids)
-    if not n:
-        return {}
-    pos = {cid: i for i, cid in enumerate(ids)}
-    totals: dict[tuple[int, int], list[float]] = {}
-    seen: set[tuple[int, int]] = set()
-    for key, _w in ev.items():
-        pair = _split_pair(key, pos)
-        if pair is None:
-            continue
-        i, j = pair
-        if i == j:
-            continue
-        # One entry per unordered pair (a matrix pair logged in both
-        # directions still counts once); both orders fold into a single
-        # mine/theirs split relative to canonical (a, b) order.
-        a, b = (i, j) if i < j else (j, i)
-        if (a, b) in seen:
-            continue
-        seen.add((a, b))
-        wab = ev.get(f"{ids[a]} vs {ids[b]}", [0.0, 0.0])
-        wba = ev.get(f"{ids[b]} vs {ids[a]}", [0.0, 0.0])
-        try:
-            wab0, wab1 = float(wab[0]), float(wab[1])
-            wba0, wba1 = float(wba[0]), float(wba[1])
-        except (TypeError, ValueError, IndexError):
-            continue
-        mine, theirs = wab0 + wba1, wab1 + wba0
-        if mine + theirs <= 0:  # Laplace only: never actually played
-            continue
-        acc = totals.setdefault((a, b), [0.0, 0.0])
-        acc[0] += mine
-        acc[1] += theirs
-    theta = _mm_run(n, totals, [1.0] * n, iters, tol=0.0)
-    return {cid: (math.log(t) if t > 0 else 0.0) for cid, t in zip(ids, theta, strict=True)}
-
-
-_bt_digest_cache: dict = {}
-
-
-def _bt_digest(base: Path) -> tuple:
-    """Cache key over BOTH matrices (the BT fit reads train + eval).
-
-    Same stat-check trick as _eval_digest: unchanged mtime+size reuses
-    the last digest, so a warm snapshot pays no re-dump."""
-    path = base / "matrix.json"
-    try:
-        st = path.stat()
-    except OSError:
-        return (None, None, None)
-    key = (str(base.resolve()), st.st_mtime_ns, st.st_size)
-    if _bt_digest_cache.get("key") == key:
-        return _bt_digest_cache["value"]
-    try:
-        data = json.loads(path.read_text())
-    except (OSError, ValueError):
-        return (None, None, None)
-    digest = (tuple(data.get("ids", [])),
-              json.dumps(data.get("eval", {}), sort_keys=True),
-              json.dumps(data.get("train", {}), sort_keys=True))
-    _bt_digest_cache["key"] = key
-    _bt_digest_cache["value"] = digest
-    return digest
-
-
 def panel_ids(history: list[dict]) -> list[str]:
     """Fixed Elo anchor panel: BC g000 plus the last 3 deposed champs.
 
@@ -793,23 +674,6 @@ def panel_ids(history: list[dict]) -> list[str]:
             reigning = h.get("challenger", reigning)
     panel = ["g000"] + [c for c in deposed[-3:] if c != "g000"]
     return list(dict.fromkeys(panel))
-
-
-def anchored_elo(ids: list[str], ev: dict, panel: list[str],
-                 iters: int = _BT_ITERS) -> dict:
-    """BT ratings re-zeroed so the panel mean is 0, scaled to Elo."""
-    ratings = bt_fit(ids, ev, iters)
-    have = [ratings[p] for p in panel if p in ratings]
-    zero = sum(have) / len(have) if have else 0.0
-    return {cid: (r - zero) * _BT_ELO_SCALE for cid, r in ratings.items()}
-
-
-CAUSAL_STEP = 15  # refit cadence, aligned to the knock/conversion windows
-_CAUSAL_TOL = 3e-5  # warm-started sweeps stop here (cap stays _BT_ITERS).
-# Cost/precision on the 1690-gen archive: full build ~7s cold (vs ~10s at
-# tol 0 / 2s at tol 1e-3); worst plotted-series deviation vs the
-# fully-converged reference is 0.41 Elo (p99 0.25, median 0.0002) —
-# sub-pixel except single-point wobbles. Display precision, not truth.
 
 
 def gen_pair_buckets(grouped: list[dict], gen_index: dict,
@@ -852,67 +716,27 @@ def gen_pair_buckets(grouped: list[dict], gen_index: dict,
     return per_gen
 
 
-def _refits_from(ids: list[str], per_gen: list[dict], totals: dict,
-                 theta: list[float], start: int,
-                 step: int = CAUSAL_STEP, iters: int = _BT_ITERS,
-                 tol: float = _CAUSAL_TOL) -> tuple[list, dict, list]:
-    """Accumulate per-gen buckets from `start`, refitting at gi % step == 0.
-
-    Warm-started: theta carries the previous refit's solution forward
-    (extended with 1.0 for members first seen later), so each refit
-    converges in a handful of sweeps. Returns (refit dicts, totals,
-    theta) for the caller to cache; pure given its inputs."""
-    n = len(ids)
-    refits: list[dict] = []
-    for gi in range(start, len(per_gen)):
-        for key, w in per_gen[gi].items():
-            acc = totals.setdefault(key, [0.0, 0.0])
-            acc[0] += w[0]
-            acc[1] += w[1]
-        if gi % step == 0:
-            theta = _mm_run(n, totals, theta, iters, tol)
-            refits.append({cid: (math.log(t) if t > 0 else 0.0)
-                           for cid, t in zip(ids, theta, strict=True)})
-    return refits, totals, theta
-
-
-def causal_refits(ids: list[str], per_gen: list[dict],
-                  step: int = CAUSAL_STEP, iters: int = _BT_ITERS,
-                  tol: float = _CAUSAL_TOL) -> list[dict]:
-    """Quantized causal refits: refit r uses only pairs with gen <= r*step.
-
-    No naive per-gen refits (1690 full fits): refits happen every `step`
-    gens, each warm-started from the previous refit's theta, so late
-    refits converge in a handful of sweeps (each window adds ~1% of the
-    data). Members unseen so far sit at exactly 0 via the virtual
-    regularizer. Returns one {cid: logit} dict per refit, in order;
-    plotted value at gen G is refits[G // step] (step-held), which uses
-    only games with gen <= step*(G//step) <= G: causal by construction.
-    Later windows cannot move earlier refits (sequential accumulation)."""
-    refits, _, _ = _refits_from(ids, per_gen, {}, [1.0] * len(ids), 0,
-                                step, iters, tol)
-    return refits
-
-
 def _readout_member(mi: int, opps: dict, theta: list[float],
-                    iters: int = 25, tol: float = 1e-9) -> float:
+                    iters: int = 25, tol: float = 1e-9,
+                    reg: float = _BT_REG) -> float:
     """One member's logit given a FIXED field (Hunter MM, member only).
 
-    Same update as _mm_run (Laplace +1/+1 per pair, one virtual win/loss
-    vs rating-0) but only mi moves; opponents stay at window theta.
+    Same update as a joint Hunter-MM sweep (Laplace +1/+1 per pair,
+    optional virtual win/loss vs rating-0), but only mi moves;
+    opponents stay at their carried values.
     opps maps opp idx -> [mine, theirs] WITHOUT priors. Members with no
     pairs have nothing to fit (caller keeps the window value). Pure."""
     if not opps:
         return math.log(theta[mi]) if theta[mi] > 0 else 0.0
     t = theta[mi] if theta[mi] > 0 else 1.0
-    wins = _BT_REG
+    wins = reg
     tot = {}
     for oi, w in opps.items():
         mine, theirs = w[0] + 1.0, w[1] + 1.0
         wins += mine
         tot[oi] = mine + theirs
     for _ in range(iters):
-        denom = 2.0 * _BT_REG / (t + 1.0)
+        denom = 2.0 * reg / (t + 1.0)
         for oi, total in tot.items():
             denom += total / (t + theta[oi])
         new = wins / denom if denom > 0 else t
@@ -925,136 +749,112 @@ def _readout_member(mi: int, opps: dict, theta: list[float],
     return math.log(t) if t > 0 else 0.0
 
 
-def _duel_panels(history: list[dict], ids: list[str], refits: list[dict],
-                 panel: list[str], step: int) -> dict:
-    """Reference trajectories: pure step-held window reads, all gens.
+_RUN_SWEEPS = 4  # Gauss-Seidel sweeps per gen over that gen's pairs only.
 
-    Panel members are established checkpoints with long histories, so the
-    window value is approximately right; only the duel lines (cand/champ)
-    get member-local readouts. O(gens x panel) dict lookups. Pure."""
+
+def _gen_opponents(bucks: dict) -> dict:
+    """Member idx -> {opp idx: [mine, theirs]} for one gen's buckets."""
+    opps: dict = {}
+    for (i, j), w in bucks.items():
+        a = opps.setdefault(i, {})
+        b = opps.setdefault(j, {})
+        ai = a.setdefault(j, [0.0, 0.0])
+        ai[0] += w[0]
+        ai[1] += w[1]
+        bj = b.setdefault(i, [0.0, 0.0])
+        bj[0] += w[1]
+        bj[1] += w[0]
+    return opps
+
+
+def _elo_of(t: float) -> float | None:
+    """Theta-scale rating -> Elo points (None when unrated)."""
+    return math.log(t) * _BT_ELO_SCALE if t > 0 else None
+
+
+def _elo_extend(history: list[dict], ids: list[str], per_gen: list[dict],
+                sweeps: int, start: int, theta: list[float],
+                cand: list, champ: list, refs: dict, panel: list[str]) -> None:
+    """Extend the running-Elo series for gens [start, len(history)), in place.
+
+    Single sequential pass: theta carries every game so far, and each
+    gen's pairs update both endpoints (a few Gauss-Seidel sweeps with
+    the field fixed at its current values), then cand/champ/panel are
+    read out. g000 is pinned at theta 1.0 -- the fixed zero, so no
+    anchoring subtraction is needed and the zero can never drift. With
+    no g000 in ids the virtual regularizer anchors the field at 0
+    instead. Every plotted value uses only games <= its gen (causal by
+    construction); extending from stored theta continues bitwise.
+
+    Gauge lock: unregularized conditional updates have a scale degeneracy
+    (any point on the optimum ray is fixed, so sweeps stall at an
+    arbitrary scale -- the winner frozen at 1.0). After each gen the
+    active set's geometric mean is restored, pinning the scale while
+    keeping every relative movement from the gen's games."""
     pos = {cid: i for i, cid in enumerate(ids)}
-    refs: dict[str, list] = {pid: [] for pid in panel}
-    for gi in range(len(history)):
-        widx = gi // step
-        r = refits[widx] if widx < len(refits) else {}
-        zero = r.get("g000", 0.0)
-        for pid in panel:
-            pi = pos.get(pid)
-            refs[pid].append(((r.get(pid, 0.0) - zero) * _BT_ELO_SCALE)
-                             if pi is not None else None)
-    return refs
-
-
-def _duel_extend(history: list[dict], ids: list[str], refits: list[dict],
-                 per_gen: list[dict], step: int, start: int,
-                 acc: dict, last_seen: dict,
-                 cand: list, champ: list) -> None:
-    """Fill cand/champ for gens [start, len(history)), in place.
-
-    Ordered walk: per_gen buckets accumulate into acc (member idx ->
-    {opp idx: [mine, theirs]}), so each plotted point sees exactly the
-    pairs with gen <= its own gen. Window thetas come from the frozen
-    refits. The candidate ALWAYS gets a member-local readout: its whole
-    career is its own gen, which the window refit usually postdates --
-    reading the window value instead pins 14 of 15 candidates at the
-    unseen-member prior (the flat Elo rail). A champ with post-boundary
-    games (every turnover inside a window) gets one too; otherwise the
-    window value stands. Deterministic: extending continues bitwise."""
-    pos = {cid: i for i, cid in enumerate(ids)}
+    g0 = pos.get("g000")
+    reg = 0.0 if g0 is not None else _BT_REG
+    for pid in panel:
+        refs.setdefault(pid, [])
     reigning = history[0].get("champion") if history else None
     for h in history[:start]:
         if h.get("promoted"):
             reigning = h.get("challenger", reigning)
-    th: list[float] | None = None
-    rlog: dict = {}
-    zero = 0.0
-    last_widx = -1
     for gi in range(start, len(history)):
         h = history[gi]
-        bucks = per_gen[gi] if gi < len(per_gen) else {}
-        for (i, j), w in bucks.items():
-            a = acc.setdefault(i, {})
-            b = acc.setdefault(j, {})
-            ai = a.setdefault(j, [0.0, 0.0])
-            ai[0] += w[0]
-            ai[1] += w[1]
-            bj = b.setdefault(i, [0.0, 0.0])
-            bj[0] += w[1]
-            bj[1] += w[0]
-            last_seen[i] = gi
-            last_seen[j] = gi
-        widx = gi // step
-        if widx != last_widx:
-            last_widx = widx
-            rlog = refits[widx] if widx < len(refits) else {}
-            # refits store logits; the readout needs theta (exp scale).
-            th = [math.exp(rlog.get(cid, 0.0)) for cid in ids]
-            zero = rlog.get("g000", 0.0)
+        opps = _gen_opponents(per_gen[gi] if gi < len(per_gen) else {})
+        act = [m for m in opps if m != g0]
+        if act:
+            # gauge lock (only when the pinned zero sits out: with g000
+            # in the subsystem its fixed theta already anchors the scale,
+            # and restoring the mean would cancel the legit movement).
+            lock = g0 is None or g0 not in opps
+            g0mean = math.exp(sum(math.log(theta[m]) for m in act)
+                              / len(act)) if lock else 0.0
+            for _ in range(sweeps):
+                for m in act:
+                    theta[m] = math.exp(_readout_member(m, opps[m], theta,
+                                                        reg=reg))
+            # restore the active set's geometric mean so the scale cannot
+            # drift along the optimum ray (see docstring).
+            if lock:
+                g1mean = math.exp(sum(math.log(theta[m]) for m in act)
+                                  / len(act))
+                if g1mean > 0:
+                    k = g0mean / g1mean
+                    for m in act:
+                        theta[m] *= k
         c = h.get("challenger")
         ci = pos.get(c)
-        if ci is None or th is None:
-            cand.append(None)
-        else:
-            cand.append((_readout_member(ci, acc.get(ci, {}), th)
-                         - zero) * _BT_ELO_SCALE)
-        if reigning is None:
-            champ.append(None)
-        else:
-            ri = pos.get(reigning)
-            if ri is None or th is None:
-                champ.append(None)
-            elif last_seen.get(ri, -1) > widx * step:
-                champ.append((_readout_member(ri, acc.get(ri, {}), th)
-                              - zero) * _BT_ELO_SCALE)
-            else:
-                # frozen window value (logit scale): no post-boundary
-                # games, nothing the refit hasn't seen.
-                champ.append((rlog.get(reigning, 0.0) - zero)
-                             * _BT_ELO_SCALE)
+        cand.append(_elo_of(theta[ci]) if ci is not None else None)
+        ri = pos.get(reigning) if reigning is not None else None
+        champ.append(_elo_of(theta[ri]) if ri is not None else None)
+        for pid in panel:
+            pi = pos.get(pid)
+            refs[pid].append(_elo_of(theta[pi])
+                             if pi is not None else None)
         if h.get("promoted"):
             reigning = h.get("challenger", reigning)
-def causal_duel(history: list[dict], ids: list[str],
-                refits: list[dict], per_gen: list[dict],
-                step: int = CAUSAL_STEP) -> dict:
-    """Candidate vs defending-champion Elo, causal per gen.
 
-    cand[G] = this gen's challenger with a member-local readout over
-    pairs with gen <= G (its whole career is its own gen); champ[G] =
-    the throne's defender, readout when it has post-boundary games,
-    else the frozen window value. Both anchored at g000 (known at gen
-    0, so the zero is causal too). Panel members (g000 + last 3
-    deposed) ride along as step-held reference trajectories; panel
-    MEMBERSHIP is picked from full history (a display choice), but
-    every plotted VALUE uses only games <= G."""
+
+def running_elo(history: list[dict], ids: list[str], per_gen: list[dict],
+                sweeps: int = _RUN_SWEEPS) -> dict:
+    """Whole-population rating in one sequential pass, gen 0 -> G.
+
+    The pass maintains a single theta vector: each gen's pairs move both
+    endpoints against the field as it stands, then rating(challenger)
+    and rating(champion) are read out for that gen. No windows, no
+    refits, no lookahead -- the plotted value at gen G is exactly what
+    the games <= G imply. Pure."""
     panel = panel_ids(history)
+    theta = [1.0] * len(ids)
     cand: list = []
     champ: list = []
-    _duel_extend(history, ids, refits, per_gen, step, 0, {}, {},
-                  cand, champ)
-    refs = _duel_panels(history, ids, refits, panel, step)
+    refs: dict = {}
+    _elo_extend(history, ids, per_gen, sweeps, 0, theta,
+                 cand, champ, refs, panel)
     return {"cand": cand, "champ": champ, "panel": panel,
             "refs": refs}
-
-
-def elo_duel(history: list[dict], elos: dict) -> dict:
-    """Candidate vs defending-champion anchored Elo per gen.
-
-    cand = this gen's challenger, champ = the throne's defender (the
-    verdict may depose him after). Crossovers read as throne changes:
-    in a staircase stretch the candidate line runs above the champ line
-    before a promotion. Same panel anchoring as ever (zero = panel
-    mean); same train/eval turn-count confound as bt_fit (disclosed in
-    the card legend, not corrected)."""
-    cand: list = []
-    champ: list = []
-    reigning = history[0].get("champion") if history else None
-    for h in history:
-        c = h.get("challenger")
-        cand.append(elos.get(c))
-        champ.append(elos.get(reigning) if reigning is not None else None)
-        if h.get("promoted"):
-            reigning = c
-    return {"cand": cand, "champ": champ}
 
 
 def turn_mismatch(history: list[dict]) -> list[dict]:
@@ -1294,23 +1094,20 @@ def crown_type(gen: dict) -> str:
     return "complete" if wins > losses and mean_m > 0 else "soft"
 
 
-_causal_cache: dict = {}
+_elo_cache: dict = {}
 
 
-def _causal_cached(base: Path, history: list[dict],
-                   grouped: list[dict]) -> dict:
-    """Causal duel series: full build once, streaming extends after.
+def _elo_cached(base: Path, history: list[dict],
+                grouped: list[dict]) -> dict:
+    """Running-Elo duel series: full pass once, streaming extends after.
 
-    Training only appends (new games carry the current challenger's gen;
-    matrix ids only append), so when the challenger list and member ids
-    both extend the cached ones AND the rebuilt early buckets are
-    unchanged, only gens past the cached point are accumulated and only
-    refits at or past it re-run, warm-started from the stored theta.
-    During a run that is one cheap refit per poll instead of 113; any
-    rewrite (truncation, reorder) falls back to a full rebuild. The
-    in-progress gen's games join its bucket (visible in training-curve
-    detail) but only move plotted Elo at its window's refit, by design.
-    Warm snapshots with no new gens reuse the stored series for free."""
+    Training only appends, so when the challenger list and member ids
+    both extend the cached ones and the rebuilt early buckets match,
+    the pass continues from the stored theta (one cheap extension per
+    poll instead of a full rebuild); any rewrite falls back to a full
+    pass. Panel changes force a rebuild too (reference trajectories
+    need the final panel). Warm snapshots with no new gens reuse the
+    stored series for free."""
     try:
         data = json.loads((base / "matrix.json").read_text())
         ids = data.get("ids", [])
@@ -1320,43 +1117,35 @@ def _causal_cached(base: Path, history: list[dict],
     gen_index = {h.get("challenger"): i for i, h in enumerate(history)}
     per_gen = gen_pair_buckets(grouped, gen_index, pos, len(history))
     challengers = [h.get("challenger") for h in history]
-    st = _causal_cache.get("state")
+    counts = [len(b) for b in per_gen]
+    panel = panel_ids(history)
+    st = _elo_cache.get("state")
     if (st is not None
             and len(challengers) >= len(st["challengers"])
             and challengers[:len(st["challengers"])] == st["challengers"]
             and len(ids) >= len(st["ids"])
             and ids[:len(st["ids"])] == st["ids"]
             and len(per_gen) >= st["ngen"]
-            and all(per_gen[i] == st["buckets"][i]
-                    for i in range(st["ngen"]))
-            and st.get("duel_ngen") == st["ngen"]
-            and "cand" in st and "champ" in st
-            and "acc" in st and "last_seen" in st):
+            and counts[:st["ngen"]] == st["counts"]
+            and panel == st["panel"]):
         theta = st["theta"] + [1.0] * (len(ids) - len(st["ids"]))
-        new, totals, theta = _refits_from(ids, per_gen, st["totals"],
-                                          theta, st["ngen"])
-        refits = st["refits"] + new
-        ngen = len(per_gen)
-        acc, last_seen = st["acc"], st["last_seen"]
-        cand, champ = list(st["cand"]), list(st["champ"])
-        _duel_extend(history, ids, refits, per_gen, CAUSAL_STEP,
-                      st["duel_ngen"], acc, last_seen, cand, champ)
+        cand = list(st["cand"])
+        champ = list(st["champ"])
+        refs = {k: list(v) for k, v in st["refs"].items()}
+        _elo_extend(history, ids, per_gen, _RUN_SWEEPS, st["ngen"],
+                     theta, cand, champ, refs, panel)
+        ngen = len(history)
     else:
-        refits, totals, theta = _refits_from(ids, per_gen, {},
-                                             [1.0] * len(ids), 0)
-        ngen = len(per_gen)
-        acc, last_seen, cand, champ = {}, {}, [], []
-        _duel_extend(history, ids, refits, per_gen, CAUSAL_STEP,
-                      0, acc, last_seen, cand, champ)
-    panel = panel_ids(history)
-    refs = _duel_panels(history, ids, refits, panel, CAUSAL_STEP)
-    _causal_cache["state"] = {"challengers": challengers, "ids": ids,
-                                "buckets": per_gen, "totals": totals,
-                                "theta": theta, "refits": refits,
-                                "ngen": ngen, "acc": acc,
-                                "last_seen": last_seen,
-                                "cand": cand, "champ": champ,
-                                "duel_ngen": len(history)}
+        theta = [1.0] * len(ids)
+        cand, champ, refs = [], [], {}
+        _elo_extend(history, ids, per_gen, _RUN_SWEEPS, 0,
+                     theta, cand, champ, refs, panel)
+        ngen = len(history)
+    _elo_cache["state"] = {"challengers": challengers, "ids": ids,
+                              "counts": counts, "theta": theta,
+                              "panel": panel, "cand": cand,
+                              "champ": champ, "refs": refs,
+                              "ngen": ngen}
     return {"cand": cand, "champ": champ, "panel": panel,
             "refs": refs}
 
@@ -1365,7 +1154,7 @@ def build_board(base: Path, history: list[dict],
                 grouped: list[dict]) -> dict:
     """All seven curves, aligned to history order (x = challenger ids)."""
     try:
-        duel = _causal_cached(base, history, grouped)
+        duel = _elo_cached(base, history, grouped)
     except (OSError, ValueError, KeyError, TypeError):
         duel = {"cand": [], "champ": [], "panel": [], "refs": {}}
     kc = knock_conversion(history)
@@ -2851,7 +2640,7 @@ def render_page(snap: dict | None = None) -> str:
 <details class="why"><summary>what am I looking at?</summary><p>Each card plots one signal per generation, oldest on the left. <b>Return</b> is the mean engine score per training game. Thick lines are window medians over faint per-generation points; shaded bands are the spread. The PG ratio card is experimental — it has no literature backing, unlike the rest.</p></details>
 <div class="charts">
   <div class="card chart-card chart-wide"><div class="chart-head"><h3>Candidate vs champion Elo</h3><span class="delta flat" id="d-elo" style="display:none"></span></div>
-    <p class="chart-sub">causal Bradley-Terry over train+eval pairs · refit every 15 gens · <span id="elo-turn"></span></p><canvas id="ch-elo"></canvas></div>
+    <p class="chart-sub">running Bradley-Terry over train+eval pairs · one pass, gen 0 to G · g000 pinned at 0 · <span id="elo-turn"></span></p><canvas id="ch-elo"></canvas></div>
   <div class="card chart-card"><div class="chart-head"><h3>Knock marks + rates</h3><span class="delta flat" id="d-knock" style="display:none"></span></div>
     <p class="chart-sub">top: one tick per gen (blue knock ≥ .50, gray held) · bottom: 15-gen rates + Wilson bands</p><canvas id="ch-knock-marks" style="height:64px"></canvas><canvas id="ch-knock" style="margin-top:8px"></canvas></div>
   <div class="card chart-card"><div class="chart-head"><h3>Decisiveness train vs eval</h3><span class="delta flat" id="d-dec" style="display:none"></span></div>
