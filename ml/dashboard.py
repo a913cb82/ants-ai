@@ -627,20 +627,23 @@ def merge_pairs(*dicts: dict) -> dict:
 
 
 def tracked_members(base: Path, grouped: list[dict]) -> list[str]:
-    """Elo trajectories to plot: live learners + anchors.
+    """Elo trajectories to plot: main + live incarnations + anchors.
 
-    The league translation of the duel panel: the four scheduler slots
-    (role names, which is what the game log seats carry — one tick logs
-    one game under the learner's name) plus the anchor ladder from
-    league.json, deduped in that order. Legacy archives without
-    league.json fall back to the 8 most-played members so the card
-    still has something honest to show."""
+    The league translation of the duel panel: the live main (whose games
+    log under "main" forever) plus each exploiter's LIVE incarnation id
+    from league.json (games log per incarnation, so following the slot
+    name would stitch every incarnation's peak onto one line) plus the
+    anchor ladder, deduped in that order. Retired incarnations keep
+    their frozen games in the log but leave the panel: their segments
+    flatline truthfully instead of inheriting the new line. Legacy
+    archives without league.json fall back to the 8 most-played members."""
     state = league_state(base)
     if state is not None:
-        ids: list[str] = []
-        for name in archive.SCHEDULER_ORDER:
-            if name not in ids:
-                ids.append(name)
+        ids: list[str] = ["main"]
+        for _name, exp in (state.get("exploiters") or {}).items():
+            live_id = (exp or {}).get("id")
+            if isinstance(live_id, str) and live_id not in ids:
+                ids.append(live_id)
         for a in league_panel(base):
             if a not in ids:
                 ids.append(a)

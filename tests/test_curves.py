@@ -270,8 +270,13 @@ def test_merge_pairs_sums_overlap():
 
 # --- snapshot board ---
 
-def _mini_league(base, n_games=12, k=4, learners=("main", "me"), start=0):
-    """Synthetic league archive: league.json + logged learner games."""
+def _mini_league(base, n_games=12, k=4, learners=("main", "me-inc"),
+                start=0):
+    """Synthetic league archive: league.json + logged learner games.
+
+    Exploiter games log under the live incarnation id (never the slot
+    name), so the fixture mints me's incarnation id in league.json and
+    seats its games under it."""
     import archive
 
     archive.init(base)
@@ -280,6 +285,7 @@ def _mini_league(base, n_games=12, k=4, learners=("main", "me"), start=0):
     archive.init_league(base, "live-main", ["g000"])
     st = archive.load_league(base)
     st["snapshot_every"] = k
+    st["exploiters"]["me"]["id"] = "me-inc"
     archive.save_league(base, st)
     for j in range(n_games):
         i = start + j
@@ -304,7 +310,7 @@ def test_snapshot_board_present_and_interval_shaped(tmp_path):
     assert board["k"] == 4
     assert len(board["labels"]) == 3  # 12 games, K=4
     elo = board["elo"]
-    assert elo["tracked"][:2] == ["main", "me"]
+    assert elo["tracked"][:2] == ["main", "me-inc"]
     assert set(elo["series"]) == set(elo["tracked"])
     assert all(len(v) == 3 for v in elo["series"].values())
     assert snap["main"] == "live-main"  # league working id, not a champion

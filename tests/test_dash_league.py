@@ -103,13 +103,29 @@ def test_league_panel_empty_without_league_json(tmp_path):
     assert dashboard.league_panel(base) == []
 
 
-def test_tracked_members_are_slots_plus_anchors(tmp_path):
+def test_tracked_members_are_main_live_incarnations_plus_anchors(tmp_path):
     import dashboard
 
     base = _league_base(tmp_path / "a", anchors=["g000", "g009"])
+    import archive
+
+    state = archive.load_league(base)
+    # Fresh league.json has no live incarnations yet: main + anchors.
     grouped = dashboard.cached_grouped(base)
     assert dashboard.tracked_members(base, grouped) == \
-        ["main", "me", "le-a", "le-b", "g000", "g009"]
+        ["main", "g000", "g009"]
+    # Once incarnations are live, the panel follows them (not the slots).
+    state["exploiters"]["me"]["id"] = "g101"
+    state["exploiters"]["le-a"]["id"] = "g102"
+    state["exploiters"]["le-b"]["id"] = "g103"
+    archive.save_league(base, state)
+    assert dashboard.tracked_members(base, grouped) == \
+        ["main", "g101", "g102", "g103", "g000", "g009"]
+    # After a reset mints a new incarnation, the panel follows the new id.
+    state["exploiters"]["me"]["id"] = "g104"
+    archive.save_league(base, state)
+    assert dashboard.tracked_members(base, grouped) == \
+        ["main", "g104", "g102", "g103", "g000", "g009"]
 
 
 def test_tracked_members_fallback_without_league(tmp_path):
