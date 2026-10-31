@@ -218,6 +218,8 @@ def port_main_union(base: Path, tip_id: str) -> dict[str, float]:
     Returns the added {"main vs X": total} map."""
     members = {m["id"]: m for m in archive.members(base)
                if isinstance(m.get("id"), str)}
+    if "main" in members:
+        return {}  # port-only: the union is never repeated.
     chain = []
     seen = set()
     cur = tip_id
@@ -226,9 +228,10 @@ def port_main_union(base: Path, tip_id: str) -> dict[str, float]:
         chain.append(cur)
         cur = members[cur].get("parent")
     data = json.loads((base / "matrix.json").read_text())
+    items = list(data.get("eval", {}).items())
     added: dict[str, float] = {}
     for member in chain:
-        for key, wins in data.get("eval", {}).items():
+        for key, wins in items:
             if " vs " not in key:
                 continue
             a, b = key.split(" vs ", 1)
@@ -248,7 +251,12 @@ def port_main_union(base: Path, tip_id: str) -> dict[str, float]:
                 w[0] += wb
                 w[1] += wa
                 added[k] = added.get(k, 0.0) + wa + wb
+    if "main" not in data.get("ids", []):
+        data.setdefault("ids", []).append("main")
     archive.atomic_write_json(base / "matrix.json", data)
+    row = {"id": "main", "role": "main", "parent": tip_id}
+    with open(base / "manifest.jsonl", "a") as f:
+        f.write(json.dumps(row) + "\n")
     return added
 
 

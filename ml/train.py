@@ -144,6 +144,15 @@ def select_opponent(base: Path, learner: str, state: dict,
     callers without incarnations."""
     candidates = [m["id"] for m in archive.members(base)
                   if isinstance(m.get("id"), str)]
+    # Live weights move under training: the live head and the live
+    # incarnations are never frozen opponents (their files are stale or
+    # absent; sampling them would face the wrong weights). Snapshots,
+    # admitted copies, and retired incarnations stay in the pool.
+    live_ids = {"main"}
+    for exp in state.get("exploiters", {}).values():
+        if isinstance(exp.get("id"), str):
+            live_ids.add(exp["id"])
+    candidates = [c for c in candidates if c not in live_ids]
     policy = ROLE_CONFIGS[learner]["policy"]
     live = sample_id if sample_id is not None else learner
     if policy == "main":

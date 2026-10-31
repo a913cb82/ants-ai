@@ -293,3 +293,83 @@ def test_smoke_two_real_engine_games(tmp_path):
     assert any(k.startswith("main vs ") for k in data["eval"])
     state = archive.load_league(base)
     assert state["tick"] == 2
+
+
+def _port_base(tmp_path):
+    """Synthetic port archive: g2 -> g1 -> g000 chain + outsider."""
+    base = tmp_path / "parchive"
+    archive.init(base)
+    rows = [
+        {"id": "g000", "role": "main", "parent": None},
+        {"id": "g1", "role": "challenger", "parent": "g000"},
+        {"id": "g2", "role": "challenger", "parent": "g1"},
+        {"id": "gx", "role": "exploiter", "parent": "g000"},
+    ]
+    (base / "manifest.jsonl").write_text(
+        "\n".join(json.dumps(r) for r in rows) + "\n")
+    mat = {"ids": ["g000", "g1", "g2", "gx"],
+           "eval": {"g1 vs g000": [3.0, 1.0],
+                      "g2 vs gx": [2.0, 2.0]},
+           "train": {}}
+    (base / "matrix.json").write_text(json.dumps(mat))
+    return base
+
+
+def test_port_union_exact_and_idempotent(tmp_path):
+    base = _port_base(tmp_path)
+    added = selfplay.port_main_union(base, "g2")
+    mat = json.loads((base / "matrix.json").read_text())
+    assert mat["eval"]["main vs g000"] == [3.0, 1.0]
+    assert mat["eval"]["main vs g1"] == [1.0, 3.0]
+    assert mat["eval"]["main vs gx"] == [2.0, 2.0]
+    assert "main" in mat["ids"]
+    rows = {r["id"]: r for r in archive.members(base)}
+    assert rows["main"]["parent"] == "g2"
+    assert set(added) == {"main vs g000", "main vs g1", "main vs gx"}
+    before = (base / "matrix.json").read_text()
+    assert selfplay.port_main_union(base, "g2") == {}
+    assert (base / "matrix.json").read_text() == before
+
+
+def test_select_opponent_excludes_live_ids(tmp_path, monkeypatch):
+    import random
+
+    import pfsp
+
+    base, g000, source, pool = _league_base(tmp_path)
+    live_rows = [
+        {"id": "main", "role": "main", "parent": source},
+        {"id": "me-1", "role": "me", "parent": g000},
+        {"id": "lea-1", "role": "le", "parent": g000},
+        {"id": "leb-1", "role": "le", "parent": g000},
+    ]
+    with open(base / "manifest.jsonl", "a") as f:
+        for r in live_rows:
+            f.write(json.dumps(r) + "\n")
+    seen = {}
+
+    def fake(policy):
+        def _fake(*args, **kwargs):
+            cands = args[2] if policy == "me" else args[1]
+            seen[policy] = list(cands)
+            return cands[0]
+        return _fake
+
+    monkeypatch.setattr(pfsp, "main_sample", fake("main"))
+    monkeypatch.setattr(pfsp, "me_sample", fake("me"))
+    monkeypatch.setattr(pfsp, "le_sample", fake("le"))
+    state = {"main_id": source,
+             "exploiters": {"me": {"id": "me-1"},
+                              "le-a": {"id": "lea-1"},
+                              "le-b": {"id": "leb-1"}}}
+    rng = random.Random(0)
+    train.select_opponent(base, "main", state, {}, {}, rng)
+    train.select_opponent(base, "me", state, {}, {}, rng)
+    train.select_opponent(base, "le-a", state, {}, {}, rng)
+    assert set(seen) == {"main", "me", "le"}
+    for cands in seen.values():
+        assert "main" not in cands
+        assert "me-1" not in cands
+        assert "lea-1" not in cands
+        assert "leb-1" not in cands
+        assert source in cands  # frozen main snapshot stays
