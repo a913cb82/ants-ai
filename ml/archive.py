@@ -423,3 +423,229 @@ def wilson_lower(wins: float, games: int, z: float = 1.0) -> float:
     center = p + z * z / (2 * games)
     spread = z * ((p * (1 - p) + z * z / (4 * games)) / games) ** 0.5
     return (center - spread) / denom
+
+
+# ---------------------------------------------------------------------------
+# Continuous league (phase 2 of ml/runs/plan-league.md). ADDITIVE section:
+# nothing above this line is modified by the league work; training math
+# stays byte-identical. Going-forward manifest roles, league.json
+# scheduler state, anchor.jsonl measurement rows, and pool game counts
+# for the PFSP newcomer boost (sampling itself lives in ml/pfsp.py).
+# ---------------------------------------------------------------------------
+
+#: Going-forward manifest roles for the continuous league. The pre-league
+#: population keeps its legacy roles untouched; new snapshots append with
+#: one of these.
+ROLE_MAIN_SNAPSHOT = "main-snapshot"
+ROLE_ME = "me"
+ROLE_LE = "le"
+ROLE_ADMITTED = "admitted"
+
+#: The valid roles for save_league_snapshot (a tuple, so error messages
+#: read deterministically).
+LEAGUE_ROLES = (ROLE_MAIN_SNAPSHOT, ROLE_ME, ROLE_LE, ROLE_ADMITTED)
+
+#: Deterministic round-robin training order: equal shares (25% each).
+SCHEDULER_ORDER = ("main", "me", "le-a", "le-b")
+
+#: Micro-batch PPO cadence: one update per N own-games per learner.
+MICRO_BATCH_SIZE = 8
+
+#: Admission/stall bookkeeping: last-N window vs the role target.
+WINDOW_SIZE = 40
+
+#: Default live-exploiter slots (ME + two independent LEs).
+DEFAULT_EXPLOITERS = ("me", "le-a", "le-b")
+
+
+def save_league_snapshot(base: Path, weights: dict, role: str,
+                         parent: str | None) -> str:
+    """Freeze a league snapshot: thin wrapper reusing save_checkpoint.
+
+    Only going-forward league roles are accepted; anything else raises
+    ValueError before touching disk. Returns the new member id."""
+    if role not in LEAGUE_ROLES:
+        raise ValueError(f"save_league_snapshot: bad role {role!r}; "
+                         f"expected one of {list(LEAGUE_ROLES)}")
+    return save_checkpoint(base, weights, role, parent)
+
+
+def _league_path(base: Path) -> Path:
+    return base / "league.json"
+
+
+def _anchor_path(base: Path) -> Path:
+    return base / "anchor.jsonl"
+
+
+def _default_exploiter(target: str) -> dict:
+    return {"id": None, "games": 0, "window": [], "target": target}
+
+
+def init_league(base: Path, main_id: str, anchors: list[str],
+                exploiters: tuple = DEFAULT_EXPLOITERS) -> dict:
+    """Create league.json: main working id, micro-batch progress,
+    per-exploiter {id, games, last-40 window vs target}, anchors list,
+    empty admissions, scheduler position, snapshot counter.
+
+    ME tracks the live main; LEs track the pool. Atomically written."""
+    init(base)
+    state = {
+        "main_id": main_id,
+        "micro_batch_progress": 0,
+        "micro_batch_size": MICRO_BATCH_SIZE,
+        "exploiters": {
+            name: _default_exploiter(
+                main_id if name == "me" else "pool")
+            for name in exploiters
+        },
+        "anchors": list(anchors),
+        "admissions": [],
+        "scheduler_pos": 0,
+        "snapshot_counter": 0,
+    }
+    atomic_write_json(_league_path(base), state)
+    return state
+
+
+def load_league(base: Path) -> dict | None:
+    """Read league.json; None when absent or corrupt (never bricks)."""
+    path = _league_path(base)
+    if not path.exists():
+        return None
+    try:
+        state = json.loads(path.read_text())
+    except ValueError:
+        return None
+    return state if isinstance(state, dict) else None
+
+
+def save_league(base: Path, state: dict) -> None:
+    """Atomically rewrite league.json (temp + rename, old-or-new)."""
+    init(base)
+    atomic_write_json(_league_path(base), state)
+
+
+def _require_league(base: Path) -> dict:
+    state = load_league(base)
+    if state is None:
+        raise FileNotFoundError(f"no league.json under {base}")
+    return state
+
+
+def record_admission(base: Path, member_id: str, role: str, at_game: int,
+                     record: str) -> dict:
+    """Append an admissions entry {id, role, at_game, record}.
+
+    Returns the entry. Raises FileNotFoundError without league.json."""
+    state = _require_league(base)
+    entry = {"id": member_id, "role": role,
+             "at_game": at_game, "record": record}
+    state.setdefault("admissions", []).append(entry)
+    save_league(base, state)
+    return entry
+
+
+def current_learner(state: dict, order: tuple = SCHEDULER_ORDER) -> str:
+    """Learner due at this scheduler position (pure, no I/O)."""
+    return order[state["scheduler_pos"] % len(order)]
+
+
+def advance_scheduler(base: Path, order: tuple = SCHEDULER_ORDER) -> str:
+    """Step the round-robin scheduler one tick; returns the next learner.
+
+    Raises FileNotFoundError without league.json."""
+    state = _require_league(base)
+    state["scheduler_pos"] = (state.get("scheduler_pos", 0) + 1) % len(order)
+    save_league(base, state)
+    return current_learner(state, order)
+
+
+def note_exploiter_game(base: Path, name: str, outcome: float,
+                        target: str | None = None,
+                        member_id: str | None = None) -> dict:
+    """Log one exploiter own-game: games +1, outcome onto the last-40
+    window vs its target. Creates the slot if missing. Returns the
+    updated exploiter entry. Raises FileNotFoundError without league.json."""
+    state = _require_league(base)
+    exp = state.setdefault("exploiters", {}).setdefault(
+        name, _default_exploiter(target if target is not None else "pool"))
+    if target is not None:
+        exp["target"] = target
+    if member_id is not None:
+        exp["id"] = member_id
+    exp["games"] = exp.get("games", 0) + 1
+    window = exp.setdefault("window", [])
+    window.append(outcome)
+    del window[:-WINDOW_SIZE]
+    save_league(base, state)
+    return exp
+
+
+def note_micro_batch(base: Path, games: int = 1) -> int:
+    """Advance micro-batch progress by `games` own-games; returns the new
+    progress. Raises FileNotFoundError without league.json."""
+    state = _require_league(base)
+    state["micro_batch_progress"] = state.get("micro_batch_progress", 0) + games
+    save_league(base, state)
+    return state["micro_batch_progress"]
+
+
+def _anchor_row(row: object) -> bool:
+    required = {"snapshot_id", "main_id", "anchor_id",
+                "wins", "losses", "draws"}
+    return (
+        isinstance(row, dict)
+        and required <= set(row)
+        and isinstance(row["wins"], (int, float))
+        and isinstance(row["losses"], (int, float))
+        and isinstance(row["draws"], (int, float))
+    )
+
+
+def record_anchor(base: Path, snapshot_id: str, main_id: str, anchor_id: str,
+                  wins: int, losses: int, draws: int) -> dict:
+    """Append one anchor measurement row (anchor games carry no gradient).
+    Returns the row."""
+    row = {"snapshot_id": snapshot_id, "main_id": main_id,
+           "anchor_id": anchor_id, "wins": wins,
+           "losses": losses, "draws": draws}
+    append_jsonl(_anchor_path(base), row)
+    return row
+
+
+def list_anchors(base: Path, snapshot_id: str | None = None,
+                 anchor_id: str | None = None) -> list[dict]:
+    """Anchor measurement rows; optionally filtered. Skips malformed
+    lines/rows: one bad line must not brick the page."""
+    rows = read_jsonl(_anchor_path(base), _anchor_row)
+    if snapshot_id is not None:
+        rows = [r for r in rows if r["snapshot_id"] == snapshot_id]
+    if anchor_id is not None:
+        rows = [r for r in rows if r["anchor_id"] == anchor_id]
+    return rows
+
+
+def member_game_counts(base: Path, kind: str = "eval") -> dict[str, float]:
+    """Member id -> total games in the matrix (both slot orders summed).
+
+    Feeds the PFSP newcomer boost (members with <10 total games get x5
+    weight until evaluated). Covers every manifest member (0 when
+    unplayed) plus any matrix-only ids. Reads the eval matrix: the same
+    canonical record the rest of matchmaking reads."""
+    data = json.loads(_paths(base)["matrix"].read_text())
+    counts: dict[str, float] = {m["id"]: 0 for m in members(base)
+                                if isinstance(m.get("id"), str)}
+    for mid in data.get("ids", []):
+        counts.setdefault(mid, 0)
+    for key, wins in data.get(kind, {}).items():
+        try:
+            total = float(wins[0]) + float(wins[1])
+        except (TypeError, IndexError, ValueError):
+            continue
+        a, b = key.split(" vs ", 1) if " vs " in key else (None, None)
+        if a is None:
+            continue
+        for mid in (a, b):
+            counts[mid] = counts.get(mid, 0) + total
+    return counts
