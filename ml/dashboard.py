@@ -23,6 +23,7 @@ import math
 import os
 import sys
 import tempfile
+import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -38,13 +39,22 @@ VIS_DIR = ROOT / "tools" / "visualizer"
 TEMPLATE = (VIS_DIR / "replay.html.template").read_text()
 
 _nash_cache: dict = {}
+_memo_lock = threading.RLock()
 def _memo(cache: dict, key, thunk):
-    """One-slot memo: recompute only when the key changes."""
-    if cache.get("key") != key:
-        cache.clear()
-        cache["key"] = key
-        cache["value"] = thunk()
-    return cache["value"]
+    """One-slot memo: recompute only when the key changes.
+
+    Lock-guarded (RLock: thunks nest, e.g. grouped build reads the
+    games memo): ThreadingHTTPServer serves polls in threads, and a
+    clear-then-fill without a lock lets a concurrent poll read an empty
+    cache (KeyError: 'value'). Thunk runs inside the lock so concurrent
+    snapshots queue instead of stampeding the 10s cold build."""
+    with _memo_lock:
+        if cache.get("key") != key:
+            val = thunk()
+            cache.clear()
+            cache["key"] = key
+            cache["value"] = val
+        return cache["value"]
 
 
 _games_cache: dict = {}

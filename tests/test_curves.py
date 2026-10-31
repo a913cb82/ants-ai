@@ -5,6 +5,7 @@ BT-Elo fit, knock/conversion windows, decisiveness, margin quantiles,
 PG ratio, value slope, tenure strip, crown typing, regime boundary.
 R1/R2/R3 revisions: train+eval BT duel, knock marks, entropy norm.
 """
+import json
 import math
 import sys
 from pathlib import Path
@@ -525,3 +526,22 @@ def test_causal_streaming_extend_matches_rebuild(tmp_path):
     assert s2["cand"][:20] == s1["cand"][:20]  # extend reuses stored refits
     assert s2["champ"][:20] == s1["champ"][:20]
     assert len(s2["cand"]) == 35
+
+
+def test_concurrent_snapshots_never_race(tmp_path):
+    """ThreadingHTTPServer polls in threads: concurrent snapshots must
+    queue, never KeyError on a half-cleared memo (the 10s cold build
+    widens the old clear-then-fill race into a certainty)."""
+    import dashboard
+    from concurrent.futures import ThreadPoolExecutor
+
+    base = tmp_path / "arch"
+    base.mkdir()
+    _mini_history(base, 12)
+    dashboard._nash_cache.clear()
+    dashboard._causal_cache.clear()
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        boards = list(ex.map(lambda _: dashboard.snapshot(base)["board"],
+                             range(4)))
+    first = json.dumps(boards[0], sort_keys=True)
+    assert all(json.dumps(b, sort_keys=True) == first for b in boards)
