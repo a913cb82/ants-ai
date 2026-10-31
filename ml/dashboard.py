@@ -132,6 +132,60 @@ def cached_history(base: Path) -> list[dict]:
     )
 
 
+SNAPSHOT_FILES = ("games.jsonl", "history.jsonl", "matrix.json")
+
+
+def archive_mtime(base: Path) -> int:
+    """Newest mtime (ns) across the polled archive files, 0 when absent.
+
+    snapshot() exposes this as `mtime`; /api/snapshot?since= short-circuits
+    against it (P0-2) so idle polls cost three stats, not a 1.8MB dump."""
+    latest = 0
+    for name in SNAPSHOT_FILES:
+        try:
+            latest = max(latest, (base / name).stat().st_mtime_ns)
+        except OSError:
+            continue
+    return latest
+
+
+def is_fresh(base: Path, since) -> bool:
+    """True when `since` (an mtime ns from a prior snapshot) covers the
+    current archive state: nothing to re-send."""
+    try:
+        stamp = int(since)
+    except (TypeError, ValueError):
+        return False
+    now = archive_mtime(base)
+    return now > 0 and stamp >= now
+
+
+PAGE_SIZE = 100  # client-side table pages (P0-3): no new endpoints
+
+
+def page_slice(rows: list, page: int, per: int = PAGE_SIZE) -> list:
+    """One page of a client-paginated table. Pure so tests pin it; the
+    page mirrors this slicing in JS from the held snapshot."""
+    if page < 0:
+        page = 0
+    return rows[page * per:(page + 1) * per]
+
+
+def filter_generations(gens: list[dict], member: str) -> list[dict]:
+    """Member-aware generations filter (P1-3): challenger OR champion.
+    Empty member passes everything through."""
+    if not member:
+        return list(gens)
+    return [g for g in gens
+            if g.get("id") == member or g.get("champion") == member]
+
+
+def _rnd(x, nd: int):
+    """Round JSON numbers server-side (P0-2/P1-5); pass anything else
+    through untouched."""
+    return round(x, nd) if isinstance(x, (int, float)) else x
+
+
 def _split_pair(key: str, pos: dict) -> tuple[int, int] | None:
     """Indexes of an eval-matrix 'a vs b' key. Tries every split so ids
     containing ' vs ' still resolve; unknown ids return None."""
@@ -495,7 +549,8 @@ def tally_eval(games: list[dict]) -> dict[str, list[int]]:
 
 def summarize_maps(games: list[dict]) -> list[dict]:
     """Per (map, seat-count): train/eval game counts plus the eval
-    challenger-vs-champion record (fixed seats 0/1, valid for N seats)."""
+    challenger-vs-champion record (fixed seats 0/1, valid for N seats).
+    None-map rows are legacy pre-map-logging games, pinned last (P0-7)."""
     acc: dict[tuple, dict] = {}
     for g in games:
         key = (g.get("map"), g["n"])
@@ -512,7 +567,7 @@ def summarize_maps(games: list[dict]) -> list[dict]:
                 m["cd"] += a == b
                 m["cl"] += a < b
     return sorted(acc.values(),
-                  key=lambda m: ((m["map"] or ""), m["n"]))
+                  key=lambda m: ((m["map"] is None), (m["map"] or ""), m["n"]))
 
 
 # ---------------------------------------------------------------- CURVES
@@ -1240,8 +1295,8 @@ def snapshot(base: Path) -> dict:
         gens.append({
             "id": h.get("challenger", h.get("id", "?")),
             "champion": h.get("champion"),
-            "train_return": tr.get("mean_return", 0.0),
-            "train_loss": (sum(losses) / len(losses)) if losses else 0.0,
+            "train_return": _rnd(tr.get("mean_return", 0.0), 2),
+            "train_loss": _rnd((sum(losses) / len(losses)) if losses else 0.0, 3),
             "eval_w": ev.get("wins", 0), "eval_d": draws,
             "eval_games": ngames, "win_rate": wr,
             "wilson_lower": round(lower, 3),
@@ -1252,8 +1307,8 @@ def snapshot(base: Path) -> dict:
             "arch": cfg.get("arch", "base"),
             "turns": cfg.get("turns", 0),
             "gamma": cfg.get("gamma", 0.0),
-            "mean_margin": ev.get("mean_margin", 0.0),
-            "margins": ev.get("margins", []),
+            "mean_margin": _rnd(ev.get("mean_margin", 0.0), 2),
+            "margins": ev.get("margins", []),  # kept: feeds the W/D/L dot strip (P2-4)
             "exploiter": bool(h.get("exploiter")),
             "started_at": h.get("started_at"),
             "finished_at": h.get("finished_at"),
@@ -1287,6 +1342,7 @@ def snapshot(base: Path) -> dict:
     }
     return {
         "champion": champ,
+        "mtime": archive_mtime(base),
         "members": members,
         "run": run,
         "curves": curves,
@@ -1314,6 +1370,10 @@ def replay_page(base: Path, rel: str | None) -> str | None:
     except ValueError:
         data = data.replace("\n", "\\\\n").replace("'", "\\'")
     page = TEMPLATE.replace("## PATH PLACEHOLDER ##", "/static/v/")
+    # Distinct tab titles per replay (P1-6): side-by-side comparison is
+    # the workflow, and every tab read "Ant Canvas" before.
+    page = page.replace("<title>Ant Canvas</title>",
+                        f"<title>replay {html.escape(rel)} · AZDash</title>")
     return page.replace("## REPLAY PLACEHOLDER ##", data)
 
 
@@ -1349,9 +1409,23 @@ def make_handler(base: Path):
             parsed = urlparse(self.path)
             try:
                 if parsed.path == "/":
-                    self._send(render_page().encode(), "text/html")
+                    # Server-rendered first paint (P0-1): champion, counts,
+                    # status and the first table pages inline, no JS needed.
+                    # On failure fall back to the skeleton shell; the poll
+                    # tick heals it on the next cycle.
+                    try:
+                        first = snapshot(base)
+                    except Exception:
+                        first = None
+                    self._send(render_page(first).encode(), "text/html")
                 elif parsed.path == "/api/snapshot":
-                    _json(self, snapshot(base))
+                    q = parse_qs(parsed.query)
+                    since = q.get("since", [None])[0]
+                    if since is not None and is_fresh(base, since):
+                        _json(self, {"unchanged": True,
+                                     "mtime": archive_mtime(base)})
+                    else:
+                        _json(self, snapshot(base))
                 elif parsed.path == "/api/games":
                     q = parse_qs(parsed.query)
                     member = q.get("member", [None])[0]
@@ -1395,6 +1469,265 @@ def make_handler(base: Path):
     return Handler
 
 
+# ------------------------------------------------------- SERVER RENDER
+# First-paint helpers (P0-1): render_page(snapshot) inlines the hero,
+# strip and first table pages into the raw HTML so the first paint is
+# content, not a fetch spinner. The JS poll takes over from the same
+# JSON afterwards; row markup here mirrors the JS renderers below
+# (any visual change needs both sides — search for the twin name).
+
+EMPTY_GAMES = "no games logged yet — they appear here as each game finishes"
+MAP_UNLABELLED = "unlabelled (pre-map logging)"
+
+
+def _esc(x) -> str:
+    return html.escape("" if x is None else str(x), quote=True)
+
+
+def fmt_dur(s) -> str:
+    """Tagged durations (P1-5): `220 s`, past 60s `3m 40s`."""
+    try:
+        s = float(s)
+    except (TypeError, ValueError):
+        return "—"
+    if s < 60:
+        return f"{int(round(s))} s"
+    m = int(s // 60)
+    return f"{m}m {int(round(s - 60 * m)):02d}s"
+
+
+def fmt_time(ts) -> str:
+    """`HH:MM` today, `MMM d, HH:MM` older; full ISO goes in `title` (P0-6)."""
+    if not isinstance(ts, (int, float)):
+        return "—"
+    import datetime as _dt
+    d = _dt.datetime.fromtimestamp(ts)
+    hm = d.strftime("%H:%M")
+    if d.date() == _dt.date.today():
+        return hm
+    return d.strftime("%b %d, %H:%M")
+
+
+def iso_time(ts) -> str:
+    if not isinstance(ts, (int, float)):
+        return ""
+    import datetime as _dt
+    return _dt.datetime.fromtimestamp(ts).astimezone().isoformat(timespec="minutes")
+
+
+def dot_strip(margins, cap: int = 20) -> str:
+    """Per-generation W/D/L dots (P2-4): close or blowout at a glance.
+    Downsampled to `cap` cells; each dot titles its signed margin in pts."""
+    ms = [m for m in (margins or []) if isinstance(m, (int, float))]
+    if not ms:
+        return '<span class="legend">no duels</span>'
+    step = max(1, (len(ms) + cap - 1) // cap)
+    cells = []
+    for m in ms[::step][:cap]:
+        cls = "w" if m > 0 else ("d" if m == 0 else "l")
+        word = "win" if m > 0 else ("draw" if m == 0 else "loss")
+        cells.append(
+            f'<span class="dot {cls}" title="{word} {m:+g} pts">●</span>')
+    return "".join(cells)
+
+
+def replay_label(gen, replay) -> str:
+    """`gen g1732 · eval0 →`: the tab reads where the link goes (P1-6)."""
+    parts = [p for p in str(replay or "").split("/") if p]
+    short = parts[-3] if len(parts) >= 3 else \
+        (parts[-1].replace(".replay", "") if parts else "?")
+    return f"gen {gen} · {short} →"
+
+
+def hero_run_text(run: dict) -> str:
+    """`gen 1690 · target 1689 reached` once finished >= target (P0-5)."""
+    fin = run.get("finished", 0) or 0
+    tgt = run.get("target")
+    if isinstance(tgt, int):
+        if fin >= tgt:
+            return f"gen {fin} · target {tgt} reached"
+        return f"gen {fin} · target {tgt}"
+    return f"gen {fin}"
+
+
+def map_label(m) -> str:
+    """Nulls are legacy pre-map-logging rows, not a logging bug (P0-7)."""
+    return m if m else MAP_UNLABELLED
+
+
+def status_html(st: dict, champ, ngens: int) -> tuple[str, int]:
+    """Status line + progress %, twin of the JS renderHeader branch."""
+    st = st or {}
+    phase = st.get("phase")
+    if phase == "train":
+        done, total = max(0, int(st.get("done", 0) or 0)), \
+            max(1, int(st.get("total", 0) or 1))
+        ret = st.get("last_mean_return", 0.0)
+        try:
+            ret_s = f"{float(ret):.2f}"
+        except (TypeError, ValueError):
+            ret_s = "—"
+        return (f"training <b>{_esc(st.get('challenger', ''))}</b> · "
+                f"game {done}/{st.get('total', 0)} · "
+                f"last mean return <b>{ret_s}</b>", 100 * done // total)
+    if phase == "eval":
+        done, total = max(0, int(st.get("done", 0) or 0)), \
+            max(1, int(st.get("total", 0) or 1))
+        return (f"evaluating <b>{_esc(st.get('challenger', ''))}</b> · "
+                f"duel {done}/{st.get('total', 0)} · "
+                f"<b>{st.get('wins', 0)}W {st.get('draws', 0)}D</b> so far",
+                100 * done // total)
+    if phase == "done":
+        badge = ('<span class="badge promoted">promoted ★</span>'
+                 if st.get("promoted")
+                 else '<span class="badge held">held</span>')
+        return (f"last run finished: <b>{_esc(st.get('challenger', ''))}</b> "
+                f"{badge} · champion {_esc(st.get('champion', ''))} · "
+                f"idle, waiting for the next run", 100)
+    if ngens:
+        return (f"idle · last champion {_esc(champ or '—')}", 0)
+    return ("waiting for the first generation…", 0)
+
+
+def _num(x) -> float:
+    """Coerce snapshot numbers for first-paint formatting; junk reads as 0."""
+    return x if isinstance(x, (int, float)) else 0.0
+
+
+def gen_row_html(g: dict) -> str:
+    """Twin of JS genRow: challenger · return · loss · eval · result · crown."""
+    pct = 100 * _num(g.get("win_rate"))
+    losses_n = max(0, int(_num(g.get("eval_games"))) - int(_num(g.get("eval_w")))
+                   - int(_num(g.get("eval_d"))))
+    wdl = f"{int(_num(g.get('eval_w')))}-{int(_num(g.get('eval_d')))}-{losses_n}"
+    rate = f"{_num(g.get('win_rate')) * 100:.1f}%"
+    thr = g.get("threshold", 0.5)
+    try:
+        thr_pct = f"{(float(thr) * 100):.0f}%"
+    except (TypeError, ValueError):
+        thr_pct = "50%"
+    mean_m = _num(g.get("mean_margin", 0.0))
+    margin_s = f"{float(mean_m):+.2f} pts"
+    crown = g.get("crown", "—")
+    if crown == "complete":
+        crown_h = ('<span class="badge promoted" '
+                   'title="beat the champ head-to-head AND the duel field">'
+                   'complete</span>')
+    elif crown == "soft":
+        crown_h = ('<span class="badge held" '
+                   'title="took the throne without both edges">soft</span>')
+    else:
+        crown_h = '<span class="legend">—</span>'
+    res = ('<span class="badge promoted">promoted ★</span>'
+           if g.get("promoted") else '<span class="badge held">held</span>')
+    expl = ' <span class="badge draw">exploiter</span>' if g.get("exploiter") else ""
+    when = ""
+    if g.get("finished_at"):
+        when = (f'<div class="legend" title="{iso_time(g["finished_at"])} '
+                f'· {fmt_dur(g.get("duration_s"))}">'
+                f'{fmt_time(g["finished_at"])} · {fmt_dur(g.get("duration_s"))}</div>')
+    return (
+        f"<tr><td class=\"truncate\" title=\"{_esc(g.get('id'))}\">{_esc(g.get('id'))}{when}</td>"
+        f"<td class=\"num\">{_num(g.get('train_return', 0.0)):.2f}</td>"
+        f"<td class=\"num\">{_num(g.get('train_loss', 0.0)):.3f}</td>"
+        f"<td><span class=\"rate-wrap rate-text\" "
+        f"title=\"challenger W-D-L · Wilson lower bound (z=1.0) "
+        f"{(g.get('wilson_lower', 0.0)):.2f} vs promotion threshold "
+        f"{float(thr) if isinstance(thr, (int, float)) else thr} · "
+        f"▲ {thr_pct} threshold\">"
+        f"<span class=\"rate-bar\"><div style=\"width:{pct:.0f}%\"></div>"
+        f"<span class=\"marker\" title=\"promotion threshold {thr}\" "
+        f"style=\"left:{pct_of_thr(thr)}\"></span></span>"
+        f"{wdl} · {rate} (draws count ½) · lower {_num(g.get('wilson_lower', 0.0)):.2f} · "
+        f"<span title=\"mean eval margin, challenger-minus-champion\">margin {margin_s}</span>"
+        f"<div class=\"dots\" title=\"per-duel margins: green win, blue draw, red loss\">"
+        f"{dot_strip(g.get('margins'))}</div></span></td>"
+        f"<td>{res}<div class=\"legend\" style=\"margin:4px 0 0\">{_esc(g.get('reason', ''))}</div>{expl}</td>"
+        f"<td>{crown_h}</td>"
+        f"<td class=\"num legend truncate\" title=\"{_esc(g.get('arch'))} · {_esc(g.get('turns'))} turns\">"
+        f"{_esc(g.get('arch'))} · {g.get('turns')} turns · γ {g.get('gamma')}</td></tr>")
+
+
+def pct_of_thr(thr) -> str:
+    try:
+        return f"{(float(thr) * 100):.0f}%"
+    except (TypeError, ValueError):
+        return "50%"
+
+
+def game_row_html(x: dict, member: str = "") -> str:
+    """Twin of JS gameRow: gen · kind · matchup · result · replay."""
+    seats = x.get("seats") or []
+    ref = next((s for s in seats if s.get("id") == member), None) \
+        if member else None
+    ref = ref or (seats[0] if seats else {"id": "?", "result": "draw"})
+    res = ref.get("result", "draw")
+    if len(seats) <= 2:
+        s0 = seats[0] if len(seats) > 0 else {"id": "?", "score": "?", "result": "draw"}
+        s1 = seats[1] if len(seats) > 1 else {"id": "?", "score": "?", "result": "draw"}
+        w0 = '<span class="winner">' + _esc(s0.get("id")) + '</span>' \
+            if s0.get("result") == "win" else _esc(s0.get("id"))
+        w1 = '<span class="winner">' + _esc(s1.get("id")) + '</span>' \
+            if s1.get("result") == "win" else _esc(s1.get("id"))
+        match = (f'<td class="matchup" title="engine score">'
+                 f'{w0} {s0.get("score", "?")} – {s1.get("score", "?")} {w1}</td>')
+    else:
+        line = " · ".join(
+            (('<span class="winner">' + _esc(s.get("id")) + " " +
+              _esc(s.get("score")) + '</span>')
+             if s.get("result") == "win"
+             else _esc(s.get("id")) + " " + _esc(s.get("score")))
+            for s in seats)
+        pairs = " · ".join(
+            f"{_esc(p.get('a'))} {p.get('score_a')}–{p.get('score_b')} {_esc(p.get('b'))}"
+            for p in (x.get("pairs") or []))
+        match = (f'<td class="matchup" title="engine scores, all {len(seats)} seats">'
+                 f'{line}<div class="pairs">{pairs}</div></td>')
+    names = " vs ".join(_esc(s.get("id")) for s in seats)
+    label = replay_label(x.get("gen"), x.get("replay"))
+    return (
+        f"<tr><td>{_esc(x.get('gen'))}</td>"
+        f"<td><span class=\"pill {_esc(x.get('kind'))}\">{_esc(x.get('kind'))}</span></td>"
+        f"{match}<td><span class=\"badge {res}\">{res}</span></td>"
+        f"<td class=\"replay\"><a href=\"/replay?f={_esc(x.get('replay'))}\" "
+        f"target=\"_blank\" rel=\"noopener\" "
+        f"title=\"{names}, gen {_esc(x.get('gen'))} — opens in a new tab\">"
+        f"{_esc(label)}<span aria-hidden=\"true\"> ↗</span></a></td></tr>")
+
+
+def pop_row_html(m: dict, champ) -> str:
+    """Twin of JS popRow: id · role · parent · nash · W-D-L."""
+    role = "seed" if m.get("role") == "main" else _esc(m.get("role"))
+    star = ' <span class="champ-star">★</span>' if m.get("id") == champ else ""
+    nash = m.get("nash", 0.0) or 0.0
+    pct = float(nash) * 100
+    bar = f"max({pct:.1f}%,{1 if nash > 0 else 0}px)"  # sub-1% still paints (P1-2)
+    seed_note = ' <span class="legend">founding weights</span>' \
+        if m.get("role") == "main" else ""
+    return (
+        f"<tr><td class=\"truncate\" title=\"{_esc(m.get('id'))}\">{_esc(m.get('id'))}{star}</td>"
+        f"<td>{role}{seed_note}</td><td class=\"truncate\" title=\"{_esc(m.get('parent'))}\">"
+        f"{_esc(m.get('parent') or '—')}</td>"
+        f"<td><span class=\"nash-wrap\"><span class=\"nash-bar\">"
+        f"<div style=\"width:{bar}\"></div></span>{pct:.1f}%</span></td>"
+        f"<td class=\"num\">{m.get('wins', 0)}-{m.get('draws', 0)}-{m.get('losses', 0)}</td></tr>")
+
+
+def map_row_html(m: dict) -> str:
+    """Twin of JS mapRow."""
+    return (
+        f"<tr><td class=\"truncate\" title=\"{_esc(m.get('map') or MAP_UNLABELLED)}\">"
+        f"{_esc(map_label(m.get('map')))}</td><td class=\"num\">{m.get('n', 0)}</td>"
+        f"<td class=\"num\">{m.get('train', 0)}</td><td class=\"num\">{m.get('eval', 0)}</td>"
+        f"<td class=\"num\">{m.get('cw', 0)}-{m.get('cd', 0)}-{m.get('cl', 0)}</td></tr>")
+
+
+def pop_first_page(members: list, champ) -> list:
+    """First paint mirrors the default view: Nash desc, zero-Nash hidden."""
+    ranked = sorted(members, key=lambda m: -(m.get("nash", 0.0) or 0.0))
+    return [m for m in ranked if (m.get("nash", 0.0) or 0.0) > 0]
+
+
 # ---------------------------------------------------------------- PAGE
 
 
@@ -1412,8 +1745,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,Roboto,"H
 .wrap{max-width:1200px; margin:0 auto;}
 h1{font-size:20px; margin:0 0 4px;}
 .sub{color:var(--secondary); font-size:13px; margin:0 0 20px;}
-.section-title{font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
-  color:var(--secondary); margin:32px 0 12px;}
+.section-title{font-size:14px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
+  color:var(--secondary); margin:40px 0 12px;}
+.section-title:first-of-type{margin-top:28px;}
 .legend{font-size:12px; color:var(--muted); margin:-6px 0 12px;}
 .stats{display:grid; grid-template-columns:repeat(3,1fr); gap:16px;}
 .status-wide{grid-column:span 3;}
@@ -1451,7 +1785,11 @@ td.num, th.num{text-align:right;}
 .badge{display:inline-block; font-size:11px; font-weight:700; padding:2px 9px; border-radius:20px;}
 .badge.win{color:var(--success); background:#E6F4EC;}
 .badge.loss{color:var(--danger); background:#FBEAE8;}
-.badge.draw{color:var(--secondary); background:var(--train-bg);}
+/* Badge palette (P2-6 — the whole page draws from these six, nowhere else):
+   win green = ahead · loss red = behind · draw neutral-blue = tied first ·
+   held amber = waiting (status, badges AND bars) · train gray = practice ·
+   eval blue = promotion duels. Status is always text + color, never color alone. */
+.badge.draw{color:var(--eval-ink); background:var(--eval-bg);}
 .badge.promoted{color:var(--success); background:#E6F4EC;}
 .badge.held{color:var(--warn); background:#FBF3E2;}
 .nash-wrap{display:flex; align-items:center; gap:8px;}
@@ -1467,7 +1805,9 @@ td.matchup, td.replay, .rate-text{white-space:nowrap;}
 .rate-bar .marker{position:absolute;left:0;width:2px;background:var(--ink);top:-3px;bottom:-3px;box-shadow:0 0 0 1px #fff;z-index:1;}
 .toolbar{display:flex; gap:10px; align-items:center; margin-bottom:10px; flex-wrap:wrap;}
 .toolbar label{font-size:13px; color:var(--secondary);}
-select{font-size:13px; padding:6px 10px; border:1px solid var(--border-strong); border-radius:8px; background:#fff;}
+select,input[list]{font-size:13px; padding:6px 10px; border:1px solid var(--border-strong); border-radius:8px; background:#fff;}
+input[list]{min-width:140px;}
+.clear-link{font-size:12px; white-space:nowrap;}
 .live-toggle{display:flex; align-items:center; gap:6px; font-size:13px; color:var(--secondary);}
 .pager{display:flex; gap:6px;}
 .updated{font-size:12px; color:var(--muted); margin-left:auto;}
@@ -1485,7 +1825,41 @@ a{color:var(--accent); text-decoration:none;}
 a:hover{text-decoration:underline;}
 .winner{font-weight:700;}
 a:focus-visible,select:focus-visible,input:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+caption{text-align:left; font-size:12px; color:var(--muted); padding:0 0 6px; caption-side:top;}
+.hero{display:flex; gap:20px; align-items:center; flex-wrap:wrap;}
+.hero-main{flex:2 1 320px; min-width:260px;}
+.hero-side{flex:1 1 220px; min-width:200px;}
+.hero-champ{font-size:30px; font-weight:800; font-variant-numeric:tabular-nums; margin:2px 0 4px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.hero-run{font-size:13px; color:var(--secondary);}
+.hero .progress{margin-top:12px;}
+.strip{display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-top:16px;}
+.mini{background:var(--card); border:1px solid var(--border); border-radius:10px; padding:10px 16px;}
+.mini .stat-value{font-size:22px;}
+.live-pill{font-size:12px; font-weight:700; padding:2px 10px; border-radius:20px; white-space:nowrap;}
+.live-pill.ok{color:var(--success); background:#E6F4EC;}
+.live-pill.stale{color:var(--warn); background:#FBF3E2;}
+.live-pill.paused{color:var(--secondary); background:var(--train-bg);}
+details.why{font-size:12.5px; color:var(--secondary); margin:-4px 0 12px;}
+details.why summary{cursor:pointer; color:var(--accent); font-size:12.5px; display:inline-block;}
+details.why p{margin:6px 0 0; max-width:90ch;}
+.dots{margin-top:4px; letter-spacing:2px; font-size:11px; line-height:1;}
+.dot.w{color:var(--success);}
+.dot.d{color:var(--eval-ink);}
+.dot.l{color:var(--danger);}
+td.truncate,.truncate{max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+tbody tr:nth-child(even){background:#FAFBFC;}
+tbody tr:hover{background:#EFF4FA;}
+.skel td{color:transparent !important;}
+.skel td span{display:block; height:12px; border-radius:6px;
+  background:linear-gradient(90deg,var(--border) 25%,#F1F3F5 50%,var(--border) 75%);
+  background-size:200% 100%; animation:shimmer 1.2s infinite;}
+@keyframes shimmer{to{background-position:-200% 0;}}
+.footer{margin-top:40px; padding-top:12px; border-top:1px solid var(--border);
+  font-size:12px; color:var(--muted); display:flex; gap:8px; flex-wrap:wrap;}
+.footer .sep{opacity:.5;}
 @media (max-width:900px){
+  .strip{grid-template-columns:repeat(2,1fr);}
   .stats{grid-template-columns:repeat(2,1fr);}
   .stats>.card:nth-child(3){grid-column:span 2;}
   .status-wide{grid-column:span 2;}
@@ -1518,6 +1892,115 @@ function shortReplay(rel){const p=(rel||"").split("/").filter(Boolean);
 function seatBadge(result){
   return {cls:result,label:result};
 }
+/* P0-6 timestamps: HH:MM today, MMM d + HH:MM older, ISO in title. */
+function fmtTime(ts){
+  if(ts===null||ts===undefined)return "—";
+  const d=new Date(ts*1000),now=new Date();
+  const hm=d.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
+  if(d.toDateString()===now.toDateString())return hm;
+  return d.toLocaleDateString([], {month:"short",day:"numeric"})+", "+hm;
+}
+function isoT(ts){
+  if(ts===null||ts===undefined)return "";
+  return new Date(ts*1000).toISOString();
+}
+/* P1-5 durations: always tagged — `220 s`, past 60s `3m 40s`. */
+function fmtDur(s){
+  if(s===null||s===undefined||!Number.isFinite(+s))return "—";
+  s=+s;
+  if(s<60)return Math.round(s)+" s";
+  const m=Math.floor(s/60);
+  return m+"m "+String(Math.round(s-m*60)).padStart(2,"0")+"s";
+}
+function replayLabel(gen,rel){
+  return "gen "+gen+" · "+shortReplay(rel)+" →";
+}
+/* P2-4 dot strip: per-duel W/D/L dots, green/blue/red with pts titles. */
+function dotStrip(margins,cap){
+  cap=cap||20;
+  const ms=(margins||[]).filter(v=>Number.isFinite(v));
+  if(!ms.length)return '<span class="legend">no duels</span>';
+  const step=Math.max(1,Math.ceil(ms.length/cap));
+  let out="";
+  for(let i=0;i<ms.length&&out.split("●").length-1<cap;i+=step){
+    const m=ms[i],cls=m>0?"w":(m===0?"d":"l"),
+      word=m>0?"win":(m===0?"draw":"loss");
+    out+=`<span class="dot ${cls}" title="${word} ${m>0?"+"+m:m} pts">●</span>`;
+  }
+  return out;
+}
+/* P1-4 envelope downsampling: one min/max segment per pixel column, so
+   1690 overlapping points read as density instead of overplotted ink.
+   Nulls split runs; x stays mapped to generation index via N. */
+function envLine(F,arr,color,width,N){
+  N=N||arr.length;
+  const{ctx,X,Y,W,L,R}=F;
+  const cols=Math.max(40,Math.floor(W-L-R));
+  const per=N/cols;
+  ctx.strokeStyle=color;ctx.lineWidth=width;ctx.lineJoin="round";
+  ctx.globalAlpha=width<=1?0.55:1;
+  let started=false;
+  ctx.beginPath();
+  for(let c=0;c<cols;c++){
+    let mn=Infinity,mx=-Infinity,gi=-1;
+    const lo=Math.floor(c*per),hi=Math.min(N,Math.floor((c+1)*per)+1);
+    for(let i=lo;i<hi;i++){
+      const v=arr[i];
+      if(v===null||v===undefined||!Number.isFinite(v))continue;
+      if(v<mn)mn=v; if(v>mx)mx=v; gi=i;
+    }
+    if(gi<0){started=false;continue;}
+    const xx=N<2?(L+W-R)/2:X(gi);
+    if(mx-mn>1e-12){
+      ctx.moveTo(xx,Y(mx));ctx.lineTo(xx,Y(mn));
+      if(width>1){ctx.stroke();ctx.beginPath();started=false;}
+    }
+    const mid=(mn+mx)/2;
+    if(!started){ctx.moveTo(xx,Y(mid));started=true;}
+    else ctx.lineTo(xx,Y(mid));
+  }
+  ctx.stroke();ctx.globalAlpha=1;
+}
+/* P1-4 aria cap: `series, N points, min .., max .., last ..`. */
+function adesc(name,arr,ids){
+  const have=[];
+  arr.forEach((v,i)=>{if(v!==null&&Number.isFinite(v))have.push([v,i]);});
+  if(!have.length)return name+", no data yet";
+  let mn=have[0],mx=have[0];
+  have.forEach(p=>{if(p[0]<mn[0])mn=p; if(p[0]>mx[0])mx=p;});
+  const last=have[have.length-1];
+  const f=v=>(Math.round(v*100)/100);
+  return `${name}, ${arr.length} points, min ${f(mn[0])} at ${(ids||[])[mn[1]]||mn[1]}, `+
+    `max ${f(mx[0])} at ${(ids||[])[mx[1]]||mx[1]}, last ${f(last[0])}`;
+}
+/* P1-4 delta chip: last value vs median of the previous 10, with tooltip. */
+function deltaChip(id,arr){
+  const el=$(id);
+  if(!el)return;
+  const have=arr.filter(v=>v!==null&&Number.isFinite(v));
+  if(have.length<2){el.style.display="none";return;}
+  const last=have[have.length-1];
+  const prev=have.slice(-11,-1);
+  const s=[...prev].sort((a,b)=>a-b);
+  const med=s.length%2?s[s.length>>1]:(s[s.length/2-1]+s[s.length/2])/2;
+  const d=last-med;
+  const cls=Math.abs(d)<1e-9?"flat":(d>0?"up":"down");
+  const arrow=cls==="flat"?"→":(cls==="up"?"▲ +":"▼ ");
+  el.style.display="";
+  el.className="delta "+cls;
+  el.textContent=arrow+(Math.abs(d)<1e-9?"0":(Math.round(Math.abs(d)*100)/100));
+  el.title=`last ${Math.round(last*100)/100} vs median of previous ${prev.length} gens (${Math.round(med*100)/100})`;
+}
+/* P0-3 guards: never clobber a table the reader is using; keep its scroll. */
+function tableBusy(id){
+  const el=$(id);
+  return el.matches(":hover")||el.contains(document.activeElement);
+}
+function keepScroll(scroller,fn){
+  const top=scroller?scroller.scrollTop:0;
+  fn();
+  if(scroller)scroller.scrollTop=top;
+}
 /* Board charts: shared frame geometry, gridlines, min/max labels, headroom, HiDPI. */
 function clock(ts){const d=new Date(ts*1000);return d.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});}
 function renderHeader(){
@@ -1525,30 +2008,55 @@ function renderHeader(){
   $("getting-started").style.display=S.counts.generations?"none":"block";
   $("st-gen").textContent=S.counts.generations;
   $("st-games").textContent=S.counts.games;
+  $("st-members").textContent=(S.members||[]).length;
+  $("st-maps").textContent=(S.maps||[]).length;
   const r=S.run||{};
-  $("st-run").textContent=r.target?`gen ${r.finished} / ${r.target}`:`gen ${r.finished||0}`;
+  const tgt=(typeof r.target==="number")?r.target:null;
+  // P0-5: once finished >= target say so and suppress the ETA.
+  if(tgt!==null&&r.finished>=tgt)
+    $("st-run").textContent=`gen ${r.finished} · target ${tgt} reached`;
+  else if(tgt!==null)
+    $("st-run").textContent=`gen ${r.finished} · target ${tgt}`;
+  else $("st-run").textContent=`gen ${r.finished||0}`;
   const bits=[];
-  if(r.last_finished_at) bits.push("last finished "+clock(r.last_finished_at));
+  if(r.last_finished_at) bits.push("last finished "+fmtTime(r.last_finished_at));
   if(r.avg_s) bits.push(`avg ${r.avg_s}s/gen`);
-  if(r.target&&r.avg_s&&r.target>r.finished) bits.push(`ETA ${clock(Date.now()/1000+(r.target-r.finished)*r.avg_s)}`);
+  if(!(tgt!==null&&r.finished>=tgt)&&tgt!==null&&r.avg_s&&tgt>r.finished)
+    bits.push(`ETA ${fmtTime(Date.now()/1000+(tgt-r.finished)*r.avg_s)}`);
   $("st-eta").textContent=bits.join(" · ")||"no timing data yet";
-  const st=S.status||{},el=$("st-status"),bar=$("st-bar");
-  bar.style.width="0%";bar.style.background="var(--accent)";
+  $("st-eta").title=r.last_finished_at?("last finished "+isoT(r.last_finished_at)):"";
+  const st=S.status||{},el=$("st-status"),bar=$("st-bar"),wrap=$("st-barwrap");
+  let pct=0;
+  bar.style.background="var(--accent)";
   if(st.phase==="train"){
     el.innerHTML=`training <b>${esc(st.challenger||"")}</b> · game ${Math.max(0,+st.done||0)}/${Math.max(0,+st.total||0)} · last mean return <b>${(+st.last_mean_return||0).toFixed(2)}</b>`;
-    bar.style.width=(100*st.done/Math.max(1,st.total))+"%";
+    pct=100*st.done/Math.max(1,st.total);
   }else if(st.phase==="eval"){
     el.innerHTML=`evaluating <b>${esc(st.challenger||"")}</b> · duel ${Math.max(0,+st.done||0)}/${Math.max(0,+st.total||0)} · <b>${Math.max(0,+st.wins||0)}W ${Math.max(0,+st.draws||0)}D</b> so far`;
-    bar.style.width=(100*st.done/Math.max(1,st.total))+"%";
+    pct=100*st.done/Math.max(1,st.total);
   }else if(st.phase==="done"){
     el.innerHTML=`last run finished: <b>${esc(st.challenger||"")}</b> `+
       (st.promoted?'<span class="badge promoted">promoted ★</span>':'<span class="badge held">held</span>')+
       ` · champion ${esc(st.champion||"")} · idle, waiting for the next run`;
-    bar.style.width="100%";
-    bar.style.background=st.promoted?"var(--success)":"var(--secondary)";
+    pct=100;
+    // Held stays amber everywhere, including the bar (P2-6).
+    bar.style.background=st.promoted?"var(--success)":"var(--warn)";
   }else{
     el.innerHTML=S.counts.generations?`idle · last champion ${esc(S.champion||"—")}`:"waiting for the first generation…";
   }
+  bar.style.width=pct+"%";
+  wrap.setAttribute("aria-valuenow",Math.round(pct));
+  renderPill();
+}
+function renderPill(){
+  // P1-7 status pill: text + color, never color alone.
+  const el=$("live-pill");
+  if(!el)return;
+  const ageS=Math.max(0,Math.round((Date.now()-lastTick)/1000));
+  if(!live){el.className="live-pill paused";el.textContent="○ paused";return;}
+  const interval=activePhase()?5:15;
+  if(ageS>2*interval){el.className="live-pill stale";el.textContent=`▲ stale ${ageS}s`;}
+  else{el.className="live-pill ok";el.textContent=`● live · refreshed ${ageS}s ago`;}
   $("updated").textContent="updated "+ago(lastTick)+" · "+(live?"live":"paused");
 }
 function lineInto(F,arr,color,width){
@@ -1564,9 +2072,11 @@ function lineInto(F,arr,color,width){
   });
   ctx.stroke();
 }
-function frame(id,lists,labels,desc){
+function frame(id,lists,labels,desc,opt){
   // Shared geometry for the board charts: spans every series, draws the
   // grid + zero line + end labels, returns mappers (null: nothing to draw).
+  // opt: {yt} y-axis title in the gutter, {ticks} [[genIdx,label]] extras
+  // marking champion changes between first and last (P1-4).
   const cv=$(id),ctx=cv.getContext("2d");
   const vals=[];
   lists.forEach(a=>(a||[]).forEach(v=>{if(v!==null&&Number.isFinite(v))vals.push(v);}));
@@ -1597,12 +2107,35 @@ function frame(id,lists,labels,desc){
   ctx.fillText(x0,L,H-6);
   const w1=ctx.measureText(x1).width;
   ctx.fillText(x1,W-R-w1,H-6);
+  const ticks=(opt&&opt.ticks)||[];
+  let lastTx=-1e9;
+  ticks.forEach(t=>{
+    const tx=X(t[0]);
+    if(tx-lastTx<44||W-R-tx<ctx.measureText(t[1]).width+2)return;
+    lastTx=tx;
+    ctx.fillStyle="#8A94A0";
+    ctx.fillText(t[1],tx,H-6);
+    ctx.strokeStyle="#C9CFD6";ctx.setLineDash([2,3]);
+    ctx.beginPath();ctx.moveTo(tx,T);ctx.lineTo(tx,H-B);ctx.stroke();
+    ctx.setLineDash([]);ctx.fillStyle="#6B7480";
+  });
+  if(opt&&opt.yt){
+    ctx.save();ctx.translate(10,T+ih/2);ctx.rotate(-Math.PI/2);
+    ctx.textAlign="center";ctx.fillStyle="#5B6470";
+    ctx.fillText(opt.yt,0,0);ctx.restore();
+  }
   return{ctx,W,H,X,Y,L,R,T,B,n};
 }
-function plotLines(id,arrs,colors,widths,labels,desc){
-  const F=frame(id,arrs,labels,desc);
+function plotLines(id,arrs,colors,widths,labels,desc,opt){
+  const F=frame(id,arrs,labels,desc,opt);
   if(!F)return;
-  arrs.forEach((a,k)=>lineInto(F,a,colors[k],widths[k]));
+  arrs.forEach((a,k)=>smoothLine(F,a,colors[k],widths[k]));
+}
+function smoothLine(F,arr,color,width){
+  // Exact path for short series, envelope for crowded ones (P1-4).
+  const cols=Math.max(40,Math.floor(F.W-F.L-F.R));
+  if((arr||[]).length<=cols)lineInto(F,arr,color,width);
+  else envLine(F,arr,color,width);
 }
 function band(F,lo,hi,fill){
   // Fill between hi and lo, restarting at null gaps (shared by the
@@ -1623,11 +2156,11 @@ function band(F,lo,hi,fill){
     else run.push(i);});
   flush();
 }
-function plotBand(id,med,q1,q3,color,fill,labels,desc){
-  const F=frame(id,[med,q1,q3],labels,desc);
+function plotBand(id,med,q1,q3,color,fill,labels,desc,opt){
+  const F=frame(id,[med,q1,q3],labels,desc,opt);
   if(!F)return;
   band(F,q1,q3,fill);
-  lineInto(F,med,color,2);
+  smoothLine(F,med,color,2);
 }
 function plotTicks(id,knock,labels,desc){
   // Binary per-gen knock lane: one tick per gen, same x-geometry as the
@@ -1665,15 +2198,15 @@ function plotTicks(id,knock,labels,desc){
   const w1=ctx.measureText(x1).width;
   ctx.fillText(x1,W-R-w1,H-4);
 }
-function plotKnock(id,K,labels,desc){
+function plotKnock(id,K,labels,desc,opt){
   // Rate panel under the marks lane: knock-rate (blue) and conversion
   // (green) lines with Wilson bands, one shared frame.
-  const F=frame(id,[K.rate,K.lo,K.hi,K.conv,K.clo,K.chi],labels,desc);
+  const F=frame(id,[K.rate,K.lo,K.hi,K.conv,K.clo,K.chi],labels,desc,opt);
   if(!F)return;
   band(F,K.lo,K.hi,"rgba(36,86,224,.18)");
   band(F,K.clo,K.chi,"rgba(24,121,78,.16)");
-  lineInto(F,K.rate,"#2456E0",2);
-  lineInto(F,K.conv,"#18794E",2);
+  smoothLine(F,K.rate,"#2456E0",2);
+  smoothLine(F,K.conv,"#18794E",2);
 }
 function plotNorm(id,norm,raw,labels,desc){
   // Normalized lane (0..1 geometry) labeled with the TRUE min/max so
@@ -1700,13 +2233,13 @@ function plotNorm(id,norm,raw,labels,desc){
     run=[];};
   norm.forEach((v,i)=>{if(v===null||!Number.isFinite(v))flush();else run.push(i);});
   flush();
-  lineInto(F,norm,"#16191D",2.5);
+  smoothLine(F,norm,"#16191D",2.5);
 }
-function plotBars(id,groups,colors,labels,desc,whisk){
+function plotBars(id,groups,colors,labels,desc,whisk,opt){
   // groups: one array per bar series; whisk: matching [lo,hi] pairs.
   const all=groups.slice();
   if(whisk)whisk.forEach(w=>{if(w){all.push(w[0],w[1]);}});
-  const F=frame(id,all,labels,desc);
+  const F=frame(id,all,labels,desc,opt);
   if(!F)return;
   const{ctx,X,Y,W,L,R}=F,n=F.n,g=groups.length;
   const slot=n<2?20:Math.min(20,(W-L-R)/n);
@@ -1726,9 +2259,9 @@ function plotBars(id,groups,colors,labels,desc,whisk){
     });
   });
 }
-function plotDual(id,a,amed,b,bmed,labels,desc){
+function plotDual(id,a,amed,b,bmed,labels,desc,opt){
   // Left axis: a (ratio). Right axis: b (entropy), drawn in green.
-  const F=frame(id,[a,amed],labels,desc);
+  const F=frame(id,[a,amed],labels,desc,opt);
   if(!F)return;
   const{ctx,X,W,R,H,T,B}=F;
   const bv=[];
@@ -1745,8 +2278,8 @@ function plotDual(id,a,amed,b,bmed,labels,desc){
   ctx.restore();
   lineInto({ctx,X,Y:Y2},b,"#9EC5A6",1);
   lineInto({ctx,X,Y:Y2},bmed,"#18794E",2);
-  lineInto(F,a,"#E8A0A6",1);
-  lineInto(F,amed,"#C4322B",2);
+  smoothLine(F,a,"#E8A0A6",1);
+  smoothLine(F,amed,"#C4322B",2);
 }
 function plotStrip(id,tenure,turnover,nplayer,labels,desc){
   const F=frame(id,[tenure],labels,desc);
@@ -1774,66 +2307,190 @@ function plotStrip(id,tenure,turnover,nplayer,labels,desc){
     ctx.lineWidth=2;ctx.strokeStyle="#FFFFFF";ctx.stroke();
   });
 }
+function changeTicks(B,ids){
+  // Champion-change gens label the x-axis between first and last (P1-4).
+  const to=(B.reign&&B.reign.turnover)||[];
+  let idx=[];
+  to.forEach((t,i)=>{if(t)idx.push(i);});
+  if(idx.length>8){const step=Math.ceil(idx.length/8);idx=idx.filter((_,k)=>k%step===0);}
+  return idx.map(i=>[i,ids[i]||("gen "+i)]);
+}
 function renderBoard(){
   const B=S.board,ids=B.ids;
   const refIds=B.elo.panel||[];
+  const ticks=changeTicks(B,ids);
   plotLines("ch-elo",[...refIds.map(pid=>((B.elo.refs||{})[pid]||[])),B.elo.cand,B.elo.champ],[...refIds.map(()=>"#C9CFD6"),"#9EC5FE","#2456E0"],[...refIds.map(()=>1),1.5,2],ids,
-    "candidate vs defending-champion causal Elo, "+ids.length+" generations");
+    adesc("candidate vs defending-champion causal Elo",B.elo.cand||[],ids),{yt:"Elo",ticks});
+  deltaChip("d-elo",B.elo.cand||[]);
   const tn=(B.elo.turn_note||[]).map(r=>`${r.from}–${r.to}: train ${r.train_turns} vs eval ${r.eval_turns} turns`).join("; ");
   $("elo-turn").textContent=tn?`turn confound (${tn}) — mixed, not corrected`:
     "train+eval fit: turn counts match across eras";
-  plotTicks("ch-knock-marks",B.knock.knock,ids,"per-gen knock marks");
-  plotKnock("ch-knock",B.knock,ids,"knock and conversion rates with Wilson bands");
+  plotTicks("ch-knock-marks",B.knock.knock,ids,"knock marks, "+B.knock.knock.length+" gens");
+  plotKnock("ch-knock",B.knock,ids,adesc("knock rate",B.knock.rate||[],ids),{yt:"rate",ticks});
+  deltaChip("d-knock",B.knock.rate||[]);
   plotLines("ch-dec",[B.decisive.train,B.decisive.train_ma,B.decisive.eval,B.decisive.eval_ma],
-    ["#E8A0A6","#C4322B","#9EC5FE","#2456E0"],[1,2,1,2],ids,"decisiveness");
+    ["#E8A0A6","#C4322B","#9EC5FE","#2456E0"],[1,2,1,2],ids,
+    adesc("decisiveness train vs eval",B.decisive.train||[],ids),{yt:"frac",ticks});
+  deltaChip("d-dec",B.decisive.train_ma||[]);
   plotBand("ch-marg",B.margin.med,B.margin.q1,B.margin.q3,"#2456E0","rgba(36,86,224,.15)",ids,
-    "eval margin median IQR");
+    adesc("eval margin median",B.margin.med||[],ids),{yt:"pts",ticks});
+  deltaChip("d-marg",B.margin.med||[]);
   plotDual("ch-pg",B.pg.ratio,B.pg.ratio_med,B.pg.entropy,B.pg.entropy_med,ids,
-    "PG signal ratio experimental plus entropy");
-  plotBars("ch-vslope",[B.vslope],["#8A5A00"],ids,"value fit slope",null);
+    adesc("PG signal ratio",B.pg.ratio||[],ids),{yt:"ratio",ticks});
+  deltaChip("d-pg",B.pg.ratio_med||[]);
+  plotBars("ch-vslope",[B.vslope],["#8A5A00"],ids,
+    adesc("value-fit slope",B.vslope||[],ids),null,{yt:"slope",ticks});
+  deltaChip("d-vsl",B.vslope||[]);
   plotStrip("ch-tenure",B.reign.tenure,B.reign.turnover,B.regimes.nplayer,ids,
-    "tenure and turnovers");
+    adesc("tenure",B.reign.tenure||[],ids));
   $("tenure-now").textContent=B.reign.readout||"";
-  plotNorm("ch-entlane",B.reign.entropy_n,B.reign.entropy,ids,"Nash entropy normalized");
+  plotNorm("ch-entlane",B.reign.entropy_n,B.reign.entropy,ids,
+    adesc("Nash entropy",B.reign.entropy||[],ids));
+}
+const PAGE=100;
+let genPage=0, popPage=0, lastGens="", lastPop="", lastMaps="";
+function genFiltered(){
+  // P1-3: the member input filters generations too (challenger OR champ).
+  const m=$("member").value.trim();
+  return (S.generations||[]).filter(g=>!m||g.id===m||g.champion===m);
+}
+function genRow(g){
+  // Twin of Python gen_row_html — keep both sides in step.
+  const pct=g.eval_games?100*g.win_rate:0;
+  const losses=Math.max(0,g.eval_games-g.eval_w-g.eval_d);
+  const thr=(typeof g.threshold==="number")?g.threshold:0.5;
+  const margin=(typeof g.mean_margin==="number")?g.mean_margin:0;
+  const crown=g.crown==="complete"
+    ?'<span class="badge promoted" title="beat the champ head-to-head AND the duel field">complete</span>'
+    :g.crown==="soft"
+    ?'<span class="badge held" title="took the throne without both edges">soft</span>'
+    :'<span class="legend">—</span>';
+  const when=g.finished_at
+    ?`<div class="legend" title="${esc(isoT(g.finished_at))} · ${fmtDur(g.duration_s)}">${fmtTime(g.finished_at)} · ${fmtDur(g.duration_s)}</div>`:"";
+  return `<tr><td class="truncate" title="${esc(g.id)}">${esc(g.id)}${when}</td>`+
+  `<td class="num">${(+g.train_return||0).toFixed(2)}</td>`+
+  `<td class="num">${(+g.train_loss||0).toFixed(3)}</td>`+
+  `<td><span class="rate-wrap rate-text" title="challenger W-D-L · Wilson lower bound (z=1.0) ${g.wilson_lower.toFixed(2)} vs promotion threshold ${thr.toFixed(2)} · ▲ ${(thr*100).toFixed(0)}% threshold"><span class="rate-bar"><div style="width:${pct.toFixed(0)}%"></div>`+
+  `<span class="marker" style="left:${(thr*100).toFixed(0)}%" title="promotion threshold ${thr.toFixed(2)}"></span></span>`+
+  `${g.eval_w}-${g.eval_d}-${losses} · ${(g.win_rate*100).toFixed(1)}% (draws count ½) · lower ${g.wilson_lower.toFixed(2)} · `+
+  `<span title="mean eval margin, challenger-minus-champion">margin ${margin>=0?"+"+margin.toFixed(2):margin.toFixed(2)} pts</span>`+
+  `<div class="dots" title="per-duel margins: green win, blue draw, red loss">${dotStrip(g.margins)}</div></span></td>`+
+  `<td>${g.promoted?'<span class="badge promoted">promoted ★</span>':'<span class="badge held">held</span>'}`+
+  `<div class="legend" style="margin:4px 0 0">${esc(g.reason)}</div>`+(g.exploiter?` <span class="badge draw">exploiter</span>`:'')+`</td>`+
+  `<td>${crown}</td>`+
+  `<td class="num legend truncate" title="${esc(g.arch)} · ${g.turns} turns">${esc(g.arch)} · ${g.turns} turns · γ ${g.gamma}</td></tr>`;
 }
 function renderPopulation(){
-  const rows=S.members.map(m=>{const role=m.role==="main"?"seed":m.role;
-    return `<tr><td>${esc(m.id)}${m.id===S.champion?' <span class="champ-star">★</span>':""}</td>`+
-    `<td>${esc(role)}${m.role==="main"?' <span class="legend">founding weights</span>':""}</td><td>${esc(m.parent||"—")}</td>`+
-    `<td><span class="nash-wrap"><span class="nash-bar"><div style="width:${(m.nash*100).toFixed(1)}%"></div></span>${m.nash.toFixed(2)}</span></td>`+
-    `<td class="num">${m.wins}-${m.draws}-${m.losses}</td></tr>`}).join("");
-  $("pop-body").innerHTML=rows||'<tr><td colspan="5" class="empty">no checkpoints yet — start a generation</td></tr>';
+  if(tableBusy("pop-body"))return; // P0-3: reader busy, retry next poll
+  // P1-2: Nash desc, zero-Nash hidden by default, % at 1dp, ≥1px bars.
+  const hide=$("hide-zero")&&$("hide-zero").checked;
+  const ranked=[...(S.members||[])].sort((a,b)=>(b.nash||0)-(a.nash||0));
+  const vis=hide?ranked.filter(m=>(m.nash||0)>0):ranked;
+  const pages=Math.max(1,Math.ceil(vis.length/PAGE));
+  popPage=Math.min(popPage,pages-1);
+  const h=hide+"|"+popPage+"|"+JSON.stringify(vis.slice(popPage*PAGE,popPage*PAGE+PAGE));
+  if(h===lastPop)return; // unchanged: keep focus, selection, scroll
+  lastPop=h;
+  const rows=vis.slice(popPage*PAGE,popPage*PAGE+PAGE).map(m=>popRow(m)).join("");
+  keepScroll($("pop-scroll"),()=>{
+    $("pop-body").innerHTML=rows||'<tr><td colspan="5" class="empty">no checkpoints yet — start a generation</td></tr>';
+  });
+  const page=Math.min(popPage+1,pages);
+  const shown=vis.slice(popPage*PAGE,popPage*PAGE+PAGE).length;
+  $("pop-count").textContent=`showing ${shown} of ${vis.length} · page ${page} of ${pages}`;
+  $("pop-prev").disabled=popPage<=0;
+  $("pop-next").disabled=popPage+1>=pages;
+}
+function popRow(m){
+  // Twin of Python pop_row_html.
+  const role=m.role==="main"?"seed":m.role;
+  const pct=(m.nash||0)*100;
+  const bar=`max(${pct.toFixed(1)}%,${(m.nash||0)>0?1:0}px)`;
+  return `<tr><td class="truncate" title="${esc(m.id)}">${esc(m.id)}${m.id===S.champion?' <span class="champ-star">★</span>':""}</td>`+
+  `<td>${esc(role)}${m.role==="main"?' <span class="legend">founding weights</span>':""}</td><td class="truncate" title="${esc(m.parent||"")}">${esc(m.parent||"—")}</td>`+
+  `<td><span class="nash-wrap"><span class="nash-bar"><div style="width:${bar}"></div></span>${pct.toFixed(1)}%</span></td>`+
+  `<td class="num">${m.wins}-${m.draws}-${m.losses}</td></tr>`;
 }
 function renderGenerations(){
-  const rows=S.generations.map(g=>{
-    const pct=g.eval_games?100*(g.win_rate):0;
-    return `<tr><td>${esc(g.id)}${g.finished_at?`<div class="legend">${clock(g.finished_at)}</div>`:""}${g.duration_s?`<div class="legend">${g.duration_s}s</div>`:""}</td><td class="num">${g.train_return.toFixed(2)}</td>`+
-    `<td class="num">${g.train_loss.toFixed(3)}</td>`+
-    `<td><span class="rate-wrap rate-text" title="Wilson lower bound (z=1.0) ${g.wilson_lower.toFixed(2)} vs promotion threshold ${g.threshold.toFixed(2)}"><span class="rate-bar"><div style="width:${pct.toFixed(0)}%"></div>`+
-    `<span class="marker" style="left:${(g.threshold*100).toFixed(0)}%"></span></span>`+
-    `${g.eval_w}-${g.eval_d}-${Math.max(0,g.eval_games-g.eval_w-g.eval_d)} · ${(g.win_rate*100).toFixed(0)}% (draw=&#189;) · lower ${g.wilson_lower.toFixed(2)} · margin ${g.mean_margin.toFixed(2)}</span></td>`+
-    `<td>${g.promoted?'<span class="badge promoted">promoted ★</span>':'<span class="badge held">held</span>'}`+
-    `<div class="legend" style="margin:4px 0 0">${esc(g.reason)}</div>`+(g.exploiter?` <span class="badge draw">exploiter</span>`:'')+`</td>`+
-    `<td>${g.crown==="complete"?'<span class="badge promoted" title="beat the champ head-to-head AND the duel field">complete</span>':g.crown==="soft"?'<span class="badge held" title="took the throne without both edges">soft</span>':'<span class="legend">—</span>'}</td>`+
-    `<td class="num legend">${esc(g.arch)} · ${g.turns}t · γ${g.gamma}</td></tr>`;}).join("");
-  $("gen-body").innerHTML=rows||'<tr><td colspan="7" class="empty">no completed generations yet</td></tr>';
+  if(tableBusy("gen-body"))return; // P0-3: reader busy, retry next poll
+  const vis=genFiltered();
+  const pages=Math.max(1,Math.ceil(vis.length/PAGE));
+  genPage=Math.min(genPage,pages-1);
+  const h=$("member").value+"|"+genPage+"|"+JSON.stringify(vis.slice(genPage*PAGE,genPage*PAGE+PAGE));
+  if(h===lastGens)return; // unchanged: keep focus, selection, scroll
+  lastGens=h;
+  const rows=vis.slice(genPage*PAGE,genPage*PAGE+PAGE).map(g=>genRow(g)).join("");
+  keepScroll($("gen-scroll"),()=>{
+    $("gen-body").innerHTML=rows||($("member").value
+      ?`<tr><td colspan="7" class="empty">no generations for ${esc($("member").value)} yet — <a href="#" class="js-clear">clear filter</a></td></tr>`
+      :'<tr><td colspan="7" class="empty">no completed generations yet</td></tr>');
+  });
+  bindClear();
+  const page=Math.min(genPage+1,pages);
+  $("gen-count").textContent=`showing ${vis.slice(genPage*PAGE,genPage*PAGE+PAGE).length} of ${vis.length} · page ${page} of ${pages}`;
+  $("gen-prev").disabled=genPage<=0;
+  $("gen-next").disabled=genPage+1>=pages;
 }
 function memberIds(){return S.members.map(m=>m.id);}
 function renderMemberOptions(){
-  const sel=$("member"),cur=sel.value||new URLSearchParams(location.hash.slice(1)).get("member")||"";
-  const ids=memberIds();
-  if(sel.options.length-1===ids.length && ids.every((id,i)=>sel.options[i+1].text===id)){
-    if(cur&&ids.includes(cur)) sel.value=cur;
-    return; // unchanged: leave the open dropdown alone
+  // P0-3: text input + datalist (native autocomplete, keyboard-friendly).
+  // The input keeps its own value/focus: only the option list refreshes.
+  const dl=$("member-list"),ids=memberIds();
+  const h=JSON.stringify(ids);
+  if(h===dl.dataset.ids)return;
+  dl.dataset.ids=h;
+  dl.innerHTML=ids.map(id=>`<option value="${esc(id)}">`).join("");
+  syncClear();
+}
+function syncClear(){
+  // The clear-filter link is always one click away (P0-4).
+  const has=!!$("member").value;
+  $("clear-filter").style.display=has?"":"none";
+}
+function bindClear(){
+  document.querySelectorAll(".js-clear").forEach(a=>{
+    if(a.dataset.bound)return;
+    a.dataset.bound="1";
+    a.addEventListener("click",e=>{e.preventDefault();clearMember();});
+  });
+}
+function clearMember(){
+  $("member").value="";
+  gamesOffset=0;genPage=0;
+  history.replaceState(null,"",location.pathname);
+  syncClear();renderGenerations();renderGames(++seq);
+}
+function gameRow(x){
+  // Twin of Python game_row_html.
+  const m=$("member").value.trim();
+  const seats=x.seats||[];
+  const refS=seats.find(s=>s.id===m)||seats[0]||{id:"?",score:"?",result:"draw"};
+  const o=seatBadge(refS.result);
+  const label=replayLabel(x.gen,x.replay);
+  const names=seats.map(s=>s.id).join(" vs ");
+  let match;
+  if(seats.length<=2){
+    const s0=seats[0]||{id:"?",score:"?",result:"draw"};
+    const s1=seats[1]||{id:"?",score:"?",result:"draw"};
+    const w0=s0.result==="win",w1=s1.result==="win";
+    const w0h=(w0?'<span class="winner">':'')+esc(s0.id)+(w0?'</span>':'');
+    const w1h=(w1?'<span class="winner">':'')+esc(s1.id)+(w1?'</span>':'');
+    match=`<td class="matchup" title="engine score">${w0h} ${s0.score} – ${s1.score} ${w1h}</td>`;
+  }else{
+    const line=seats.map(s=>(s.result==="win"?'<span class="winner">':'')+esc(s.id)+" "+s.score+(s.result==="win"?'</span>':'')).join(" · ");
+    const pairs=(x.pairs||[]).map(p=>esc(p.a)+" "+p.score_a+"–"+p.score_b+" "+esc(p.b)).join(" · ");
+    match=`<td class="matchup" title="engine scores, all ${seats.length} seats">${line}<div class="pairs">${pairs}</div></td>`;
   }
-  sel.innerHTML='<option value="">all members</option>'+ids.map(id=>`<option>${esc(id)}</option>`).join("");
-  if(cur&&ids.includes(cur)) sel.value=cur;
+  return `<tr><td>${esc(x.gen)}</td><td><span class="pill ${esc(x.kind)}">${esc(x.kind)}</span></td>`+
+  match+`<td><span class="badge ${o.cls}">${o.label}</span></td>`+
+  `<td class="replay"><a href="/replay?f=${encodeURIComponent(x.replay)}" target="_blank" rel="noopener" title="${esc(names)}, gen ${esc(x.gen)} — opens in a new tab">${esc(label)}<span aria-hidden="true"> ↗</span></a></td></tr>`;
 }
 async function renderGames(my){
-  const m=$("member").value;
+  const m=$("member").value.trim();
   if(m)history.replaceState(null,"","#member="+encodeURIComponent(m));
-  else history.replaceState(null,"",location.pathname);
-  if($("games-body").matches(":hover")||$("games-body").contains(document.activeElement)) return true; // reader busy: retry next poll
+  else if(!location.search)history.replaceState(null,"",location.pathname);
+  syncClear();
+  if(tableBusy("games-body")) return true; // reader busy: retry next poll
   const qparts=[];
   if(m)qparts.push("member="+encodeURIComponent(m));
   qparts.push("limit=100","offset="+gamesOffset);
@@ -1844,33 +2501,17 @@ async function renderGames(my){
     $("error").textContent="games feed failed ("+e.message+") — showing last good table. retrying…";
     return false;
   }
-  if(my!==seq||$("member").value!==m) return true; // a newer poll or filter won
+  if(my!==seq||$("member").value.trim()!==m) return true; // a newer poll or filter won
   const h=m+"|"+gamesOffset+"|"+JSON.stringify(data);
   if(h===lastGames) return true; // unchanged: keep focus, selection, scroll
   lastGames=h;
-  const rows=data.rows.map(x=>{
-    const seats=x.seats||[];
-    const refS=seats.find(s=>s.id===m)||seats[0]||{id:"?",score:"?",result:"draw"};
-    const o=seatBadge(refS.result);
-    const label=x.gen+" · "+shortReplay(x.replay);
-    const names=seats.map(s=>s.id).join(" vs ");
-    let match;
-    if(seats.length<=2){
-      const s0=seats[0]||{id:"?",score:"?",result:"draw"};
-      const s1=seats[1]||{id:"?",score:"?",result:"draw"};
-      const w0=s0.result==="win",w1=s1.result==="win";
-      const w0h=(w0?'<span class="winner">':'')+esc(s0.id)+(w0?'</span>':'');
-      const w1h=(w1?'<span class="winner">':'')+esc(s1.id)+(w1?'</span>':'');
-      match=`<td class="matchup" title="engine score">${w0h} ${s0.score} – ${s1.score} ${w1h}</td>`;
-    }else{
-      const line=seats.map(s=>(s.result==="win"?'<span class="winner">':'')+esc(s.id)+" "+s.score+(s.result==="win"?'</span>':'')).join(" · ");
-      const pairs=(x.pairs||[]).map(p=>esc(p.a)+" "+p.score_a+"–"+p.score_b+" "+esc(p.b)).join(" · ");
-      match=`<td class="matchup" title="engine scores, all ${seats.length} seats">${line}<div class="pairs">${pairs}</div></td>`;
-    }
-    return `<tr><td>${esc(x.gen)}</td><td><span class="pill ${esc(x.kind)}">${esc(x.kind)}</span></td>`+
-    match+`<td><span class="badge ${o.cls}">${o.label}</span></td>`+
-    `<td class="replay"><a href="/replay?f=${encodeURIComponent(x.replay)}" target="_blank" rel="noopener" title="${esc(names)}, gen ${esc(x.gen)} — opens in a new tab">${esc(label)}<span aria-hidden="true"> ↗</span></a></td></tr>`;}).join("");
-  $("games-body").innerHTML=rows||(data.total?`<tr><td colspan="5" class="empty">no games on this page — use the pager above</td></tr>`:(m?`<tr><td colspan="5" class="empty">no games logged for ${esc(m)} yet</td></tr>`:'<tr><td colspan="5" class="empty">no games logged yet — they appear here as each finishes</td></tr>'));
+  const rows=data.rows.map(x=>gameRow(x)).join("");
+  keepScroll($("games-scroll"),()=>{
+    // One shared empty-state shape (P2-2); the filtered case escapes via
+    // the clear-filter link, not only by retyping (P0-4).
+    $("games-body").innerHTML=rows||(data.total?`<tr><td colspan="5" class="empty">no games on this page — use the pager above</td></tr>`:(m?`<tr><td colspan="5" class="empty">no games logged for ${esc(m)} yet — <a href="#" class="js-clear">clear filter</a></td></tr>`:'<tr><td colspan="5" class="empty">no games logged yet — they appear here as each game finishes</td></tr>'));
+  });
+  bindClear();
   const pages=Math.max(1,Math.ceil(data.total/100));
   const page=Math.floor(gamesOffset/100)+1;
   $("games-count").textContent=`showing ${data.rows.length} of ${data.total} · page ${Math.min(page,pages)} of ${pages}`;
@@ -1879,31 +2520,58 @@ async function renderGames(my){
   return true;
 }
 function renderMaps(){
+  if(tableBusy("maps-body"))return;
+  const h=JSON.stringify(S.maps||[]);
+  if(h===lastMaps)return;
+  lastMaps=h;
+  // Null maps are legacy pre-map-logging rows, pinned last server-side.
   const rows=(S.maps||[]).map(m=>{
-    return `<tr><td>${esc(m.map||"unknown")}</td><td class="num">${m.n}</td>`+
+    const label=m.map||"unlabelled (pre-map logging)";
+    return `<tr><td class="truncate" title="${esc(m.map||"unlabelled (pre-map logging)")}">${esc(label)}</td><td class="num">${m.n}</td>`+
     `<td class="num">${m.train}</td><td class="num">${m.eval}</td>`+
     `<td class="num">${m.cw}-${m.cd}-${m.cl}</td></tr>`;}).join("");
-  $("maps-body").innerHTML=rows||'<tr><td colspan="5" class="empty">no games logged yet — they appear here as each finishes</td></tr>';
+  keepScroll($("maps-scroll"),()=>{
+    $("maps-body").innerHTML=rows||'<tr><td colspan="5" class="empty">no games logged yet — they appear here as each game finishes</td></tr>';
+  });
+}
+function seedMember(){
+  // P0-4: `?member=` seeds the filter on load, then the URL is replaced
+  // with the canonical `#member=` form. Unknown ids stay in the input so
+  // the empty state + clear-filter link show (never a silent ignore).
+  const q=new URLSearchParams(location.search).get("member");
+  const hm=new URLSearchParams(location.hash.slice(1)).get("member");
+  const want=(hm!==null&&hm!=="")?hm:q;
+  if(want===null||want===undefined||want===""){
+    if(q)history.replaceState(null,"",location.pathname);
+    return;
+  }
+  $("member").value=want;
+  gamesOffset=0;genPage=0;
+  history.replaceState(null,"","#member="+encodeURIComponent(want));
+  syncClear();renderGenerations();
 }
 async function load(){
   if(!live) return;
   const my=++seq;
   try{
-    const snap=await fetchJSON("/api/snapshot");
+    // P0-2: idle polls send ?since= and get a tiny {unchanged:true}.
+    const url=(S&&S.mtime)?"/api/snapshot?since="+encodeURIComponent(S.mtime):"/api/snapshot";
+    const snap=await fetchJSON(url);
     if(my!==seq) return; // a newer poll won
-    const h=JSON.stringify(snap);
     lastTick=Date.now();
     $("error").style.display="none";
-    if(h!==lastHash){lastHash=h;S=snap;
-      renderHeader();renderBoard();renderPopulation();renderGenerations();renderMemberOptions();renderMaps();}
-    else renderHeader();
-    if(!hashSeeded){hashSeeded=true;
-      const hm=new URLSearchParams(location.hash.slice(1)).get("member");
-      if(hm){const sel=$("member");
-        if([...sel.options].some(o=>o.text===hm)){sel.value=hm;gamesOffset=0;}
-        else history.replaceState(null,"",location.pathname);}}
+    if(snap.unchanged&&S){renderHeader();}
+    else{
+      S=snap;
+      const h=JSON.stringify(snap);
+      if(h!==lastHash){lastHash=h;
+        renderHeader();renderBoard();renderPopulation();renderGenerations();renderMemberOptions();renderMaps();}
+      else renderHeader();
+      if(!hashSeeded){hashSeeded=true;seedMember();}
+    }
+    renderPill();
     const ok=await renderGames(my);
-    $("updated").textContent="updated "+ago(lastTick)+" · "+(ok?"live":"games feed stale · live snapshot");
+    if(!ok)$("updated").textContent="updated "+ago(lastTick)+" · games feed stale · live snapshot";
   }catch(e){
     $("error").style.display="block";
     $("error").textContent=lastTick?"connection lost ("+e.message+") — showing last good data from "+ago(lastTick)+". retrying…"
@@ -1911,15 +2579,22 @@ async function load(){
   }
 }
 function activePhase(){const p=S&&S.status&&S.status.phase;return p==="train"||p==="eval";}
-function tick(){load().finally(()=>setTimeout(tick,live?(activePhase()?5000:15000):15000));}
+function tick(){renderPill();load().finally(()=>setTimeout(tick,live?(activePhase()?5000:15000):15000));}
 let gamesOffset=0,hashSeeded=false;
-$("member").addEventListener("change",()=>{gamesOffset=0;++seq;renderGames(seq);});
+$("member").addEventListener("input",()=>{gamesOffset=0;genPage=0;++seq;syncClear();renderGenerations();renderGames(seq);});
+$("member").addEventListener("change",()=>{gamesOffset=0;genPage=0;++seq;syncClear();renderGenerations();renderGames(seq);});
+$("clear-filter").addEventListener("click",e=>{e.preventDefault();clearMember();});
+$("gen-prev").addEventListener("click",()=>{genPage=Math.max(0,genPage-1);renderGenerations();});
+$("gen-next").addEventListener("click",()=>{genPage+=1;renderGenerations();});
+$("pop-prev").addEventListener("click",()=>{popPage=Math.max(0,popPage-1);renderPopulation();});
+$("pop-next").addEventListener("click",()=>{popPage+=1;renderPopulation();});
+$("hide-zero").addEventListener("change",()=>{popPage=0;lastPop="";renderPopulation();});
 $("pg-prev").addEventListener("click",()=>{gamesOffset=Math.max(0,gamesOffset-100);renderGames(++seq);});
 $("pg-next").addEventListener("click",()=>{gamesOffset+=100;renderGames(++seq);});
 $("live-toggle").addEventListener("change",e=>{live=e.target.checked;
   if(!live)seq++; // invalidate in-flight polls
   $("live-label").textContent=live?"live":"paused";
-  $("updated").textContent="updated "+ago(lastTick)+" · "+(live?"live":"paused");load();});
+  renderPill();load();});
 let resizeT=0;
 window.addEventListener("resize",()=>{clearTimeout(resizeT);resizeT=setTimeout(()=>{if(S)renderBoard();},150);});
 load();
@@ -1927,7 +2602,70 @@ tick();
 """
 
 
-def render_page() -> str:
+def render_page(snap: dict | None = None) -> str:
+    """Full page. With a snapshot the hero, strip and first table pages
+    are server-rendered (P0-1 first paint); without one the shell carries
+    skeleton shimmer rows so layout doesn't jump."""
+    if snap is None:
+        skel3 = "".join(
+            '<tr class="skel">' + "<td><span></span></td>" * 4 + "</tr>" for _ in range(3))
+        hero_champ, hero_run, hero_eta = "loading…", "gen —", ""
+        status_line, pct, bar_bg = "loading…", 0, "var(--accent)"
+        counts = ("0", "0", "0", "0")
+        gen_rows = skel3
+        gen_count = "loading…"
+        game_rows = skel3
+        game_count = "loading…"
+        pop_rows = skel3
+        pop_count = "loading…"
+        map_rows = skel3
+        footer_counts = "0 games"
+    else:
+        champ = snap.get("champion")
+        star = ' <span class="champ-star">★</span>' if champ else ""
+        hero_champ = f"{_esc(champ or '—')}{star}"
+        run = snap.get("run", {}) or {}
+        hero_run = _esc(hero_run_text(run))
+        hero_eta = ""
+        tgt = run.get("target")
+        if not (isinstance(tgt, int) and (run.get("finished", 0) or 0) >= tgt):
+            bits = []
+            if run.get("last_finished_at"):
+                bits.append("last finished " + fmt_time(run["last_finished_at"]))
+            if run.get("avg_s"):
+                bits.append(f"avg {run['avg_s']}s/gen")
+            if isinstance(tgt, int) and run.get("avg_s") and tgt > (run.get("finished", 0) or 0):
+                bits.append("ETA " + fmt_time(time.time() + (tgt - run["finished"]) * run["avg_s"]))
+            hero_eta = _esc(" · ".join(bits) or "no timing data yet")
+        status_line, pct = status_html(snap.get("status"), champ,
+                                       snap.get("counts", {}).get("generations", 0))
+        st = snap.get("status", {}) or {}
+        bar_bg = ("var(--success)" if st.get("phase") == "done" and st.get("promoted")
+                  else "var(--warn)" if st.get("phase") == "done"
+                  else "var(--accent)")
+        counts = (str(snap.get("counts", {}).get("generations", 0)),
+                  str(snap.get("counts", {}).get("games", 0)),
+                  str(len(snap.get("members", []))),
+                  str(len(snap.get("maps", []))))
+        gens = snap.get("generations", [])
+        gen_rows = "".join(gen_row_html(g) for g in gens[:PAGE_SIZE]) or \
+            '<tr><td colspan="7" class="empty">no completed generations yet</td></tr>'
+        npages = max(1, (len(gens) + PAGE_SIZE - 1) // PAGE_SIZE)
+        gen_count = f"showing {min(len(gens), PAGE_SIZE)} of {len(gens)} · page 1 of {npages}"
+        games = snap.get("games", [])
+        game_rows = "".join(game_row_html(x) for x in games) or \
+            f'<tr><td colspan="5" class="empty">{EMPTY_GAMES}</td></tr>'
+        total = snap.get("game_total", len(games))
+        game_count = f"showing {len(games)} of {total} · page 1 of {max(1, (total + 99) // 100)}"
+        vis = pop_first_page(snap.get("members", []), champ)
+        pop_rows = "".join(pop_row_html(m, champ) for m in vis[:PAGE_SIZE]) or \
+            '<tr><td colspan="5" class="empty">no checkpoints yet — start a generation</td></tr>'
+        ppp = max(1, (len(vis) + PAGE_SIZE - 1) // PAGE_SIZE)
+        pop_count = f"showing {min(len(vis), PAGE_SIZE)} of {len(vis)} · page 1 of {ppp}"
+        maps = snap.get("maps", [])
+        map_rows = "".join(map_row_html(m) for m in maps) or \
+            f'<tr><td colspan="5" class="empty">{EMPTY_GAMES}</td></tr>'
+        footer_counts = f"{snap.get('game_total', 0)} games"
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -1940,70 +2678,91 @@ def render_page() -> str:
 <div class="card" id="getting-started" style="display:none"><b>No generations yet.</b> Start one with:
 <code>.venv/bin/python ml/selfplay.py --train-games 4 --eval-games 6 --turns 50 --no-commit</code>
 — games, curves and population appear here as it runs.</div>
-<div class="stats" id="stats-row">
-  <div class="card"><div class="stat-label">Champion</div><div class="stat-value" id="st-champ">—</div></div>
-  <div class="card"><div class="stat-label">Generations</div><div class="stat-value" id="st-gen">0</div></div>
-  <div class="card"><div class="stat-label">Games logged (train + eval)</div><div class="stat-value" id="st-games">0</div></div>
-  <div class="card"><div class="stat-label">Run</div><div class="stat-value" id="st-run">—</div><div class="legend" id="st-eta"></div></div>
-  <div class="card status-wide"><div class="stat-label">Status</div>
-    <div class="status-line" id="st-status">loading…</div>
-    <div class="progress"><div id="st-bar" style="width:0%"></div></div></div>
+<div class="card hero" id="hero">
+  <div class="hero-main"><div class="stat-label">★ Champion</div>
+    <div class="hero-champ" id="st-champ">{hero_champ}</div>
+    <div class="hero-run" id="st-run">{hero_run}</div>
+    <div class="legend" id="st-eta">{hero_eta}</div></div>
+  <div class="hero-side"><div class="stat-label">Status</div>
+    <div class="status-line" id="st-status">{status_line}</div>
+    <div class="progress" role="progressbar" aria-label="run progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{pct}" id="st-barwrap"><div id="st-bar" style="width:{pct}%;background:{bar_bg}"></div></div></div>
+</div>
+<div class="strip" id="stats-row">
+  <div class="mini"><div class="stat-label">Generations</div><div class="stat-value" id="st-gen">{counts[0]}</div></div>
+  <div class="mini"><div class="stat-label">Games</div><div class="stat-value" id="st-games">{counts[1]}</div></div>
+  <div class="mini"><div class="stat-label">Members</div><div class="stat-value" id="st-members">{counts[2]}</div></div>
+  <div class="mini"><div class="stat-label">Maps × seats</div><div class="stat-value" id="st-maps">{counts[3]}</div></div>
 </div>
 <div class="section-title">Progress board</div>
-<div class="legend">seven training curves, one point per generation, oldest → newest · axes span the data range</div>
+<div class="legend">seven training curves, one point per generation, oldest → newest</div>
+<details class="why"><summary>what am I looking at?</summary><p>Each card plots one signal per generation, oldest on the left. <b>Return</b> is the mean engine score per training game. Thick lines are window medians over faint per-generation points; shaded bands are the spread. The PG ratio card is experimental — it has no literature backing, unlike the rest.</p></details>
 <div class="charts">
-  <div class="card chart-card"><div class="chart-head"><h3>Candidate vs champion Elo</h3></div>
-    <p class="chart-sub">causal Bradley-Terry over train+eval pairs (valid engine games) · refit every 15 gens on games ≤ refit gen only (warm-started, step-held) · zero = g000 only · light = candidate, dark = defending champ · gray = last-3-deposed reference trajectories (panel picked from full history; values causal) · <span id="elo-turn"></span></p><canvas id="ch-elo"></canvas></div>
-  <div class="card chart-card"><div class="chart-head"><h3>Knock marks + rates</h3></div>
-    <p class="chart-sub">top lane: one tick per gen (blue = knock eff ≥ .50, gray = held, gap = no eval) · bottom: trailing 15-gen knock (blue) and conversion | knock (green) with Wilson z=1.0 bands</p><canvas id="ch-knock-marks" style="height:64px"></canvas><canvas id="ch-knock" style="margin-top:8px"></canvas></div>
-  <div class="card chart-card"><div class="chart-head"><h3>Decisiveness train vs eval</h3></div>
-    <p class="chart-sub">nonzero-margin fraction · faint raw per gen, bold 15-gen MA · train from grouped games, eval from duel margins</p><canvas id="ch-dec"></canvas></div>
-  <div class="card chart-card"><div class="chart-head"><h3>Eval margin median ± IQR</h3></div>
-    <p class="chart-sub">pooled trailing 15-gen window · signed challenger-minus-champ</p><canvas id="ch-marg"></canvas></div>
-  <div class="card chart-card"><div class="chart-head"><h3>PG signal ratio + entropy</h3></div>
-    <p class="chart-sub">ratio = |pg_loss|/pg_abs at last epoch, 10-gen median · EXPERIMENTAL: no literature backing · entropy on right axis</p><canvas id="ch-pg"></canvas></div>
-  <div class="card chart-card"><div class="chart-head"><h3>Value-fit slope</h3></div>
-    <p class="chart-sub">(v_loss[0]−v_loss[−1])/v_loss[0] · + = critic learned in-gen · line = no change</p><canvas id="ch-vslope"></canvas></div>
+  <div class="card chart-card"><div class="chart-head"><h3>Candidate vs champion Elo</h3><span class="delta flat" id="d-elo" style="display:none"></span></div>
+    <p class="chart-sub">causal Bradley-Terry over train+eval pairs · refit every 15 gens · <span id="elo-turn"></span></p><canvas id="ch-elo"></canvas></div>
+  <div class="card chart-card"><div class="chart-head"><h3>Knock marks + rates</h3><span class="delta flat" id="d-knock" style="display:none"></span></div>
+    <p class="chart-sub">top: one tick per gen (blue knock ≥ .50, gray held) · bottom: 15-gen rates + Wilson bands</p><canvas id="ch-knock-marks" style="height:64px"></canvas><canvas id="ch-knock" style="margin-top:8px"></canvas></div>
+  <div class="card chart-card"><div class="chart-head"><h3>Decisiveness train vs eval</h3><span class="delta flat" id="d-dec" style="display:none"></span></div>
+    <p class="chart-sub">nonzero-margin fraction · faint raw, bold 15-gen average</p><canvas id="ch-dec"></canvas></div>
+  <div class="card chart-card"><div class="chart-head"><h3>Eval margin median ± IQR</h3><span class="delta flat" id="d-marg" style="display:none"></span></div>
+    <p class="chart-sub">pooled trailing 15-gen window · signed challenger-minus-champ, pts</p><canvas id="ch-marg"></canvas></div>
+  <div class="card chart-card"><div class="chart-head"><h3>PG signal ratio + entropy</h3><span class="delta flat" id="d-pg" style="display:none"></span></div>
+    <p class="chart-sub">ratio = |pg_loss|/pg_abs at last epoch · EXPERIMENTAL · entropy on right axis</p><canvas id="ch-pg"></canvas></div>
+  <div class="card chart-card"><div class="chart-head"><h3>Value-fit slope</h3><span class="delta flat" id="d-vsl" style="display:none"></span></div>
+    <p class="chart-sub">(v_loss[0]−v_loss[−1])/v_loss[0] · + means the critic learned in-gen</p><canvas id="ch-vslope"></canvas></div>
   <div class="card chart-card"><div class="chart-head"><h3>Tenure / turnover + Nash entropy <span id="tenure-now"></span></h3></div>
-    <p class="chart-sub">tenure = gens held (crowning gen = 0) · ◆ = turnover, a new crown · shaded = N-player era · lower lane = Nash entropy normalized to its own min/max (true range labeled, nats)</p><canvas id="ch-tenure"></canvas><canvas id="ch-entlane" style="margin-top:8px"></canvas></div>
+    <p class="chart-sub">tenure = gens held (crowning gen = 0) · ◆ = new crown · shaded = N-player era</p><canvas id="ch-tenure"></canvas><canvas id="ch-entlane" style="margin-top:8px"></canvas></div>
 </div>
 <div class="section-title">Generations</div>
-<div class="legend">why each challenger was promoted or held — challenger W-D-L · score counts a draw as half a win · green fill is win rate, tick is the promotion threshold</div>
-<div class="card table-scroll table-tall" id="gen-card"><table>
-<tr><th>challenger</th><th class="num">train return</th><th class="num">train loss</th><th>eval vs champion</th><th>result</th><th>crown</th><th class="num">config</th></tr>
-<tbody id="gen-body"></tbody></table></div>
-<div class="cols">
-<div>
-<div class="section-title">Population</div>
-<div class="legend">nash = mixture share, display only (it guides matchmaking, never ranking) · W-D-L counts eval games: one entry per game (win = sole top score, draw = tied top)</div>
-<div class="card table-scroll table-tall"><table>
-<tr><th>id</th><th>role</th><th>parent</th><th>nash</th><th class="num">W-D-L (eval)</th></tr>
-<tbody id="pop-body"></tbody></table></div>
+<div class="legend">challenger W-D-L vs the champion · green fill is win rate, ▲ is the promotion threshold</div>
+<details class="why"><summary>jargon guide</summary><p>Each row is one challenger against the reigning champion. <b>Promoted</b> means its Wilson lower-bound win rate cleared the threshold (default 0.50) — it takes the throne. <b>Held</b> means it waits. <b>Crown</b> marks throne-takers: complete beat the champ head-to-head AND the duel field, soft took the throne without both. An <b>exploiter</b> badge flags challengers trained to probe weaknesses.</p></details>
+<div class="toolbar">
+<span class="pager"><button id="gen-prev" type="button" aria-label="newer generations page">← newer</button><button id="gen-next" type="button" aria-label="older generations page">older →</button></span>
+<span class="legend" id="gen-count" style="margin:0">{gen_count}</span>
 </div>
-<div>
+<div class="card table-scroll table-tall" id="gen-scroll"><table id="gen-card">
+<caption>Generations, newest first — the member filter above applies here too</caption>
+<tr><th scope="col">challenger</th><th scope="col" class="num">train return</th><th scope="col" class="num">train loss</th><th scope="col">eval vs champion</th><th scope="col">result</th><th scope="col">crown</th><th scope="col" class="num">config</th></tr>
+<tbody id="gen-body">{gen_rows}</tbody></table></div>
 <div class="section-title">Recent games</div>
-<div class="legend">train = practice (may include self-play) · eval = promotion duels vs champion · matchup scores are engine points · N-seat games list every seat, pair scores below</div>
+<div class="legend">train = practice · eval = promotion duels vs champion · scores are engine points</div>
+<details class="why"><summary>jargon guide</summary><p><b>Train</b> games are practice, including self-play. <b>Eval</b> games are promotion duels against the champion. The <b>result</b> badge reads from the filtered member's view when a filter is set, else the first-listed side. Games with 3+ seats list every seat with pair scores below.</p></details>
 <div class="card" id="games-card">
 <div class="toolbar">
 <label for="member">member</label>
-<select id="member"><option value="">all members</option></select>
+<input id="member" list="member-list" placeholder="all members" autocomplete="off" spellcheck="false">
+<datalist id="member-list"></datalist>
+<a href="#" id="clear-filter" class="clear-link" style="display:none">clear filter</a>
 <label class="live-toggle"><input type="checkbox" id="live-toggle" checked> <span id="live-label">live</span></label>
-<span class="pager"><button id="pg-prev" type="button">← newer</button><button id="pg-next" type="button">older →</button></span>
-<span class="legend" id="games-count" style="margin:0"></span>
+<span class="live-pill ok" id="live-pill">● live</span>
+<span class="pager"><button id="pg-prev" type="button" aria-label="newer games page">← newer</button><button id="pg-next" type="button" aria-label="older games page">older →</button></span>
+<span class="legend" id="games-count" style="margin:0">{game_count}</span>
 <span class="updated" id="updated" title="page refresh time — data may be older while the run is idle"></span>
 </div>
-<div class="table-scroll" style="max-height:480px; overflow-y:auto;"><table>
-<caption class="legend" style="text-align:left; padding:0 0 6px">result is the first-listed side's view · switches to the filtered member when filtered</caption>
-<tr><th>gen</th><th>kind</th><th>matchup</th><th>result</th><th>replay</th></tr>
-<tbody id="games-body"></tbody></table></div>
+<div class="table-scroll table-tall" id="games-scroll"><table>
+<caption>Recent games, newest first</caption>
+<tr><th scope="col">gen</th><th scope="col">kind</th><th scope="col">matchup</th><th scope="col">result</th><th scope="col">replay</th></tr>
+<tbody id="games-body">{game_rows}</tbody></table></div>
 </div>
+<div class="section-title">Population</div>
+<div class="legend">nash = mixture share in %, display only · W-D-L counts eval games</div>
+<details class="why"><summary>jargon guide</summary><p><b>Nash</b> is each checkpoint's share of the equilibrium mixture: it guides matchmaking, never ranking. <b>W-D-L</b> counts eval games only — one entry per game, where a win is the sole top score and a draw is a tied top. <b>Seed</b> is the founding-weights checkpoint everything descends from.</p></details>
+<div class="toolbar">
+<label class="live-toggle"><input type="checkbox" id="hide-zero" checked> hide zero-Nash</label>
+<span class="pager"><button id="pop-prev" type="button" aria-label="previous population page">← prev</button><button id="pop-next" type="button" aria-label="next population page">next →</button></span>
+<span class="legend" id="pop-count" style="margin:0">{pop_count}</span>
 </div>
+<div class="card table-scroll table-tall" id="pop-scroll"><table>
+<caption>Population by Nash share, highest first</caption>
+<tr><th scope="col">id</th><th scope="col">role</th><th scope="col">parent</th><th scope="col">nash</th><th scope="col" class="num">W-D-L (eval)</th></tr>
+<tbody id="pop-body">{pop_rows}</tbody></table></div>
 <div class="section-title">Maps</div>
-<div class="legend">per board and seat count — games logged per phase · chal is challenger-vs-champion on eval (fixed seats 0/1, extras are shared weather)</div>
-<div class="card table-scroll table-tall"><table>
-<tr><th>map</th><th class="num">seats</th><th class="num">train</th><th class="num">eval</th><th class="num">chal W-D-L (eval)</th></tr>
-<tbody id="maps-body"></tbody></table></div>
-</div>
+<div class="legend">per board and seat count — games per phase · challenger record on eval</div>
+<details class="why"><summary>jargon guide</summary><p>Each row is one board at one seat count. The <b>challenger record</b> covers eval games only, read off fixed seats 0 and 1 — extra seats are shared weather. Rows labelled unlabelled ran before map logging existed.</p></details>
+<div class="card table-scroll table-tall" id="maps-scroll"><table>
+<caption>Maps by games logged</caption>
+<tr><th scope="col">map</th><th scope="col" class="num">seats</th><th scope="col" class="num">train</th><th scope="col" class="num">eval</th><th scope="col" class="num">challenger W-D-L (eval)</th></tr>
+<tbody id="maps-body">{map_rows}</tbody></table></div>
+<div class="footer"><span>archive ml/archive</span><span class="sep">·</span><span>{footer_counts}</span><span class="sep">·</span><span>polls 5s active / 15s idle</span><span class="sep">·</span><span>AZDash</span></div>
 </div>
 <script>{SCRIPT}</script></body></html>
 """
