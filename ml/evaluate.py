@@ -114,14 +114,23 @@ def should_promote(
     return lower > threshold
 
 
+def _eval_map_for(cfg, g, offset):
+    """Map for eval game g. Fresh pools use the dedicated eval slice 1:1;
+    legacy pools cycle held-or-maps by generation offset."""
+    if cfg.get("eval_maps"):
+        return cfg["eval_maps"][g]
+    pool = cfg.get("held_maps") or cfg["maps"]  # evals on unseen maps
+    return pool[(offset + g) % len(pool)]
+
+
 def _play_duel(args) -> tuple[float, float]:
     """One eval duel: play and record. Thread-safe via archive lock."""
     (cfg, base, chal_id, opp_id, me_w, other_w, slot, g, offset) = args
     # A one-map curriculum has no held-out pool: evals run the same map.
-    pool = cfg.get("held_maps") or cfg["maps"]  # evals on unseen maps
+    # Fresh pools use the dedicated eval slice; legacy pools cycle held.
+    map_path = _eval_map_for(cfg, g, offset)
     rel = f"games/{chal_id}/eval{g}"
     first, second = (chal_id, opp_id) if slot == 0 else (opp_id, chal_id)
-    map_path = pool[(offset + g) % len(pool)]
     out = game_if.play(
         ROOT,
         sys.executable,

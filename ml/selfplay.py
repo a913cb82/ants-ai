@@ -31,7 +31,9 @@ def default_map_pool() -> list[str]:
     """Every playable 2p grid under tools/maps, sorted, deterministic.
 
     ~150 maps: upstream grids (maze/random_walk/cell_maze/tutorial)
-    plus the generated symmetric set. Rotation in train/eval cycles
+    plus the generated symmetric set. Fresh runs ignore this pool:
+    run_generation draws 80 no-args boards per generation instead.
+    Rotation in train/eval cycles
     the pool; slot alternation keeps asymmetric layouts fair."""
     import mapgen
 
@@ -54,6 +56,7 @@ def default_config() -> dict:
     return {
         "maps": train_maps,
         "held_maps": held_maps,
+        "fresh_maps": True,
         "turns": 250,
         "turns": 250,
         "train_draw_penalty_every": 0,
@@ -142,6 +145,7 @@ def parse_args(argv: list[str] | None = None) -> dict:
     return {
         "maps": train_maps,
         "held_maps": held_maps,
+        "fresh_maps": args.maps is None,
         "turns": args.turns,
         "train_games": args.train_games,
         "champ_share": args.champ_share,
@@ -278,6 +282,22 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
     else:
         champ_w = archive.load_checkpoint(base, champ_id)
     gen_index = len(read_history(base))
+    if cfg.get("fresh_maps"):
+        # Every run begins with fresh boards: 80 no-args draws (60 train
+        # + 20 eval games, 1:1), 2p only (the 2-bot engine rejects hill
+        # digits >= num_players at parse time; non-2p draws are set aside
+        # in the gen dir for the >2p discussion). Drill reservation and
+        # offset cycling are meaningless on all-fresh pools, so train/eval
+        # index their slices directly (see _train_map_for/_eval_map_for).
+        sys.path.insert(0, str(ROOT / "tools" / "mapgen"))
+        import gen_mixed
+        map_seed = cfg["seed"] * 100003 + gen_index
+        map_dir = base / "maps" / f"gen{gen_index:04d}"
+        train_maps, eval_maps = gen_mixed.fresh_pool(
+            cfg["train_games"] * 2, cfg["eval_games"], map_dir,
+            seed=map_seed, jobs=cfg.get("workers", 8))
+        cfg = dict(cfg, maps=train_maps + eval_maps,
+                   eval_maps=eval_maps)
     exploiter = gen_index % 3 == 2
     line = _exploiter_line(gen_index) if exploiter else None
     if exploiter:

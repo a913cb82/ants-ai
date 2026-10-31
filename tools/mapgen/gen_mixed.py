@@ -20,8 +20,8 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve()
-REPO = HERE.parents[3]
-MAPGEN = REPO / "tools" / "mapgen"
+REPO = HERE.parents[2]
+MAPGEN = HERE.parent
 AMSTAN = MAPGEN / "amstan"
 
 GENS = ("cavemap", "walk", "symmetric")
@@ -263,7 +263,7 @@ def _batch_task(plan):
     Returns (filename, content). Raises on exhaustion (the pool
     propagates it, so a failed batch writes nothing: all-or-nothing).
     """
-    i, gen, n, subseed, min_hill_dist, seed, count = plan
+    i, gen, n, subseed, min_hill_dist, note = plan
     text, argv, cwd = _generate_deterministic(gen, n, subseed,
                                               min_hill_dist)
     dims = {}
@@ -272,7 +272,7 @@ def _batch_task(plan):
             k, v = line.split()
             dims[k] = v
     name = f"mixed_{i:03d}_{gen}_p{n}_{dims['rows']}x{dims['cols']}.map"
-    return name, render(text, argv, cwd, f"{seed} batch {i}/{count}")
+    return name, render(text, argv, cwd, note)
 
 
 def run_batch(count, out_dir, seed, gen_pin, n_pin, min_hill_dist, jobs):
@@ -293,7 +293,8 @@ def run_batch(count, out_dir, seed, gen_pin, n_pin, min_hill_dist, jobs):
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     _load_genmods()  # before any fork: workers inherit loaded modules
-    plans = [(i, gen, n, sub, min_hill_dist, seed, count)
+    plans = [(i, gen, n, sub, min_hill_dist,
+              f"{seed} batch {i}/{count}")
              for i, (gen, n, sub) in enumerate(plans)]
     if jobs == 1:
         results = [_batch_task(p) for p in plans]
@@ -306,6 +307,61 @@ def run_batch(count, out_dir, seed, gen_pin, n_pin, min_hill_dist, jobs):
         (out / name).write_text(content)
         print(f"wrote {name}", file=sys.stderr)
     return [name for name, _ in results]
+
+
+def fresh_pool(n_train_games, n_eval_games, out_dir, seed, min_hill_dist=4.0,
+             jobs=8):
+    """Generate until n_train_games+n_eval_games 2p maps are collected.
+
+    No-args draws (random type, random 2-4 players). Non-2p maps are
+    written alongside and set aside for the >2p discussion, never
+    returned: the 2-bot engine rejects hill digits >= num_players at
+    parse time, so only 2p boards can host games today. Deterministic
+    in seed; bounded (fail loud past the draw cap). Returns
+    (train_paths, eval_paths) as strings, 1:1 with games.
+    """
+    need = n_train_games + n_eval_games
+    _load_genmods()  # before any fork: workers inherit loaded modules
+    rng = random.Random(seed)
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    two_p: list[str] = []
+    idx = draws = 0
+    use_pool = jobs != 1
+    pool = None
+    if use_pool:
+        import multiprocessing
+        pool = multiprocessing.get_context("fork").Pool(
+            processes=max(1, jobs))
+    try:
+        while len(two_p) < need:
+            if draws >= 10 * need + 64:
+                raise RuntimeError(
+                    f"fresh_pool: only {len(two_p)}/{need} 2p maps "
+                    f"in {draws} draws (seed {seed})")
+            batch = []
+            for _ in range(max(8, need)):
+                gen = rng.choice(GENS)
+                n = rng.choice([2, 3, 4])
+                batch.append((idx, gen, n, rng.randrange(1 << 30)))
+                idx += 1
+            draws += len(batch)
+            plans = [(i, g, n, s, min_hill_dist, f"{seed} fresh draw {i}")
+                     for i, g, n, s in batch]
+            if pool is None:
+                results = [_batch_task(p) for p in plans]
+            else:
+                results = pool.map(_batch_task, plans)
+            for (name, content), (_, _, pn, _, _, _) in zip(results,
+                                                              plans):
+                (out / name).write_text(content)
+                if pn == 2:
+                    two_p.append(str(out / name))
+    finally:
+        if pool is not None:
+            pool.close()
+            pool.join()
+    return two_p[:n_train_games], two_p[n_train_games:need]
 
 
 def main(argv=None):

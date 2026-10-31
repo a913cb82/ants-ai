@@ -3,7 +3,7 @@ import random
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools" / "maps" / "curriculum"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools" / "mapgen"))
 
 import gen_mixed
 
@@ -51,7 +51,7 @@ def test_metadata_header_present_and_valid():
     import subprocess
     proc = subprocess.run(
         [sys.executable, str(Path(__file__).resolve().parents[1]
-         / "tools" / "maps" / "curriculum" / "gen_mixed.py"),
+         / "tools" / "mapgen" / "gen_mixed.py"),
          "--seed", "42", "--players", "2", "--generator", "symmetric"],
         capture_output=True, text=True, timeout=180)
     assert proc.returncode == 0, proc.stderr
@@ -116,7 +116,7 @@ def test_batch_determinism_and_parallel_equivalence(tmp_path):
     import subprocess
     import sys
     script = (Path(__file__).resolve().parents[1]
-              / "tools" / "maps" / "curriculum" / "gen_mixed.py")
+              / "tools" / "mapgen" / "gen_mixed.py")
     a = tmp_path / "a"
     b = tmp_path / "b"
     for d, jobs in ((a, 1), (b, 4)):
@@ -141,11 +141,32 @@ def test_batch_requires_out_dir(tmp_path):
     import subprocess
     import sys
     script = (Path(__file__).resolve().parents[1]
-              / "tools" / "maps" / "curriculum" / "gen_mixed.py")
+              / "tools" / "mapgen" / "gen_mixed.py")
     proc = subprocess.run(
         [sys.executable, str(script), "--count", "3", "--seed", "1"],
         capture_output=True, text=True, timeout=120)
     assert proc.returncode != 0
+
+
+def test_fresh_pool_collects_exact_2p_counts(tmp_path):
+    import gen_mixed
+    train_maps, eval_maps = gen_mixed.fresh_pool(
+        4, 2, tmp_path / "gen000", seed=31337, jobs=1)
+    assert len(train_maps) == 4 and len(eval_maps) == 2
+    for p in train_maps + eval_maps:
+        text = Path(p).read_text()
+        n = int([l for l in text.splitlines()
+                 if l.startswith("players")][0].split()[1])
+        assert n == 2, p
+        ok, reason = gen_mixed.validate(text, 2)
+        assert ok, (p, reason)
+    # Deterministic: same seed replays byte-identical files.
+    again = tmp_path / "gen000b"
+    t2, e2 = gen_mixed.fresh_pool(4, 2, again, seed=31337, jobs=1)
+    for a, b in zip(train_maps + eval_maps, t2 + e2):
+        assert Path(a).read_bytes() != b""
+        assert Path(a).name == Path(b).name
+        assert Path(a).read_bytes() == Path(b).read_bytes()
 
 
 def test_end_to_end_each_generator():

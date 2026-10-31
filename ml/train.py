@@ -58,6 +58,15 @@ def _penalty_rng(cfg: dict, gen_index: int, g: int) -> random.Random:
     return random.Random(f"{cfg.get('seed', 0)}:{gen_index}:{g}")
 
 
+def _train_map_for(cfg, g, slot, drill_maps):
+    """Map for train game (g, slot). Fresh pools index 1:1 (game g*2+slot
+    plays maps[g*2+slot]); legacy pools keep drill reservation per
+    opponent."""
+    if cfg.get("fresh_maps"):
+        return cfg["maps"][g * 2 + slot]
+    return drill_maps[g]
+
+
 def _is_penalty_game(cfg: dict, g: int, gen_index: int = 0) -> bool:
     """Seeded per-game draw penalty: probability 1/N for each game.
 
@@ -141,8 +150,10 @@ def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict, role: 
         gen_num = int(chal_id[1:])
     except (ValueError, IndexError):
         gen_num = 0
-    drill_maps = archive.next_drill_maps(
-        base, cfg["maps"], cfg["train_games"], gen_num)
+    drill_maps = None
+    if not cfg.get("fresh_maps"):
+        drill_maps = archive.next_drill_maps(
+            base, cfg["maps"], cfg["train_games"], gen_num)
     for g, opp_id in enumerate(_train_opponents(
             base, student or champ_id, champ_id, cfg["train_games"],
             cfg["seed"], cfg.get("champ_share", 0.25))):
@@ -150,7 +161,8 @@ def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict, role: 
         for slot in (0, 1):
             me_w, other_w = (chal_w, opp_w) if slot == 0 else (opp_w, chal_w)
             jobs.append((cfg, base, chal_id, opp_id, me_w, other_w, slot,
-                         g, role, drill_maps[g]))
+                         g, role, _train_map_for(cfg, g, slot,
+                                                drill_maps)))
     workers = min(cfg.get("workers", 8), len(jobs)) or 1
     with ThreadPoolExecutor(max_workers=workers) as pool:
         games = list(pool.map(_play_one, jobs))

@@ -3035,3 +3035,28 @@ def test_train_opponents_share_one_all_champ(tmp_path):
     opps = train._train_opponents(base, "g020", "g019", 6, seed=3,
                                   champ_share=1.0)
     assert opps == ["g019"] * 6
+
+
+def test_train_map_for_fresh_indexing():
+    import train
+
+    maps = [f"m{i}.map" for i in range(80)]
+    cfg = {"fresh_maps": True, "maps": maps}
+    assert train._train_map_for(cfg, 0, 0, ["d0"]) == "m0.map"
+    assert train._train_map_for(cfg, 0, 1, ["d0"]) == "m1.map"
+    assert train._train_map_for(cfg, 29, 1, ["d29"]) == "m59.map"
+    # Legacy path untouched: drill reservation per opponent.
+    cfg = {"maps": maps}
+    assert train._train_map_for(cfg, 3, 1, ["d0", "d1", "d2", "d3"]) == "d3"
+
+
+def test_eval_map_for_fresh_slice():
+    import evaluate
+
+    eval_maps = [f"e{i}.map" for i in range(20)]
+    cfg = {"eval_maps": eval_maps, "maps": [f"m{i}.map" for i in range(80)]}
+    assert evaluate._eval_map_for(cfg, 0, 999) == "e0.map"
+    assert evaluate._eval_map_for(cfg, 19, 999) == "e19.map"
+    # Legacy path untouched: offset cycling over held-or-maps pool.
+    cfg = {"maps": ["a", "b", "c"]}
+    assert evaluate._eval_map_for(cfg, 4, 1) == "c"
