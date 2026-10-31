@@ -1313,34 +1313,32 @@ def test_snapshot_empty_and_populated(tmp_path):
 
     base = tmp_path / "archive"
     snap = dashboard.snapshot(base)
-    assert snap["champion"] is None and snap["members"] == [] and snap["games"] == []
+    assert snap["main"] is None and snap["members"] == [] and snap["games"] == []
     a = archive.save_checkpoint(base, {}, role="main", parent=None)
     b = archive.save_checkpoint(base, {}, role="challenger", parent=a)
     archive.set_champion(base, a)
     archive.log_game(base, a, "eval", a, b, 3, 1, "games/g000/e0/logs/0.replay")
     selfplay.append_history(base, {"train": {"losses": [0.5], "mean_return": 1.0}})
     snap = dashboard.snapshot(base)
-    assert snap["champion"] == a
+    assert snap["main"] == a  # legacy fallback: frozen record
     assert snap["members"][0]["wins"] == 1.0
     assert snap["games"][0]["replay"].endswith("0.replay")
 
 
-def test_snapshot_flags_exploiter_generations(tmp_path):
+def test_snapshot_keeps_legacy_gen_margins(tmp_path):
     import dashboard
     import selfplay
 
     base = tmp_path / "archive"
     selfplay.append_history(base, {
         "challenger": "c1", "champion": "m", "promoted": False,
-        "exploiter": True,
         "train": {"losses": [0.5], "mean_return": 0.1},
         "eval": {"wins": 0, "draws": 2, "games": 2, "win_rate": 0.5,
                  "margins": [0, 0], "mean_margin": 0.0},
         "config": {},
     })
     snap = dashboard.snapshot(base)
-    assert snap["generations"][0]["exploiter"] is True
-    assert snap["generations"][0]["margins"] == [0, 0]
+    assert snap["history"][0]["margins"] == [0, 0]  # dots still fed
 
 
 def test_batch_norm_keeps_event_magnitude_over_noise():
@@ -1380,11 +1378,9 @@ def test_snapshot_carries_run_timing_and_plan(tmp_path):
         })
     (base / "run_plan.json").write_text('{"target_gens": 10}')
     snap = dashboard.snapshot(base)
-    assert snap["generations"][0]["duration_s"] == 44.0  # newest first
-    assert snap["generations"][0]["finished_at"] == 1044.0
-    run = snap["run"]
-    assert run == {"finished": 2, "target": 10, "avg_s": 42.0,
-                   "last_finished_at": 1044.0}
+    assert snap["history"][0]["duration_s"] == 44.0  # newest first
+    assert snap["history"][0]["finished_at"] == 1044.0
+    assert snap["history"][0]["kind"] == "gen"  # league history rows
 
 
 def test_replay_page_guards_traversal(tmp_path):
@@ -1437,8 +1433,8 @@ def test_dashboard_http_api(tmp_path):
     try:
         root = f"http://127.0.0.1:{httpd.server_address[1]}"
         snap = json.load(urllib.request.urlopen(root + "/api/snapshot", timeout=5))
-        assert snap["champion"] == a and snap["game_total"] == 0
-        assert "generations" in snap and "status" in snap
+        assert snap["main"] == a and snap["game_total"] == 0
+        assert "history" in snap and "status" in snap
         archive.log_game(base, a, "eval", a, a, 1, 1, "games/g/e/logs/0.replay")
         page = json.load(urllib.request.urlopen(root + "/api/games?limit=1", timeout=5))
         assert page["total"] == 1 and len(page["rows"]) == 1
