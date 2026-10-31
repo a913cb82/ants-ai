@@ -774,26 +774,33 @@ def _elo_of(t: float) -> float | None:
 
 def _elo_extend(history: list[dict], ids: list[str], per_gen: list[dict],
                 sweeps: int, start: int, theta: list[float],
-                cand: list, champ: list, refs: dict, panel: list[str]) -> None:
+                cand: list, champ: list, refs: dict, panel: list[str],
+                parents: dict | None = None,
+                seen: set | None = None) -> None:
     """Extend the running-Elo series for gens [start, len(history)), in place.
 
     Single sequential pass: theta carries every game so far, and each
     gen's pairs update both endpoints (a few Gauss-Seidel sweeps with
     the field fixed at its current values), then cand/champ/panel are
     read out. g000 is pinned at theta 1.0 -- the fixed zero, so no
-    anchoring subtraction is needed and the zero can never drift. With
-    no g000 in ids the virtual regularizer anchors the field at 0
-    instead. Every plotted value uses only games <= its gen (causal by
+    anchoring subtraction is needed and the zero can never drift.
+    Every plotted value uses only games <= its gen (causal by
     construction); extending from stored theta continues bitwise.
 
-    Gauge lock: unregularized conditional updates have a scale degeneracy
-    (any point on the optimum ray is fixed, so sweeps stall at an
-    arbitrary scale -- the winner frozen at 1.0). After each gen the
-    active set's geometric mean is restored, pinning the scale while
-    keeping every relative movement from the gen's games."""
+    Gauge: every update carries virtual win+loss games against the
+    pinned level (the _BT_REG regularizer), so each gen's scale is set
+    absolutely by data-vs-anchor -- no per-gen subset gauge, no drift,
+    no lock. First-appearance members start from their recorded
+    parent's carried value (same lineage, continuing entity); true
+    newcomers start at the anchor. Seeds only set the solver start:
+    with the gauge fixed absolutely, the choice washes out (see
+    test_running_elo_seed_indifferent)."""
     pos = {cid: i for i, cid in enumerate(ids)}
     g0 = pos.get("g000")
-    reg = 0.0 if g0 is not None else _BT_REG
+    if seen is None:
+        seen = set()
+    if parents is None:
+        parents = {}
     for pid in panel:
         refs.setdefault(pid, [])
     reigning = history[0].get("champion") if history else None
@@ -804,26 +811,27 @@ def _elo_extend(history: list[dict], ids: list[str], per_gen: list[dict],
         h = history[gi]
         opps = _gen_opponents(per_gen[gi] if gi < len(per_gen) else {})
         act = [m for m in opps if m != g0]
+        for m in act:
+            if m not in seen:
+                p = parents.get(ids[m])
+                if p in pos:
+                    theta[m] = theta[pos[p]]
+        # plotted members start from their lineage even with no games
+        # this gen (a gameless challenger carries, never defaults).
+        c0 = h.get("challenger")
+        ci0 = pos.get(c0)
+        ri0 = pos.get(reigning) if reigning is not None else None
+        for m in (ci0, ri0):
+            if m is not None and m != g0 and m not in seen:
+                p = parents.get(ids[m])
+                if p in pos:
+                    theta[m] = theta[pos[p]]
+                seen.add(m)
         if act:
-            # gauge lock (only when the pinned zero sits out: with g000
-            # in the subsystem its fixed theta already anchors the scale,
-            # and restoring the mean would cancel the legit movement).
-            lock = g0 is None or g0 not in opps
-            g0mean = math.exp(sum(math.log(theta[m]) for m in act)
-                              / len(act)) if lock else 0.0
             for _ in range(sweeps):
                 for m in act:
-                    theta[m] = math.exp(_readout_member(m, opps[m], theta,
-                                                        reg=reg))
-            # restore the active set's geometric mean so the scale cannot
-            # drift along the optimum ray (see docstring).
-            if lock:
-                g1mean = math.exp(sum(math.log(theta[m]) for m in act)
-                                  / len(act))
-                if g1mean > 0:
-                    k = g0mean / g1mean
-                    for m in act:
-                        theta[m] *= k
+                    theta[m] = math.exp(_readout_member(m, opps[m], theta))
+        seen.update(act)
         c = h.get("challenger")
         ci = pos.get(c)
         cand.append(_elo_of(theta[ci]) if ci is not None else None)
@@ -838,21 +846,24 @@ def _elo_extend(history: list[dict], ids: list[str], per_gen: list[dict],
 
 
 def running_elo(history: list[dict], ids: list[str], per_gen: list[dict],
-                sweeps: int = _RUN_SWEEPS) -> dict:
+                sweeps: int = _RUN_SWEEPS,
+                parents: dict | None = None) -> dict:
     """Whole-population rating in one sequential pass, gen 0 -> G.
 
     The pass maintains a single theta vector: each gen's pairs move both
     endpoints against the field as it stands, then rating(challenger)
     and rating(champion) are read out for that gen. No windows, no
     refits, no lookahead -- the plotted value at gen G is exactly what
-    the games <= G imply. Pure."""
+    the games <= G imply. parents maps member id -> parent id for
+    lineage seeding (same lineage starts from the parent's carried
+    value). Pure."""
     panel = panel_ids(history)
     theta = [1.0] * len(ids)
     cand: list = []
     champ: list = []
     refs: dict = {}
     _elo_extend(history, ids, per_gen, sweeps, 0, theta,
-                 cand, champ, refs, panel)
+                 cand, champ, refs, panel, parents, set())
     return {"cand": cand, "champ": champ, "panel": panel,
             "refs": refs}
 
@@ -1097,6 +1108,16 @@ def crown_type(gen: dict) -> str:
 _elo_cache: dict = {}
 
 
+def _parent_map(base: Path) -> dict:
+    """Member id -> parent id from the checkpoint manifest ({} if absent)."""
+    try:
+        rows = [json.loads(l) for l in
+                (base / "manifest.jsonl").read_text().splitlines()]
+    except (OSError, ValueError):
+        return {}
+    return {r["id"]: r.get("parent") for r in rows if "id" in r}
+
+
 def _elo_cached(base: Path, history: list[dict],
                 grouped: list[dict]) -> dict:
     """Running-Elo duel series: full pass once, streaming extends after.
@@ -1119,6 +1140,7 @@ def _elo_cached(base: Path, history: list[dict],
     challengers = [h.get("challenger") for h in history]
     counts = [len(b) for b in per_gen]
     panel = panel_ids(history)
+    parents = _parent_map(base)
     st = _elo_cache.get("state")
     if (st is not None
             and len(challengers) >= len(st["challengers"])
@@ -1132,20 +1154,21 @@ def _elo_cached(base: Path, history: list[dict],
         cand = list(st["cand"])
         champ = list(st["champ"])
         refs = {k: list(v) for k, v in st["refs"].items()}
+        seen = set(st["seen"])
         _elo_extend(history, ids, per_gen, _RUN_SWEEPS, st["ngen"],
-                     theta, cand, champ, refs, panel)
+                     theta, cand, champ, refs, panel, parents, seen)
         ngen = len(history)
     else:
         theta = [1.0] * len(ids)
-        cand, champ, refs = [], [], {}
+        cand, champ, refs, seen = [], [], {}, set()
         _elo_extend(history, ids, per_gen, _RUN_SWEEPS, 0,
-                     theta, cand, champ, refs, panel)
+                     theta, cand, champ, refs, panel, parents, seen)
         ngen = len(history)
     _elo_cache["state"] = {"challengers": challengers, "ids": ids,
                               "counts": counts, "theta": theta,
                               "panel": panel, "cand": cand,
                               "champ": champ, "refs": refs,
-                              "ngen": ngen}
+                              "seen": seen, "ngen": ngen}
     return {"cand": cand, "champ": champ, "panel": panel,
             "refs": refs}
 

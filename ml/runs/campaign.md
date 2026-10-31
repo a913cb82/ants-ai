@@ -507,3 +507,10 @@ incentive via boards; this attacks it via the ledger).
   keeps the scale fixed. Cold 4.4s / warm 0.5s (pass itself 0.2s).
   Same story on the board (staircase, thrones, turnover all read).
   Training math untouched; tests 33/33 in test_curves.py.
+- Elo: anchored pass (lock deleted). Every gen's update carries
+  virtual win+loss vs the pinned level, so scale is set absolutely
+  each gen; lineage seeds (manifest parents, challenger/champ also
+  seeded gameless). Falsifiers pass: gaps old-vs-new med 3.7
+  (max devs all gen<150, same sign, anchor shrinkage); lineage-vs-
+  default med 1.1 (seed choice dissolved); levels sane, g000 refs
+  still exactly 0.0; pass 0.3s. Tests 35/35 in test_curves.py.

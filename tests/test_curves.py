@@ -470,6 +470,43 @@ def test_running_elo_g000_pinned():
     assert s["cand"][0] > 0  # 3-1 winner above the g000 zero
 
 
+def test_running_elo_seed_indifferent():
+    import dashboard
+
+    # Same games, hostile seeds: everyone descends from the strongest
+    # member. The anchor sets the scale, so seeds wash out and gaps
+    # agree (the old gauge lock would have baked the seed into G0).
+    ids = ["g000", "a", "b", "c"]
+    per_gen = [{(0, 1): [0.0, 4.0]}, {(1, 2): [3.0, 1.0]},
+               {(2, 3): [1.0, 3.0]}]
+    hist = [{"challenger": "a", "champion": "g000"},
+            {"challenger": "b", "champion": "g000"},
+            {"challenger": "c", "champion": "g000"}]
+    plain = dashboard.running_elo(hist, ids, per_gen)
+    seeded = dashboard.running_elo(
+        hist, ids, per_gen,
+        parents={"a": "c", "b": "c", "c": "c"})
+    for p, q in zip(plain["cand"], seeded["cand"]):
+        assert abs(p - q) < 5.0  # sub-display agreement, hostile seeds
+
+
+def test_running_elo_unplayed_challenger_carries_parent():
+    import dashboard
+
+    # par sweeps g000 4-0, then kid challenges but logs no games.
+    # With lineage, kid reads par's carried level (continuing entity),
+    # not the 0.0 default.
+    ids = ["g000", "par", "kid"]
+    per_gen = [{(0, 1): [0.0, 4.0]}, {}]
+    hist = [{"challenger": "par", "champion": "g000"},
+            {"challenger": "kid", "champion": "g000"}]
+    assert dashboard.running_elo(hist, ids, per_gen)["cand"][1] == 0.0
+    s = dashboard.running_elo(hist, ids, per_gen,
+                               parents={"par": "g000", "kid": "par"})
+    assert abs(s["cand"][1] - s["cand"][0]) < 1e-9
+    assert s["cand"][1] > 100  # par's swept level, carried forward
+
+
 def test_running_elo_twin_archives_agree_on_shared_gens(tmp_path):
     import dashboard
 
