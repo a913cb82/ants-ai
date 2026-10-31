@@ -400,9 +400,46 @@ def test_causal_step_held_within_window():
         [{"challenger": "c001", "champion": "g000"},
          {"challenger": "c001", "champion": "g000", "promoted": True},
          {"challenger": "c002", "champion": "c001"}],
-        ids, refits, step=2)
-    assert s["cand"][0] == s["cand"][1]  # step-held: same refit
-    assert abs(s["champ"][2] - s["cand"][1]) < 1e-3  # crowned converges
+        ids, refits, per_gen, step=2)
+    assert s["cand"][0] == s["cand"][1]  # same games (gen 0 only)
+    # crowned converges: window joint-fit vs member-local readout of the
+    # same games agree to 0.01 Elo (far below the 1dp display precision).
+    assert abs(s["champ"][2] - s["cand"][1]) < 0.01
+
+
+def test_duel_candidate_uses_own_gen_games():
+    """The rail bug: a candidate whose whole career is gen G must rate
+    from gen G's games, not sit at the unseen-member prior."""
+    import dashboard
+
+    ids = ["g000", "c001", "c002", "c003"]
+    # window refit reads gen 0 only (step 15); c001 sweeps c002 10-0 in
+    # gen 1, c003 never plays at all.
+    per_gen = [{}, {(1, 2): [10.0, 0.0]}, {}]
+    refits = dashboard.causal_refits(ids, per_gen, step=15)
+    s = dashboard.causal_duel(
+        [{"challenger": "c001", "champion": "g000"},
+         {"challenger": "c001", "champion": "g000"},
+         {"challenger": "c003", "champion": "g000"}],
+        ids, refits, per_gen, step=15)
+    assert s["cand"][1] > 50  # 10-0 sweep rates far above any prior rail
+    assert s["cand"][2] != s["cand"][1]  # gameless c003 sits elsewhere
+
+
+def test_duel_champ_turnover_immediate():
+    """A champ crowned mid-window rates from its games at once."""
+    import dashboard
+
+    ids = ["g000", "c001"]
+    per_gen = [{}, {(0, 1): [0.0, 8.0]}]  # c001 sweeps g000 8-0 in gen 1
+    refits = dashboard.causal_refits(ids, per_gen, step=15)
+    s = dashboard.causal_duel(
+        [{"challenger": "c001", "champion": "g000", "promoted": True},
+         {"challenger": "c002", "champion": "c001"}],
+        ids, refits, per_gen, step=15)
+    # c001 defended never (challenger is unknown c002) but its own line
+    # as champ reads its 8-0, not the unseen rail.
+    assert s["champ"][1] > 50
 
 
 def test_causal_prefix_property_truncated_windows():
@@ -424,7 +461,8 @@ def test_causal_g000_anchor_only():
     ids = ["g000", "c001"]
     refits = dashboard.causal_refits(ids, [{(0, 1): [1.0, 3.0]}], step=15)
     s = dashboard.causal_duel(
-        [{"challenger": "c001", "champion": "g000"}], ids, refits)
+        [{"challenger": "c001", "champion": "g000"}], ids, refits,
+        [{(0, 1): [1.0, 3.0]}], step=15)
     assert s["refs"]["g000"] == [0.0]  # the zero never moves
     assert s["cand"][0] > 0  # 3-1 winner above the g000 zero
 

@@ -884,36 +884,146 @@ def causal_refits(ids: list[str], per_gen: list[dict],
     return refits
 
 
-def causal_duel(history: list[dict], ids: list[str],
-                refits: list[dict], step: int = CAUSAL_STEP) -> dict:
-    """Candidate vs defending-champion Elo from the causal refits.
+def _readout_member(mi: int, opps: dict, theta: list[float],
+                    iters: int = 25, tol: float = 1e-9) -> float:
+    """One member's logit given a FIXED field (Hunter MM, member only).
 
-    cand[G] = this gen's challenger, champ[G] = the throne's defender,
-    both read out of refits[G // step] and anchored at g000 (known at
-    gen 0, so the zero is causal too). Panel members (g000 + last 3
-    deposed) ride along as reference trajectories from the same refits;
-    panel MEMBERSHIP is picked from full history (a display choice: which
-    lines to draw), but every plotted VALUE uses only games <= G."""
-    tables: list[dict] = []
-    for r in refits:
+    Same update as _mm_run (Laplace +1/+1 per pair, one virtual win/loss
+    vs rating-0) but only mi moves; opponents stay at window theta.
+    opps maps opp idx -> [mine, theirs] WITHOUT priors. Members with no
+    pairs have nothing to fit (caller keeps the window value). Pure."""
+    if not opps:
+        return math.log(theta[mi]) if theta[mi] > 0 else 0.0
+    t = theta[mi] if theta[mi] > 0 else 1.0
+    wins = _BT_REG
+    tot = {}
+    for oi, w in opps.items():
+        mine, theirs = w[0] + 1.0, w[1] + 1.0
+        wins += mine
+        tot[oi] = mine + theirs
+    for _ in range(iters):
+        denom = 2.0 * _BT_REG / (t + 1.0)
+        for oi, total in tot.items():
+            denom += total / (t + theta[oi])
+        new = wins / denom if denom > 0 else t
+        if new <= 0:
+            break
+        d = abs(math.log(new) - math.log(t)) if t > 0 else float("inf")
+        t = new
+        if d < tol:
+            break
+    return math.log(t) if t > 0 else 0.0
+
+
+def _duel_panels(history: list[dict], ids: list[str], refits: list[dict],
+                 panel: list[str], step: int) -> dict:
+    """Reference trajectories: pure step-held window reads, all gens.
+
+    Panel members are established checkpoints with long histories, so the
+    window value is approximately right; only the duel lines (cand/champ)
+    get member-local readouts. O(gens x panel) dict lookups. Pure."""
+    pos = {cid: i for i, cid in enumerate(ids)}
+    refs: dict[str, list] = {pid: [] for pid in panel}
+    for gi in range(len(history)):
+        widx = gi // step
+        r = refits[widx] if widx < len(refits) else {}
         zero = r.get("g000", 0.0)
-        tables.append({cid: (v - zero) * _BT_ELO_SCALE
-                       for cid, v in r.items()})
+        for pid in panel:
+            pi = pos.get(pid)
+            refs[pid].append(((r.get(pid, 0.0) - zero) * _BT_ELO_SCALE)
+                             if pi is not None else None)
+    return refs
+
+
+def _duel_extend(history: list[dict], ids: list[str], refits: list[dict],
+                 per_gen: list[dict], step: int, start: int,
+                 acc: dict, last_seen: dict,
+                 cand: list, champ: list) -> None:
+    """Fill cand/champ for gens [start, len(history)), in place.
+
+    Ordered walk: per_gen buckets accumulate into acc (member idx ->
+    {opp idx: [mine, theirs]}), so each plotted point sees exactly the
+    pairs with gen <= its own gen. Window thetas come from the frozen
+    refits. The candidate ALWAYS gets a member-local readout: its whole
+    career is its own gen, which the window refit usually postdates --
+    reading the window value instead pins 14 of 15 candidates at the
+    unseen-member prior (the flat Elo rail). A champ with post-boundary
+    games (every turnover inside a window) gets one too; otherwise the
+    window value stands. Deterministic: extending continues bitwise."""
+    pos = {cid: i for i, cid in enumerate(ids)}
+    reigning = history[0].get("champion") if history else None
+    for h in history[:start]:
+        if h.get("promoted"):
+            reigning = h.get("challenger", reigning)
+    th: list[float] | None = None
+    rlog: dict = {}
+    zero = 0.0
+    last_widx = -1
+    for gi in range(start, len(history)):
+        h = history[gi]
+        bucks = per_gen[gi] if gi < len(per_gen) else {}
+        for (i, j), w in bucks.items():
+            a = acc.setdefault(i, {})
+            b = acc.setdefault(j, {})
+            ai = a.setdefault(j, [0.0, 0.0])
+            ai[0] += w[0]
+            ai[1] += w[1]
+            bj = b.setdefault(i, [0.0, 0.0])
+            bj[0] += w[1]
+            bj[1] += w[0]
+            last_seen[i] = gi
+            last_seen[j] = gi
+        widx = gi // step
+        if widx != last_widx:
+            last_widx = widx
+            rlog = refits[widx] if widx < len(refits) else {}
+            # refits store logits; the readout needs theta (exp scale).
+            th = [math.exp(rlog.get(cid, 0.0)) for cid in ids]
+            zero = rlog.get("g000", 0.0)
+        c = h.get("challenger")
+        ci = pos.get(c)
+        if ci is None or th is None:
+            cand.append(None)
+        else:
+            cand.append((_readout_member(ci, acc.get(ci, {}), th)
+                         - zero) * _BT_ELO_SCALE)
+        if reigning is None:
+            champ.append(None)
+        else:
+            ri = pos.get(reigning)
+            if ri is None or th is None:
+                champ.append(None)
+            elif last_seen.get(ri, -1) > widx * step:
+                champ.append((_readout_member(ri, acc.get(ri, {}), th)
+                              - zero) * _BT_ELO_SCALE)
+            else:
+                # frozen window value (logit scale): no post-boundary
+                # games, nothing the refit hasn't seen.
+                champ.append((rlog.get(reigning, 0.0) - zero)
+                             * _BT_ELO_SCALE)
+        if h.get("promoted"):
+            reigning = h.get("challenger", reigning)
+def causal_duel(history: list[dict], ids: list[str],
+                refits: list[dict], per_gen: list[dict],
+                step: int = CAUSAL_STEP) -> dict:
+    """Candidate vs defending-champion Elo, causal per gen.
+
+    cand[G] = this gen's challenger with a member-local readout over
+    pairs with gen <= G (its whole career is its own gen); champ[G] =
+    the throne's defender, readout when it has post-boundary games,
+    else the frozen window value. Both anchored at g000 (known at gen
+    0, so the zero is causal too). Panel members (g000 + last 3
+    deposed) ride along as step-held reference trajectories; panel
+    MEMBERSHIP is picked from full history (a display choice), but
+    every plotted VALUE uses only games <= G."""
     panel = panel_ids(history)
     cand: list = []
     champ: list = []
-    refs: dict[str, list] = {pid: [] for pid in panel}
-    reigning = history[0].get("champion") if history else None
-    for gi, h in enumerate(history):
-        tab = tables[gi // step] if tables else {}
-        c = h.get("challenger")
-        cand.append(tab.get(c))
-        champ.append(tab.get(reigning) if reigning is not None else None)
-        for pid in panel:
-            refs[pid].append(tab.get(pid))
-        if h.get("promoted"):
-            reigning = c
-    return {"cand": cand, "champ": champ, "panel": panel, "refs": refs}
+    _duel_extend(history, ids, refits, per_gen, step, 0, {}, {},
+                  cand, champ)
+    refs = _duel_panels(history, ids, refits, panel, step)
+    return {"cand": cand, "champ": champ, "panel": panel,
+            "refs": refs}
 
 
 def elo_duel(history: list[dict], elos: dict) -> dict:
@@ -1208,21 +1318,37 @@ def _causal_cached(base: Path, history: list[dict],
             and ids[:len(st["ids"])] == st["ids"]
             and len(per_gen) >= st["ngen"]
             and all(per_gen[i] == st["buckets"][i]
-                    for i in range(st["ngen"]))):
+                    for i in range(st["ngen"]))
+            and st.get("duel_ngen") == st["ngen"]
+            and "cand" in st and "champ" in st
+            and "acc" in st and "last_seen" in st):
         theta = st["theta"] + [1.0] * (len(ids) - len(st["ids"]))
         new, totals, theta = _refits_from(ids, per_gen, st["totals"],
                                           theta, st["ngen"])
         refits = st["refits"] + new
         ngen = len(per_gen)
+        acc, last_seen = st["acc"], st["last_seen"]
+        cand, champ = list(st["cand"]), list(st["champ"])
+        _duel_extend(history, ids, refits, per_gen, CAUSAL_STEP,
+                      st["duel_ngen"], acc, last_seen, cand, champ)
     else:
         refits, totals, theta = _refits_from(ids, per_gen, {},
                                              [1.0] * len(ids), 0)
         ngen = len(per_gen)
+        acc, last_seen, cand, champ = {}, {}, [], []
+        _duel_extend(history, ids, refits, per_gen, CAUSAL_STEP,
+                      0, acc, last_seen, cand, champ)
+    panel = panel_ids(history)
+    refs = _duel_panels(history, ids, refits, panel, CAUSAL_STEP)
     _causal_cache["state"] = {"challengers": challengers, "ids": ids,
                                 "buckets": per_gen, "totals": totals,
                                 "theta": theta, "refits": refits,
-                                "ngen": ngen}
-    return causal_duel(history, ids, refits)
+                                "ngen": ngen, "acc": acc,
+                                "last_seen": last_seen,
+                                "cand": cand, "champ": champ,
+                                "duel_ngen": len(history)}
+    return {"cand": cand, "champ": champ, "panel": panel,
+            "refs": refs}
 
 
 def build_board(base: Path, history: list[dict],
