@@ -142,7 +142,7 @@ Dashboard rework (phase 4 implements; contracts fixed here):
    bars 60%/40, stall 400, anchor set, newcomer boost ×5/10 games).
 1. `ml/pfsp.py` + tests. Zero training impact. DONE (59ca5b4).
 2. Archive roles/admission log + tests.
-3. Scheduler + `measure.py`, delete `evaluate.py`; smoke on tiny pool.
+3. Scheduler + `measure.py`, delete `evaluate.py`; smoke on tiny pool. DONE.
 4. Dashboard cards swapped (per dashboard contracts above).
 5. `LEAGUE.md` + migration runbook (main.json→main-0, manifest relabel);
    first live week + verdict.
