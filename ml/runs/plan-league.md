@@ -1,6 +1,7 @@
 # PLAN: AlphaStar-exact continuous league (replaces generations + throne)
 
-Status: DRAFT for lock (phase 0). Nothing trains under this plan until approved.
+Status: APPROVED incrementally (user decisions per phase) and LIVE since
+2026-10-31 (2000-tick first live run). Phases section is the record.
 Supersedes: `LOOP.md`, rounds machinery, promotion/exam/jury/graft/strike doctrine
 (frozen as record, not deleted). Archive, matrix, checkpoints, Elo: carry over.
 
@@ -141,8 +142,22 @@ Dashboard rework (phase 4 implements; contracts fixed here):
 0. LOCK this plan (approve or amend the labeled choices: shares, K=80, N=8,
    bars 60%/40, stall 400, anchor set, newcomer boost ×5/10 games).
 1. `ml/pfsp.py` + tests. Zero training impact. DONE (59ca5b4).
-2. Archive roles/admission log + tests.
-3. Scheduler + `measure.py`, delete `evaluate.py`; smoke on tiny pool. DONE.
-4. Dashboard cards swapped (per dashboard contracts above).
-5. `LEAGUE.md` + migration runbook (main.json→main-0, manifest relabel);
-   first live week + verdict.
+2. Archive roles/admission log + tests. DONE (3479404).
+3. Scheduler + `measure.py`, delete `evaluate.py`; smoke on tiny pool. DONE (b7c162c).
+   3b. Per-incarnation member ids (slot-identity bugfix). DONE (fdadbdf).
+   Port fixes (union idempotent + main row + live-id exclusion). DONE (5db421b).
+4. Dashboard cards swapped (per dashboard contracts above). DONE (d50283b).
+5. `LEAGUE.md` (written, ml/runs/LEAGUE.md) + migration runbook; first live week. LIVE.
+
+Migration log 2026-10-31: backup /tmp/league-port-backup/ (matrix,
+manifest, history, champion, main). Pool: 80 fresh 2p gen_mixed maps
+(seed 456001) at ml/archive/maps-live/ (9-board gone from tree; rung
+generators absent from this checkout). Union: chain g1732->g000 (759
+links), 1623 pairs / 44701 games, intra-lineage dual-perspective
+included. League flags: turns 150, temp 2.0, ent 0.05, workers 12,
+seed 456, anchors g000/g401/g588/g978/g1343/g1532. First 8 ticks
+green; 2000-tick live run started (nohup, /tmp/league-live.log);
+dashboard :8090 restarted live. Resume note: a crashed first run left
+league.json behind, so ensure_league skipped the port on retry; the
+union was applied manually after (idempotent, merged with new games).
+main.json left pointing at g1732 (last frozen main = port source).
