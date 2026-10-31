@@ -1,11 +1,11 @@
-"""Advantage freeze: advantages are computed ONCE per generation.
+"""Advantage freeze: advantages are computed ONCE per update.
 
 Regression for the PPO reviewer's confirmed code-fact: train_epoch
 recomputed (return - value) from the CURRENT value net in every
 minibatch of every epoch, so advantages evaporated as the critic fit.
-The contract under test: train_generation freezes advantages with the
-pre-update value net and every epoch reuses that frozen vector; the
-batch scale (bmean/bstd) stays per-generation as today.
+The contract under test: the micro-batch update freezes advantages with
+the pre-update value net and every epoch reuses that frozen vector; the
+batch scale (bmean/bstd) stays per-update as before.
 """
 
 import sys
@@ -116,23 +116,12 @@ def test_frozen_pg_rows_survive_critic_drift():
     assert moved, "control: recompute should feel critic drift"
 
 
-def test_train_generation_freezes_advantages_once_per_gen(tmp_path,
-                                                          monkeypatch):
-    import archive
+def test_micro_batch_update_freezes_advantages_once(tmp_path, monkeypatch):
     import train
 
-    base = tmp_path / "archive"
-    w = algorithm.policy_weights(algorithm.new_policy({}))
-    champ = archive.save_checkpoint(base, w, role="main", parent=None)
-    archive.set_champion(base, champ)
-
-    recs = [{"window": torch.rand(_C, _S, _S).tolist(), "action": "n",
-             "legal": [True] * 5} for _ in range(32)]
-
-    def fake_play_one(args):
-        return {"rows": list(recs), "rets": [float(i % 3) for i in range(32)]}
-
-    monkeypatch.setattr(train, "_play_one", fake_play_one)
+    pol = algorithm.new_policy({})
+    opt = algorithm.make_optimizer(pol, lr=1e-3)
+    batch = _batch()
     calls = []
     real_epoch = algorithm.train_epoch
 
@@ -142,11 +131,11 @@ def test_train_generation_freezes_advantages_once_per_gen(tmp_path,
         return real_epoch(policy, opt, batch, **kw)
 
     monkeypatch.setattr(algorithm, "train_epoch", spy)
-    cfg = {"train_games": 1, "eval_games": 0, "workers": 1,
-           "maps": ["m.map"], "turns": 1, "lr": 1e-3, "epochs": 3,
-           "temperature": 0.0, "seed": 0, "clip": 0.2, "vf_coef": 0.5,
-           "entropy_beta": 0.01, "max_norm": 1.0, "minibatch": 32}
-    train.train_generation(cfg, base, champ, w)
+    cfg = {"lr": 1e-3, "epochs": 3,
+           "clip": 0.2, "vf_coef": 0.5, "entropy_beta": 0.01,
+           "max_norm": 1.0, "minibatch": 32}
+    stats = train.ppo_update(pol, opt, batch, cfg)
+    assert stats["rows"] == len(batch)
     assert len(calls) == 3
     assert all(c is not None for c in calls)
     assert all(torch.equal(calls[0], c) for c in calls[1:])

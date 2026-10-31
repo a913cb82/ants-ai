@@ -827,34 +827,6 @@ def test_last_exploiter_returns_most_recent(tmp_path):
     b = archive.save_checkpoint(base, {"w": [3.0]}, "exploiter", a)
     assert archive.last_exploiter(base) == b
 
-
-def test_exploiter_chains_rival_weights_and_opt(tmp_path, monkeypatch):
-    import archive
-    import selfplay
-
-    captured: dict = {}
-    _mocked_generation(monkeypatch, captured)
-    base = tmp_path / "archive"
-    cfg = _exploiter_cfg()
-    # drive to the first exploiter (gen 2, line A), then to the next
-    # line-A turn (gen 8: folded — every exploiter gen runs line A).
-    selfplay.run_generation(cfg, base, commit=False)
-    selfplay.run_generation(cfg, base, commit=False)
-    rep = selfplay.run_generation(cfg, base, commit=False)
-    assert rep["exploiter"] is True
-    first = rep["challenger"]
-    w1 = archive.load_checkpoint(base, first)
-    opt_path = base / "checkpoints" / (first + ".opt.json")
-    for g in (97, 98, 99, 100, 101):
-        selfplay.append_history(base, {"gen": g})
-    rep2 = selfplay.run_generation(cfg, base, commit=False)
-    assert rep2["exploiter"] is True
-    assert captured["init_w"] == w1  # rival continues, not reseeds
-    members = {m["id"]: m for m in archive.members(base)}
-    assert members[rep2["challenger"]]["parent"] == first
-    assert opt_path.exists()  # rival banks its optimizer
-
-
 def test_values_are_rotation_invariant():
     import torch
 
@@ -1124,18 +1096,6 @@ def test_to_batch_converts_rows_and_returns():
     assert batch[0][3] == [True] * 5
     assert batch[1][3] == [False, False, False, False, True]
 
-
-def test_promote_rule_needs_wilson():
-    import evaluate
-
-    assert evaluate.should_promote(10, 0, 10)
-    assert evaluate.should_promote(7, 0, 10)
-    assert not evaluate.should_promote(6, 0, 10)
-    # draws count half: 6W/2D (7.0 effective) clears, 5W/2D doesn't.
-    assert evaluate.should_promote(6, 2, 10)
-    assert not evaluate.should_promote(5, 2, 10)
-
-
 def test_wilson_lower_bounds():
     import archive
 
@@ -1165,8 +1125,6 @@ def test_kill_credit_excludes_zero_distance():
     game["replaydata"]["ants"] = [[5, 5, 1, 3, 1, "--"]]  # enemy dies on (5,5)
     records = [{"turn": 3, "loc": [5, 4], "dest": [5, 5], "action": "s"}]
     assert rewards.compute_returns(game, 0, records) == [0.0]
-
-
 
 
 def test_rotation_permutes_actions_and_masks():
@@ -1290,15 +1248,13 @@ def test_cli_overrides():
     import selfplay
 
     cfg = selfplay.parse_args(
-        ["--train-games", "2", "--turns", "20", "--no-commit",
+        ["--ticks", "7", "--turns", "20",
          "--maps", "tools/maps/example/tutorial1.map"]
     )
-    assert cfg["train_games"] == 2
+    assert cfg["ticks"] == 7
     assert cfg["turns"] == 20
-    assert cfg["commit"] is False
-    # Single-map pools hold nothing out: everything trains.
+    # No separate exam: custom maps are used directly, nothing held out.
     assert cfg["maps"] == ["tools/maps/example/tutorial1.map"]
-    assert cfg["held_maps"] == []
 
 
 def test_game_if_cleanup_keeps_replay_drops_sides(tmp_path):
@@ -1313,24 +1269,6 @@ def test_game_if_cleanup_keeps_replay_drops_sides(tmp_path):
     assert (outdir / "logs" / "0.replay").exists()
     assert not (outdir / "side_a").exists()
     assert not (outdir / "side_b").exists()
-
-
-@pytest.mark.slow
-def test_first_generation_runs_and_reports(tmp_path):
-    import selfplay
-
-    cfg = selfplay.default_config()
-    cfg.update({"turns": 10, "train_games": 1, "eval_games": 1,
-                "epochs": 1, "seed": 1})
-    rep = selfplay.run_generation(cfg, tmp_path / "archive", commit=False)
-    assert rep["train"]["rows"] > 0
-    assert set(rep["train"]) >= {"rows", "losses", "mean_return"}
-    assert rep["eval"]["games"] == 1
-    assert isinstance(rep["promoted"], bool)
-    assert rep["config"]["turns"] == 10
-    leftovers = [p for p in (tmp_path / "archive" / "games").rglob("side_a")]
-    assert leftovers == []
-
 
 def test_games_index_roundtrip_and_filter(tmp_path):
     import archive
@@ -1712,26 +1650,6 @@ def test_batch_act_shapes_and_greedy_agreement():
     ]
     assert len(model.sample_batch(logits, 1.0)) == 2
 
-
-def test_zero_game_counts_do_not_crash_pools(tmp_path):
-    import archive
-    import evaluate
-    import train
-
-    base = tmp_path / "archive"
-    w = {"a": [1.0]}
-    champ = archive.save_checkpoint(base, w, role="main", parent=None)
-    archive.set_champion(base, champ)
-    cfg = {"train_games": 0, "eval_games": 0, "workers": 8, "maps": [], "turns": 1,
-           "lr": 1e-3, "epochs": 1, "temperature": 0.0, "seed": 0,
-           "clip": 0.2, "vf_coef": 0.5, "entropy_beta": 0.01,
-           "max_norm": 1.0, "minibatch": 64}
-    cid, cw, stats, _opt = train.train_generation(cfg, base, champ, w)
-    assert stats["rows"] == 0
-    ev = evaluate.evaluate(cfg, base, cid, cw, champ, w)
-    assert ev["games"] == 0 and ev["win_rate"] == 0.0
-
-
 def test_main_pointer_roundtrip(tmp_path):
     import archive
 
@@ -1765,29 +1683,6 @@ def test_optimizer_state_roundtrip():
     assert set(s2) == set(s1)
     k = next(iter(s1))
     assert torch.equal(s1[k]["exp_avg"], s2[k]["exp_avg"])
-
-
-def test_main_lineage_chains_parents(tmp_path, monkeypatch):
-    import archive
-    import selfplay
-
-    captured: dict = {}
-    _mocked_generation(monkeypatch, captured)
-    base = tmp_path / "archive"
-    cfg = _exploiter_cfg()
-    # two challenger gens (gen 0, 1 — exploiter hits at gen 2).
-    # run_generation appends its own history line per gen.
-    selfplay.run_generation(cfg, base, commit=False)
-    rep = selfplay.run_generation(cfg, base, commit=False)
-    assert rep["exploiter"] is False
-    roles = {m["id"]: m for m in archive.members(base)}
-    second = roles[rep["challenger"]]
-    first = [m for m in roles.values()
-             if m.get("role") == "challenger"
-             and m["id"] != rep["challenger"]][0]
-    assert second["parent"] == first["id"]
-    assert archive.get_main(base) == rep["challenger"]
-
 
 def test_bot_env_is_single_threaded():
     import game_if
@@ -1904,7 +1799,7 @@ def test_default_maps_exist_and_turns_cover_endgames():
     import selfplay
 
     cfg = selfplay.default_config()
-    assert sorted(cfg["maps"] + cfg["held_maps"]) == selfplay.default_map_pool()
+    assert sorted(cfg["maps"]) == selfplay.default_map_pool()
     assert len(cfg["maps"]) >= 100  # the full upstream 2p pool + generated
     for m in cfg["maps"]:
         assert os.path.exists(m), m
@@ -1969,76 +1864,20 @@ def test_pool_split_disjoint_and_deterministic():
     assert selfplay.split_pool(full) == (train, held)
 
 
-def test_custom_maps_resplit_for_unseen_evals():
+def test_custom_maps_used_directly_without_split():
     import selfplay
 
     maps = [f"m{i}.map" for i in range(30)]
     cfg = selfplay.parse_args(["--maps"] + maps)
-    assert sorted(cfg["maps"] + cfg["held_maps"]) == sorted(maps)
-    assert not set(cfg["maps"]) & set(cfg["held_maps"])
-    assert len(cfg["held_maps"]) == 3  # every 13th of 30
+    # No separate exam under the continuous league: the scheduler plays
+    # one pool, nothing held out.
+    assert cfg["maps"] == maps
 
 
 def _tmp_2p_map(tmp_path, name="e.map"):
     p = tmp_path / name
     p.write_text("rows 16\ncols 24\nplayers 2\n" + "m " + "." * 24 + "\n")
     return str(p)
-
-
-def test_eval_uses_eval_slice_one_to_one(tmp_path, monkeypatch):
-    import archive
-    import evaluate
-    import game_if
-
-    base = tmp_path / "archive"
-    w = {"a": [1.0]}
-    champ = archive.save_checkpoint(base, w, role="main", parent=None)
-    seen = []
-
-    def fake_play(root, python, weights, gcfg, outdir, names=None, **kwargs):
-        seen.append(gcfg.map)
-        (outdir / "logs").mkdir(parents=True, exist_ok=True)
-        (outdir / "logs" / "0.replay").write_text(
-            '{"game_length": 10, "score": [1, 0], "replaydata": {}}'
-        )
-        return {"game": {"game_length": 10, "score": [1, 0], "replaydata": {}},
-                "records": [[], []]}
-
-    monkeypatch.setattr(game_if, "play", fake_play)
-    cfg = {"eval_games": 2, "eval_maps": [_tmp_2p_map(tmp_path, "e1.map"), _tmp_2p_map(tmp_path, "e2.map")],
-           "turns": 5, "temperature": 0.0, "seed": 0}
-    evaluate.evaluate(cfg, base, "chal", w, champ, w)
-    assert [Path(m).name for m in seen] == ["e1.map", "e2.map"]
-
-
-def test_eval_reports_score_margins(tmp_path, monkeypatch):
-    import archive
-    import evaluate
-    import game_if
-
-    base = tmp_path / "archive"
-    w = {"a": [1.0]}
-    champ = archive.save_checkpoint(base, w, role="main", parent=None)
-    scores = iter([(3, 1), (1, 1)])
-
-    def fake_play(root, python, weights, gcfg, outdir, names=None, **kwargs):
-        sa, sb = next(scores)
-        (outdir / "logs").mkdir(parents=True, exist_ok=True)
-        (outdir / "logs" / "0.replay").write_text(
-            '{"game_length": 10, "score": [%d, %d], "replaydata": {}}' % (sa, sb)
-        )
-        return {"game": {"game_length": 10, "score": [sa, sb], "replaydata": {}},
-                "records": [[], []]}
-
-    monkeypatch.setattr(game_if, "play", fake_play)
-    cfg = {"eval_games": 2, "eval_maps": [_tmp_2p_map(tmp_path), _tmp_2p_map(tmp_path, "m2.map")], "turns": 5,
-           "temperature": 0.0, "seed": 0, "workers": 1}
-    ev = evaluate.evaluate(cfg, base, "chal", w, champ, w)
-    # Slot 0: chal is A (3-1 -> +2). Slot 1: chal is B (1-1 -> 0).
-    # Single worker keeps duel order deterministic.
-    assert ev["margins"] == [2, 0]
-    assert ev["mean_margin"] == 1.0
-
 
 def test_stage_side_names_main_file(tmp_path):
     import game_if
@@ -2073,64 +1912,6 @@ def test_play_stages_checkpoint_names(tmp_path, monkeypatch):
     assert out["game"]["game_length"] == 10
     assert seen["bots"][0].endswith("side_0/g004.py")
     assert seen["bots"][1].endswith("side_1/g000.py")
-
-
-def test_eval_fixed_seats_chal_zero_champ_one(tmp_path, monkeypatch):
-    import archive
-    import evaluate
-    import game_if
-
-    base = tmp_path / "archive"
-    w = {"a": [1.0]}
-    champ = archive.save_checkpoint(base, w, role="main", parent=None)
-    seen = []
-
-    def fake_play(root, python, weights, gcfg, outdir, names=None, **kwargs):
-        seen.append((list(names), len(weights)))
-        (outdir / "logs").mkdir(parents=True, exist_ok=True)
-        (outdir / "logs" / "0.replay").write_text(
-            '{"game_length": 10, "score": [1, 1], "replaydata": {}}'
-        )
-        return {"game": {"game_length": 10, "score": [1, 1], "replaydata": {}},
-                "records": [[], []]}
-
-    monkeypatch.setattr(game_if, "play", fake_play)
-    cfg = {"eval_games": 2, "eval_maps": [_tmp_2p_map(tmp_path), _tmp_2p_map(tmp_path, "e2.map")],
-           "turns": 5, "temperature": 0.0, "seed": 0, "workers": 1}
-    evaluate.evaluate(cfg, base, "chal", w, champ, w)
-    assert seen == [(["chal", champ], 2), (["chal", champ], 2)]
-
-
-def test_eval_turns_overrides_training_turns(tmp_path, monkeypatch):
-    import evaluate
-    import game_if
-
-    base = tmp_path / "archive"
-    w = {"a": [1.0]}
-    seen = []
-
-    def fake_play(root, python, weights, gcfg, outdir, names=None, **kwargs):
-        seen.append(gcfg.turns)
-        (outdir / "logs").mkdir(parents=True, exist_ok=True)
-        (outdir / "logs" / "0.replay").write_text(
-            '{"game_length": 10, "score": [1, 1], "replaydata": {}}'
-        )
-        return {"game": {"game_length": 10, "score": [1, 1],
-                            "replaydata": {}},
-                "records": [[], []]}
-
-    monkeypatch.setattr(game_if, "play", fake_play)
-    cfg = {"eval_games": 2, "eval_maps": [_tmp_2p_map(tmp_path, "t.map"), _tmp_2p_map(tmp_path, "t2.map")], "turns": 60,
-           "eval_turns": 250, "temperature": 0.0, "seed": 0,
-           "workers": 1}
-    evaluate.evaluate(cfg, base, "chal", w, "champ", w)
-    assert seen == [250, 250]
-    # unset falls back to training turns.
-    seen.clear()
-    cfg["eval_turns"] = None
-    evaluate.evaluate(cfg, base, "chal", w, "champ", w)
-    assert seen == [60, 60]
-
 
 def test_drills_sweep_pool_round_robin(tmp_path):
     import archive
@@ -2168,239 +1949,6 @@ def test_pg_abs_bounds_pg_magnitude():
     stats = algorithm.train_epoch(pol, opt, batch)
     assert stats["pg_abs"] >= abs(stats["pg_loss"])
 
-
-def test_train_generation_plays_maps_one_to_one(tmp_path, monkeypatch):
-    import archive
-    import game_if
-    import train
-
-    base = tmp_path / "archive"
-    w = {"a": [1.0]}
-    champ = archive.save_checkpoint(base, w, role="main", parent=None)
-    archive.set_champion(base, champ)
-    maps = []
-    for i in range(4):
-        p = tmp_path / f"m{i}.map"
-        p.write_text("rows 16\ncols 24\nplayers 2\n" + "m " + "." * 24 + "\n")
-        maps.append(str(p))
-    cfg = {"train_games": 2, "eval_games": 0, "workers": 1,
-           "maps": maps, "turns": 1,
-           "lr": 1e-3, "epochs": 1, "temperature": 0.0, "seed": 0,
-           "clip": 0.2, "vf_coef": 0.5, "entropy_beta": 0.01,
-           "max_norm": 1.0, "minibatch": 64}
-    seen = []
-
-    def fake_play(root, python, weights, gcfg, outdir, names=None):
-        seen.append((gcfg.map, list(names)))
-        game = _game(score=[0, 0])
-        return {"game": game, "records": [[], []]}
-
-    monkeypatch.setattr(game_if, "play", fake_play)
-    monkeypatch.setattr(archive, "record_result", lambda *a, **k: None)
-    monkeypatch.setattr(archive, "log_game", lambda *a, **k: None)
-    train.train_generation(cfg, base, champ, w)
-    # 2 opponents x 2... 4 games, 1:1 with the first 4 boards, chal seat 0.
-    assert [m for m, _ in seen] == maps
-    assert all(names[0].startswith("g") for _, names in seen)
-
-
-def _mocked_generation(monkeypatch, captured):
-    import copy
-
-    import archive
-    import evaluate
-    import train
-
-    def fake_train(cfg, base, champ_id, champ_w, role="challenger",
-                   parent=None, opt_state=None, **kwargs):
-        captured["role"] = role
-        captured["kl_anchor_beta"] = kwargs.get("kl_anchor_beta")
-        captured["student"] = kwargs.get("student")
-        captured["init_w"] = copy.deepcopy(champ_w)
-        cid = archive.save_checkpoint(base, copy.deepcopy(champ_w), role, champ_id if parent is None else parent)
-        return cid, copy.deepcopy(champ_w), {"rows": 0}, None
-
-    def fake_eval(cfg, base, chal_id, chal_w, champ_id, champ_w):
-        return {"wins": 0, "draws": 0, "games": 0, "win_rate": 0.0,
-                "margins": [], "mean_margin": 0.0}
-
-    monkeypatch.setattr(train, "train_generation", fake_train)
-    monkeypatch.setattr(evaluate, "evaluate", fake_eval)
-    monkeypatch.setattr(evaluate, "should_promote", lambda *a: False)
-
-
-def _exploiter_cfg():
-    return {"seed": 0, "arch": "base", "gamma": 0.97,
-            "promote_threshold": 0.5, "kl_anchor_beta": 0.01}
-
-
-def test_critic_warm_starts_baseline_and_persists(tmp_path, monkeypatch):
-    import archive
-    import json
-    import selfplay
-
-    captured = {}
-    _mocked_generation(monkeypatch, captured)
-    base = tmp_path / "archive"
-    cfg = _exploiter_cfg()
-    w = selfplay._random_weights(cfg["seed"], cfg.get("arch", "base"))
-    champ = archive.save_checkpoint(base, w, role="main", parent=None)
-    archive.set_champion(base, champ)
-    critic = {"value.weight": [[7.0] * 128], "value.bias": [7.0],
-              "vconv1.weight": [[[[7.0]]]]}
-    (base / "critic.json").write_text(json.dumps(critic))
-    selfplay.run_generation(cfg, base, commit=False)
-    init = captured["init_w"]
-    # actor restarts from champion...
-    assert init["conv1.weight"] == w["conv1.weight"]
-    # ...but the whole baseline warm-starts (trunk AND head) ...
-    assert init["value.bias"] == [7.0]
-    assert init["vconv1.weight"] == [[[[7.0]]]]
-    # ...and the trained critic is banked for the next generation.
-    saved = json.loads((base / "critic.json").read_text())
-    assert saved["value.bias"] == [7.0]
-    assert "vconv1.weight" in saved
-    assert all(k.startswith(("value.", "vconv")) for k in saved)
-
-
-def test_init_weights_seed_gen_zero_champion(tmp_path, monkeypatch):
-    import archive
-    import json
-    import selfplay
-
-    captured = {}
-    _mocked_generation(monkeypatch, captured)
-    base = tmp_path / "archive"
-    cfg = _exploiter_cfg()
-    w = selfplay._random_weights(7, "base")
-    init = tmp_path / "bc.json"
-    init.write_text(json.dumps(w))
-    cfg["init_weights"] = str(init)
-    selfplay.run_generation(cfg, base, commit=False)
-    champ = archive.get_champion(base)
-    assert archive.load_checkpoint(base, champ) == w
-    # fresh archives only: existing champions are untouched
-    w2 = selfplay._random_weights(8, "base")
-    init.write_text(json.dumps(w2))
-    selfplay.run_generation(cfg, base, commit=False)
-    assert archive.load_checkpoint(base, archive.get_champion(base)) != w2
-
-
-@pytest.mark.parametrize("hist_len,role", [
-    (0, "challenger"), (1, "challenger"), (2, "exploiter"),
-    (3, "challenger"), (4, "challenger"), (5, "exploiter"),
-])
-def test_exploiter_triggers_every_third_generation(tmp_path, monkeypatch, hist_len, role):
-    import archive
-    import selfplay
-
-    captured: dict = {}
-    _mocked_generation(monkeypatch, captured)
-    base = tmp_path / "archive"
-    cfg = _exploiter_cfg()
-    archive.init(base)
-    champ = archive.save_checkpoint(base, {"w": [1.0]}, "main", None)
-    archive.set_champion(base, champ)
-    for i in range(hist_len):
-        selfplay.append_history(base, {"gen": i})
-    expected = role != "challenger"
-    assert len(selfplay.read_history(base)) % 3 == 2 or not expected
-    assert (hist_len % 3 == 2) is expected
-    rep = selfplay.run_generation(cfg, base, commit=False)
-    assert rep["exploiter"] is expected
-    # spoiler folded (round-72 post-mortem): every exploiter gen runs
-    # line A as "exploiter"; the spoiler role is never scheduled.
-    assert captured["role"] == role
-    assert archive.members(base)[-1]["role"] == captured["role"]
-    assert archive.read_status(base)["exploiter"] is expected
-
-
-def test_run_generation_chains_main_parents(tmp_path, monkeypatch):
-    import archive
-    import selfplay
-
-    captured: dict = {}
-    _mocked_generation(monkeypatch, captured)
-    base = tmp_path / "archive"
-    cfg = _exploiter_cfg()
-    selfplay.run_generation(cfg, base, commit=False)  # gen 0 challenger
-    selfplay.run_generation(cfg, base, commit=False)  # gen 1 challenger
-    # gen 0 bootstraps the main from the champ; gen 1 trains from it:
-    # the parent chain is g000 -> g001 -> g003, not a champ star.
-    parents = {m["id"]: m["parent"] for m in archive.members(base)}
-    assert parents["g001"] == "g000"
-    chal1 = [m["id"] for m in archive.members(base)
-             if m["role"] == "challenger"][-1]
-    assert parents[chal1] == "g001"
-
-
-def test_exploiters_run_unanchored(tmp_path, monkeypatch):
-    import archive
-    import selfplay
-
-    captured: dict = {}
-    _mocked_generation(monkeypatch, captured)
-    base = tmp_path / "archive"
-    cfg = _exploiter_cfg()
-    assert cfg["kl_anchor_beta"] != 0.0  # anchor live in this cfg
-    selfplay.run_generation(cfg, base, commit=False)  # gen 0: challenger
-    assert captured["kl_anchor_beta"] == cfg["kl_anchor_beta"]
-    selfplay.append_history(base, {"gen": 97})  # history len 2: exploiter
-    selfplay.run_generation(cfg, base, commit=False)
-    assert captured["kl_anchor_beta"] == 0.0  # scouts drift free
-
-
-def test_exploiter_starts_from_fresh_weights(tmp_path, monkeypatch):
-    import archive
-    import selfplay
-
-    captured: dict = {}
-    _mocked_generation(monkeypatch, captured)
-    base = tmp_path / "archive"
-    cfg = _exploiter_cfg()
-    selfplay.run_generation(cfg, base, commit=False)
-    selfplay.append_history(base, {"gen": 97})  # history len 2 -> exploiter
-    champ_id = archive.get_champion(base)
-    champ_w = archive.load_checkpoint(base, champ_id)
-    rep = selfplay.run_generation(cfg, base, commit=False)
-    assert rep["exploiter"] is True
-    # supervised base (g000), not a champ copy — unless the archive
-    # started random, in which case g000 IS random and equality holds.
-    assert captured["init_w"] != champ_w or champ_w == archive.load_checkpoint(base, "g000")
-
-
-def test_exploiter_base_alternates_founding_and_champ(tmp_path):
-    import archive
-    import selfplay
-
-    base = tmp_path / "archive"
-    archive.save_checkpoint(base, {"w": [1.0]}, "main", None)
-    champ = {"w": [2.0]}
-    # k-th exploiter sits at gen_index 3k+2: even k -> founding
-    # weights (fresh competent eyes), odd k -> champion clone
-    # (current competence + disruptive objectives).
-    assert selfplay._exploiter_base(base, {"seed": 0}, 2, champ) == {"w": [1.0]}
-    assert selfplay._exploiter_base(base, {"seed": 0}, 5, champ) == champ
-    assert selfplay._exploiter_base(base, {"seed": 0}, 8, champ) == {"w": [1.0]}
-
-
-def test_non_exploiter_copies_champion(tmp_path, monkeypatch):
-    import archive
-    import selfplay
-
-    captured: dict = {}
-    _mocked_generation(monkeypatch, captured)
-    base = tmp_path / "archive"
-    cfg = _exploiter_cfg()
-    rep = selfplay.run_generation(cfg, base, commit=False)
-    assert rep["exploiter"] is False
-    champ_id = archive.get_champion(base)
-    champ_w = archive.load_checkpoint(base, champ_id)
-    assert captured["init_w"] == champ_w
-    assert captured["role"] == "challenger"
-
-
-
 def test_last_exploiter_tracks_lines_separately(tmp_path):
     import archive
 
@@ -2425,77 +1973,6 @@ def test_save_checkpoint_records_line_only_when_given(tmp_path):
     rows = {r["id"]: r for r in archive.members(base)}
     assert "line" not in rows[a]
     assert rows[b]["line"] == 1
-
-
-def test_exploiter_line_alternates_by_count():
-    import selfplay
-
-    # spoiler folded (round-72 post-mortem): every exploiter gen runs
-    # line A (0); lines 1/2 hold stale history and are never scheduled.
-    assert [selfplay._exploiter_line(g) for g in (2, 5, 8, 11, 14)] == [0, 0, 0, 0, 0]
-
-
-def test_line_b_founds_from_supervised_base_never_champ(tmp_path):
-    import archive
-    import selfplay
-
-    base = tmp_path / "archive"
-    archive.save_checkpoint(base, {"w": [1.0]}, "main", None)  # g000
-    champ = {"w": [9.0]}
-    # line B (spoiler) is alien stock with nothing to unlearn: random
-    # weights even when the supervised base exists, never a champ clone.
-    w = selfplay._exploiter_base(base, {"seed": 0, "arch": "base"},
-                                 5, champ, line=1)
-    assert isinstance(w, dict) and "conv1.weight" in w
-    assert w != {"w": [1.0]} and w != champ
-
-
-def test_line_b_falls_back_to_random_without_founding(tmp_path):
-    import selfplay
-
-    base = tmp_path / "archive"  # empty: no g000 to found from
-    champ = {"w": [9.0]}
-    w = selfplay._exploiter_base(base, {"seed": 0}, 5, champ, line=1)
-    assert w != champ and isinstance(w, dict) and "conv1.weight" in w
-
-
-def test_exploiter_gens_alternate_lines_end_to_end(tmp_path, monkeypatch):
-    import copy
-
-    import archive
-    import evaluate
-    import selfplay
-    import train
-
-    def fake_train(cfg, base, champ_id, champ_w, role="challenger",
-                   parent=None, opt_state=None, **kwargs):
-        cid = archive.save_checkpoint(
-            base, copy.deepcopy(champ_w), role,
-            champ_id if parent is None else parent,
-            line=kwargs.get("line"))
-        return cid, copy.deepcopy(champ_w), {"rows": 0}, None
-
-    def fake_eval(cfg, base, chal_id, chal_w, champ_id, champ_w):
-        return {"wins": 0, "draws": 0, "games": 0, "win_rate": 0.0,
-                "margins": [], "mean_margin": 0.0}
-
-    monkeypatch.setattr(train, "train_generation", fake_train)
-    monkeypatch.setattr(evaluate, "evaluate", fake_eval)
-    monkeypatch.setattr(evaluate, "should_promote", lambda *a: False)
-    base = tmp_path / "archive"
-    cfg = _exploiter_cfg()
-    ids = [selfplay.run_generation(cfg, base, commit=False)["challenger"]
-           for _ in range(12)]
-    members = {m["id"]: m for m in archive.members(base)}
-    # spoiler folded (round-72 post-mortem): gens 2, 5, 8, 11 are all
-    # line-0 exploiters chaining a single tip; line 2 never scheduled.
-    assert [members[i].get("line") for i in
-            (ids[2], ids[5], ids[8], ids[11])] == [0, 0, 0, 0]
-    # single line-A chain: each tip continues the previous one.
-    assert members[ids[5]]["parent"] == ids[2]
-    assert members[ids[8]]["parent"] == ids[5]
-    assert members[ids[11]]["parent"] == ids[8]
-
 
 def _hill_game(score):
     game = _game()
@@ -2716,101 +2193,6 @@ def test_spoiler_scales_exact_values():
     assert s["HILL_RAZE"] == rewards.HILL_RAZE
     assert s["HILL_LOST"] == rewards.HILL_LOST
 
-
-def test_spoiler_founding_is_random_never_g000(tmp_path):
-    import archive
-    import selfplay
-
-    base = tmp_path / "archive"
-    archive.save_checkpoint(base, {"w": [1.0]}, "main", None)  # g000
-    champ = {"w": [9.0]}
-    w = selfplay._exploiter_base(base, {"seed": 0, "arch": "base"},
-                                 5, champ, line=1)
-    assert isinstance(w, dict) and "conv1.weight" in w
-    assert w != {"w": [1.0]} and w != champ  # random stock, nothing to unlearn
-
-
-def test_exploiter_line_gives_spoiler_a_fresh_slot():
-    import selfplay
-
-    # spoiler folded (round-72 post-mortem): every exploiter gen runs
-    # line A (0); lines 1/2 hold stale history and are never scheduled.
-    assert [selfplay._exploiter_line(g) for g in (2, 5, 8, 11)] == [0, 0, 0, 0]
-
-
-def test_line2_founding_is_random_with_line1_tip_present(tmp_path):
-    import archive
-    import selfplay
-
-    base = tmp_path / "archive"
-    archive.save_checkpoint(base, {"w": [1.0]}, "main", None)  # g000
-    stale = archive.save_checkpoint(base, {"w": [5.0]}, "spoiler",
-                                      None, line=1)
-    assert archive.last_exploiter(base, line=1) == stale
-    champ = {"w": [9.0]}
-    # the spoiler re-founds from random stock on its fresh slot: it
-    # must not chain the stale line-1 tip, clone the champ, or reuse g000.
-    w = selfplay._exploiter_base(base, {"seed": 0, "arch": "base"},
-                                 5, champ, line=2)
-    assert isinstance(w, dict) and "conv1.weight" in w
-    assert w != {"w": [1.0]} and w != champ and w != {"w": [5.0]}
-
-
-def test_spoiler_chains_line2_tip_line1_neglected(tmp_path, monkeypatch):
-    import copy
-
-    import archive
-    import evaluate
-    import selfplay
-    import train
-
-    inits = []
-
-    def fake_train(cfg, base, champ_id, champ_w, role="challenger",
-                   parent=None, opt_state=None, **kwargs):
-        if role == "spoiler":
-            inits.append(copy.deepcopy(champ_w))
-        cid = archive.save_checkpoint(
-            base, copy.deepcopy(champ_w), role,
-            champ_id if parent is None else parent,
-            line=kwargs.get("line"))
-        return cid, copy.deepcopy(champ_w), {"rows": 0}, None
-
-    def fake_eval(cfg, base, chal_id, chal_w, champ_id, champ_w):
-        return {"wins": 0, "draws": 0, "games": 0, "win_rate": 0.0,
-                "margins": [], "mean_margin": 0.0}
-
-    monkeypatch.setattr(train, "train_generation", fake_train)
-    monkeypatch.setattr(evaluate, "evaluate", fake_eval)
-    monkeypatch.setattr(evaluate, "should_promote", lambda *a: False)
-    base = tmp_path / "archive"
-    # the stale line-B chain predates the repair: line 1 must die by
-    # neglect, never scheduled and never parented again.
-    archive.save_checkpoint(base, {"w": [1.0]}, "main", None)  # g000
-    stale = archive.save_checkpoint(base, {"w": [0.0]}, "spoiler",
-                                      None, line=1)
-    cfg = _exploiter_cfg()
-    ids = [selfplay.run_generation(cfg, base, commit=False)["challenger"]
-           for _ in range(12)]
-    members = {m["id"]: m for m in archive.members(base)}
-    # spoiler folded (round-72 post-mortem): gens 2, 5, 8, 11 are all
-    # line-0 exploiters chaining one tip; line 2 never scheduled, line 1
-    # stays dead by neglect. Spoiler founding/scales code stays dormant.
-    assert [members[i].get("line") for i in
-            (ids[2], ids[5], ids[8], ids[11])] == [0, 0, 0, 0]
-    assert all(members[i]["role"] == "exploiter" for i in
-               (ids[2], ids[5], ids[8], ids[11]))
-    # line-0 chains its own tip across all four exploiter gens.
-    assert members[ids[5]]["parent"] == ids[2]
-    assert members[ids[8]]["parent"] == ids[5]
-    assert members[ids[11]]["parent"] == ids[8]
-    assert inits == []  # spoiler never ran, never founded
-    # both old rival lines untouched and never parented.
-    assert all(m.get("line") != 2 for m in members.values())
-    assert all(m.get("parent") != stale for m in members.values())
-    assert archive.last_exploiter(base, line=1) == stale
-
-
 def test_spoiler_gate_keeps_kills_zeroes_march():
     import rewards
 
@@ -2860,58 +2242,6 @@ def test_drills_cycle_respects_least_recent_first(tmp_path):
 
 
 # --- round-72 post-mortem repair 1: spoiler fold (TDD) ---
-
-def test_spoiler_fold_alternation_all_line_zero():
-    import selfplay
-
-    # folded: every exploiter gen runs line A (0); spoiler never scheduled.
-    assert [selfplay._exploiter_line(g) for g in (2, 5, 8, 11)] == [0, 0, 0, 0]
-
-
-def test_spoiler_fold_end_to_end_single_line(tmp_path, monkeypatch):
-    import copy
-
-    import archive
-    import evaluate
-    import selfplay
-    import train
-
-    def fake_train(cfg, base, champ_id, champ_w, role="challenger",
-                   parent=None, opt_state=None, **kwargs):
-        cid = archive.save_checkpoint(
-            base, copy.deepcopy(champ_w), role,
-            champ_id if parent is None else parent,
-            line=kwargs.get("line"))
-        return cid, copy.deepcopy(champ_w), {"rows": 0}, None
-
-    def fake_eval(cfg, base, chal_id, chal_w, champ_id, champ_w):
-        return {"wins": 0, "draws": 0, "games": 0, "win_rate": 0.0,
-                "margins": [], "mean_margin": 0.0}
-
-    monkeypatch.setattr(train, "train_generation", fake_train)
-    monkeypatch.setattr(evaluate, "evaluate", fake_eval)
-    monkeypatch.setattr(evaluate, "should_promote", lambda *a: False)
-    base = tmp_path / "archive"
-    cfg = _exploiter_cfg()
-    ids = [selfplay.run_generation(cfg, base, commit=False)["challenger"]
-           for _ in range(12)]
-    members = {m["id"]: m for m in archive.members(base)}
-    # gens 2, 5, 8, 11 are all line-0 exploiters chaining one tip.
-    assert [members[i].get("line") for i in
-            (ids[2], ids[5], ids[8], ids[11])] == [0, 0, 0, 0]
-    assert all(members[i]["role"] == "exploiter" for i in
-               (ids[2], ids[5], ids[8], ids[11]))
-    assert members[ids[5]]["parent"] == ids[2]
-    assert members[ids[8]]["parent"] == ids[5]
-    assert members[ids[11]]["parent"] == ids[8]
-    # line 2 never parented, never scheduled.
-    assert all(m.get("line") != 2 for m in members.values())
-    assert all(m.get("parent") != ids[5] or m["id"] == ids[8]
-               for m in members.values())
-
-
-# --- round-72 post-mortem repair 2: champ-share restoration (TDD) ---
-
 def _seeded_frontier(tmp_path):
     import archive
 
@@ -2932,16 +2262,6 @@ def test_train_map_for_indexing():
     assert train._train_map_for(cfg, 0) == "m0.map"
     assert train._train_map_for(cfg, 59) == "m59.map"
     assert train._train_map_for(cfg, 80) == "m0.map"  # short pools cycle
-
-
-def test_eval_map_for_slice():
-    import evaluate
-
-    eval_maps = [f"e{i}.map" for i in range(20)]
-    cfg = {"eval_maps": eval_maps}
-    assert evaluate._eval_map_for(cfg, 0) == "e0.map"
-    assert evaluate._eval_map_for(cfg, 19) == "e19.map"
-
 
 def test_mixture_draw_even_splits_without_mass():
     import archive
@@ -3359,28 +2679,6 @@ def _fake_game_out(names, scores, outdir):
     return {"game": {"game_length": 10, "score": list(scores),
                      "replaydata": {}},
             "records": [[] for _ in names]}
-
-
-def test_eval_duels_tag_pairs_with_unique_game_ids(tmp_path, monkeypatch):
-    import archive
-    import evaluate
-    import game_if
-
-    base = tmp_path / "archive"
-    w = {"a": [1.0]}
-    monkeypatch.setattr(game_if, "play", lambda *a, **k: (
-        _fake_game_out(["chal", "champ"], [2, 2], a[4])))
-    cfg = {"eval_games": 2,
-           "eval_maps": [_tmp_2p_map(tmp_path, "e1.map"),
-                         _tmp_2p_map(tmp_path, "e2.map")],
-           "turns": 5, "temperature": 0.0, "seed": 0, "workers": 1}
-    evaluate.evaluate(cfg, base, "chal", w, "champ", w)
-    rows = archive.list_games(base)
-    assert len(rows) == 2
-    gids = [r.get("game") for r in rows]
-    assert all(g.startswith("games/chal/eval") for g in gids)
-    assert len(set(gids)) == 2  # re-runs of one rel still split
-
 
 def test_snapshot_2p_history_meaning_unchanged(tmp_path):
     import archive
