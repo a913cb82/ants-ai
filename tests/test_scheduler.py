@@ -97,6 +97,12 @@ def test_micro_batch_update_every_eighth_own_game(tmp_path, monkeypatch):
 def test_snapshot_cadence_freezes_permanent_members(tmp_path, monkeypatch):
     base, cfg, live = _setup(tmp_path, monkeypatch)
     monkeypatch.setattr(selfplay, "SNAPSHOT_EVERY", 2)
+    # Setup minted one incarnation per exploiter (role me/le, parent
+    # g000): the live ids games log under.
+    state = archive.load_league(base)
+    me_inc = state["exploiters"]["me"]["id"]
+    inc_row = {m["id"]: m for m in archive.members(base)}[me_inc]
+    assert inc_row == {"id": me_inc, "role": "me", "parent": "g000"}
     before = len(archive.members(base))
     for _ in range(8):  # every learner reaches its 2nd own-game
         selfplay.run_tick(cfg, base, live)
@@ -107,7 +113,10 @@ def test_snapshot_cadence_freezes_permanent_members(tmp_path, monkeypatch):
     state = archive.load_league(base)
     assert state["main_snapshots"][-1] == members[before]["id"]
     assert state["main_id"] == members[before]["id"]
-    assert state["exploiters"]["me"]["id"] == members[before + 1]["id"]
+    # Snapshots parent to the live incarnation but never overwrite it:
+    # the incarnation id stays stable until a reset mints a new one.
+    assert state["exploiters"]["me"]["id"] == me_inc
+    assert members[before + 1]["parent"] == me_inc
 
 
 def test_anchor_measurement_runs_on_main_snapshot(tmp_path, monkeypatch):
@@ -144,6 +153,7 @@ def test_admission_trigger_freezes_and_resets(tmp_path, monkeypatch):
     base, cfg, live = _setup(tmp_path, monkeypatch, scores=(5, 1))
     state = archive.load_league(base)
     exp = state["exploiters"]["le-a"]
+    old_inc = exp["id"]
     exp.update({"games": 40, "window": [1.0] * 40, "reset_at": 0})
     archive.save_league(base, state)
     g000_w = archive.load_checkpoint(base, "g000")
@@ -157,22 +167,30 @@ def test_admission_trigger_freezes_and_resets(tmp_path, monkeypatch):
     assert rep["admitted"]["role"] == "le-a"
     assert rep["snapshot"] is None  # the freeze is the record, no extra copy
     members = archive.members(base)
-    assert members[-1]["role"] == "admitted"
-    assert len(members) == before + 1
-    # learner reset to g000 with fresh Adam and cleared window.
+    assert members[-2]["role"] == "admitted"
+    assert members[-2]["parent"] == old_inc  # seeds from the peak
+    assert len(members) == before + 2  # admitted copy + fresh incarnation
+    # learner reset to a fresh incarnation: new id, parent g000.
+    # learner reset to a FRESH incarnation (g000 weights + fresh Adam,
+    # new member id) with a cleared window.
     assert json.loads(
         (base / "learners" / "le-a" / "weights.json").read_text()) == g000_w
     assert not (base / "learners" / "le-a" / "opt.json").exists()
     state = archive.load_league(base)
     assert state["exploiters"]["le-a"]["window"] == []
     assert state["exploiters"]["le-a"]["reset_at"] == 41
-    assert state["admissions"][-1]["id"] == members[-1]["id"]
+    new_inc = state["exploiters"]["le-a"]["id"]
+    assert new_inc != old_inc and new_inc != members[-2]["id"]
+    assert {m["id"]: m for m in archive.members(base)}[new_inc] == \
+        {"id": new_inc, "role": "le", "parent": "g000"}
+    assert state["admissions"][-1]["id"] == members[-2]["id"]
 
 
 def test_stall_reset_after_drought(tmp_path, monkeypatch):
     base, cfg, live = _setup(tmp_path, monkeypatch, scores=(0, 5))
     state = archive.load_league(base)
     exp = state["exploiters"]["me"]
+    old_inc = exp["id"]
     exp.update({"games": 399, "window": [0.0] * 40, "reset_at": 0})
     archive.save_league(base, state)
     g000_w = archive.load_checkpoint(base, "g000")
@@ -182,13 +200,19 @@ def test_stall_reset_after_drought(tmp_path, monkeypatch):
     assert rep["learner"] == "me"
     assert rep["stalled"] is True
     assert rep["admitted"] is None
-    assert len(archive.members(base)) == before  # reset stores nothing
+    # A stall mints exactly one member: the fresh incarnation (the g000
+    # weights it carries were already frozen at the previous incarnation).
+    assert len(archive.members(base)) == before + 1
     assert json.loads(
         (base / "learners" / "me" / "weights.json").read_text()) == g000_w
     state = archive.load_league(base)
     assert state["exploiters"]["me"]["window"] == []
     assert state["exploiters"]["me"]["reset_at"] == 400
     assert state["admissions"] == []
+    new_inc = state["exploiters"]["me"]["id"]
+    assert new_inc != old_inc
+    assert {m["id"]: m for m in archive.members(base)}[new_inc] == \
+        {"id": new_inc, "role": "me", "parent": "g000"}
 
 
 def test_role_init_main_resumes_exploiters_from_g000(tmp_path):
@@ -207,8 +231,32 @@ def test_role_init_main_resumes_exploiters_from_g000(tmp_path):
     # second start never clobbers training progress.
     marker = {"reshaped": True}
     (base / "learners" / "me" / "weights.json").write_text(json.dumps(marker))
+    members_before = len(archive.members(base))
+    ids_before = {n: archive.load_league(base)["exploiters"][n]["id"]
+                  for n in ("me", "le-a", "le-b")}
     selfplay.ensure_roles(base, cfg)
     assert selfplay.load_live(base, "me")[0] == marker
+    # ... nor mints duplicate incarnations: the live ids are stable.
+    assert len(archive.members(base)) == members_before
+    assert {n: archive.load_league(base)["exploiters"][n]["id"]
+            for n in ("me", "le-a", "le-b")} == ids_before
+
+
+def test_role_init_mints_one_incarnation_per_exploiter(tmp_path):
+    base, g000, source, pool = _league_base(tmp_path)
+    cfg = _cfg(tmp_path)
+    selfplay.ensure_roles(base, cfg)
+    state = archive.load_league(base)
+    rows = {m["id"]: m for m in archive.members(base)}
+    assert state["exploiters"]["me"]["id"] is not None
+    assert rows[state["exploiters"]["me"]["id"]]["role"] == "me"
+    for name in ("me", "le-a", "le-b"):
+        iid = state["exploiters"][name]["id"]
+        assert rows[iid]["parent"] == "g000"
+        assert archive.load_checkpoint(base, iid) == \
+            archive.load_checkpoint(base, "g000")
+    assert rows[state["exploiters"]["le-a"]["id"]]["role"] == "le"
+    assert rows[state["exploiters"]["le-b"]["id"]]["role"] == "le"
 
 
 @pytest.mark.slow

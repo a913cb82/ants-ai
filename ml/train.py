@@ -128,17 +128,24 @@ def _play_one(args) -> dict:
 
 def select_opponent(base: Path, learner: str, state: dict,
                     records: pfsp.Records, totals: pfsp.Totals,
-                    rng: random.Random) -> str:
+                    rng: random.Random,
+                    sample_id: str | None = None) -> str:
     """PFSP opponent for one learner tick (pure sampling, no I/O beyond
     the manifest read). Main seeks counters/variance-weighted
     historicals; ME stays on the main snapshot while beating it, else
     hunts easier historicals; LEs probe the pool for holes. Candidates
     are manifest members only: live training weights move under the
-    learner, so only frozen snapshots may oppose."""
+    learner, so only frozen snapshots may oppose.
+
+    sample_id is the seat identity the learner's games log under (the
+    live incarnation id for exploiters, "main" for main): records are
+    keyed by it, so it -- not the slot name -- must drive the win-
+    fraction lookups and self-exclusion. Defaults to the slot for
+    callers without incarnations."""
     candidates = [m["id"] for m in archive.members(base)
                   if isinstance(m.get("id"), str)]
     policy = ROLE_CONFIGS[learner]["policy"]
-    live = learner
+    live = sample_id if sample_id is not None else learner
     if policy == "main":
         return pfsp.main_sample(live, candidates, records, totals, rng)
     if policy == "me":
