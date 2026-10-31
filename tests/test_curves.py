@@ -1,0 +1,230 @@
+"""Red-first tests for the 7-curve progress board (impl/curves).
+
+Every new computation gets a test before the implementation exists:
+BT-Elo fit, knock/conversion windows, decisiveness, margin quantiles,
+PG ratio, value slope, tenure strip, crown typing, regime boundary.
+"""
+import math
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "ml"))
+
+
+def _h(challenger, champion="g000", promoted=False, wins=0, draws=0,
+       games=0, margins=None, train=None, nash=None):
+    margins = margins if margins is not None else [0] * games
+    ev = {"wins": wins, "draws": draws, "games": games,
+          "win_rate": (wins + 0.5 * draws) / games if games else 0.0,
+          "margins": margins,
+          "mean_margin": sum(margins) / len(margins) if margins else 0.0}
+    return {"challenger": challenger, "champion": champion,
+            "promoted": promoted, "train": train or {},
+            "eval": ev, "nash": nash or {}, "config": {}}
+
+
+def test_bt_fit_orders_transitive_panel():
+    import dashboard
+
+    ev = {"a vs b": [3.0, 0.0], "b vs a": [0.0, 3.0],
+          "b vs c": [3.0, 0.0], "c vs b": [0.0, 3.0]}
+    r = dashboard.bt_fit(["a", "b", "c"], ev, iters=200)
+    assert r["a"] > r["b"] > r["c"]
+
+
+def test_bt_fit_draws_shrink_and_empty_member_zero():
+    import dashboard
+
+    ev = {"a vs b": [0.5, 0.5], "b vs a": [0.5, 0.5]}
+    r = dashboard.bt_fit(["a", "b", "lonely"], ev, iters=200)
+    assert abs(r["a"] - r["b"]) < 1e-6
+    assert r["lonely"] == 0.0
+
+
+def test_bt_elo_zero_is_panel_mean():
+    import dashboard
+
+    ev = {"x vs g000": [4.0, 0.0], "g000 vs x": [0.0, 4.0]}
+    elos = dashboard.anchored_elo(["g000", "x"], ev, ["g000"], iters=200)
+    assert abs(elos["g000"]) < 1e-9
+    assert elos["x"] > 100  # decisive sweep reads as a large Elo gap
+
+
+def test_panel_is_bc_plus_last_three_deposed():
+    import dashboard
+
+    hist = [_h("g001", "g000"), _h("g002", "g000", True, 4, 0, 6),
+            _h("g003", "g002"), _h("g004", "g002", True, 5, 0, 6),
+            _h("g005", "g004", True, 5, 0, 6),
+            _h("g006", "g005", True, 5, 0, 6)]
+    panel = dashboard.panel_ids(hist)
+    assert panel[0] == "g000"
+    assert panel[1:] == ["g002", "g004", "g005"]  # last three deposed
+
+
+def test_knock_conversion_windowing():
+    import dashboard
+
+    hist = [_h(f"g{i:03d}", wins=3, draws=0, games=6,
+               margins=[1] * 3 + [-1] * 3,  # eff .50 -> knock
+               ) for i in range(4)]
+    hist[1]["promoted"] = True
+    hist[3]["promoted"] = True
+    k = dashboard.knock_conversion(hist, window=4)
+    assert k["rate"][-1] == 1.0
+    assert k["conv"][-1] == 0.5  # 2 promos of 4 knocks
+    assert k["lo"][-1] <= 1.0 <= k["hi"][-1]
+    assert k["clo"][-1] <= 0.5 <= k["chi"][-1]
+
+
+def test_conversion_none_without_knocks():
+    import dashboard
+
+    hist = [_h(f"g{i:03d}", wins=0, draws=0, games=6,
+               margins=[-1] * 6) for i in range(3)]
+    k = dashboard.knock_conversion(hist, window=3)
+    assert k["rate"][-1] == 0.0
+    assert k["conv"][-1] is None
+
+
+def test_decisiveness_train_and_eval():
+    import dashboard
+
+    games = [
+        {"gen": "g001", "kind": "train",
+         "seats": [{"id": "a", "score": 3}, {"id": "b", "score": 1}]},
+        {"gen": "g001", "kind": "train",
+         "seats": [{"id": "a", "score": 2}, {"id": "b", "score": 2}]},
+        {"gen": "g002", "kind": "train",
+         "seats": [{"id": "a", "score": 1}, {"id": "b", "score": 1},
+                   {"id": "c", "score": 1}]},
+    ]
+    hist = [_h("g001", margins=[2, 0, -1]), _h("g002", margins=[0, 0])]
+    d = dashboard.decisiveness(hist, games, window=2)
+    assert d["train"][0] == 0.5 and d["train"][1] == 0.0
+    assert d["eval"][0] == 2 / 3 and d["eval"][1] == 0.0
+    assert d["train_ma"][1] == 0.25  # mean of last two windows-worth
+
+
+def test_margin_quantiles():
+    import dashboard
+
+    hist = [_h("g001", margins=[-3, -1, 0, 2, 4])]
+    m = dashboard.margin_band(hist, window=1)
+    assert m["med"][0] == 0
+    assert m["q1"][0] == -2.0 and m["q3"][0] == 3.0  # linear interp
+
+
+def test_margin_band_pools_window():
+    import dashboard
+
+    hist = [_h("g001", margins=[10, 10]), _h("g002", margins=[-10, -10])]
+    m = dashboard.margin_band(hist, window=2)
+    assert m["med"][1] == 0.0
+
+
+def test_pg_signal_ratio_last_epoch():
+    import dashboard
+
+    hist = [_h("g001", train={"pg_loss": [0.5, 0.2], "pg_abs": [1.0, 0.8],
+                             "entropies": [0.9, 0.7]})]
+    p = dashboard.pg_signal(hist, window=2)
+    assert abs(p["ratio"][0] - 0.25) < 1e-9
+    assert p["entropy"][0] == 0.7
+    assert p["ratio_med"][0] == p["ratio"][0]
+
+
+def test_pg_signal_missing_or_zero_abs_is_none():
+    import dashboard
+
+    hist = [_h("g001", train={"pg_loss": [0.2], "pg_abs": [0.0]}),
+            _h("g002", train={"pg_loss": [0.2]})]
+    p = dashboard.pg_signal(hist, window=2)
+    assert p["ratio"] == [None, None]
+
+
+def test_value_slope():
+    import dashboard
+
+    hist = [_h("g001", train={"v_loss": [1.0, 0.6, 0.4]}),
+            _h("g002", train={"v_loss": [0.0, 0.0]}),
+            _h("g003")]
+    v = dashboard.value_slope(hist)
+    assert abs(v[0] - 0.6) < 1e-9
+    assert v[1] is None and v[2] is None
+
+
+def test_tenure_resets_on_turnover_and_entropy():
+    import dashboard
+
+    hist = [_h("g001", nash={"a": 1.0}),
+            _h("g002", promoted=True, nash={"a": 0.5, "b": 0.5}),
+            _h("g003", nash={"a": 0.5, "b": 0.5})]
+    t = dashboard.reign_strip(hist)
+    assert t["tenure"] == [1, 0, 1]
+    assert t["turnover"] == [0, 1, 0]
+    assert t["entropy"][0] == 0.0
+    assert abs(t["entropy"][1] - math.log(2)) < 1e-9
+
+
+def test_crown_typing():
+    import dashboard
+
+    complete = _h("g010", promoted=True, wins=4, draws=1, games=6,
+                  margins=[2, 1, 0, 3, -1, 1])
+    soft_drawish = _h("g011", promoted=True, wins=1, draws=5, games=6,
+                      margins=[1, 0, 0, 0, 0, -1])
+    soft_negative = _h("g012", promoted=True, wins=3, draws=0, games=6,
+                       margins=[1, 1, 1, -2, -2, -2])
+    held = _h("g013", wins=1, draws=1, games=6,
+              margins=[1, -1, 0, 0, -2, -3])
+    assert dashboard.crown_type(complete) == "complete"
+    assert dashboard.crown_type(soft_drawish) == "soft"
+    assert dashboard.crown_type(soft_negative) == "soft"
+    assert dashboard.crown_type(held) == "—"
+
+
+def test_nplayer_boundary_from_grouped_games():
+    import dashboard
+
+    games = [
+        {"gen": "g001", "kind": "train",
+         "seats": [{"id": "a", "score": 1}, {"id": "b", "score": 0}]},
+        {"gen": "g002", "kind": "train",
+         "seats": [{"id": "a", "score": 1}, {"id": "b", "score": 0},
+                   {"id": "c", "score": 2}]},
+    ]
+    hist = [_h("g001"), _h("g002")]
+    assert dashboard.nplayer_start(hist, games) == 1
+
+
+def test_snapshot_board_present_and_old_keys_stable(tmp_path):
+    import archive
+    import dashboard
+    import selfplay
+
+    base = tmp_path / "archive"
+    a = archive.save_checkpoint(base, {}, role="main", parent=None)
+    b = archive.save_checkpoint(base, {}, role="challenger", parent=a)
+    archive.set_champion(base, a)
+    archive.log_game(base, "g001", "eval", a, b, 3, 1,
+                     "games/g001/eval0/logs/0.replay")
+    archive.record_result(base, a, b, 3, 1)
+    selfplay.append_history(base, {
+        "challenger": "g001", "champion": a, "promoted": True,
+        "train": {"losses": [0.5, 0.4], "mean_return": 1.0,
+                  "pg_loss": [0.3, 0.2], "pg_abs": [1.0, 0.9],
+                  "entropies": [0.8, 0.7], "v_loss": [1.0, 0.6]},
+        "eval": {"wins": 4, "draws": 0, "games": 6, "win_rate": 4 / 6,
+                 "margins": [2, 1, 3, -1, 2, 1], "mean_margin": 1.0},
+        "nash": {a: 0.4, b: 0.6}, "config": {}})
+    snap = dashboard.snapshot(base)
+    assert {"loss", "ret", "ids"} <= set(snap["curves"])  # old keys stay
+    board = snap["board"]
+    for key in ("ids", "elo", "knock", "decisive", "margin", "pg",
+                "vslope", "reign", "regimes"):
+        assert key in board, key
+    assert board["ids"] == ["g001"]
+    assert board["elo"]["panel"][0] == "g000"
+    assert snap["generations"][0]["crown"] == "complete"

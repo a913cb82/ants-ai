@@ -19,6 +19,7 @@ import argparse
 import functools
 import html
 import json
+import math
 import os
 import sys
 import tempfile
@@ -83,13 +84,32 @@ def cached_grouped(base: Path) -> list[dict]:
     )
 
 
+_digest_cache: dict = {}
+
+
 def _eval_digest(base: Path) -> tuple:
-    """Cache key that ignores train-only churn (Nash reads eval only)."""
+    """Cache key that ignores train-only churn (Nash/BT read eval only).
+
+    The matrix file (~1MB) is stat-checked first: unchanged mtime+size
+    reuses the last digest, so Nash and BT each cost one read per poll
+    instead of one read+dump each."""
+    path = base / "matrix.json"
     try:
-        data = json.loads((base / "matrix.json").read_text())
+        st = path.stat()
+    except OSError:
+        return (None, None)
+    key = (str(base.resolve()), st.st_mtime_ns, st.st_size)
+    if _digest_cache.get("key") == key:
+        return _digest_cache["value"]
+    try:
+        data = json.loads(path.read_text())
     except (OSError, ValueError):
         return (None, None)
-    return (tuple(data.get("ids", [])), json.dumps(data.get("eval", {}), sort_keys=True))
+    digest = (tuple(data.get("ids", [])),
+              json.dumps(data.get("eval", {}), sort_keys=True))
+    _digest_cache["key"] = key
+    _digest_cache["value"] = digest
+    return digest
 
 
 _history_cache: dict = {}
@@ -495,6 +515,389 @@ def summarize_maps(games: list[dict]) -> list[dict]:
                   key=lambda m: ((m["map"] or ""), m["n"]))
 
 
+# ---------------------------------------------------------------- CURVES
+# Seven-curve progress board. All helpers are pure (history dicts +
+# grouped games in, JSON-able arrays out) so tests pin them without an
+# archive. snapshot() only wires them to cached files.
+
+_BT_ELO_SCALE = 400.0 / math.log(10)  # logit -> Elo, like 400*log10 odds
+_BT_ITERS = 100  # MM converges long before this on ~6k played pairs
+_BT_REG = 1.0  # virtual win+loss vs a rating-0 opponent: shrinks the
+# data-poor toward 0 instead of stranding them at +/-inf
+_KNOCK_EFF = 0.50  # challenging at even money counts as knocking
+
+
+def wilson_bounds(wins: float, games: int, z: float = 1.0) -> tuple:
+    """Wilson score interval, both ends. Same z=1.0 convention as
+    archive.wilson_lower (whose value this matches at the low end).
+    Whiskers on the knock/conversion bars."""
+    if games <= 0:
+        return (0.0, 1.0)
+    p = wins / games
+    denom = 1.0 + z * z / games
+    center = (p + z * z / (2 * games)) / denom
+    half = z * math.sqrt(p * (1 - p) / games
+                         + z * z / (4 * games * games)) / denom
+    return (max(0.0, center - half), min(1.0, center + half))
+
+
+def _hinges(vals: list[float]) -> tuple:
+    """Median + Tukey hinges (median of each half, median excluded for
+    odd n): robust center and IQR without numpy."""
+    s = sorted(vals)
+    n = len(s)
+    med = (s[n // 2] if n % 2 else (s[n // 2 - 1] + s[n // 2]) / 2)
+    lo = s[:n // 2]
+    hi = s[(n + 1) // 2:]
+    q1 = (lo[len(lo) // 2] if len(lo) % 2
+          else (lo[len(lo) // 2 - 1] + lo[len(lo) // 2]) / 2) if lo else med
+    q3 = (hi[len(hi) // 2] if len(hi) % 2
+          else (hi[len(hi) // 2 - 1] + hi[len(hi) // 2]) / 2) if hi else med
+    return (med, q1, q3)
+
+
+def roll_median(vals: list, window: int) -> list:
+    """15-gen (or w-gen) rolling median over non-None values: the bold
+    line to each curve's faint per-gen points."""
+    out = []
+    for i in range(len(vals)):
+        win = [v for v in vals[max(0, i - window + 1):i + 1]
+               if v is not None]
+        out.append(_hinges(win)[0] if win else None)
+    return out
+
+
+def roll_mean(vals: list, window: int) -> list:
+    """Rolling mean twin of roll_median (decisiveness MA)."""
+    out = []
+    for i in range(len(vals)):
+        win = [v for v in vals[max(0, i - window + 1):i + 1]
+               if v is not None]
+        out.append(sum(win) / len(win) if win else None)
+    return out
+
+
+def bt_fit(ids: list[str], ev: dict, iters: int = _BT_ITERS) -> dict:
+    """Regularized Bradley-Terry ratings (logit) over eval pairs.
+
+    Sparse MM (Hunter 2004): each sweep touches only played pairs, so
+    the 1700-member / ~6k-pair archive fits in ~0.3s cold (100 sweeps x
+    ~6k exp/log ops) and is cached per eval-digest like Nash. Draws
+    ride as half-wins, the codebase-wide outcome_of convention.
+    Regularization is the same +1/+1 Laplace prior archive._head_to_head
+    uses, plus one virtual win AND one virtual loss vs a rating-0
+    opponent per member: members with no eval games sit at exactly 0
+    instead of drifting, and thin samples shrink toward the pack."""
+    n = len(ids)
+    if not n:
+        return {}
+    pos = {cid: i for i, cid in enumerate(ids)}
+    wins = [0.0] * n
+    games: list[dict[int, float]] = [{} for _ in range(n)]
+    for key, w in ev.items():
+        pair = _split_pair(key, pos)
+        if pair is None:
+            continue
+        i, j = pair
+        if i == j:
+            continue
+        try:
+            wab0, wab1 = float(w[0]), float(w[1])
+        except (TypeError, ValueError, IndexError):
+            continue
+        wba = ev.get(f"{ids[j]} vs {ids[i]}", [0.0, 0.0])
+        try:
+            wba0, wba1 = float(wba[0]), float(wba[1])
+        except (TypeError, ValueError, IndexError):
+            continue
+        mine = wab0 + wba1 + 1.0  # Laplace, cf. _head_to_head
+        theirs = wab1 + wba0 + 1.0
+        total = mine + theirs
+        if total <= 2.0:  # Laplace only: never actually played
+            continue
+        wins[i] += mine
+        wins[j] += theirs
+        games[i][j] = games[i].get(j, 0.0) + total
+        games[j][i] = games[j].get(i, 0.0) + total
+    theta = [1.0] * n
+    for _ in range(iters):
+        for i in range(n):
+            denom = 2.0 * _BT_REG / (theta[i] + 1.0)  # virtual 0-rated opp
+            for j, nij in games[i].items():
+                denom += nij / (theta[i] + theta[j])
+            if denom > 0:
+                theta[i] = (wins[i] + _BT_REG) / denom
+    return {cid: (math.log(t) if t > 0 else 0.0) for cid, t in zip(ids, theta)}
+
+
+_bt_cache: dict = {}
+
+
+def _bt_cached(base: Path) -> dict:
+    """BT ratings, re-fit only when eval data changes (same key as Nash)."""
+    key = (str(base.resolve()), _eval_digest(base))
+    return _memo(_bt_cache, key, lambda: _sparse_bt(base))
+
+
+def _sparse_bt(base: Path, iters: int = _BT_ITERS) -> dict[str, float]:
+    """Read the eval matrix once, fit BT over played pairs only."""
+    try:
+        data = json.loads((base / "matrix.json").read_text())
+    except (OSError, ValueError):
+        return {}
+    return bt_fit(data.get("ids", []), data.get("eval", {}), iters)
+
+
+def panel_ids(history: list[dict]) -> list[str]:
+    """Fixed Elo anchor panel: BC g000 plus the last 3 deposed champs.
+
+    Walk the verdicts in order; every promoted challenger deposes the
+    reigning champ. Short histories yield a shorter panel (no padding:
+    padding would invent data)."""
+    deposed: list[str] = []
+    reigning = history[0].get("champion") if history else None
+    for h in history:
+        if h.get("promoted"):
+            if reigning is not None:
+                deposed.append(reigning)
+            reigning = h.get("challenger", reigning)
+    panel = ["g000"] + [c for c in deposed[-3:] if c != "g000"]
+    return list(dict.fromkeys(panel))
+
+
+def anchored_elo(ids: list[str], ev: dict, panel: list[str],
+                 iters: int = _BT_ITERS) -> dict:
+    """BT ratings re-zeroed so the panel mean is 0, scaled to Elo."""
+    ratings = bt_fit(ids, ev, iters)
+    have = [ratings[p] for p in panel if p in ratings]
+    zero = sum(have) / len(have) if have else 0.0
+    return {cid: (r - zero) * _BT_ELO_SCALE for cid, r in ratings.items()}
+
+
+def elo_series(history: list[dict], elos: dict,
+               window: int = 15) -> tuple[list, list]:
+    """Reigning champ's anchored Elo per gen (faint) + rolling median.
+
+    The champ of a promoted gen is the new challenger; otherwise the
+    throne carries over. "Good" reads as a sustained rise across 2+
+    thrones, not a one-gen spike."""
+    faint: list = []
+    reigning = history[0].get("champion") if history else None
+    for h in history:
+        if h.get("promoted"):
+            reigning = h.get("challenger", reigning)
+        faint.append(elos.get(reigning) if reigning is not None else None)
+    return faint, roll_median(faint, window)
+
+
+def _eff(h: dict) -> float | None:
+    ev = h.get("eval", {}) or {}
+    if ev.get("games"):
+        return ev.get("win_rate", (ev.get("wins", 0)
+                                    + 0.5 * ev.get("draws", 0)) / ev["games"])
+    return None
+
+
+def knock_conversion(history: list[dict], window: int = 15) -> dict:
+    """Dual 15-gen window bars with Wilson whiskers.
+
+    knock = eff >= .50 (challenging at even money); conversion =
+    promoted | knock. Rates over the trailing window; whiskers are the
+    z=1.0 Wilson interval, matching the promotion rule's convention."""
+    rate, lo, hi, conv, clo, chi = [], [], [], [], [], []
+    for i in range(len(history)):
+        win = history[max(0, i - window + 1):i + 1]
+        effs = [(h.get("promoted", False), _eff(h)) for h in win]
+        effs = [(p, e) for p, e in effs if e is not None]
+        n = len(effs)
+        k = sum(1 for _, e in effs if e >= _KNOCK_EFF)
+        rate.append(k / n if n else None)
+        blo, bhi = wilson_bounds(k, n)
+        lo.append(blo if n else None)
+        hi.append(bhi if n else None)
+        pk = sum(1 for p, e in effs if e >= _KNOCK_EFF and p)
+        conv.append(pk / k if k else None)
+        clo_, chi_ = wilson_bounds(pk, k)
+        clo.append(clo_ if k else None)
+        chi.append(chi_ if k else None)
+    return {"rate": rate, "lo": lo, "hi": hi,
+            "conv": conv, "clo": clo, "chi": chi}
+
+
+def decisiveness(history: list[dict], games: list[dict],
+                 window: int = 15) -> dict:
+    """Nonzero-margin fraction: train from grouped games, eval from
+    duel margins. Raw per-gen lines plus a 15-gen MA each.
+
+    A game is decisive unless every seat tied (max != min). Train games
+    key on the challenger id (= history order); eval margins are the
+    signed challenger-minus-champ duels."""
+    by_gen: dict[str, list] = {}
+    for g in games:
+        if g.get("kind") == "train":
+            by_gen.setdefault(g.get("gen"), []).append(g)
+    train, evalv = [], []
+    for h in history:
+        gs = by_gen.get(h.get("challenger"), [])
+        if gs:
+            dec = 0
+            for g in gs:
+                scores = [s["score"] for s in g.get("seats", [])]
+                if scores and max(scores) != min(scores):
+                    dec += 1
+            train.append(dec / len(gs))
+        else:
+            train.append(None)
+        margins = (h.get("eval", {}) or {}).get("margins", []) or []
+        evalv.append(sum(1 for m in margins if m != 0) / len(margins)
+                     if margins else None)
+    return {"train": train, "train_ma": roll_mean(train, window),
+            "eval": evalv, "eval_ma": roll_mean(evalv, window)}
+
+
+def margin_band(history: list[dict], window: int = 15) -> dict:
+    """Eval margin median +/- IQR over pooled 15-gen windows, signed
+    challenger-minus-champ. Pooling (not median-of-medians) keeps big
+    duel counts honest."""
+    med, q1, q3 = [], [], []
+    for i in range(len(history)):
+        pool: list[float] = []
+        for h in history[max(0, i - window + 1):i + 1]:
+            pool.extend((h.get("eval", {}) or {}).get("margins", []) or [])
+        if pool:
+            m, a, b = _hinges([float(x) for x in pool])
+            med.append(m)
+            q1.append(a)
+            q3.append(b)
+        else:
+            med.append(None)
+            q1.append(None)
+            q3.append(None)
+    return {"med": med, "q1": q1, "q3": q3}
+
+
+def pg_signal(history: list[dict], window: int = 10) -> dict:
+    """PG signal ratio |pg_loss|/pg_abs at the last epoch + entropy.
+
+    EXPERIMENTAL: no literature backing — the ratio is a local probe of
+    whether the policy gradient still moves the update relative to its
+    own scale, not an endorsed health metric. Missing/zero pg_abs (gens
+    logged before the field existed) yield None, never 0."""
+    ratio, entropy = [], []
+    for h in history:
+        tr = h.get("train", {}) or {}
+        pl = tr.get("pg_loss", []) or []
+        pa = tr.get("pg_abs", []) or []
+        en = tr.get("entropies", []) or []
+        last_abs = pa[-1] if pa else None
+        ratio.append(abs(pl[-1]) / last_abs
+                     if pl and isinstance(last_abs, (int, float))
+                     and last_abs else None)
+        entropy.append(en[-1] if en else None)
+    return {"ratio": ratio, "ratio_med": roll_median(ratio, window),
+            "entropy": entropy,
+            "entropy_med": roll_median(entropy, window)}
+
+
+def value_slope(history: list[dict]) -> list:
+    """Critic fit per gen: (v_loss[0]-v_loss[-1])/v_loss[0]. Positive =
+    the critic still learned within the gen; ~0 = saturated; negative =
+    the value fit got worse. Zero/missing opener yields None."""
+    out = []
+    for h in history:
+        v = (h.get("train", {}) or {}).get("v_loss", []) or []
+        out.append((v[0] - v[-1]) / v[0]
+                   if len(v) and isinstance(v[0], (int, float)) and v[0]
+                   else None)
+    return out
+
+
+def reign_strip(history: list[dict]) -> dict:
+    """Tenure = gens held including current (the history-open throne
+    predates the log, so it starts at 1: a documented lower bound).
+    The crowning gen itself has tenure 0. turnover flags promotions.
+    entropy is the Nash-mixture entropy (nats) stored per gen."""
+    tenure, turnover, entropy = [], [], []
+    t = 0
+    for i, h in enumerate(history):
+        if h.get("promoted"):
+            t = 0
+            turnover.append(1)
+        else:
+            t = t + 1 if i else 1
+            turnover.append(0)
+        tenure.append(t)
+        mix = h.get("nash", {}) or {}
+        entropy.append(-sum(p * math.log(p) for p in mix.values() if p > 0)
+                         if mix else None)
+    return {"tenure": tenure, "turnover": turnover, "entropy": entropy}
+
+
+def nplayer_start(history: list[dict], games: list[dict]) -> int | None:
+    """First history index whose challenger logged a 3+ seat game.
+
+    The N-player era boundary is DERIVED from grouped games, never
+    hardcoded. (The jury era has no boundary: exam juries were proposed
+    in run notes but no jury field or regime ever entered training
+    data, so per the no-invented-data rule no jury band is drawn.)"""
+    idx = {h.get("challenger"): i for i, h in enumerate(history)}
+    starts = [idx[g.get("gen")] for g in games
+              if (g.get("n", len(g.get("seats", []))) or 0) > 2
+              and g.get("gen") in idx]
+    return min(starts) if starts else None
+
+
+def crown_type(gen: dict) -> str:
+    """complete = beat the champ head-to-head AND the duel field;
+    soft = otherwise; held gens wear no crown ("—").
+
+    Derived from eval margins + totals only. Head-to-head = strict duel
+    majority (wins > losses, draws excluded). Field = aggregate scoring
+    edge (mean margin > 0 across ALL eval duels, draws included): a
+    draw-carried or outscored promotion takes the throne but not the
+    complete tag."""
+    if not gen.get("promoted"):
+        return "—"
+    ev = gen.get("eval", {}) or {}
+    wins = ev.get("wins", 0)
+    losses = ev.get("games", 0) - wins - ev.get("draws", 0)
+    margins = ev.get("margins", []) or []
+    mean_m = (sum(margins) / len(margins) if margins
+              else ev.get("mean_margin", 0.0))
+    return "complete" if wins > losses and mean_m > 0 else "soft"
+
+
+def build_board(base: Path, history: list[dict],
+                grouped: list[dict]) -> dict:
+    """All seven curves, aligned to history order (x = challenger ids)."""
+    try:
+        ratings = _bt_cached(base)
+    except (OSError, ValueError, KeyError, TypeError):
+        ratings = {}
+    panel = panel_ids(history)
+    have = [ratings[p] for p in panel if p in ratings]
+    zero = sum(have) / len(have) if have else 0.0
+    elos = {cid: (r - zero) * _BT_ELO_SCALE for cid, r in ratings.items()}
+    faint, med = elo_series(history, elos)
+    kc = knock_conversion(history)
+    np_idx = nplayer_start(history, grouped)
+    return {
+        "ids": [h.get("challenger", "") or "" for h in history],
+        "elo": {"champ": faint, "med": med, "panel": panel},
+        "knock": kc,
+        "decisive": decisiveness(history, grouped),
+        "margin": margin_band(history),
+        "pg": pg_signal(history),
+        "vslope": value_slope(history),
+        "reign": reign_strip(history),
+        "regimes": {
+            "nplayer": np_idx,
+            "nplayer_gen": (history[np_idx].get("challenger")
+                             if np_idx is not None else None),
+        },
+    }
+
+
 def snapshot(base: Path) -> dict:
     """Everything the page needs, in one JSON-able dict. One read per file."""
     archive.init(base)
@@ -547,6 +950,7 @@ def snapshot(base: Path) -> dict:
             "threshold": thr,
             "promoted": bool(h.get("promoted")),
             "reason": reason,
+            "crown": crown_type(h),
             "arch": cfg.get("arch", "base"),
             "turns": cfg.get("turns", 0),
             "gamma": cfg.get("gamma", 0.0),
@@ -588,6 +992,7 @@ def snapshot(base: Path) -> dict:
         "members": members,
         "run": run,
         "curves": curves,
+        "board": build_board(base, history, grouped),
         "generations": gens,
         "games": grouped[:50],
         "game_total": len(grouped),
@@ -814,60 +1219,7 @@ function shortReplay(rel){const p=(rel||"").split("/").filter(Boolean);
 function seatBadge(result){
   return {cls:result,label:result};
 }
-/* Charts: titled card, gridlines, min/max labels, headroom, HiDPI. */
-function plot(id,series,color,fill,labels,desc){
-  const cv=$(id),ctx=cv.getContext("2d");
-  cv.setAttribute("role","img");
-  if(desc)cv.setAttribute("aria-label",desc+": "+series.filter(v=>v!==null).join(", "));
-  const dpr=window.devicePixelRatio||1,W=cv.clientWidth,H=cv.clientHeight;
-  cv.width=W*dpr;cv.height=H*dpr;ctx.scale(dpr,dpr);
-  ctx.clearRect(0,0,W,H);
-  if(!series.length){ctx.fillStyle="#8A94A0";ctx.font="12px system-ui";
-    ctx.fillText("no generations yet",12,20);return;}
-  const vals=series.filter(v=>v!==null&&Number.isFinite(v));
-  if(!vals.length){ctx.fillStyle="#8A94A0";ctx.font="12px system-ui";
-    ctx.fillText("no data yet",12,20);return;}
-  let mn=Math.min(...vals),mx=Math.max(...vals);
-  if(mx-mn<1e-9){mn-=1;mx+=1;}
-  const pad=(mx-mn)*0.12;mn-=pad;mx+=pad;
-  const prec=(mx-mn)<0.5?3:2;
-  const L=48,R=8,T=8,B=20,iw=W-L-R,ih=H-T-B;
-  const X=i=>L+iw*(series.length<2?0.5:i/(series.length-1));
-  const Y=v=>T+ih*(1-(v-mn)/(mx-mn));
-  ctx.strokeStyle="#E9EDF1";ctx.fillStyle="#6B7480";ctx.font="10px system-ui";ctx.lineWidth=1;
-  for(let k=0;k<=3;k++){const v=mn+(mx-mn)*k/3,y=Y(v);
-    ctx.beginPath();ctx.moveTo(L,y);ctx.lineTo(W-R,y);ctx.stroke();
-    let t=v.toFixed(prec);if(t==="-0.000"||t==="-0.00")t=t.slice(1);
-    ctx.fillText(t,4,y+3);}
-  const x0=(labels&&labels[0])||"gen 0";
-  const x1=(labels&&labels[labels.length-1])||("gen "+(series.length-1));
-  ctx.fillText(x0,L,H-6);
-  const w1=ctx.measureText(x1).width;
-  ctx.fillText(x1,W-R-w1,H-6);
-  if(mn<0&&mx>0){ctx.save();ctx.setLineDash([4,3]);ctx.strokeStyle="#C9CFD6";
-    ctx.beginPath();ctx.moveTo(L,Y(0));ctx.lineTo(W-R,Y(0));ctx.stroke();ctx.restore();}
-  const segs=[];let cur=[];
-  series.forEach((v,i)=>{if(v===null||!Number.isFinite(v)){if(cur.length)segs.push(cur),cur=[];}else cur.push(i);});
-  if(cur.length)segs.push(cur);
-  if(fill){const gr=ctx.createLinearGradient(0,T,0,H-B);
-    gr.addColorStop(0,fill);gr.addColorStop(1,"rgba(255,255,255,0)");
-    ctx.fillStyle=gr;
-    for(const s of segs){ctx.beginPath();ctx.moveTo(X(s[0]),Y(series[s[0]]));
-      s.forEach(i=>ctx.lineTo(X(i),Y(series[i])));
-      ctx.lineTo(X(s[s.length-1]),H-B);ctx.lineTo(X(s[0]),H-B);ctx.closePath();ctx.fill();}}
-  ctx.strokeStyle=color;ctx.lineWidth=2;ctx.lineJoin="round";
-  for(const s of segs){ctx.beginPath();
-    s.forEach((i,k)=>k?ctx.lineTo(X(i),Y(series[i])):ctx.moveTo(X(i),Y(series[i])));ctx.stroke();}
-  const li=segs.length?segs[segs.length-1].slice(-1)[0]:0;
-  ctx.fillStyle=color;ctx.beginPath();ctx.arc(X(li),Y(series[li]),3.5,0,7);ctx.fill();
-}
-function deltaChip(vals,invert){
-  if(vals.length<2) return '<span class="delta flat">—</span>';
-  const d=vals[vals.length-1]-vals[vals.length-2];
-  if(Math.abs(d)<1e-9) return '<span class="delta flat">±0.000</span>';
-  const good=invert?d<0:d>0;
-  return `<span class="delta ${good?"up":"down"}" title="vs previous generation">${d>0?"+":""}${d.toFixed(3)}</span>`;
-}
+/* Board charts: shared frame geometry, gridlines, min/max labels, headroom, HiDPI. */
 function clock(ts){const d=new Date(ts*1000);return d.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});}
 function renderHeader(){
   $("st-champ").innerHTML=esc(S.champion||"—")+(S.champion?' <span class="champ-star">★</span>':"");
@@ -900,19 +1252,166 @@ function renderHeader(){
   }
   $("updated").textContent="updated "+ago(lastTick)+" · "+(live?"live":"paused");
 }
-function renderCurves(){
-  const byGen=S.curves.loss;
-  const rets=S.curves.ret;
-  const ids=S.curves.ids;
-  const nz=byGen.filter(v=>v!==null);
-  plot("ch-loss",byGen,"#C4322B","rgba(196,50,43,.12)",ids,"mean loss, "+ids.length+" generations");
-  plot("ch-ret",rets,"#18794E","rgba(24,121,78,.12)",ids,"mean return, "+ids.length+" generations");
-  $("loss-delta").innerHTML=deltaChip(nz,true);
-  $("ret-delta").innerHTML=deltaChip(rets,false);
-  $("loss-last").textContent=nz.length?nz[nz.length-1].toFixed(3):"no data";
-  $("loss-last").title=nz.length?"mean loss "+nz[nz.length-1].toFixed(5):"";
-  $("ret-last").textContent=rets.length?rets[rets.length-1].toFixed(2):"—";
-  $("ret-last").title=rets.length?"mean return "+rets[rets.length-1].toFixed(4):"";
+function lineInto(F,arr,color,width){
+  // One series with null gaps: moveTo restarts the path after a gap.
+  const{ctx,X,Y}=F;
+  ctx.strokeStyle=color;ctx.lineWidth=width;ctx.lineJoin="round";
+  ctx.beginPath();
+  let started=false;
+  arr.forEach((v,i)=>{
+    if(v===null||!Number.isFinite(v)){started=false;return;}
+    if(!started){ctx.moveTo(X(i),Y(v));started=true;}
+    else ctx.lineTo(X(i),Y(v));
+  });
+  ctx.stroke();
+}
+function frame(id,lists,labels,desc){
+  // Shared geometry for the board charts: spans every series, draws the
+  // grid + zero line + end labels, returns mappers (null: nothing to draw).
+  const cv=$(id),ctx=cv.getContext("2d");
+  const vals=[];
+  lists.forEach(a=>(a||[]).forEach(v=>{if(v!==null&&Number.isFinite(v))vals.push(v);}));
+  const dpr=window.devicePixelRatio||1,W=cv.clientWidth,H=cv.clientHeight;
+  cv.width=W*dpr;cv.height=H*dpr;ctx.scale(dpr,dpr);
+  ctx.clearRect(0,0,W,H);
+  cv.setAttribute("role","img");
+  if(!vals.length){ctx.fillStyle="#8A94A0";ctx.font="12px system-ui";
+    ctx.fillText("no data yet",12,20);return null;}
+  if(desc)cv.setAttribute("aria-label",desc);
+  let mn=Math.min(...vals),mx=Math.max(...vals);
+  if(mx-mn<1e-9){mn-=1;mx+=1;}
+  const pad=(mx-mn)*0.12;mn-=pad;mx+=pad;
+  const prec=(mx-mn)<0.5?3:2;
+  const L=48,R=8,T=8,B=20,iw=W-L-R,ih=H-T-B;
+  const n=Math.max(...lists.map(a=>(a||[]).length),1);
+  const X=i=>L+iw*(n<2?0.5:i/(n-1));
+  const Y=x=>T+ih*(1-(x-mn)/(mx-mn));
+  ctx.strokeStyle="#E9EDF1";ctx.fillStyle="#6B7480";ctx.font="10px system-ui";ctx.lineWidth=1;
+  for(let k=0;k<=3;k++){const t=mn+(mx-mn)*k/3,y=Y(t);
+    ctx.beginPath();ctx.moveTo(L,y);ctx.lineTo(W-R,y);ctx.stroke();
+    let s=t.toFixed(prec);if(s==="-0.000"||s==="-0.00")s=s.slice(1);
+    ctx.fillText(s,4,y+3);}
+  if(mn<0&&mx>0){ctx.save();ctx.setLineDash([4,3]);ctx.strokeStyle="#C9CFD6";
+    ctx.beginPath();ctx.moveTo(L,Y(0));ctx.lineTo(W-R,Y(0));ctx.stroke();ctx.restore();}
+  const x0=(labels&&labels[0])||"gen 0";
+  const x1=(labels&&labels[labels.length-1])||("gen "+(n-1));
+  ctx.fillText(x0,L,H-6);
+  const w1=ctx.measureText(x1).width;
+  ctx.fillText(x1,W-R-w1,H-6);
+  return{ctx,W,H,X,Y,L,R,T,B,n};
+}
+function plotLines(id,arrs,colors,widths,labels,desc){
+  const F=frame(id,arrs,labels,desc);
+  if(!F)return;
+  arrs.forEach((a,k)=>lineInto(F,a,colors[k],widths[k]));
+}
+function plotBand(id,med,q1,q3,color,fill,labels,desc){
+  const F=frame(id,[med,q1,q3],labels,desc);
+  if(!F)return;
+  const{ctx,X,Y}=F;
+  ctx.fillStyle=fill;
+  let run=[];
+  const flush=()=>{
+    if(run.length>1){ctx.beginPath();
+      run.forEach((i,k)=>k?ctx.lineTo(X(i),Y(q3[i])):ctx.moveTo(X(i),Y(q3[i])));
+      [...run].reverse().forEach(i=>ctx.lineTo(X(i),Y(q1[i])));
+      ctx.closePath();ctx.fill();}
+    else if(run.length===1){const i=run[0];
+      ctx.fillRect(X(i)-1,Y(q3[i]),2,Math.max(1,Y(q1[i])-Y(q3[i])));}
+    run=[];};
+  med.forEach((m,i)=>{
+    if(m===null||!Number.isFinite(m)||q1[i]===null||q3[i]===null)flush();
+    else run.push(i);});
+  flush();
+  lineInto(F,med,color,2);
+}
+function plotBars(id,groups,colors,labels,desc,whisk){
+  // groups: one array per bar series; whisk: matching [lo,hi] pairs.
+  const all=groups.slice();
+  if(whisk)whisk.forEach(w=>{if(w){all.push(w[0],w[1]);}});
+  const F=frame(id,all,labels,desc);
+  if(!F)return;
+  const{ctx,X,Y,W,L,R}=F,n=F.n,g=groups.length;
+  const slot=n<2?20:Math.min(20,(W-L-R)/n);
+  const bw=Math.max(1,slot/(g+0.5));
+  groups.forEach((arr,s)=>{
+    ctx.fillStyle=colors[s];
+    arr.forEach((v,i)=>{
+      if(v===null||!Number.isFinite(v))return;
+      const cx=X(i)-slot/2+bw*(s+0.25),y0=Y(0),y1=Y(v);
+      ctx.fillRect(cx,Math.min(y0,y1),bw,Math.abs(y1-y0)||1);
+      if(whisk&&whisk[s]&&whisk[s][0][i]!==null&&whisk[s][1][i]!==null
+         &&Number.isFinite(whisk[s][0][i])){
+        ctx.strokeStyle="#16191D";ctx.lineWidth=1;
+        ctx.beginPath();ctx.moveTo(cx+bw/2,Y(whisk[s][1][i]));
+        ctx.lineTo(cx+bw/2,Y(whisk[s][0][i]));ctx.stroke();
+      }
+    });
+  });
+}
+function plotDual(id,a,amed,b,bmed,labels,desc){
+  // Left axis: a (ratio). Right axis: b (entropy), drawn in green.
+  const F=frame(id,[a,amed],labels,desc);
+  if(!F)return;
+  const{ctx,X,W,R,H,T,B}=F;
+  const bv=[];
+  [b,bmed].forEach(x=>(x||[]).forEach(v=>{if(v!==null&&Number.isFinite(v))bv.push(v);}));
+  if(!bv.length){lineInto(F,a,"#E8A0A6",1);lineInto(F,amed,"#C4322B",2);return;}
+  let mn=Math.min(...bv),mx=Math.max(...bv);
+  if(mx-mn<1e-9){mn-=1;mx+=1;}
+  const pad=(mx-mn)*0.12;mn-=pad;mx+=pad;
+  const ih=H-T-B;
+  const Y2=x=>T+ih*(1-(x-mn)/(mx-mn));
+  ctx.save();ctx.fillStyle="#18794E";ctx.textAlign="right";
+  for(let k=0;k<=3;k++){const t=mn+(mx-mn)*k/3;
+    ctx.fillText(t.toFixed(2),W-2,Y2(t)+3);}
+  ctx.restore();
+  lineInto({ctx,X,Y:Y2},b,"#9EC5A6",1);
+  lineInto({ctx,X,Y:Y2},bmed,"#18794E",2);
+  lineInto(F,a,"#E8A0A6",1);
+  lineInto(F,amed,"#C4322B",2);
+}
+function plotStrip(id,tenure,turnover,nplayer,labels,desc){
+  const F=frame(id,[tenure],labels,desc);
+  if(!F)return;
+  const{ctx,X,Y,W,R,T}=F,n=F.n;
+  if(nplayer!==null&&nplayer!==undefined&&nplayer<n){
+    ctx.fillStyle="rgba(36,86,224,.07)";
+    ctx.fillRect(X(nplayer),T,W-R-X(nplayer),F.H-T-B);
+    ctx.fillStyle="#2456E0";ctx.font="10px system-ui";
+    ctx.fillText("N-player",X(nplayer)+4,T+12);
+  }
+  const slot=n<2?20:Math.min(20,(W-F.L-R)/n);
+  ctx.fillStyle="#2456E0";
+  tenure.forEach((v,i)=>{
+    if(v===null||!Number.isFinite(v))return;
+    const y1=Y(v),bw=Math.max(1,slot/2);
+    ctx.fillRect(X(i)-bw/2,y1,bw,Math.max(1,Y(0)-y1));
+  });
+  ctx.fillStyle="#C4322B";
+  turnover.forEach((t,i)=>{
+    if(!t)return;
+    const cx=X(i),cy=T+8,s=4;
+    ctx.beginPath();ctx.moveTo(cx,cy-s);ctx.lineTo(cx+s,cy);
+    ctx.lineTo(cx,cy+s);ctx.lineTo(cx-s,cy);ctx.closePath();ctx.fill();
+  });
+}
+function renderBoard(){
+  const B=S.board,ids=B.ids;
+  plotLines("ch-elo",[B.elo.champ,B.elo.med],["#B9BEC6","#2456E0"],[1,2],ids,
+    "champion anchored Elo, "+ids.length+" generations");
+  plotBars("ch-knock",[B.knock.rate,B.knock.conv],["#2456E0","#18794E"],ids,
+    "knock and conversion rates",[[B.knock.lo,B.knock.hi],[B.knock.clo,B.knock.chi]]);
+  plotLines("ch-dec",[B.decisive.train,B.decisive.train_ma,B.decisive.eval,B.decisive.eval_ma],
+    ["#E8A0A6","#C4322B","#9EC5FE","#2456E0"],[1,2,1,2],ids,"decisiveness");
+  plotBand("ch-marg",B.margin.med,B.margin.q1,B.margin.q3,"#2456E0","rgba(36,86,224,.15)",ids,
+    "eval margin median IQR");
+  plotDual("ch-pg",B.pg.ratio,B.pg.ratio_med,B.pg.entropy,B.pg.entropy_med,ids,
+    "PG signal ratio experimental plus entropy");
+  plotBars("ch-vslope",[B.vslope],["#8A5A00"],ids,"value fit slope",null);
+  plotStrip("ch-tenure",B.reign.tenure,B.reign.turnover,B.regimes.nplayer,ids,
+    "tenure and turnovers");
+  plotLines("ch-entlane",[B.reign.entropy],["#5B6470"],[2],ids,"Nash entropy");
 }
 function renderPopulation(){
   const rows=S.members.map(m=>{const role=m.role==="main"?"seed":m.role;
@@ -932,8 +1431,9 @@ function renderGenerations(){
     `${g.eval_w}-${g.eval_d}-${Math.max(0,g.eval_games-g.eval_w-g.eval_d)} · ${(g.win_rate*100).toFixed(0)}% (draw=&#189;) · lower ${g.wilson_lower.toFixed(2)} · margin ${g.mean_margin.toFixed(2)}</span></td>`+
     `<td>${g.promoted?'<span class="badge promoted">promoted ★</span>':'<span class="badge held">held</span>'}`+
     `<div class="legend" style="margin:4px 0 0">${esc(g.reason)}</div>`+(g.exploiter?` <span class="badge draw">exploiter</span>`:'')+`</td>`+
+    `<td>${g.crown==="complete"?'<span class="badge promoted" title="beat the champ head-to-head AND the duel field">complete</span>':g.crown==="soft"?'<span class="badge held" title="took the throne without both edges">soft</span>':'<span class="legend">—</span>'}</td>`+
     `<td class="num legend">${esc(g.arch)} · ${g.turns}t · γ${g.gamma}</td></tr>`;}).join("");
-  $("gen-body").innerHTML=rows||'<tr><td colspan="6" class="empty">no completed generations yet</td></tr>';
+  $("gen-body").innerHTML=rows||'<tr><td colspan="7" class="empty">no completed generations yet</td></tr>';
 }
 function memberIds(){return S.members.map(m=>m.id);}
 function renderMemberOptions(){
@@ -1012,7 +1512,7 @@ async function load(){
     lastTick=Date.now();
     $("error").style.display="none";
     if(h!==lastHash){lastHash=h;S=snap;
-      renderHeader();renderCurves();renderPopulation();renderGenerations();renderMemberOptions();renderMaps();}
+      renderHeader();renderBoard();renderPopulation();renderGenerations();renderMemberOptions();renderMaps();}
     else renderHeader();
     if(!hashSeeded){hashSeeded=true;
       const hm=new URLSearchParams(location.hash.slice(1)).get("member");
@@ -1038,7 +1538,7 @@ $("live-toggle").addEventListener("change",e=>{live=e.target.checked;
   $("live-label").textContent=live?"live":"paused";
   $("updated").textContent="updated "+ago(lastTick)+" · "+(live?"live":"paused");load();});
 let resizeT=0;
-window.addEventListener("resize",()=>{clearTimeout(resizeT);resizeT=setTimeout(()=>{if(S)renderCurves();},150);});
+window.addEventListener("resize",()=>{clearTimeout(resizeT);resizeT=setTimeout(()=>{if(S)renderBoard();},150);});
 load();
 tick();
 """
@@ -1066,18 +1566,28 @@ def render_page() -> str:
     <div class="status-line" id="st-status">loading…</div>
     <div class="progress"><div id="st-bar" style="width:0%"></div></div></div>
 </div>
-<div class="section-title">Training curves</div>
-<div class="legend">mean policy loss per generation (down is good) · mean episode return per generation (up is good) · one point per generation, oldest → newest · axes span the data range</div>
+<div class="section-title">Progress board</div>
+<div class="legend">seven training curves, one point per generation, oldest → newest · axes span the data range</div>
 <div class="charts">
-  <div class="card chart-card"><div class="chart-head"><h3>Policy loss <span id="loss-last"></span></h3><span id="loss-delta"></span></div>
-    <p class="chart-sub">mean REINFORCE loss per generation</p><canvas id="ch-loss"></canvas></div>
-  <div class="card chart-card"><div class="chart-head"><h3>Mean return <span id="ret-last"></span></h3><span id="ret-delta"></span></div>
-    <p class="chart-sub">discounted episode return, one point per generation</p><canvas id="ch-ret"></canvas></div>
+  <div class="card chart-card"><div class="chart-head"><h3>Champ Elo vs panel</h3></div>
+    <p class="chart-sub">anchored Bradley-Terry over eval duels · zero = panel (BC g000 + last 3 deposed) mean · faint per-gen, bold 15-gen median · sustained rise across 2+ thrones = good</p><canvas id="ch-elo"></canvas></div>
+  <div class="card chart-card"><div class="chart-head"><h3>Knock-rate vs conversion</h3></div>
+    <p class="chart-sub">trailing 15-gen windows · knock = eff ≥ .50 · conversion = promoted | knock · whiskers = Wilson z=1.0</p><canvas id="ch-knock"></canvas></div>
+  <div class="card chart-card"><div class="chart-head"><h3>Decisiveness train vs eval</h3></div>
+    <p class="chart-sub">nonzero-margin fraction · faint raw per gen, bold 15-gen MA · train from grouped games, eval from duel margins</p><canvas id="ch-dec"></canvas></div>
+  <div class="card chart-card"><div class="chart-head"><h3>Eval margin median ± IQR</h3></div>
+    <p class="chart-sub">pooled trailing 15-gen window · signed challenger-minus-champ</p><canvas id="ch-marg"></canvas></div>
+  <div class="card chart-card"><div class="chart-head"><h3>PG signal ratio + entropy</h3></div>
+    <p class="chart-sub">ratio = |pg_loss|/pg_abs at last epoch, 10-gen median · EXPERIMENTAL: no literature backing · entropy on right axis</p><canvas id="ch-pg"></canvas></div>
+  <div class="card chart-card"><div class="chart-head"><h3>Value-fit slope</h3></div>
+    <p class="chart-sub">(v_loss[0]−v_loss[−1])/v_loss[0] · + = critic learned in-gen · line = no change</p><canvas id="ch-vslope"></canvas></div>
+  <div class="card chart-card"><div class="chart-head"><h3>Tenure / turnover + Nash entropy</h3></div>
+    <p class="chart-sub">tenure = gens held (crowning gen = 0) · ◆ = turnover, a new crown · shaded = N-player era · lower lane = mixture entropy (nats)</p><canvas id="ch-tenure"></canvas><canvas id="ch-entlane" style="margin-top:8px"></canvas></div>
 </div>
 <div class="section-title">Generations</div>
 <div class="legend">why each challenger was promoted or held — challenger W-D-L · score counts a draw as half a win · green fill is win rate, tick is the promotion threshold</div>
 <div class="card table-scroll table-tall" id="gen-card"><table>
-<tr><th>challenger</th><th class="num">train return</th><th class="num">train loss</th><th>eval vs champion</th><th>result</th><th class="num">config</th></tr>
+<tr><th>challenger</th><th class="num">train return</th><th class="num">train loss</th><th>eval vs champion</th><th>result</th><th>crown</th><th class="num">config</th></tr>
 <tbody id="gen-body"></tbody></table></div>
 <div class="cols">
 <div>
