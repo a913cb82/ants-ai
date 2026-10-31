@@ -10,6 +10,7 @@ challenger score vs champion score only.
 from __future__ import annotations
 
 import sys
+import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
@@ -71,13 +72,15 @@ def _play_duel(args) -> tuple[float, float]:
     )
     game = out["game"]
     scores = game["score"]
+    gid = f"{rel}#{uuid.uuid4().hex[:12]}"  # one play, one id (pairs group back)
     for x in range(len(field)):
         for y in range(x + 1, len(field)):
             archive.record_result(base, field[x], field[y],
                                   scores[x], scores[y], kind="eval")
             archive.log_game(base, chal_id, "eval", field[x], field[y],
                              scores[x], scores[y],
-                             rel + "/logs/0.replay", map=Path(map_path).name)
+                             rel + "/logs/0.replay", map=Path(map_path).name,
+                             game=gid)
     return scores[0], scores[1]
 
 

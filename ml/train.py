@@ -11,6 +11,7 @@ import gc
 import os
 import random
 import sys
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -82,13 +83,15 @@ def _play_one(args) -> dict:
                                    draw_as_loss=_is_penalty_game(cfg, i, gen_index),
                                    enable_water_stall=cfg.get("water_stall_tax", False))
     scores = game["score"]
+    gid = f"{rel}#{uuid.uuid4().hex[:12]}"  # one play, one id (pairs group back)
     for x in range(len(field)):
         for y in range(x + 1, len(field)):
             archive.record_result(base, field[x], field[y],
                                   scores[x], scores[y], kind="train")
             archive.log_game(base, chal_id, "train", field[x], field[y],
                              scores[x], scores[y],
-                             rel + "/logs/0.replay", map=Path(map_path).name)
+                             rel + "/logs/0.replay", map=Path(map_path).name,
+                             game=gid)
     n_games = cfg["train_games"] * 2
     archive.write_status(base, {
         "phase": "train", "challenger": chal_id,

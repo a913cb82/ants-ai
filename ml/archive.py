@@ -296,13 +296,18 @@ def next_drill_maps(base: Path, pool: list, n: int, gen_num: int) -> list:
 def log_game(
     base: Path, gen: str, kind: str, a: str, b: str,
     score_a: float, score_b: float, replay: str, map: str | None = None,
+    game: str | None = None,
 ) -> None:
-    """Append one game to the dashboard index (replay path archive-relative)."""
+    """Append one game to the dashboard index (replay path archive-relative).
+
+    One row is logged per seat-pair, so an N-player game yields N*(N-1)/2
+    rows sharing one `game` id ("<outdir>#<token>", one play, one id).
+    Rows logged before the id existed carry None and group by replay path."""
     init(base)
     append_jsonl(_paths(base)["dir"] / "games.jsonl", {
         "gen": gen, "kind": kind, "a": a, "b": b,
         "score_a": score_a, "score_b": score_b, "replay": replay,
-        "map": map,
+        "map": map, "game": game,
     })
 
 

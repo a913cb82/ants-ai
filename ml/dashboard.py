@@ -47,6 +47,7 @@ def _memo(cache: dict, key, thunk):
 
 
 _games_cache: dict = {}
+_grouped_cache: dict = {}
 
 
 def cached_games(base: Path) -> list[dict]:
@@ -62,6 +63,23 @@ def cached_games(base: Path) -> list[dict]:
         _games_cache,
         (str(base.resolve()), st.st_mtime_ns, st.st_size),
         lambda: archive.list_games(base),
+    )
+
+
+def cached_grouped(base: Path) -> list[dict]:
+    """Pair rows -> per-game dicts, re-grouped only when games.jsonl
+    changes. Grouping 80k rows costs ~1.5s; snapshot polls every few
+    seconds, so this shares one grouping per file version like
+    cached_games shares one parse."""
+    path = base / "games.jsonl"
+    try:
+        st = path.stat()
+    except OSError:
+        return []
+    return _memo(
+        _grouped_cache,
+        (str(base.resolve()), st.st_mtime_ns, st.st_size),
+        lambda: group_games(cached_games(base)),
     )
 
 
@@ -200,13 +218,281 @@ def _sparse_nash(base: Path, iters: int = 2000) -> dict[str, float]:
 # ---------------------------------------------------------------- DATA
 
 
-def _outcome(a: str, sa: float, b: str, sb: float, ref: str) -> str:
-    mine, theirs = (sa, sb) if ref == a else (sb, sa)
-    if mine > theirs:
-        return "win"
-    if mine < theirs:
-        return "loss"
-    return "draw"
+def rank_of(scores: list) -> list[int]:
+    """Per-seat rank with the engine's formula (tools/engine.py): each seat
+    takes the index of its score in the descending sort, so ties share a
+    rank and the next rank skips ([10,10,5] -> [0,0,2])."""
+    ordered = sorted(scores, reverse=True)
+    return [ordered.index(s) for s in scores]
+
+
+def _fallback_game_key(replay) -> str:
+    """Per-game key for rows logged before the `game` id existed: every
+    pair of one play shares its replay path, so the game directory (or the
+    raw path when it has no /logs/ suffix) groups them back together."""
+    text = replay if isinstance(replay, str) else str(replay)
+    suffix = "/logs/0.replay"
+    return text[:-len(suffix)] if text.endswith(suffix) else text
+
+
+def game_key_of(row: dict) -> str:
+    """Grouping key: the explicit per-play id when present, else the
+    replay-derived fallback (covers all pre-id history)."""
+    return row.get("game") or _fallback_game_key(row.get("replay", ""))
+
+
+def _norm_row(row: dict) -> tuple:
+    """Order-independent pair identity + aligned scores. Self-pairs sort
+    their two scores so (X,X,2,3) and (X,X,3,2) dedupe: one unordered
+    seat-pair, one logical row."""
+    a, b, sa, sb = row["a"], row["b"], row["score_a"], row["score_b"]
+    if a == b:
+        return (a, b, min(sa, sb), max(sa, sb))
+    if a <= b:
+        return (a, b, sa, sb)
+    return (b, a, sb, sa)
+
+
+def _realize(normed: list[tuple]) -> list[list] | None:
+    """Assign pair rows to numbered seat positions, fewest possible.
+
+    Returns [[id, score], ...] in first-seen order, or None when the rows
+    cannot share one game. Members drawn into several seats (mixture
+    sampling is with replacement) get one position each; a repeated
+    unordered seat-pair with different scores forces either extra seats
+    or, failing that, a split by partition_group."""
+    best: list | None = None
+
+    def dfs(k: int, positions: list, used: set) -> None:
+        nonlocal best
+        if best is not None and len(positions) >= len(best):
+            return
+        if k == len(normed):
+            if best is None or len(positions) < len(best):
+                best = [list(p) for p in positions]
+            return
+        lo, hi, slo, shi = normed[k]
+        if lo == hi and slo == shi:
+            pairs = [ (i, i) for i, p in enumerate(positions)
+                      if p[0] == lo and p[1] in (None, slo)]
+            pairs.append(("new", "new"))
+        else:
+            pairs = []
+            pa_list = [i for i, p in enumerate(positions)
+                       if p[0] == lo and p[1] in (None, slo)] + ["new"]
+            for pa in pa_list:
+                pb_list = [i for i, p in enumerate(positions)
+                           if i != pa and p[0] == hi
+                           and p[1] in (None, shi)] + ["new"]
+                for pb in pb_list:
+                    pairs.append((pa, pb))
+        for pa, pb in pairs:
+            pos = [list(p) for p in positions]
+            if pa == "new":
+                pa = len(pos)
+                pos.append([lo, None])
+            if pb == "new":
+                pb = len(pos)
+                pos.append([hi, None])
+            if pos[pa][1] is None:
+                pos[pa][1] = slo
+            if pos[pb][1] is None:
+                pos[pb][1] = shi
+            key = (min(pa, pb), max(pa, pb))
+            if key in used:
+                continue
+            dfs(k + 1, pos, used | {key})
+
+    dfs(0, [], set())
+    return best
+
+
+def _partition_exact(uniq: list[tuple]) -> list[list[tuple]]:
+    """Best set partition: fewest total seat positions wins; ties split
+    toward more games (a re-run collision costs 2+2 = 4 either way, while
+    a true N-player game always merges strictly cheaper)."""
+    n = len(uniq)
+    realize: dict[int, int] = {}
+
+    def cost(mask_rows: tuple) -> int:
+        key = hash(mask_rows)
+        if key not in realize:
+            got = _realize(list(mask_rows))
+            realize[key] = len(got) if got is not None else 10 ** 9
+        return realize[key]
+
+    best_assign: list[int] | None = None
+    best_cost = (10 ** 9, 0)
+
+    def rec(i: int, cur: list[int], mx: int) -> None:
+        nonlocal best_assign, best_cost
+        if i == n:
+            blocks: dict[int, list] = {}
+            for idx, b in enumerate(cur):
+                blocks.setdefault(b, []).append(uniq[idx])
+            total = sum(cost(tuple(b)) for b in blocks.values())
+            key = (total, -len(blocks))
+            if key < best_cost:
+                best_cost = key
+                best_assign = list(cur)
+            return
+        for b in range(mx + 1):
+            cur.append(b)
+            rec(i + 1, cur, mx)
+            cur.pop()
+        cur.append(mx + 1)
+        rec(i + 1, cur, mx + 1)
+        cur.pop()
+
+    rec(0, [], -1)
+    blocks = {}
+    for idx, b in enumerate(best_assign or []):
+        blocks.setdefault(b, []).append(uniq[idx])
+    return [blocks[b] for b in sorted(blocks)]
+
+
+def _partition_greedy(uniq: list[tuple]) -> list[list[tuple]]:
+    """Best-effort split for pathological groups (>6 rows; all real
+    history is <= 6): earliest block whose seat count would not grow,
+    else a new block. Deterministic."""
+    blocks: list[list[tuple]] = []
+    for r in uniq:
+        for b in blocks:
+            before = _realize(b)
+            after = _realize(b + [r])
+            if after is not None and before is not None \
+                    and len(after) <= len(before):
+                b.append(r)
+                break
+        else:
+            blocks.append([r])
+    return blocks
+
+
+def partition_group(normed: list[tuple]) -> list[list[tuple]]:
+    """Split normalized pair rows into per-game blocks: exact-duplicate
+    rows merge, conflicting re-runs of one replay path split (see
+    _partition_exact), duplicate-seat games stay whole."""
+    uniq = list(dict.fromkeys(normed))  # dedupe, first-seen order
+    if not uniq:
+        return []
+    if len(uniq) <= 6:
+        return _partition_exact(uniq)
+    return _partition_greedy(uniq)
+
+
+def build_game(gen: str, kind: str, map: str | None, replay: str,
+               items: list[tuple[tuple, dict]]) -> dict | None:
+    """One visual game from a consistent block: every seat with score,
+    rank, margin vs field-best, effective points and outcome; the pair
+    rows as detail. None when the block cannot be one game."""
+    pos = _realize([n for n, _ in items])
+    if pos is None:
+        return None
+    # Seat order follows the logged field order (seat 0 first), not the
+    # normalized pair order: eval seats 0/1 are challenger/champion and the
+    # page/tally read the default view off seats[0]. Duplicate-seat
+    # positions share an id, so key on (id, score) by first appearance.
+    seen: dict[tuple, int] = {}
+    for r in [r for _, r in items]:
+        for cid, sc in ((r["a"], r["score_a"]), (r["b"], r["score_b"])):
+            seen.setdefault((cid, sc), len(seen))
+    pos.sort(key=lambda p: seen.get((p[0], p[1]), len(seen)))
+    scores = [s for _, s in pos]
+    ranks = rank_of(scores)
+    top = max(scores)
+    ntop = sum(1 for s in scores if s == top)
+    seats = []
+    for k, (cid, sc) in enumerate(pos):
+        others = [s for j, s in enumerate(scores) if j != k]
+        margin = sc - (max(others) if others else sc)
+        result = "win" if sc == top and ntop == 1 else \
+            ("draw" if sc == top else "loss")
+        seats.append({
+            "id": cid, "score": sc, "rank": ranks[k],
+            "margin": margin, "pts": 1.0 if result == "win" else
+            (0.5 if result == "draw" else 0.0), "result": result,
+        })
+    return {
+        "gen": gen, "kind": kind, "map": map, "replay": replay,
+        "n": len(seats), "seats": seats,
+        "pairs": [{"a": r["a"], "b": r["b"],
+                    "score_a": r["score_a"], "score_b": r["score_b"]}
+                   for _, r in items],
+    }
+
+
+def group_games(rows: list[dict]) -> list[dict]:
+    """Pair rows -> per-game dicts, newest game first.
+
+    Rows sharing a `game` id (one play, one id) group exactly; older rows
+    fall back to the replay path, then split on conflicting re-runs and
+    dedupe double-logs. Input newest-first (as from list_games) sets game
+    order; seats/pairs build oldest-first for a stable picture."""
+    keyed: dict[str, list] = {}
+    meta: dict[str, dict] = {}
+    for r in rows:
+        key = game_key_of(r)
+        keyed.setdefault(key, []).append(r)
+        meta.setdefault(key, r)
+    games = []
+    for key, rs in keyed.items():
+        oldest = rs[::-1]
+        raws: dict[tuple, dict] = {}
+        for r in oldest:
+            raws.setdefault(_norm_row(r), r)
+        m0 = meta[key]
+        for block in partition_group([_norm_row(r) for r in oldest]):
+            g = build_game(m0["gen"], m0["kind"], m0.get("map"),
+                           m0["replay"], [(n, raws[n]) for n in block])
+            if g is not None:
+                games.append(g)
+    return games
+
+
+def member_game_result(game: dict, ref: str) -> str | None:
+    """Ref's per-game outcome: best seat wins when a member holds several
+    (duplicate-seat extras)."""
+    order = {"win": 0, "draw": 1, "loss": 2}
+    outs = [s["result"] for s in game["seats"] if s["id"] == ref]
+    return min(outs, key=order.__getitem__) if outs else None
+
+
+def tally_eval(games: list[dict]) -> dict[str, list[int]]:
+    """Per-member W-D-L, one entry per eval GAME (win = sole top score,
+    draw = tied top). Pairwise 2p history tallies exactly as before."""
+    tally: dict[str, list[int]] = {}
+    for g in games:
+        if g["kind"] != "eval":
+            continue
+        for cid in dict.fromkeys(s["id"] for s in g["seats"]):
+            w, d, l = tally.get(cid, [0, 0, 0])
+            r = member_game_result(g, cid)
+            tally[cid] = [w + (r == "win"), d + (r == "draw"),
+                          l + (r == "loss")]
+    return tally
+
+
+def summarize_maps(games: list[dict]) -> list[dict]:
+    """Per (map, seat-count): train/eval game counts plus the eval
+    challenger-vs-champion record (fixed seats 0/1, valid for N seats)."""
+    acc: dict[tuple, dict] = {}
+    for g in games:
+        key = (g.get("map"), g["n"])
+        m = acc.setdefault(key, {"map": g.get("map"), "n": g["n"],
+                                 "train": 0, "eval": 0,
+                                 "cw": 0, "cd": 0, "cl": 0})
+        if g["kind"] == "train":
+            m["train"] += 1
+        elif g["kind"] == "eval":
+            m["eval"] += 1
+            if g["n"] >= 2:
+                a, b = g["seats"][0]["score"], g["seats"][1]["score"]
+                m["cw"] += a > b
+                m["cd"] += a == b
+                m["cl"] += a < b
+    return sorted(acc.values(),
+                  key=lambda m: ((m["map"] or ""), m["n"]))
 
 
 def snapshot(base: Path) -> dict:
@@ -221,16 +507,9 @@ def snapshot(base: Path) -> dict:
         mix = _nash_cached(base)
     except (OSError, ValueError, KeyError, TypeError):
         mix = {}
-    games = cached_games(base)
     history = cached_history(base)
-    tally: dict[str, list[int]] = {}
-    for g in games:
-        if g["kind"] != "eval":
-            continue
-        sides = ((g["a"], g["score_a"], g["score_b"]), (g["b"], g["score_b"], g["score_a"]))
-        for cid, mine, theirs in sides:
-            w, d, l = tally.get(cid, [0, 0, 0])
-            tally[cid] = [w + (mine > theirs), d + (mine == theirs), l + (mine < theirs)]
+    grouped = cached_grouped(base)
+    tally = tally_eval(grouped)
     members = []
     for m in archive.members(base):
         cid = m["id"]
@@ -310,10 +589,11 @@ def snapshot(base: Path) -> dict:
         "run": run,
         "curves": curves,
         "generations": gens,
-        "games": games[:50],
-        "game_total": len(games),
+        "games": grouped[:50],
+        "game_total": len(grouped),
+        "maps": summarize_maps(grouped),
         "status": archive.read_status(base),
-        "counts": {"generations": len(history), "games": len(games)},
+        "counts": {"generations": len(history), "games": len(grouped)},
     }
 
 
@@ -380,10 +660,10 @@ def make_handler(base: Path):
                         offset = max(int(q.get("offset", ["0"])[0]), 0)
                     except ValueError:
                         offset = 0
-                    rows = cached_games(base)
+                    rows = cached_grouped(base)
                     if member is not None:
-                        rows = [r for r in rows
-                                if r["a"] == member or r["b"] == member]
+                        rows = [g for g in rows
+                                if any(s["id"] == member for s in g["seats"])]
                     total = len(rows)
                     offset = min(offset, total)
                     _json(self, {"total": total,
@@ -475,6 +755,7 @@ td.num, th.num{text-align:right;}
 .nash-bar>div{height:100%; background:var(--accent);}
 .rate-wrap{display:flex; align-items:center; gap:8px;}
 td.matchup, td.replay, .rate-text{white-space:nowrap;}
+.pairs{font-size:12px; color:var(--muted); margin-top:3px; white-space:normal;}
 .rate-bar{flex:1 1 70px; min-width:70px; height:6px; background:var(--border); border-radius:3px; position:relative; overflow:hidden;}
 .rate-bar>div{height:100%; background:var(--success);}
 .rate-bar{overflow:visible;}
@@ -530,10 +811,8 @@ function ago(ts){const s=Math.max(0,Math.round((Date.now()-ts)/1000));
   return s<2?"just now":s+"s ago";}
 function shortReplay(rel){const p=(rel||"").split("/").filter(Boolean);
   return p.length>=3?p[p.length-3]:(p.pop()||"").replace(/\\.replay$/,"");}
-function outcome(a,sa,b,sb){
-  if(sa>sb) return {cls:"win",label:"win"};
-  if(sa<sb) return {cls:"loss",label:"loss"};
-  return {cls:"draw",label:"draw"};
+function seatBadge(result){
+  return {cls:result,label:result};
 }
 /* Charts: titled card, gridlines, min/max labels, headroom, HiDPI. */
 function plot(id,series,color,fill,labels,desc){
@@ -687,15 +966,27 @@ async function renderGames(my){
   if(h===lastGames) return true; // unchanged: keep focus, selection, scroll
   lastGames=h;
   const rows=data.rows.map(x=>{
-    const ref=m||x.a;
-    const o=ref===x.a?outcome(x.a,x.score_a,x.b,x.score_b):outcome(x.b,x.score_b,x.a,x.score_a);
-    const aWon=x.score_a>x.score_b,bWon=x.score_b>x.score_a;
-    const wa=(aWon?'<span class="winner">':'')+esc(x.a)+(aWon?'</span>':'');
-    const wb=(bWon?'<span class="winner">':'')+esc(x.b)+(bWon?'</span>':'');
+    const seats=x.seats||[];
+    const refS=seats.find(s=>s.id===m)||seats[0]||{id:"?",score:"?",result:"draw"};
+    const o=seatBadge(refS.result);
     const label=x.gen+" · "+shortReplay(x.replay);
+    const names=seats.map(s=>s.id).join(" vs ");
+    let match;
+    if(seats.length<=2){
+      const s0=seats[0]||{id:"?",score:"?",result:"draw"};
+      const s1=seats[1]||{id:"?",score:"?",result:"draw"};
+      const w0=s0.result==="win",w1=s1.result==="win";
+      const w0h=(w0?'<span class="winner">':'')+esc(s0.id)+(w0?'</span>':'');
+      const w1h=(w1?'<span class="winner">':'')+esc(s1.id)+(w1?'</span>':'');
+      match=`<td class="matchup" title="engine score">${w0h} ${s0.score} – ${s1.score} ${w1h}</td>`;
+    }else{
+      const line=seats.map(s=>(s.result==="win"?'<span class="winner">':'')+esc(s.id)+" "+s.score+(s.result==="win"?'</span>':'')).join(" · ");
+      const pairs=(x.pairs||[]).map(p=>esc(p.a)+" "+p.score_a+"–"+p.score_b+" "+esc(p.b)).join(" · ");
+      match=`<td class="matchup" title="engine scores, all ${seats.length} seats">${line}<div class="pairs">${pairs}</div></td>`;
+    }
     return `<tr><td>${esc(x.gen)}</td><td><span class="pill ${esc(x.kind)}">${esc(x.kind)}</span></td>`+
-    `<td class="matchup" title="engine score">${wa} ${x.score_a} – ${x.score_b} ${wb}</td><td><span class="badge ${o.cls}">${o.label}</span></td>`+
-    `<td class="replay"><a href="/replay?f=${encodeURIComponent(x.replay)}" target="_blank" rel="noopener" title="${esc(x.a)} vs ${esc(x.b)}, gen ${esc(x.gen)} — opens in a new tab">${esc(label)}<span aria-hidden="true"> ↗</span></a></td></tr>`;}).join("");
+    match+`<td><span class="badge ${o.cls}">${o.label}</span></td>`+
+    `<td class="replay"><a href="/replay?f=${encodeURIComponent(x.replay)}" target="_blank" rel="noopener" title="${esc(names)}, gen ${esc(x.gen)} — opens in a new tab">${esc(label)}<span aria-hidden="true"> ↗</span></a></td></tr>`;}).join("");
   $("games-body").innerHTML=rows||(data.total?`<tr><td colspan="5" class="empty">no games on this page — use the pager above</td></tr>`:(m?`<tr><td colspan="5" class="empty">no games logged for ${esc(m)} yet</td></tr>`:'<tr><td colspan="5" class="empty">no games logged yet — they appear here as each finishes</td></tr>'));
   const pages=Math.max(1,Math.ceil(data.total/100));
   const page=Math.floor(gamesOffset/100)+1;
@@ -703,6 +994,13 @@ async function renderGames(my){
   $("pg-prev").disabled=gamesOffset<=0;
   $("pg-next").disabled=gamesOffset+100>=data.total;
   return true;
+}
+function renderMaps(){
+  const rows=(S.maps||[]).map(m=>{
+    return `<tr><td>${esc(m.map||"unknown")}</td><td class="num">${m.n}</td>`+
+    `<td class="num">${m.train}</td><td class="num">${m.eval}</td>`+
+    `<td class="num">${m.cw}-${m.cd}-${m.cl}</td></tr>`;}).join("");
+  $("maps-body").innerHTML=rows||'<tr><td colspan="5" class="empty">no games logged yet — they appear here as each finishes</td></tr>';
 }
 async function load(){
   if(!live) return;
@@ -714,7 +1012,7 @@ async function load(){
     lastTick=Date.now();
     $("error").style.display="none";
     if(h!==lastHash){lastHash=h;S=snap;
-      renderHeader();renderCurves();renderPopulation();renderGenerations();renderMemberOptions();}
+      renderHeader();renderCurves();renderPopulation();renderGenerations();renderMemberOptions();renderMaps();}
     else renderHeader();
     if(!hashSeeded){hashSeeded=true;
       const hm=new URLSearchParams(location.hash.slice(1)).get("member");
@@ -784,14 +1082,14 @@ def render_page() -> str:
 <div class="cols">
 <div>
 <div class="section-title">Population</div>
-<div class="legend">nash = mixture share, display only (challengers only face the champion, so it cannot rank them) · W-D-L counts eval duels only</div>
+<div class="legend">nash = mixture share, display only (challengers only face the champion, so it cannot rank them) · W-D-L counts eval games: one entry per game (win = sole top score, draw = tied top)</div>
 <div class="card table-scroll table-tall"><table>
 <tr><th>id</th><th>role</th><th>parent</th><th>nash</th><th class="num">W-D-L (eval)</th></tr>
 <tbody id="pop-body"></tbody></table></div>
 </div>
 <div>
 <div class="section-title">Recent games</div>
-<div class="legend">train = practice (may include self-play) · eval = promotion duels vs champion · matchup scores are engine points</div>
+<div class="legend">train = practice (may include self-play) · eval = promotion duels vs champion · matchup scores are engine points · N-seat games list every seat, pair scores below</div>
 <div class="card" id="games-card">
 <div class="toolbar">
 <label for="member">member</label>
@@ -807,6 +1105,11 @@ def render_page() -> str:
 <tbody id="games-body"></tbody></table></div>
 </div>
 </div>
+<div class="section-title">Maps</div>
+<div class="legend">per board and seat count — games logged per phase · chal is challenger-vs-champion on eval (fixed seats 0/1, extras are shared weather)</div>
+<div class="card table-scroll table-tall"><table>
+<tr><th>map</th><th class="num">seats</th><th class="num">train</th><th class="num">eval</th><th class="num">chal W-D-L (eval)</th></tr>
+<tbody id="maps-body"></tbody></table></div>
 </div>
 </div>
 <script>{SCRIPT}</script></body></html>

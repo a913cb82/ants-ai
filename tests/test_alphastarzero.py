@@ -3032,3 +3032,394 @@ def test_3p_game_end_to_end_fixed_seats(tmp_path):
     rows = out["records"][0]
     rets = rewards.compute_returns(out["game"], 0, rows)
     assert len(rets) == len(rows)
+
+
+# --- dash-np: native 2/3/4-player dashboard (impl/dash-np) ---
+#
+# games.jsonl rows are ONE ROW PER SEAT-PAIR: a 4p game logs 6 rows sharing
+# (gen, kind, replay, map). The dashboard must render one visual game per
+# game, all N seats, N-way outcomes, for train AND eval.
+
+
+def _np_row(gen, kind, a, b, sa, sb, replay, game=None, map=None):
+    row = {"gen": gen, "kind": kind, "a": a, "b": b,
+           "score_a": sa, "score_b": sb, "replay": replay, "map": map}
+    if game is not None:
+        row["game"] = game
+    return row
+
+
+def _write_np_rows(base, rows):
+    import archive
+
+    archive.init(base)
+    with open(base / "games.jsonl", "a") as f:
+        for r in rows:
+            f.write(json.dumps(r) + "\n")
+
+
+def test_log_game_carries_game_id(tmp_path):
+    import archive
+
+    base = tmp_path / "archive"
+    archive.log_game(base, "g001", "train", "g000", "g001", 3, 1,
+                     "games/g001/t0/logs/0.replay", game="games/g001/t0#abc")
+    rows = archive.list_games(base)
+    assert len(rows) == 1 and rows[0]["game"] == "games/g001/t0#abc"
+
+
+def test_log_game_game_optional_for_old_callers(tmp_path):
+    import archive
+
+    base = tmp_path / "archive"
+    archive.log_game(base, "g001", "train", "g000", "g001", 3, 1,
+                     "games/g001/t0/logs/0.replay")
+    rows = archive.list_games(base)
+    assert len(rows) == 1 and not rows[0].get("game")
+
+
+def test_rank_of_matches_engine_ties_share_rank():
+    import dashboard
+
+    assert dashboard.rank_of([5, 3, 3, 1]) == [0, 1, 1, 3]
+    assert dashboard.rank_of([10, 10, 5]) == [0, 0, 2]
+    assert dashboard.rank_of([2, 2]) == [0, 0]
+
+
+def test_group_4p_pairs_become_one_game(tmp_path):
+    import dashboard
+
+    base = tmp_path / "archive"
+    rep = "games/g9/t0/logs/0.replay"
+    gid = "games/g9/t0#u1"
+    pairs = [("a", "b", 5, 0), ("a", "c", 5, 2), ("a", "d", 5, 0),
+             ("b", "c", 0, 2), ("b", "d", 0, 0), ("c", "d", 2, 0)]
+    _write_np_rows(base, [_np_row("g9", "train", a, b, sa, sb, rep, game=gid)
+                          for a, b, sa, sb in pairs])
+    import archive
+
+    games = dashboard.group_games(archive.list_games(base))
+    assert len(games) == 1
+    g = games[0]
+    assert g["n"] == 4
+    assert [(s["id"], s["score"]) for s in g["seats"]] == [
+        ("a", 5), ("b", 0), ("c", 2), ("d", 0)]
+    assert len(g["pairs"]) == 6
+
+
+def test_group_old_rows_without_game_key_fall_back_to_replay(tmp_path):
+    import dashboard
+
+    base = tmp_path / "archive"
+    rep = "games/g9/t0/logs/0.replay"
+    _write_np_rows(base, [_np_row("g9", "train", "a", "b", 5, 0, rep),
+                          _np_row("g9", "train", "a", "c", 5, 2, rep),
+                          _np_row("g9", "train", "b", "c", 0, 2, rep)])
+    import archive
+
+    games = dashboard.group_games(archive.list_games(base))
+    assert len(games) == 1 and games[0]["n"] == 3
+
+
+def test_group_dedupes_exact_duplicate_rows(tmp_path):
+    import dashboard
+
+    base = tmp_path / "archive"
+    rep = "games/g608/eval6/logs/0.replay"
+    _write_np_rows(base, [_np_row("g608", "eval", "g608", "g513", 3, 0, rep),
+                          _np_row("g608", "eval", "g608", "g513", 3, 0, rep)])
+    import archive
+
+    games = dashboard.group_games(archive.list_games(base))
+    assert len(games) == 1 and games[0]["n"] == 2
+
+
+def test_group_splits_rerun_collision_into_two_games(tmp_path):
+    import dashboard
+
+    base = tmp_path / "archive"
+    rep = "games/g608/eval0/logs/0.replay"
+    _write_np_rows(base, [_np_row("g608", "eval", "g608", "g513", 0, 3, rep),
+                          _np_row("g608", "eval", "g608", "g513", 2, 2, rep)])
+    import archive
+
+    games = dashboard.group_games(archive.list_games(base))
+    assert len(games) == 2
+    assert sorted(g["seats"][0]["score"] for g in games) == [0, 2]
+
+
+def test_group_dup_seat_game_stays_one_game(tmp_path):
+    """Real train5 shape: 3p field [g1732,g1690,g1690], scores [0,2,3]."""
+    import dashboard
+
+    base = tmp_path / "archive"
+    rep = "games/g1732/train5/logs/0.replay"
+    _write_np_rows(base, [
+        _np_row("g1732", "train", "g1732", "g1690", 0, 2, rep),
+        _np_row("g1732", "train", "g1732", "g1690", 0, 3, rep),
+        _np_row("g1732", "train", "g1690", "g1690", 2, 3, rep),
+    ])
+    import archive
+
+    games = dashboard.group_games(archive.list_games(base))
+    assert len(games) == 1
+    assert [(s["id"], s["score"]) for s in games[0]["seats"]] == [
+        ("g1732", 0), ("g1690", 2), ("g1690", 3)]
+
+
+def test_group_dup_seat_4p_game_stays_one_game(tmp_path):
+    """Real train20 shape: 4p [g1732,g1690,g1657,g1657], scores [5,0,1,0]."""
+    import dashboard
+
+    base = tmp_path / "archive"
+    rep = "games/g1732/train20/logs/0.replay"
+    _write_np_rows(base, [
+        _np_row("g1732", "train", "g1732", "g1657", 5, 1, rep),
+        _np_row("g1732", "train", "g1732", "g1657", 5, 0, rep),
+        _np_row("g1732", "train", "g1690", "g1657", 0, 1, rep),
+        _np_row("g1732", "train", "g1690", "g1657", 0, 0, rep),
+        _np_row("g1732", "train", "g1657", "g1657", 1, 0, rep),
+    ])
+    import archive
+
+    games = dashboard.group_games(archive.list_games(base))
+    assert len(games) == 1
+    g = games[0]
+    assert g["n"] == 4
+    assert [s["score"] for s in g["seats"]] == [5, 1, 0, 0]
+
+
+def test_seat_results_win_draw_loss_and_margin(tmp_path):
+    import dashboard
+
+    base = tmp_path / "archive"
+    rep = "games/g9/t0/logs/0.replay"
+    _write_np_rows(base, [
+        _np_row("g9", "eval", "a", "b", 5, 5, rep, game="g#1"),
+        _np_row("g9", "eval", "a", "c", 5, 1, rep, game="g#1"),
+        _np_row("g9", "eval", "b", "c", 5, 1, rep, game="g#1"),
+    ])
+    import archive
+
+    g = dashboard.group_games(archive.list_games(base))[0]
+    by_id = {s["id"]: s for s in g["seats"]}
+    assert (by_id["a"]["result"], by_id["b"]["result"],
+            by_id["c"]["result"]) == ("draw", "draw", "loss")
+    assert by_id["c"]["margin"] == 1 - 5
+    assert by_id["a"]["pts"] == 0.5 and by_id["c"]["pts"] == 0.0
+    assert dashboard.member_game_result(g, "c") == "loss"
+    assert dashboard.member_game_result(g, "a") == "draw"
+
+
+def test_tally_counts_games_not_pairs(tmp_path):
+    import archive
+    import dashboard
+
+    base = tmp_path / "archive"
+    rep = "games/g9/e0/logs/0.replay"
+    gid = "games/g9/e0#u1"
+    pairs = [("a", "b", 5, 0), ("a", "c", 5, 2), ("a", "d", 5, 0),
+             ("b", "c", 0, 2), ("b", "d", 0, 0), ("c", "d", 2, 0)]
+    _write_np_rows(base, [_np_row("g9", "eval", a, b, sa, sb, rep, game=gid)
+                          for a, b, sa, sb in pairs])
+    games = dashboard.group_games(archive.list_games(base))
+    tally = dashboard.tally_eval(games)
+    assert tally["a"] == [1, 0, 0]
+    assert tally["b"] == [0, 0, 1]
+    assert tally["c"] == [0, 0, 1]
+    assert tally["d"] == [0, 0, 1]
+
+
+def _tmp_3p_map(tmp_path, name="m3.map"):
+    p = tmp_path / name
+    p.write_text("rows 16\ncols 24\nplayers 3\n" + "m " + "." * 24 + "\n")
+    return str(p)
+
+
+def test_snapshot_np_train_and_eval_count_games(tmp_path):
+    import archive
+    import dashboard
+
+    base = tmp_path / "archive"
+    a = archive.save_checkpoint(base, {}, role="main", parent=None)
+    archive.save_checkpoint(base, {}, role="challenger", parent=a)
+    archive.set_champion(base, a)
+    # one 2p, one 3p, one 4p game in EACH phase = 6 games, 20 pair rows.
+    fields = {2: ["c", "m"], 3: ["c", "m", "x"], 4: ["c", "m", "x", "y"]}
+    scores = {2: [3, 1], 3: [3, 1, 0], 4: [3, 2, 1, 0]}
+    nrows = 0
+    for kind in ("train", "eval"):
+        for n in (2, 3, 4):
+            rep = f"games/g/{kind}{n}/logs/0.replay"
+            gid = f"games/g/{kind}{n}#u{n}"
+            f, s = fields[n], scores[n]
+            for x in range(n):
+                for y in range(x + 1, n):
+                    archive.log_game(base, "g", kind, f[x], f[y], s[x],
+                                     s[y], rep, game=gid)
+                    nrows += 1
+    assert nrows == 20
+    snap = dashboard.snapshot(base)
+    assert snap["counts"]["games"] == 6 and snap["game_total"] == 6
+    assert len(snap["games"]) == 6
+    assert sorted(g["n"] for g in snap["games"]) == [2, 2, 3, 3, 4, 4]
+    g4 = next(g for g in snap["games"]
+              if g["n"] == 4 and g["kind"] == "eval")
+    assert [s["id"] for s in g4["seats"]] == ["c", "m", "x", "y"]
+    assert [s["rank"] for s in g4["seats"]] == [0, 1, 2, 3]
+
+
+def test_api_games_groups_and_filters_by_any_seat(tmp_path):
+    import http.server
+    import threading
+    import urllib.request
+
+    import dashboard
+
+    base = tmp_path / "archive"
+    rep = "games/g/e0/logs/0.replay"
+    _write_np_rows(base, [
+        _np_row("g", "eval", "c", "m", 3, 1, rep, game="g#1"),
+        _np_row("g", "eval", "c", "x", 3, 0, rep, game="g#1"),
+        _np_row("g", "eval", "m", "x", 1, 0, rep, game="g#1"),
+        _np_row("g", "train", "c", "m", 1, 1, "games/g/t0/logs/0.replay",
+                game="g#2"),
+    ])
+    srv = dashboard.make_handler(base)
+    httpd = http.server.ThreadingHTTPServer(("127.0.0.1", 0), srv)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        root = f"http://127.0.0.1:{httpd.server_address[1]}"
+        page = json.load(urllib.request.urlopen(root + "/api/games",
+                                                timeout=5))
+        assert page["total"] == 2  # games, not the 4 pair rows
+        only = json.load(urllib.request.urlopen(
+            root + "/api/games?member=x", timeout=5))
+        assert only["total"] == 1
+        assert [s["id"] for s in only["rows"][0]["seats"]] == ["c", "m", "x"]
+    finally:
+        httpd.shutdown()
+
+
+def test_maps_summary_broken_out_by_player_count(tmp_path):
+    import dashboard
+
+    base = tmp_path / "archive"
+    _write_np_rows(base, [
+        _np_row("g", "eval", "c", "m", 3, 1, "games/g/e0/logs/0.replay",
+                game="g#1", map="open.map"),
+        _np_row("g", "train", "c", "m", 1, 0, "games/g/t0/logs/0.replay",
+                game="g#2", map="open.map"),
+        _np_row("g", "train", "c", "x", 1, 2, "games/g/t0/logs/0.replay",
+                game="g#2", map="open.map"),
+        _np_row("g", "train", "m", "x", 0, 2, "games/g/t0/logs/0.replay",
+                game="g#2", map="open.map"),
+    ])
+    import archive as _a
+
+    games = dashboard.group_games(_a.list_games(base))
+    maps = dashboard.summarize_maps(games)
+    by = {(m["map"], m["n"]): m for m in maps}
+    assert by[("open.map", 2)]["eval"] == 1
+    assert (by[("open.map", 2)]["cw"], by[("open.map", 2)]["cl"]) == (1, 0)
+    assert by[("open.map", 3)]["train"] == 1
+
+
+def test_train_play_one_tags_pairs_with_one_game_id(tmp_path, monkeypatch):
+    import archive
+    import game_if
+    import train
+
+    base = tmp_path / "archive"
+    cfg = {"seed": 0, "turns": 5, "temperature": 0.0, "train_games": 1,
+           "train_draw_penalty_every": 0, "water_stall_tax": False}
+    monkeypatch.setattr(game_if, "play", lambda *a, **k: (
+        _fake_game_out(["g007", "g001", "g002"], [1, 3, 0], a[4])))
+    import algorithm
+    import rewards
+
+    monkeypatch.setattr(algorithm, "compact_records", lambda rows: [])
+    monkeypatch.setattr(rewards, "compute_returns", lambda *a, **k: [0.1])
+    monkeypatch.setattr(rewards, "scales_for", lambda role: {})
+    train._play_one((cfg, base, "g007", ["g007", "g001", "g002"],
+                     {}, 0, "challenger", _tmp_3p_map(tmp_path)))
+    rows = archive.list_games(base)
+    assert len(rows) == 3  # 3p game logs 3 pair rows
+    gids = {r.get("game") for r in rows}
+    assert len(gids) == 1
+    (gid,) = gids
+    assert gid.startswith("games/g007/train0#")
+
+
+def _fake_game_out(names, scores, outdir):
+    (outdir / "logs").mkdir(parents=True, exist_ok=True)
+    (outdir / "logs" / "0.replay").write_text(
+        json.dumps({"game_length": 10, "score": list(scores),
+                    "replaydata": {}}))
+    return {"game": {"game_length": 10, "score": list(scores),
+                     "replaydata": {}},
+            "records": [[] for _ in names]}
+
+
+def test_eval_duels_tag_pairs_with_unique_game_ids(tmp_path, monkeypatch):
+    import archive
+    import evaluate
+    import game_if
+
+    base = tmp_path / "archive"
+    w = {"a": [1.0]}
+    monkeypatch.setattr(game_if, "play", lambda *a, **k: (
+        _fake_game_out(["chal", "champ"], [2, 2], a[4])))
+    cfg = {"eval_games": 2,
+           "eval_maps": [_tmp_2p_map(tmp_path, "e1.map"),
+                         _tmp_2p_map(tmp_path, "e2.map")],
+           "turns": 5, "temperature": 0.0, "seed": 0, "workers": 1}
+    evaluate.evaluate(cfg, base, "chal", w, "champ", w)
+    rows = archive.list_games(base)
+    assert len(rows) == 2
+    gids = [r.get("game") for r in rows]
+    assert all(g.startswith("games/chal/eval") for g in gids)
+    assert len(set(gids)) == 2  # re-runs of one rel still split
+
+
+def test_snapshot_2p_history_meaning_unchanged(tmp_path):
+    import archive
+    import dashboard
+
+    base = tmp_path / "archive"
+    a = archive.save_checkpoint(base, {}, role="main", parent=None)
+    b = archive.save_checkpoint(base, {}, role="challenger", parent=a)
+    archive.set_champion(base, a)
+    archive.log_game(base, a, "eval", a, b, 3, 1,
+                     "games/g000/e0/logs/0.replay")
+    archive.log_game(base, a, "eval", b, a, 1, 1,
+                     "games/g000/e1/logs/0.replay")
+    snap = dashboard.snapshot(base)
+    assert snap["counts"]["games"] == 2 and snap["game_total"] == 2
+    assert len(snap["games"]) == 2
+    g0 = next(g for g in snap["games"]
+              if g["replay"] == "games/g000/e0/logs/0.replay")
+    assert g0["n"] == 2
+    assert [(s["id"], s["score"]) for s in g0["seats"]] == [(a, 3), (b, 1)]
+    assert len(g0["pairs"]) == 1
+    by_id = {m["id"]: m for m in snap["members"]}
+    assert (by_id[a]["wins"], by_id[a]["draws"],
+            by_id[a]["losses"]) == (1, 1, 0)
+    assert (by_id[b]["wins"], by_id[b]["draws"],
+            by_id[b]["losses"]) == (0, 1, 1)
+
+
+def test_cached_grouped_shares_one_grouping_per_poll(tmp_path):
+    import archive
+    import dashboard
+
+    base = tmp_path / "archive"
+    archive.log_game(base, "g", "eval", "a", "b", 1, 0,
+                     "games/g/e0/logs/0.replay", game="g#1")
+    first = dashboard.cached_grouped(base)
+    assert dashboard.cached_grouped(base) is first  # no regroup on repoll
+    assert len(first) == 1
+    archive.log_game(base, "g", "eval", "a", "b", 0, 1,
+                     "games/g/e1/logs/0.replay", game="g#2")
+    second = dashboard.cached_grouped(base)
+    assert len(second) == 2  # file change regroups
