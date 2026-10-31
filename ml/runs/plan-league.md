@@ -107,13 +107,42 @@ on synthetic matrices; acceptance = role-appropriate distributions):
 - Kill: anchor flat 2 weeks + admission drought → revisit (time-boxed where
   they'd run forever).
 
+## League state and dashboard contracts (defines phases 2–4 interfaces)
+
+league.json (single object, atomically rewritten each scheduler tick):
+main working id + micro-batch progress; per-exploiter {id, games,
+last-40 window vs target}; anchors list; admissions list
+({id, role, at_game, record}); scheduler_pos; snapshot_counter.
+New snapshots append manifest rows (role: main-snapshot/me/le/admitted).
+Anchor results append anchor.jsonl rows
+{snapshot_id, main_id, anchor_id, wins, losses, draws}.
+No other new files; matrix/games/history formats unchanged.
+
+Dashboard rework (phase 4 implements; contracts fixed here):
+- RETIRE: throne/promotion/jury UI — duel cand/champ framing, knock marks +
+  rates, reign strip, champ-slice strikes, exam slices, Nash column, hero
+  champion banner, Elo subtitle (rewrite for snapshots).
+- KEEP (re-bucketed by K-game interval instead of gen): decisiveness,
+  margin bands, train conversion, PG signal + entropy (main-only),
+  value slope, maps section, recent games, replays, member table.
+- ADD: anchor-trend card (main vs ladder per snapshot — THE progress curve),
+  admissions log card, pool-health card (member growth, top-20 sampling
+  share, newcomer queue), scheduler-state strip (current learner,
+  micro-batch progress, live exploiter records).
+- BACKEND: bucket games by interval (order // K) — gen_pair_buckets
+  generalizes to interval keys; panel (= anchors from league.json) replaces
+  panel_ids; knock/conversion/decisiveness take intervals; member table
+  shows role + sampling share instead of Nash; snapshot memo extends
+  the _elo_cached pattern. Elo pass itself unchanged (trajectories lose
+  their takeover breaks).
+
 ## Phases (dependency order; 1–2 parallelizable; nothing live before phase 3)
 
 0. LOCK this plan (approve or amend the labeled choices: shares, K=80, N=8,
    bars 60%/40, stall 400, anchor set, newcomer boost ×5/10 games).
-1. `ml/pfsp.py` + tests. Zero training impact.
+1. `ml/pfsp.py` + tests. Zero training impact. DONE (59ca5b4).
 2. Archive roles/admission log + tests.
 3. Scheduler + `measure.py`, delete `evaluate.py`; smoke on tiny pool.
-4. Dashboard cards swapped.
+4. Dashboard cards swapped (per dashboard contracts above).
 5. `LEAGUE.md` + migration runbook (main.json→main-0, manifest relabel);
    first live week + verdict.
