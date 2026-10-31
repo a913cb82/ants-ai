@@ -3,6 +3,7 @@
 Every new computation gets a test before the implementation exists:
 BT-Elo fit, knock/conversion windows, decisiveness, margin quantiles,
 PG ratio, value slope, tenure strip, crown typing, regime boundary.
+R1/R2/R3 revisions: train+eval BT duel, knock marks, entropy norm.
 """
 import math
 import sys
@@ -228,3 +229,121 @@ def test_snapshot_board_present_and_old_keys_stable(tmp_path):
     assert board["ids"] == ["g001"]
     assert board["elo"]["panel"][0] == "g000"
     assert snap["generations"][0]["crown"] == "complete"
+
+
+# --- R1: train+eval BT duel ---
+
+def test_merge_pairs_sums_overlap():
+    import dashboard
+
+    ev = {"a vs b": [3.0, 1.0]}
+    tr = {"a vs b": [1.0, 1.0], "b vs c": [2.0, 0.0]}
+    m = dashboard.merge_pairs(ev, tr)
+    assert m["a vs b"] == [4.0, 2.0]
+    assert m["b vs c"] == [2.0, 0.0]
+
+
+def test_bt_fit_sees_train_only_members():
+    import dashboard
+
+    ev = {"x vs g000": [1.0, 0.0], "g000 vs x": [0.0, 1.0]}
+    tr = {"lonely vs x": [4.0, 0.0], "x vs lonely": [0.0, 4.0]}
+    eval_only = dashboard.bt_fit(["g000", "x", "lonely"], ev, iters=200)
+    assert eval_only["lonely"] == 0.0  # no eval games: exactly 0
+    both = dashboard.bt_fit(["g000", "x", "lonely"],
+                            dashboard.merge_pairs(ev, tr), iters=200)
+    assert both["lonely"] > both["x"]  # 4-0 train sweep moves the rating
+
+
+def test_elo_duel_candidate_above_champ_pre_promotion():
+    import dashboard
+
+    hist = [_h("g001", "g000"), _h("g002", "g000", True, 5, 0, 6),
+            _h("g003", "g002")]
+    elos = {"g000": -10.0, "g001": 0.0, "g002": 30.0, "g003": 5.0}
+    d = dashboard.elo_duel(hist, elos)
+    assert d["cand"] == [0.0, 30.0, 5.0]
+    assert d["champ"] == [-10.0, -10.0, 30.0]  # defender, then new throne
+    assert d["cand"][1] > d["champ"][1]  # staircase: takes the crown
+
+
+def test_turn_mismatch_ranges():
+    import dashboard
+
+    hist = [_h("g001"), _h("g002"), _h("g003")]
+    hist[0]["config"] = {"turns": 60, "eval_turns": 150}
+    hist[1]["config"] = {"turns": 60, "eval_turns": 150}
+    hist[2]["config"] = {"turns": 150, "eval_turns": None}
+    mm = dashboard.turn_mismatch(hist)
+    assert mm == [{"from": "g001", "to": "g002",
+                   "train_turns": 60, "eval_turns": 150}]
+
+
+# --- R2: knock marks lane ---
+
+def test_knock_marks_binary_per_gen():
+    import dashboard
+
+    hist = [_h("g001", wins=0, draws=0, games=6, margins=[-1] * 6),
+            _h("g002", wins=3, draws=0, games=6, margins=[1] * 6),
+            _h("g003")]  # no eval: None, not 0
+    k = dashboard.knock_conversion(hist, window=2)
+    assert k["knock"] == [0, 1, None]
+    assert k["rate"][0] == 0.0  # drought reads zero
+    assert k["rate"][1] == 0.5
+
+
+# --- R3: entropy normalization + readout ---
+
+def test_norm01_spans_min_max():
+    import dashboard
+
+    got = dashboard.norm01([0.004, 0.2, 3.891, None])
+    assert got[0] == 0.0 and got[2] == 1.0 and got[3] is None
+    assert abs(got[1] - 0.0504) < 1e-3  # (0.2-0.004)/(3.891-0.004)
+    assert dashboard.norm01([5.0, 5.0]) == [0.5, 0.5]  # constant: mid-lane
+    assert dashboard.norm01([None, None]) == [None, None]
+
+
+def test_reign_readout_names_current_and_best():
+    import dashboard
+
+    hist = [_h("g001"), _h("g002", promoted=True), _h("g003")]
+    t = dashboard.reign_strip(hist)
+    assert t["tenure"] == [1, 0, 1]
+    assert t["readout"] == "tenure 1 · best 1"
+    assert t["entropy_n"] == [None, None, None]
+
+
+def test_page_has_board_canvases_and_no_old_curves():
+    import dashboard
+
+    page = dashboard.render_page()
+    for cid in ("ch-elo", "ch-knock-marks", "ch-knock", "ch-dec", "ch-marg",
+                "ch-pg", "ch-vslope", "ch-tenure", "ch-entlane",
+                "tenure-now", "elo-turn"):
+        assert cid in page, cid
+    assert "ch-loss" not in page and "ch-ret" not in page
+
+
+def test_snapshot_duel_cand_above_champ(tmp_path):
+    import archive
+    import dashboard
+    import selfplay
+
+    base = tmp_path / "archive"
+    a = archive.save_checkpoint(base, {}, role="main", parent=None)
+    b = archive.save_checkpoint(base, {}, role="challenger", parent=a)
+    archive.set_champion(base, a)
+    archive.record_result(base, b, a, 5, 1)  # eval: challenger takes it
+    archive.record_result(base, b, a, 4, 0, kind="train")  # train agrees
+    selfplay.append_history(base, {
+        "challenger": b, "champion": a, "promoted": True,
+        "train": {"losses": [0.5], "mean_return": 1.0},
+        "eval": {"wins": 5, "draws": 0, "games": 6, "win_rate": 5 / 6,
+                 "margins": [2, 1, 3, -1, 2, 1], "mean_margin": 1.0},
+        "nash": {a: 0.3, b: 0.7}, "config": {}})
+    snap = dashboard.snapshot(base)
+    elo = snap["board"]["elo"]
+    assert elo["cand"][0] > elo["champ"][0]  # staircase: above pre-crown
+    assert elo["turn_note"] == []  # matching turns: nothing to disclose

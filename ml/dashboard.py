@@ -521,7 +521,7 @@ def summarize_maps(games: list[dict]) -> list[dict]:
 # archive. snapshot() only wires them to cached files.
 
 _BT_ELO_SCALE = 400.0 / math.log(10)  # logit -> Elo, like 400*log10 odds
-_BT_ITERS = 100  # MM converges long before this on ~6k played pairs
+_BT_ITERS = 100  # MM converges long before this on ~25k played pairs
 _BT_REG = 1.0  # virtual win+loss vs a rating-0 opponent: shrinks the
 # data-poor toward 0 instead of stranding them at +/-inf
 _KNOCK_EFF = 0.50  # challenging at even money counts as knocking
@@ -577,17 +577,39 @@ def roll_mean(vals: list, window: int) -> list:
     return out
 
 
-def bt_fit(ids: list[str], ev: dict, iters: int = _BT_ITERS) -> dict:
-    """Regularized Bradley-Terry ratings (logit) over eval pairs.
+def merge_pairs(*dicts: dict) -> dict:
+    """Sum per-key [wins_a, wins_b] across matrices (train + eval).
 
-    Sparse MM (Hunter 2004): each sweep touches only played pairs, so
-    the 1700-member / ~6k-pair archive fits in ~0.3s cold (100 sweeps x
-    ~6k exp/log ops) and is cached per eval-digest like Nash. Draws
-    ride as half-wins, the codebase-wide outcome_of convention.
+    Overlapping keys (same pair met in both phases) add: a win is a win
+    wherever it was scored. Malformed values are skipped, never zeroed."""
+    out: dict[str, list[float]] = {}
+    for d in dicts:
+        for key, w in (d or {}).items():
+            try:
+                w0, w1 = float(w[0]), float(w[1])
+            except (TypeError, ValueError, IndexError):
+                continue
+            acc = out.setdefault(key, [0.0, 0.0])
+            acc[0] += w0
+            acc[1] += w1
+    return out
+
+
+def bt_fit(ids: list[str], ev: dict, iters: int = _BT_ITERS) -> dict:
+    """Regularized Bradley-Terry ratings (logit) over train+eval pairs.
+
+    Train games are valid engine games, so the fit takes both matrices
+    merged (see _sparse_bt): ~5.7k eval + ~22k train keys, ~25k unordered
+    pairs after overlap. Sparse MM (Hunter 2004): each sweep touches only
+    played pairs, ~0.5s cold (100 sweeps), cached per matrix-digest like
+    Nash. Draws ride as half-wins, the codebase-wide outcome_of
+    convention. Turn-count confound, disclosed not corrected: gens
+    g031-g045 ran train 60 vs eval 150 turns (see turn_mismatch); both
+    eras' games mix into one fit, so cross-era Elo gaps partly reflect
+    game length. Members with no games anywhere sit at exactly 0.
     Regularization is the same +1/+1 Laplace prior archive._head_to_head
     uses, plus one virtual win AND one virtual loss vs a rating-0
-    opponent per member: members with no eval games sit at exactly 0
-    instead of drifting, and thin samples shrink toward the pack."""
+    opponent per member: thin samples shrink toward the pack."""
     n = len(ids)
     if not n:
         return {}
@@ -631,21 +653,48 @@ def bt_fit(ids: list[str], ev: dict, iters: int = _BT_ITERS) -> dict:
 
 
 _bt_cache: dict = {}
+_bt_digest_cache: dict = {}
+
+
+def _bt_digest(base: Path) -> tuple:
+    """Cache key over BOTH matrices (the BT fit reads train + eval).
+
+    Same stat-check trick as _eval_digest: unchanged mtime+size reuses
+    the last digest, so a warm snapshot pays no re-dump."""
+    path = base / "matrix.json"
+    try:
+        st = path.stat()
+    except OSError:
+        return (None, None, None)
+    key = (str(base.resolve()), st.st_mtime_ns, st.st_size)
+    if _bt_digest_cache.get("key") == key:
+        return _bt_digest_cache["value"]
+    try:
+        data = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return (None, None, None)
+    digest = (tuple(data.get("ids", [])),
+              json.dumps(data.get("eval", {}), sort_keys=True),
+              json.dumps(data.get("train", {}), sort_keys=True))
+    _bt_digest_cache["key"] = key
+    _bt_digest_cache["value"] = digest
+    return digest
 
 
 def _bt_cached(base: Path) -> dict:
-    """BT ratings, re-fit only when eval data changes (same key as Nash)."""
-    key = (str(base.resolve()), _eval_digest(base))
+    """BT ratings, re-fit only when either matrix changes."""
+    key = (str(base.resolve()), _bt_digest(base))
     return _memo(_bt_cache, key, lambda: _sparse_bt(base))
 
 
 def _sparse_bt(base: Path, iters: int = _BT_ITERS) -> dict[str, float]:
-    """Read the eval matrix once, fit BT over played pairs only."""
+    """Read both matrices once, fit BT over merged played pairs."""
     try:
         data = json.loads((base / "matrix.json").read_text())
     except (OSError, ValueError):
         return {}
-    return bt_fit(data.get("ids", []), data.get("eval", {}), iters)
+    pairs = merge_pairs(data.get("eval", {}), data.get("train", {}))
+    return bt_fit(data.get("ids", []), pairs, iters)
 
 
 def panel_ids(history: list[dict]) -> list[str]:
@@ -674,20 +723,59 @@ def anchored_elo(ids: list[str], ev: dict, panel: list[str],
     return {cid: (r - zero) * _BT_ELO_SCALE for cid, r in ratings.items()}
 
 
-def elo_series(history: list[dict], elos: dict,
-               window: int = 15) -> tuple[list, list]:
-    """Reigning champ's anchored Elo per gen (faint) + rolling median.
+def elo_duel(history: list[dict], elos: dict) -> dict:
+    """Candidate vs defending-champion anchored Elo per gen.
 
-    The champ of a promoted gen is the new challenger; otherwise the
-    throne carries over. "Good" reads as a sustained rise across 2+
-    thrones, not a one-gen spike."""
-    faint: list = []
+    cand = this gen's challenger, champ = the throne's defender (the
+    verdict may depose him after). Crossovers read as throne changes:
+    in a staircase stretch the candidate line runs above the champ line
+    before a promotion. Same panel anchoring as ever (zero = panel
+    mean); same train/eval turn-count confound as bt_fit (disclosed in
+    the card legend, not corrected)."""
+    cand: list = []
+    champ: list = []
     reigning = history[0].get("champion") if history else None
     for h in history:
+        c = h.get("challenger")
+        cand.append(elos.get(c))
+        champ.append(elos.get(reigning) if reigning is not None else None)
         if h.get("promoted"):
-            reigning = h.get("challenger", reigning)
-        faint.append(elos.get(reigning) if reigning is not None else None)
-    return faint, roll_median(faint, window)
+            reigning = c
+    return {"cand": cand, "champ": champ}
+
+
+def turn_mismatch(history: list[dict]) -> list[dict]:
+    """Consecutive-gen ranges where train and eval turns differed.
+
+    Eval length is cfg eval_turns, defaulting to train's cfg turns
+    (evaluate.py: `turns=cfg.get("eval_turns") or cfg["turns"]`).
+    Ranges name challenger ids, e.g. g031-g045 at 60 vs 150. The Elo
+    card legend discloses these ranges; the fit itself is uncorrected."""
+    ranges: list[dict] = []
+    start: int | None = None
+    for i, h in enumerate(history):
+        cfg = h.get("config", {}) or {}
+        t = cfg.get("turns")
+        et = cfg.get("eval_turns") or t
+        bad = (t is not None and et is not None and et != t)
+        if bad and start is None:
+            start = i
+        if not bad and start is not None:
+            ranges.append({"from": history[start].get("challenger"),
+                           "to": history[i - 1].get("challenger"),
+                           "train_turns": history[start].get(
+                               "config", {}).get("turns"),
+                           "eval_turns": history[start].get(
+                               "config", {}).get("eval_turns")})
+            start = None
+    if start is not None:
+        ranges.append({"from": history[start].get("challenger"),
+                       "to": history[-1].get("challenger"),
+                       "train_turns": history[start].get(
+                           "config", {}).get("turns"),
+                       "eval_turns": history[start].get(
+                           "config", {}).get("eval_turns")})
+    return ranges
 
 
 def _eff(h: dict) -> float | None:
@@ -699,13 +787,18 @@ def _eff(h: dict) -> float | None:
 
 
 def knock_conversion(history: list[dict], window: int = 15) -> dict:
-    """Dual 15-gen window bars with Wilson whiskers.
+    """Knock marks + dual 15-gen window rates with Wilson whiskers.
 
     knock = eff >= .50 (challenging at even money); conversion =
-    promoted | knock. Rates over the trailing window; whiskers are the
-    z=1.0 Wilson interval, matching the promotion rule's convention."""
-    rate, lo, hi, conv, clo, chi = [], [], [], [], [], []
+    promoted | knock. `knock` is the raw binary per-gen lane (1/0/None:
+    no-eval gens are gaps, never zeros); the trailing-window rates and
+    z=1.0 Wilson whiskers sit in a separate panel so they never fight
+    the 1690 per-gen marks."""
+    knock, rate, lo, hi, conv, clo, chi = [], [], [], [], [], [], []
     for i in range(len(history)):
+        e = _eff(history[i])
+        knock.append(1 if e is not None and e >= _KNOCK_EFF
+                       else (0 if e is not None else None))
         win = history[max(0, i - window + 1):i + 1]
         effs = [(h.get("promoted", False), _eff(h)) for h in win]
         effs = [(p, e) for p, e in effs if e is not None]
@@ -720,7 +813,7 @@ def knock_conversion(history: list[dict], window: int = 15) -> dict:
         clo_, chi_ = wilson_bounds(pk, k)
         clo.append(clo_ if k else None)
         chi.append(chi_ if k else None)
-    return {"rate": rate, "lo": lo, "hi": hi,
+    return {"knock": knock, "rate": rate, "lo": lo, "hi": hi,
             "conv": conv, "clo": clo, "chi": chi}
 
 
@@ -812,6 +905,23 @@ def value_slope(history: list[dict]) -> list:
     return out
 
 
+def norm01(vals: list) -> list:
+    """Min-max normalize non-None values to [0,1] for legibility lanes.
+
+    A near-constant series (mid-era Nash entropy: 0.14-0.26 against a
+    0.004-3.89 global span) would render as a dead-flat line on a
+    shared axis; normalized, its shape fills the lane. The card labels
+    the lane with the true min/max so the scale is never a lie.
+    Constant series sit mid-lane (0.5); all-None stays all-None."""
+    have = [v for v in vals if v is not None]
+    if not have:
+        return [None] * len(vals)
+    mn, mx = min(have), max(have)
+    if not mx > mn:
+        return [0.5 if v is not None else None for v in vals]
+    return [(v - mn) / (mx - mn) if v is not None else None for v in vals]
+
+
 def reign_strip(history: list[dict]) -> dict:
     """Tenure = gens held including current (the history-open throne
     predates the log, so it starts at 1: a documented lower bound).
@@ -830,7 +940,11 @@ def reign_strip(history: list[dict]) -> dict:
         mix = h.get("nash", {}) or {}
         entropy.append(-sum(p * math.log(p) for p in mix.values() if p > 0)
                          if mix else None)
-    return {"tenure": tenure, "turnover": turnover, "entropy": entropy}
+    best = max(tenure) if tenure else 0
+    last = tenure[-1] if tenure else 0
+    return {"tenure": tenure, "turnover": turnover, "entropy": entropy,
+            "entropy_n": norm01(entropy),
+            "readout": f"tenure {last} · best {best}"}
 
 
 def nplayer_start(history: list[dict], games: list[dict]) -> int | None:
@@ -878,12 +992,12 @@ def build_board(base: Path, history: list[dict],
     have = [ratings[p] for p in panel if p in ratings]
     zero = sum(have) / len(have) if have else 0.0
     elos = {cid: (r - zero) * _BT_ELO_SCALE for cid, r in ratings.items()}
-    faint, med = elo_series(history, elos)
     kc = knock_conversion(history)
     np_idx = nplayer_start(history, grouped)
     return {
         "ids": [h.get("challenger", "") or "" for h in history],
-        "elo": {"champ": faint, "med": med, "panel": panel},
+        "elo": {**elo_duel(history, elos), "panel": panel,
+                "turn_note": turn_mismatch(history)},
         "knock": kc,
         "decisive": decisiveness(history, grouped),
         "margin": margin_band(history),
@@ -1131,6 +1245,7 @@ h1{font-size:20px; margin:0 0 4px;}
 .chart-card h3{margin:0 0 2px; font-size:14px;}
 .chart-sub{font-size:12px; color:var(--muted); margin:0 0 8px;}
 .chart-head{display:flex; justify-content:space-between; align-items:baseline;}
+.chart-head #tenure-now{font-size:12px; font-weight:700; color:var(--accent); margin-left:8px; white-space:nowrap;}
 .delta{font-size:12px; font-weight:700; padding:2px 8px; border-radius:20px;}
 .delta.up{color:var(--success); background:#E6F4EC;}
 .delta.down{color:var(--danger); background:#FBEAE8;}
@@ -1305,25 +1420,103 @@ function plotLines(id,arrs,colors,widths,labels,desc){
   if(!F)return;
   arrs.forEach((a,k)=>lineInto(F,a,colors[k],widths[k]));
 }
-function plotBand(id,med,q1,q3,color,fill,labels,desc){
-  const F=frame(id,[med,q1,q3],labels,desc);
-  if(!F)return;
+function band(F,lo,hi,fill){
+  // Fill between hi and lo, restarting at null gaps (shared by the
+  // margin IQR band and the knock rate panel).
   const{ctx,X,Y}=F;
   ctx.fillStyle=fill;
   let run=[];
   const flush=()=>{
     if(run.length>1){ctx.beginPath();
-      run.forEach((i,k)=>k?ctx.lineTo(X(i),Y(q3[i])):ctx.moveTo(X(i),Y(q3[i])));
-      [...run].reverse().forEach(i=>ctx.lineTo(X(i),Y(q1[i])));
+      run.forEach((i,k)=>k?ctx.lineTo(X(i),Y(hi[i])):ctx.moveTo(X(i),Y(hi[i])));
+      [...run].reverse().forEach(i=>ctx.lineTo(X(i),Y(lo[i])));
       ctx.closePath();ctx.fill();}
     else if(run.length===1){const i=run[0];
-      ctx.fillRect(X(i)-1,Y(q3[i]),2,Math.max(1,Y(q1[i])-Y(q3[i])));}
+      ctx.fillRect(X(i)-1,Y(hi[i]),2,Math.max(1,Y(lo[i])-Y(hi[i])));}
     run=[];};
-  med.forEach((m,i)=>{
-    if(m===null||!Number.isFinite(m)||q1[i]===null||q3[i]===null)flush();
+  hi.forEach((h,i)=>{
+    if(h===null||!Number.isFinite(h)||lo[i]===null||!Number.isFinite(lo[i]))flush();
     else run.push(i);});
   flush();
+}
+function plotBand(id,med,q1,q3,color,fill,labels,desc){
+  const F=frame(id,[med,q1,q3],labels,desc);
+  if(!F)return;
+  band(F,q1,q3,fill);
   lineInto(F,med,color,2);
+}
+function plotTicks(id,knock,labels,desc){
+  // Binary per-gen knock lane: one tick per gen, same x-geometry as the
+  // rate panel below (L=48/R=8) so marks line up with the curves.
+  // 1690 ticks overplot, so knocks draw tall at alpha .55 (the envelope
+  // reads as density) and holds draw short and faint; no-eval gens gap.
+  const cv=$(id),ctx=cv.getContext("2d");
+  const dpr=window.devicePixelRatio||1,W=cv.clientWidth,H=cv.clientHeight;
+  cv.width=W*dpr;cv.height=H*dpr;ctx.scale(dpr,dpr);
+  ctx.clearRect(0,0,W,H);
+  cv.setAttribute("role","img");
+  if(desc)cv.setAttribute("aria-label",desc);
+  const L=48,R=8,T=6,B=16,n=Math.max(knock.length,1);
+  const X=i=>L+(W-L-R)*(n<2?0.5:i/(n-1));
+  ctx.strokeStyle="#E9EDF1";ctx.fillStyle="#6B7480";ctx.font="10px system-ui";ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(L,H-B);ctx.lineTo(W-R,H-B);ctx.stroke();
+  ctx.fillText("knock",4,T+6);
+  ctx.fillText("held",4,H-B);
+  const slot=n<2?20:(W-L-R)/n;
+  const bw=Math.max(1,Math.min(4,slot*0.7));
+  knock.forEach((k,i)=>{
+    if(k===null||k===undefined)return;
+    if(k){
+      ctx.fillStyle="rgba(36,86,224,.55)";
+      ctx.fillRect(X(i)-bw/2,T,bw,H-B-T);
+    }else{
+      ctx.fillStyle="rgba(91,100,112,.30)";
+      ctx.fillRect(X(i)-bw/2,H-B-6,bw,6);
+    }
+  });
+  const x0=(labels&&labels[0])||"gen 0";
+  const x1=(labels&&labels[labels.length-1])||("gen "+(n-1));
+  ctx.fillStyle="#6B7480";
+  ctx.fillText(x0,L,H-4);
+  const w1=ctx.measureText(x1).width;
+  ctx.fillText(x1,W-R-w1,H-4);
+}
+function plotKnock(id,K,labels,desc){
+  // Rate panel under the marks lane: knock-rate (blue) and conversion
+  // (green) lines with Wilson bands, one shared frame.
+  const F=frame(id,[K.rate,K.lo,K.hi,K.conv,K.clo,K.chi],labels,desc);
+  if(!F)return;
+  band(F,K.lo,K.hi,"rgba(36,86,224,.18)");
+  band(F,K.clo,K.chi,"rgba(24,121,78,.16)");
+  lineInto(F,K.rate,"#2456E0",2);
+  lineInto(F,K.conv,"#18794E",2);
+}
+function plotNorm(id,norm,raw,labels,desc){
+  // Normalized lane (0..1 geometry) labeled with the TRUE min/max so
+  // the scale is never a lie: near-constant stretches fill the lane
+  // and the axis still reads in real units.
+  const F=frame(id,[norm],labels,desc);
+  if(!F)return;
+  const{ctx,X,Y,W,H,T,B}=F;
+  const have=(raw||[]).filter(v=>v!==null&&Number.isFinite(v));
+  if(have.length){
+    const mn=Math.min(...have),mx=Math.max(...have);
+    ctx.save();ctx.fillStyle="#5B6470";ctx.textAlign="right";
+    ctx.fillText("max "+mx.toFixed(2),W-2,T+10);
+    ctx.fillText("min "+mn.toFixed(2),W-2,H-B-4);
+    ctx.restore();
+  }
+  ctx.fillStyle="rgba(22,25,29,.08)";
+  let run=[];
+  const flush=()=>{
+    if(run.length>1){ctx.beginPath();
+      run.forEach((i,k)=>k?ctx.lineTo(X(i),Y(norm[i])):ctx.moveTo(X(i),Y(norm[i])));
+      ctx.lineTo(X(run[run.length-1]),Y(0));ctx.lineTo(X(run[0]),Y(0));
+      ctx.closePath();ctx.fill();}
+    run=[];};
+  norm.forEach((v,i)=>{if(v===null||!Number.isFinite(v))flush();else run.push(i);});
+  flush();
+  lineInto(F,norm,"#16191D",2.5);
 }
 function plotBars(id,groups,colors,labels,desc,whisk){
   // groups: one array per bar series; whisk: matching [lo,hi] pairs.
@@ -1376,8 +1569,8 @@ function plotStrip(id,tenure,turnover,nplayer,labels,desc){
   if(!F)return;
   const{ctx,X,Y,W,R,T}=F,n=F.n;
   if(nplayer!==null&&nplayer!==undefined&&nplayer<n){
-    ctx.fillStyle="rgba(36,86,224,.07)";
-    ctx.fillRect(X(nplayer),T,W-R-X(nplayer),F.H-T-B);
+    ctx.fillStyle="rgba(36,86,224,.12)";
+    ctx.fillRect(X(nplayer),T,W-R-X(nplayer),F.H-F.T-F.B);
     ctx.fillStyle="#2456E0";ctx.font="10px system-ui";
     ctx.fillText("N-player",X(nplayer)+4,T+12);
   }
@@ -1385,23 +1578,27 @@ function plotStrip(id,tenure,turnover,nplayer,labels,desc){
   ctx.fillStyle="#2456E0";
   tenure.forEach((v,i)=>{
     if(v===null||!Number.isFinite(v))return;
-    const y1=Y(v),bw=Math.max(1,slot/2);
+    const y1=Y(v),bw=Math.max(2,slot*0.7);
     ctx.fillRect(X(i)-bw/2,y1,bw,Math.max(1,Y(0)-y1));
   });
-  ctx.fillStyle="#C4322B";
   turnover.forEach((t,i)=>{
     if(!t)return;
-    const cx=X(i),cy=T+8,s=4;
+    const cx=X(i),cy=T+10,s=6;
     ctx.beginPath();ctx.moveTo(cx,cy-s);ctx.lineTo(cx+s,cy);
-    ctx.lineTo(cx,cy+s);ctx.lineTo(cx-s,cy);ctx.closePath();ctx.fill();
+    ctx.lineTo(cx,cy+s);ctx.lineTo(cx-s,cy);ctx.closePath();
+    ctx.fillStyle="#C4322B";ctx.fill();
+    ctx.lineWidth=2;ctx.strokeStyle="#FFFFFF";ctx.stroke();
   });
 }
 function renderBoard(){
   const B=S.board,ids=B.ids;
-  plotLines("ch-elo",[B.elo.champ,B.elo.med],["#B9BEC6","#2456E0"],[1,2],ids,
-    "champion anchored Elo, "+ids.length+" generations");
-  plotBars("ch-knock",[B.knock.rate,B.knock.conv],["#2456E0","#18794E"],ids,
-    "knock and conversion rates",[[B.knock.lo,B.knock.hi],[B.knock.clo,B.knock.chi]]);
+  plotLines("ch-elo",[B.elo.cand,B.elo.champ],["#9EC5FE","#2456E0"],[1.5,2],ids,
+    "candidate vs defending-champion anchored Elo, "+ids.length+" generations");
+  const tn=(B.elo.turn_note||[]).map(r=>`${r.from}–${r.to}: train ${r.train_turns} vs eval ${r.eval_turns} turns`).join("; ");
+  $("elo-turn").textContent=tn?`turn confound (${tn}) — mixed, not corrected`:
+    "train+eval fit: turn counts match across eras";
+  plotTicks("ch-knock-marks",B.knock.knock,ids,"per-gen knock marks");
+  plotKnock("ch-knock",B.knock,ids,"knock and conversion rates with Wilson bands");
   plotLines("ch-dec",[B.decisive.train,B.decisive.train_ma,B.decisive.eval,B.decisive.eval_ma],
     ["#E8A0A6","#C4322B","#9EC5FE","#2456E0"],[1,2,1,2],ids,"decisiveness");
   plotBand("ch-marg",B.margin.med,B.margin.q1,B.margin.q3,"#2456E0","rgba(36,86,224,.15)",ids,
@@ -1411,7 +1608,8 @@ function renderBoard(){
   plotBars("ch-vslope",[B.vslope],["#8A5A00"],ids,"value fit slope",null);
   plotStrip("ch-tenure",B.reign.tenure,B.reign.turnover,B.regimes.nplayer,ids,
     "tenure and turnovers");
-  plotLines("ch-entlane",[B.reign.entropy],["#5B6470"],[2],ids,"Nash entropy");
+  $("tenure-now").textContent=B.reign.readout||"";
+  plotNorm("ch-entlane",B.reign.entropy_n,B.reign.entropy,ids,"Nash entropy normalized");
 }
 function renderPopulation(){
   const rows=S.members.map(m=>{const role=m.role==="main"?"seed":m.role;
@@ -1569,10 +1767,10 @@ def render_page() -> str:
 <div class="section-title">Progress board</div>
 <div class="legend">seven training curves, one point per generation, oldest → newest · axes span the data range</div>
 <div class="charts">
-  <div class="card chart-card"><div class="chart-head"><h3>Champ Elo vs panel</h3></div>
-    <p class="chart-sub">anchored Bradley-Terry over eval duels · zero = panel (BC g000 + last 3 deposed) mean · faint per-gen, bold 15-gen median · sustained rise across 2+ thrones = good</p><canvas id="ch-elo"></canvas></div>
-  <div class="card chart-card"><div class="chart-head"><h3>Knock-rate vs conversion</h3></div>
-    <p class="chart-sub">trailing 15-gen windows · knock = eff ≥ .50 · conversion = promoted | knock · whiskers = Wilson z=1.0</p><canvas id="ch-knock"></canvas></div>
+  <div class="card chart-card"><div class="chart-head"><h3>Candidate vs champion Elo</h3></div>
+    <p class="chart-sub">Bradley-Terry over train+eval pairs (train games are valid engine games) · zero = panel (BC g000 + last 3 deposed) mean · light = candidate, dark = defending champ · crossovers read as throne changes · <span id="elo-turn"></span></p><canvas id="ch-elo"></canvas></div>
+  <div class="card chart-card"><div class="chart-head"><h3>Knock marks + rates</h3></div>
+    <p class="chart-sub">top lane: one tick per gen (blue = knock eff ≥ .50, gray = held, gap = no eval) · bottom: trailing 15-gen knock (blue) and conversion | knock (green) with Wilson z=1.0 bands</p><canvas id="ch-knock-marks" style="height:64px"></canvas><canvas id="ch-knock" style="margin-top:8px"></canvas></div>
   <div class="card chart-card"><div class="chart-head"><h3>Decisiveness train vs eval</h3></div>
     <p class="chart-sub">nonzero-margin fraction · faint raw per gen, bold 15-gen MA · train from grouped games, eval from duel margins</p><canvas id="ch-dec"></canvas></div>
   <div class="card chart-card"><div class="chart-head"><h3>Eval margin median ± IQR</h3></div>
@@ -1581,8 +1779,8 @@ def render_page() -> str:
     <p class="chart-sub">ratio = |pg_loss|/pg_abs at last epoch, 10-gen median · EXPERIMENTAL: no literature backing · entropy on right axis</p><canvas id="ch-pg"></canvas></div>
   <div class="card chart-card"><div class="chart-head"><h3>Value-fit slope</h3></div>
     <p class="chart-sub">(v_loss[0]−v_loss[−1])/v_loss[0] · + = critic learned in-gen · line = no change</p><canvas id="ch-vslope"></canvas></div>
-  <div class="card chart-card"><div class="chart-head"><h3>Tenure / turnover + Nash entropy</h3></div>
-    <p class="chart-sub">tenure = gens held (crowning gen = 0) · ◆ = turnover, a new crown · shaded = N-player era · lower lane = mixture entropy (nats)</p><canvas id="ch-tenure"></canvas><canvas id="ch-entlane" style="margin-top:8px"></canvas></div>
+  <div class="card chart-card"><div class="chart-head"><h3>Tenure / turnover + Nash entropy <span id="tenure-now"></span></h3></div>
+    <p class="chart-sub">tenure = gens held (crowning gen = 0) · ◆ = turnover, a new crown · shaded = N-player era · lower lane = Nash entropy normalized to its own min/max (true range labeled, nats)</p><canvas id="ch-tenure"></canvas><canvas id="ch-entlane" style="margin-top:8px"></canvas></div>
 </div>
 <div class="section-title">Generations</div>
 <div class="legend">why each challenger was promoted or held — challenger W-D-L · score counts a draw as half a win · green fill is win rate, tick is the promotion threshold</div>

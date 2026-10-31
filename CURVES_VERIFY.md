@@ -78,3 +78,57 @@ mtimes still `2026-10-31 14:49/14:50`; `git status` in the live repo clean.
   the synthetic case; fine, the rule is documented in code.
 - Old `plot` delta chips removed with the cards; `.delta` CSS left
   harmlessly in place.
+
+## R1/R2/R3 revisions (lead review, 2026-10-31)
+
+### R1 — BT-Elo on train+eval, candidate vs champion
+- `merge_pairs` sums per-key wins across the eval (5.7k keys) + train
+  (22.4k keys, incl. N-player seat-pairs) matrices; overlap adds.
+  `bt_fit` itself unchanged, docstring now names the fit and the
+  confound. Unknown ids still skipped (same as Nash).
+- `elo_duel`: cand = this gen's challenger, champ = defending throne;
+  crossovers read as throne changes. `turn_mismatch` scans configs for
+  `eval_turns != turns` eras and `snapshot` exposes them as
+  `board.elo.turn_note`; the card legend renders them dynamically
+  ("turn confound (g031–g045: train 60 vs eval 150 turns) — mixed, not
+  corrected") or "turn counts match across eras" when empty.
+- Confound disclosed in code (`bt_fit` + `elo_duel` docstrings) and in
+  one legend line; no correction attempted, per direction.
+- Perf: merged fit standalone 0.19s cold at 100 iters (0.11s at 50;
+  g000 −0.080 vs −0.074 — converged). Full snapshot cold 4.44s
+  (unchanged: grouping + 22MB history parse dominate), warm 0.39s.
+- Tests: `test_merge_pairs_sums_overlap`,
+  `test_bt_fit_sees_train_only_members` (train-only member rates 0.0
+  eval-only, nonzero merged), `test_elo_duel_candidate_above_champ`,
+  `test_turn_mismatch_ranges`, `test_snapshot_duel_cand_above_champ`
+  (tmp archive: b beats a 5–1 eval + 4–0 train → cand > champ).
+- Real archive: crossovers at 36/64 promotions (jury-carried thrones
+  legitimately sit below); synth staircase: cand −46.3 > champ −103.9
+  pre-promotion.
+
+### R2 — knock legibility
+- `knock_conversion` gains the raw per-gen `knock` lane (1/0/None).
+  Card is now twin panels: `plotTicks` marks lane (1 tick/gen, blue
+  full-height alpha .55 = knock, gray nub = held, gap = no eval; same
+  L/R x-geometry as the rate panel so marks line up with curves) over a
+  shared-frame rate panel (`plotKnock`: knock blue + conversion green
+  lines with Wilson bands). `plotBand` refactored onto shared `band()`.
+- Tests: drought stretch marks all 0 / rate 0.0; turtle stretch marks
+  all 1 / rate 1.0 (synth + unit). DOM: `ch-knock-marks` present.
+
+### R3 — tenure/entropy legibility
+- Diagnosed on the real archive: tenure max 295 (idx 1543) crushes the
+  current 11 to ~7px; entropy spans 0.004–3.891 globally but the mid
+  era sits 0.14–0.26 (flat line); turnover diamonds were 4px, regime
+  shade 0.07.
+- Fixes: `norm01` min-max lane + `plotNorm` labels the TRUE min/max on
+  the axis (scale never a lie); server-side `reign.readout`
+  ("tenure 11 · best 295") rendered into the card head via
+  `<span id="tenure-now">`; tenure bars min-width 2px, diamonds 6px
+  with white stroke, regime shade 0.12.
+- Real archive: `readout: tenure 11 · best 295`, entropy_n 0.00–1.00,
+  raw range labeled max 3.89 / min 0.00.
+- Caught by a node DOM-stub harness (all render paths incl.
+  renderBoard/renderGenerations executed against the synth snapshot):
+  `F.H-T-B` parsed as `F.H - T - B` with bare `B` undefined — fixed to
+  `F.H-F.T-F.B`. Harness rerun: BOARD RUNTIME OK.
