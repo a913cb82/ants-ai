@@ -2943,42 +2943,59 @@ def test_eval_map_for_slice():
     assert evaluate._eval_map_for(cfg, 19) == "e19.map"
 
 
-def test_sample_mixture_even_split_without_data(tmp_path):
+def test_mixture_draw_even_splits_without_mass():
     import archive
+    import numpy as np
 
-    base = tmp_path / "archive"
-    for _ in range(3):
-        archive.save_checkpoint(base, {"w": [1.0]}, "main", None)
-    got = archive.sample_mixture(base, k=30, seed=7, exclude=("g002",))
-    assert len(got) == 30
-    assert set(got) == {"g000", "g001"}  # uniform over eligible
-    assert all(g != "g002" for g in got)
+    got = archive.mixture_draw(["g000", "g001"], np.array([0.0, 0.0]),
+                               k=30, rng=np.random.default_rng(7),
+                               exclude=("g001",))
+    assert got == ["g000"] * 30  # only eligible member, mass or not
+    got = archive.mixture_draw(["g000", "g001"], np.array([0.0, 0.0]),
+                               k=30, rng=np.random.default_rng(7))
+    assert set(got) == {"g000", "g001"}  # degenerate -> even split
 
 
-def test_sample_mixture_follows_mass_with_replacement(tmp_path):
+def test_mixture_draw_follows_mass_with_replacement():
     import archive
+    import numpy as np
 
-    base = tmp_path / "archive"
-    for _ in range(2):
-        archive.save_checkpoint(base, {"w": [1.0]}, "main", None)
-    for _ in range(6):
-        archive.record_result(base, "g000", "g001", 5, 0)
-    # g000 dominates the only rated matchup: excluding it leaves g001.
-    got = archive.sample_mixture(base, k=10, seed=11, exclude=("g000",))
+    # g000 holds all the mass: excluding it leaves g001, always.
+    got = archive.mixture_draw(["g000", "g001"], np.array([1.0, 0.0]),
+                               k=10, rng=np.random.default_rng(11),
+                               exclude=("g000",))
     assert got == ["g001"] * 10
-    # ...and excluding the loser leaves the dominant winner.
-    got = archive.sample_mixture(base, k=10, seed=11, exclude=("g001",))
+    got = archive.mixture_draw(["g000", "g001"], np.array([1.0, 0.0]),
+                               k=10, rng=np.random.default_rng(11),
+                               exclude=("g001",))
     assert got == ["g000"] * 10
 
 
-def test_sample_mixture_excludes_and_deterministic(tmp_path):
+def test_mixture_draw_excludes_and_deterministic():
     import archive
+    import numpy as np
 
-    base = _seeded_frontier(tmp_path)
-    a = archive.sample_mixture(base, k=10, seed=5, exclude=("g020", "g019"))
-    b = archive.sample_mixture(base, k=10, seed=5, exclude=("g020", "g019"))
+    ids = ["g%03d" % i for i in range(21)]
+    probs = np.arange(21, dtype=float)
+    a = archive.mixture_draw(ids, probs, k=10,
+                             rng=np.random.default_rng(5),
+                             exclude=("g020", "g019"))
+    b = archive.mixture_draw(ids, probs, k=10,
+                             rng=np.random.default_rng(5),
+                             exclude=("g020", "g019"))
     assert a == b
     assert all(g not in ("g020", "g019") for g in a)
+
+
+def test_prune_missing_drops_gone_weights(tmp_path):
+    import archive
+    import numpy as np
+
+    base = tmp_path / "archive"
+    archive.save_checkpoint(base, {"w": [1.0]}, "main", None)
+    ids = ["g000", "g999"]
+    names, w = archive.prune_missing(base, ids, np.array([0.7, 0.3]))
+    assert names == ["g000"] and w.tolist() == [1.0]
 
 
 def test_map_player_count_reads_header(tmp_path):

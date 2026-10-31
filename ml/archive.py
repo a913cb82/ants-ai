@@ -187,31 +187,45 @@ def _key(a: str, b: str) -> str:
     return f"{a} vs {b}"
 
 
-def sample_mixture(base: Path, k: int, seed: int = 0,
-                   exclude: tuple = ()) -> list[str]:
-    """k opponent ids drawn ∝ Nash mixture with replacement.
+def prune_missing(base: Path, ids: list[str], probs) -> tuple[list[str], object]:
+    """Drop mixture members whose weights are gone, renormalize."""
+    keep = []
+    for i, p in zip(ids, probs):
+        try:
+            load_checkpoint(base, i)
+        except (FileNotFoundError, ValueError, KeyError):
+            continue
+        keep.append((i, float(p)))
+    if not keep:
+        return [], np.array([])
+    names = [i for i, _ in keep]
+    w = np.array([p for _, p in keep])
+    return names, w / w.sum() if w.sum() > 0 else np.ones(len(names)) / len(names)
 
-    The FULL train/exam selection rule: renormalized over loadable
-    members minus `exclude` (usually the student). Degenerate matrix
-    (fresh archive, all draws) falls back to uniform over eligible --
-    that is the Nash of an all-zero matrix, not a special case. Empty
-    eligible set returns [] (fresh-archive gen 0: only the student
-    exists; callers mirror). Deterministic in seed.
-    """
-    rng = np.random.default_rng(seed)
-    try:
-        ids = [m["id"] for m in members(base)
-               if m["id"] not in exclude]
-    except (OSError, ValueError):
+
+def mixture_draw(ids: list[str], probs, k: int, rng, exclude: tuple = ()) -> list[str]:
+    """Draw k opponents with replacement from a FIXED mixture.
+
+    The mixture is computed ONCE per generation (nash_mixture over a
+    1700-member matrix costs ~40s); per-game sampling must be pure
+    arithmetic, never I/O. Renormalizes over members minus exclude;
+    degenerate (all-zero) mass falls back to even-split. Deterministic
+    in the caller's rng."""
+    elig = [(i, p) for i, p in zip(ids, probs) if i not in exclude]
+    if k <= 0 or not elig:
         return []
-    if not ids or k <= 0:
-        return []
-    mix = nash_mixture(base)
-    w = np.array([mix.get(i, 0.0) for i in ids], dtype=float)
+    names = [i for i, _ in elig]
+    w = np.array([p for _, p in elig], dtype=float)
     if w.sum() <= 0:
-        w = np.ones(len(ids))
+        w = np.ones(len(names))
     w = w / w.sum()
-    return [str(x) for x in rng.choice(ids, size=k, p=w)]
+    picks = []
+    for _ in range(k):
+        if rng.random() <= 0.0 or w.sum() <= 0.0:
+            picks.append(names[0])
+        else:
+            picks.append(str(rng.choice(names, p=w)))
+    return picks
 
 
 def outcome_of(score_a: float, score_b: float) -> float:

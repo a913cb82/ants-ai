@@ -14,6 +14,8 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+import numpy as np
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "ml"))
 sys.path.insert(0, str(ROOT / "bots" / "alphaant"))
@@ -117,11 +119,23 @@ def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict, role: 
     jobs = []
     n_games = cfg["train_games"] * 2
     wcache = {chal_id: chal_w}
+    # The field is drawn from a mixture computed ONCE: nash_mixture over
+    # the full matrix costs ~40s, so per-game sampling draws from this
+    # fixed mixture (pure arithmetic) instead of recomputing every game.
+    # 2p-only pools need no mixture at all (k=0 short-circuits).
+    seat_counts = [game_if.map_player_count(_train_map_for(cfg, i))
+                   for i in range(n_games)]
+    mix_ids, mix_p = [], np.array([])
+    if any(n > 2 for n in seat_counts):
+        _mix = archive.nash_mixture(base)
+        mix_ids, mix_p = archive.prune_missing(
+            base, list(_mix), np.array([_mix[i] for i in _mix]))
     for i in range(n_games):
         map_path = _train_map_for(cfg, i)
-        n_seats = game_if.map_player_count(map_path)
-        field = [chal_id] + archive.sample_mixture(
-            base, k=n_seats - 1, seed=cfg["seed"] + i,
+        n_seats = seat_counts[i]
+        field = [chal_id] + archive.mixture_draw(
+            mix_ids, mix_p, k=n_seats - 1,
+            rng=np.random.default_rng(cfg["seed"] + i),
             exclude=(chal_id,))
         weights = []
         for fid in field:

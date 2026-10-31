@@ -13,6 +13,8 @@ import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
+import numpy as np
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "ml"))
 
@@ -83,12 +85,23 @@ def evaluate(
     cfg: dict, base: Path, chal_id: str, chal_w: dict, champ_id: str, champ_w: dict,
 ) -> dict:
     wcache = {champ_id: champ_w, chal_id: chal_w}
+    # Fixed mixture, drawn once: see train.train_generation (per-game
+    # Nash recomputation costs ~40s x games of silent prologue).
+    # 2p-only exams skip it entirely.
+    seat_counts = [game_if.map_player_count(_eval_map_for(cfg, g))
+                   for g in range(cfg["eval_games"])]
+    mix_ids, mix_p = [], np.array([])
+    if any(n > 2 for n in seat_counts):
+        _mix = archive.nash_mixture(base)
+        mix_ids, mix_p = archive.prune_missing(
+            base, list(_mix), np.array([_mix[i] for i in _mix]))
     jobs = []
     for g in range(cfg["eval_games"]):
         map_path = _eval_map_for(cfg, g)
-        n_seats = game_if.map_player_count(map_path)
-        field = [chal_id, champ_id] + archive.sample_mixture(
-            base, k=n_seats - 2, seed=cfg.get("seed", 0) + g,
+        n_seats = seat_counts[g]
+        field = [chal_id, champ_id] + archive.mixture_draw(
+            mix_ids, mix_p, k=n_seats - 2,
+            rng=np.random.default_rng(cfg.get("seed", 0) + g),
             exclude=(chal_id, champ_id))
         weights = []
         for fid in field:
