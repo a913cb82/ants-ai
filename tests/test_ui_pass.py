@@ -1,6 +1,8 @@
-"""Dashboard UI beauty pass: pagination, ?since=, first paint, crowns.
+"""Dashboard UI beauty pass: pagination, ?since=, first paint, league cards.
 
-Pure-logic tests (TDD red first) + HTTP protocol tests against tmp archives.
+Pure-logic tests + HTTP protocol tests against tmp archives. The throne
+UI (champion hero, crowns, Nash) is retired; the league UI (live main,
+history, share, scheduler strip, admissions, pool health) is pinned.
 """
 import json
 import sys
@@ -10,12 +12,17 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "ml"))
 
 
-def _h(challenger, champion="m", promoted=False, wins=3, draws=0, games=6,
-       margins=None, mean_margin=0.0, ret=1.23456, loss=0.123456,
-       finished_at=None, duration_s=None):
+def _hist_snapshot(sid, learner="main", tick=0, games=80):
+    return {"snapshot": sid, "learner": learner, "games": games,
+            "tick": tick, "anchors": None}
+
+
+def _hist_gen(challenger, champion="m", wins=3, draws=0, games=6,
+              margins=None, mean_margin=0.0, ret=1.23456, loss=0.123456,
+              finished_at=None, duration_s=None):
     margins = margins if margins is not None else [0] * games
     return {
-        "challenger": challenger, "champion": champion, "promoted": promoted,
+        "challenger": challenger, "champion": champion,
         "train": {"losses": [loss], "mean_return": ret},
         "eval": {"wins": wins, "draws": draws, "games": games,
                  "win_rate": (wins + 0.5 * draws) / games if games else 0.0,
@@ -40,7 +47,7 @@ def test_archive_mtime_tracks_newest_file(tmp_path):
     import dashboard
 
     base = tmp_path / "archive"
-    _write_hist(base, [_h("g001")])
+    _write_hist(base, [_hist_gen("g001")])
     (base / "games.jsonl").write_text("{}\n")
     first = dashboard.archive_mtime(base)
     assert first > 0
@@ -49,23 +56,28 @@ def test_archive_mtime_tracks_newest_file(tmp_path):
 
 
 def test_snapshot_carries_mtime_and_rounded_numbers(tmp_path):
+    import archive
     import dashboard
 
     base = tmp_path / "archive"
-    _write_hist(base, [_h("g001")])
+    a = archive.save_checkpoint(base, {}, role="main", parent=None)
+    archive.save_checkpoint(base, {}, role="challenger", parent=a)
+    _write_hist(base, [_hist_gen("g001")])
     snap = dashboard.snapshot(base)
     assert snap["mtime"] == dashboard.archive_mtime(base)
-    g = snap["generations"][0]
+    g = snap["history"][0]
     assert g["train_return"] == 1.23  # 2dp server-side
     assert g["train_loss"] == 0.123  # 3dp server-side
     assert g["mean_margin"] == round(0.0, 2)
+    assert "nash" not in snap["members"][0]  # Nash retired...
+    assert "share" in snap["members"][0]  # ...replaced by sampling share
 
 
 def test_is_fresh_logic(tmp_path):
     import dashboard
 
     base = tmp_path / "archive"
-    _write_hist(base, [_h("g001")])
+    _write_hist(base, [_hist_gen("g001")])
     mtime = dashboard.archive_mtime(base)
     assert dashboard.is_fresh(base, mtime) is True
     assert dashboard.is_fresh(base, mtime - 1) is False
@@ -83,16 +95,21 @@ def test_page_slice_protocol():
     assert dashboard.page_slice([], 0) == []
 
 
-def test_filter_generations_matches_challenger_or_champion():
+def test_filter_history_matches_id_champion_or_learner():
     import dashboard
 
-    gens = [{"id": "g1", "champion": "m"}, {"id": "g2", "champion": "g1"},
-            {"id": "g9", "champion": "zz"}]
-    assert [g["id"] for g in dashboard.filter_generations(gens, "")] == \
+    rows = [{"id": "g1", "champion": "m", "learner": "main"},
+            {"id": "g2", "champion": "g1", "learner": "me"},
+            {"id": "g9", "champion": "zz", "learner": "le-a"}]
+    assert [g["id"] for g in dashboard.filter_history(rows, "")] == \
         ["g1", "g2", "g9"]
-    assert [g["id"] for g in dashboard.filter_generations(gens, "g1")] == \
+    assert [g["id"] for g in dashboard.filter_history(rows, "g1")] == \
         ["g1", "g2"]
-    assert dashboard.filter_generations(gens, "nobody") == []
+    assert [g["id"] for g in dashboard.filter_history(rows, "me")] == ["g2"]
+    assert dashboard.filter_history(rows, "nobody") == []
+    # legacy alias keeps the member-filter UI working.
+    assert dashboard.filter_generations(rows, "g1") == \
+        dashboard.filter_history(rows, "g1")
 
 
 def test_maps_summary_pins_unlabelled_last():
@@ -111,7 +128,7 @@ def test_maps_summary_pins_unlabelled_last():
     assert maps[0]["map"] == "open.map"
 
 
-def test_first_paint_has_champion_games_and_crowns(tmp_path):
+def test_first_paint_has_main_history_and_league_cards(tmp_path):
     import archive
     import dashboard
     import selfplay
@@ -120,21 +137,27 @@ def test_first_paint_has_champion_games_and_crowns(tmp_path):
     a = archive.save_checkpoint(base, {}, role="main", parent=None)
     b = archive.save_checkpoint(base, {}, role="challenger", parent=a)
     archive.set_champion(base, a)
-    archive.log_game(base, "g001", "eval", a, b, 3, 1,
-                     "games/g001/eval0/logs/0.replay")
-    archive.record_result(base, a, b, 3, 1)
-    selfplay.append_history(base, {
-        "challenger": "g001", "champion": a, "promoted": True,
-        "train": {"losses": [0.4], "mean_return": 1.0},
-        "eval": {"wins": 4, "draws": 0, "games": 6, "win_rate": 4 / 6,
-                 "margins": [2, 1, 3, -1, 2, 1], "mean_margin": 1.0},
-        "config": {}})
+    archive.init_league(base, a, ["g000"])
+    archive.log_game(base, "main", "eval", "main", b, 3, 1,
+                     "games/main0/logs/0.replay")
+    archive.record_result(base, "main", b, 3, 1)
+    archive.record_admission(base, "adm1", "me", 240, "25-10-5")
+    selfplay.append_history(base, _hist_snapshot("s1", tick=4))
     snap = dashboard.snapshot(base)
+    assert snap["main"] == a  # live main, not a champion
+    assert snap["league"]["learner"] == "main"
+    assert snap["admissions"][0]["id"] == "adm1"
     page = dashboard.render_page(snap)
-    assert a in page  # champion id in raw HTML, no JS needed
-    assert "games/g001/eval0/logs/0.replay" in page  # first game rows
-    assert "complete" in page  # crown column value server-rendered
-    assert "ch-elo" in page  # canvases still present
+    assert a in page  # live main id in raw HTML, no JS needed
+    assert "games/main0/logs/0.replay" in page  # first game rows
+    assert "s1" in page  # history row server-rendered
+    assert "adm1" in page  # admissions log server-rendered
+    for cid in ("ch-elo", "ch-anchor", "ch-conv", "ch-dec", "ch-marg",
+                "ch-pg", "ch-vslope", "league-body", "admit-body",
+                "pool-summary"):
+        assert cid in page, cid
+    assert "ch-loss" not in page and "ch-ret" not in page
+    assert "ch-knock" not in page and "ch-tenure" not in page
 
 
 def test_first_paint_empty_archive_has_skeleton():
@@ -143,6 +166,21 @@ def test_first_paint_empty_archive_has_skeleton():
     page = dashboard.render_page(None)
     assert "loading" in page  # skeleton/fallback copy, layout intact
     assert "ch-elo" in page
+
+
+def test_status_html_league_and_anchor_branches():
+    import dashboard
+
+    line, pct = dashboard.status_html(
+        {"phase": "league", "learner": "me", "opponent": "g003",
+         "tick": 41, "own_games": 12, "micro": 4}, "m", 3)
+    assert "me" in line and "g003" in line and "tick 41" in line
+    assert pct == 0
+    line, pct = dashboard.status_html(
+        {"phase": "anchor", "snapshot": "s9", "anchor": "g000",
+         "done": 1, "total": 2}, "m", 3)
+    assert "s9" in line and "g000" in line
+    assert pct == 50
 
 
 def test_http_since_shortcircuit_and_member_empty(tmp_path):
@@ -169,7 +207,7 @@ def test_http_since_shortcircuit_and_member_empty(tmp_path):
         assert tiny == {"unchanged": True, "mtime": snap["mtime"]}
         stale = json.load(urllib.request.urlopen(
             root + "/api/snapshot?since=1", timeout=5))
-        assert stale["champion"] == a
+        assert stale["main"] == a  # legacy fallback: frozen record
         empty = json.load(urllib.request.urlopen(
             root + "/api/games?member=nobody-here", timeout=5))
         assert empty == {"total": 0, "rows": []}

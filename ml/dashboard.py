@@ -22,9 +22,7 @@ import json
 import math
 import os
 import sys
-import tempfile
 import threading
-import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -38,7 +36,6 @@ import selfplay
 VIS_DIR = ROOT / "tools" / "visualizer"
 TEMPLATE = (VIS_DIR / "replay.html.template").read_text()
 
-_nash_cache: dict = {}
 _memo_lock = threading.RLock()
 def _memo(cache: dict, key, thunk):
     """One-slot memo: recompute only when the key changes.
@@ -92,34 +89,6 @@ def cached_grouped(base: Path) -> list[dict]:
         (str(base.resolve()), st.st_mtime_ns, st.st_size),
         lambda: group_games(cached_games(base)),
     )
-
-
-_digest_cache: dict = {}
-
-
-def _eval_digest(base: Path) -> tuple:
-    """Cache key that ignores train-only churn (Nash/BT read eval only).
-
-    The matrix file (~1MB) is stat-checked first: unchanged mtime+size
-    reuses the last digest, so Nash and BT each cost one read per poll
-    instead of one read+dump each."""
-    path = base / "matrix.json"
-    try:
-        st = path.stat()
-    except OSError:
-        return (None, None)
-    key = (str(base.resolve()), st.st_mtime_ns, st.st_size)
-    if _digest_cache.get("key") == key:
-        return _digest_cache["value"]
-    try:
-        data = json.loads(path.read_text())
-    except (OSError, ValueError):
-        return (None, None)
-    digest = (tuple(data.get("ids", [])),
-              json.dumps(data.get("eval", {}), sort_keys=True))
-    _digest_cache["key"] = key
-    _digest_cache["value"] = digest
-    return digest
 
 
 _history_cache: dict = {}
@@ -181,13 +150,19 @@ def page_slice(rows: list, page: int, per: int = PAGE_SIZE) -> list:
     return rows[page * per:(page + 1) * per]
 
 
-def filter_generations(gens: list[dict], member: str) -> list[dict]:
-    """Member-aware generations filter (P1-3): challenger OR champion.
+def filter_history(rows: list[dict], member: str) -> list[dict]:
+    """Member-aware history filter: id OR champion OR learner match.
     Empty member passes everything through."""
     if not member:
-        return list(gens)
-    return [g for g in gens
-            if g.get("id") == member or g.get("champion") == member]
+        return list(rows)
+    return [g for g in rows
+            if g.get("id") == member or g.get("champion") == member
+            or g.get("learner") == member]
+
+
+def filter_generations(gens: list[dict], member: str) -> list[dict]:
+    """Legacy alias of filter_history (kept for the member-filter UI)."""
+    return filter_history(gens, member)
 
 
 def _rnd(x, nd: int):
@@ -196,111 +171,103 @@ def _rnd(x, nd: int):
     return round(x, nd) if isinstance(x, (int, float)) else x
 
 
-def _split_pair(key: str, pos: dict) -> tuple[int, int] | None:
-    """Indexes of an eval-matrix 'a vs b' key. Tries every split so ids
-    containing ' vs ' still resolve; unknown ids return None."""
-    parts = key.split(" vs ")
-    for k in range(1, len(parts)):
-        a, b = " vs ".join(parts[:k]), " vs ".join(parts[k:])
-        if a in pos and b in pos:
-            return pos[a], pos[b]
-    return None
+# ---------------------------------------------------------------- LEAGUE BACKEND
+# Continuous-league contracts (ml/runs/plan-league.md, phase 4): the game
+# log is bucketed into K-game intervals (game order // K, K from
+# league.json snapshot_every); the Elo panel is the anchor ladder from
+# league.json; per-learner trajectories replace the duel cand/champ
+# framing. Elo pass math itself is unchanged.
 
 
-def _nash_cached(base: Path) -> dict:
-    """Fictitious play is O(iters*n^2): redo only when eval data changes."""
-    key = (str(base.resolve()), _eval_digest(base))
-    return _memo(_nash_cache, key, lambda: _sparse_nash(base))
+def league_state(base: Path) -> dict | None:
+    """Scheduler state from league.json; None on legacy archives."""
+    return archive.load_league(base)
 
 
-def _sparse_nash(base: Path, iters: int = 2000) -> dict[str, float]:
-    """Fictitious play with the same result as archive.nash_mixture.
+def interval_size(base: Path) -> int:
+    """K-game interval width: league.json snapshot_every, else the
+    scheduler cadence (selfplay.SNAPSHOT_EVERY). Guards junk to 80."""
+    try:
+        k = (league_state(base) or {}).get("snapshot_every",
+                                            selfplay.SNAPSHOT_EVERY)
+        k = int(k)
+    except (TypeError, ValueError):
+        return selfplay.SNAPSHOT_EVERY
+    return k if k > 0 else selfplay.SNAPSHOT_EVERY
 
-    The dense version matvecs a 1216x1216 numpy matrix 4000 times (~90%
-    of cold first-load). The eval matrix is ~99.8% Laplace-prior zeros
-    (unplayed pairs read as exactly 0.5-0.5=0), so each iteration walks
-    only the few thousand played entries. Best responses use pre-update
-    averages with first-index-wins ties, values reuse archive's exact
-    mine/total-0.5 formula in ascending-index order, and the all-zero
-    shortcut matches np.any (NaN counts, -0.0 does not): output is
-    bit-identical to archive.nash_mixture on the 1200-gen archive,
-    ~25x faster, with no new dependencies."""
-    data = json.loads((base / "matrix.json").read_text())
-    ids = data["ids"]
-    n = len(ids)
-    if not n:
-        return {}
-    pos = {cid: i for i, cid in enumerate(ids)}
-    ev = data["eval"]
-    rows: list[list[tuple[int, float]]] = [[] for _ in range(n)]
-    seen: set[tuple[int, int]] = set()
-    any_nonzero = False
-    for key, w in ev.items():
-        pair = _split_pair(key, pos)
-        if pair is None:
-            continue
-        i, j = pair
-        if i == j or (j, i) in seen:
-            continue
-        seen.add((i, j))
-        wba = ev.get(f"{ids[j]} vs {ids[i]}", [0.0, 0.0])
-        mine = w[0] + wba[1] + 1.0
-        theirs = w[1] + wba[0] + 1.0
-        total = mine + theirs
-        vij = mine / total - 0.5
-        vji = theirs / total - 0.5
-        if vij != 0.0 or vji != 0.0:
-            any_nonzero = True
-        rows[i].append((j, vij))
-        rows[j].append((i, vji))
-    if not any_nonzero:
-        return {cid: round(1.0 / n, 4) for cid in ids}  # all draws: split evenly
-    for r in rows:
-        r.sort()
-    trips = [(i, j, v) for i, r in enumerate(rows) for (j, v) in r]
-    avg_r = [1.0 / n] * n
-    avg_c = [1.0 / n] * n
-    strat_r = [0] * n
-    strat_c = [0] * n
-    total_r = 0
-    total_c = 0
-    for _ in range(iters):
-        best = 0
-        best_val = None
-        for i, r in enumerate(rows):
-            s = 0.0
-            for j, v in r:
-                s += v * avg_c[j]
-            if best_val is None or s > best_val:
-                best_val = s
-                best = i
-        br_r = best
-        col = [0.0] * n
-        for i, j, v in trips:
-            a = avg_r[i]
-            if a:
-                col[j] += v * a
-        br_c = 0
-        best_val = col[0]
-        for j in range(1, n):
-            if col[j] < best_val:
-                best_val = col[j]
-                br_c = j
-        strat_r[br_r] += 1
-        total_r += 1
-        inv = 1.0 / total_r
-        for i, c in enumerate(strat_r):
-            avg_r[i] = c * inv
-        strat_c[br_c] += 1
-        total_c += 1
-        inv = 1.0 / total_c
-        for i, c in enumerate(strat_c):
-            avg_c[i] = c * inv
-    return {cid: (avg_r[i] + avg_c[i]) / 2 for i, cid in enumerate(ids)}
+
+def league_panel(base: Path) -> list[str]:
+    """Fixed Elo reference panel: the anchor ladder from league.json.
+    Replaces panel_ids (last-deposed-champs) in the duel path."""
+    state = league_state(base)
+    anchors = (state or {}).get("anchors", []) or []
+    return [a for a in anchors if isinstance(a, str)]
+
+
+def interval_batches(grouped: list[dict], K: int) -> list[list[dict]]:
+    """Chronological K-game intervals, oldest first. grouped is newest-
+    first (group_games order), so intervals count from the oldest game:
+    interval(game) = chronological_order // K. A trailing partial
+    interval is kept (it is the live one)."""
+    if K <= 0:
+        K = 1
+    chrono = grouped[::-1]
+    batches: list[list[dict]] = []
+    for order, g in enumerate(chrono):
+        idx = order // K
+        while len(batches) <= idx:
+            batches.append([])
+        batches[idx].append(g)
+    return batches
+
+
+def interval_labels(grouped: list[dict], K: int) -> list[str]:
+    """X-axis labels per interval: oldest-game..newest-game ordinals."""
+    if K <= 0:
+        K = 1
+    n = len(grouped)
+    labels = []
+    for start in range(0, n, K):
+        labels.append(f"{start}–{min(start + K - 1, n - 1)}")
+    return labels
+
+
+def interval_pair_buckets(grouped: list[dict], K: int,
+                          pos: dict) -> list[dict]:
+    """Per-interval aggregated unordered pairs, oldest interval first.
+
+    Generalizes gen_pair_buckets to interval keys: one entry per
+    (interval, seat-pair). Outcome from the canonically-first member's
+    view (draws = 0.5, the outcome_of convention), train and eval kinds
+    together. Pairs naming unknown members and self-pairs are skipped."""
+    batches = interval_batches(grouped, K)
+    per: list[dict] = [{} for _ in batches]
+    for idx, games in enumerate(batches):
+        for g in games:
+            for p in g.get("pairs", []) or []:
+                a, b = p.get("a"), p.get("b")
+                if a not in pos or b not in pos:
+                    continue
+                i, j = pos[a], pos[b]
+                if i == j:
+                    continue
+                try:
+                    sa, sb = float(p["score_a"]), float(p["score_b"])
+                except (TypeError, ValueError, KeyError):
+                    continue
+                out = 1.0 if sa > sb else (0.0 if sb < sa else 0.5)
+                key = (i, j) if i < j else (j, i)
+                acc = per[idx].setdefault(key, [0.0, 0.0])
+                if (i, j) == key:
+                    acc[0] += out
+                    acc[1] += 1.0 - out
+                else:
+                    acc[0] += 1.0 - out
+                    acc[1] += out
+    return per
 
 
 # ---------------------------------------------------------------- DATA
-
 
 def rank_of(scores: list) -> list[int]:
     """Per-seat rank with the engine's formula (tools/engine.py): each seat
@@ -588,7 +555,7 @@ def summarize_maps(games: list[dict]) -> list[dict]:
 _BT_ELO_SCALE = 400.0 / math.log(10)  # logit -> Elo, like 400*log10 odds
 _BT_REG = 1.0  # virtual win+loss vs a rating-0 opponent: shrinks the
 # data-poor toward 0 instead of stranding them at +/-inf
-_KNOCK_EFF = 0.50  # challenging at even money counts as knocking
+# interval Elo, not per-generation Elo
 
 
 def wilson_bounds(wins: float, games: int, z: float = 1.0) -> tuple:
@@ -659,61 +626,32 @@ def merge_pairs(*dicts: dict) -> dict:
     return out
 
 
-def panel_ids(history: list[dict]) -> list[str]:
-    """Fixed Elo anchor panel: BC g000 plus the last 3 deposed champs.
+def tracked_members(base: Path, grouped: list[dict]) -> list[str]:
+    """Elo trajectories to plot: live learners + anchors.
 
-    Walk the verdicts in order; every promoted challenger deposes the
-    reigning champ. Short histories yield a shorter panel (no padding:
-    padding would invent data)."""
-    deposed: list[str] = []
-    reigning = history[0].get("champion") if history else None
-    for h in history:
-        if h.get("promoted"):
-            if reigning is not None:
-                deposed.append(reigning)
-            reigning = h.get("challenger", reigning)
-    panel = ["g000"] + [c for c in deposed[-3:] if c != "g000"]
-    return list(dict.fromkeys(panel))
-
-
-def gen_pair_buckets(grouped: list[dict], gen_index: dict,
-                     pos: dict, n_gen: int) -> list[dict]:
-    """Per-gen aggregated unordered pairs from the grouped game log.
-
-    One entry per (gen, seat-pair): outcome from the canonically-first
-    member's view (draws = 0.5, the outcome_of convention), train and
-    eval kinds together. Pairs naming unknown members and self-pairs
-    are skipped, as in the matrix fits. The game log is used instead of
-    matrix.json because only the log carries gen attribution; the two
-    agree pair-for-pair (record_result and log_game fire together per
-    seat-pair in train.py/evaluate.py) except legacy double-logs, which
-    the matrix counts twice and grouping dedupes once."""
-    per_gen: list[dict] = [{} for _ in range(n_gen)]
+    The league translation of the duel panel: the four scheduler slots
+    (role names, which is what the game log seats carry — one tick logs
+    one game under the learner's name) plus the anchor ladder from
+    league.json, deduped in that order. Legacy archives without
+    league.json fall back to the 8 most-played members so the card
+    still has something honest to show."""
+    state = league_state(base)
+    if state is not None:
+        ids: list[str] = []
+        for name in archive.SCHEDULER_ORDER:
+            if name not in ids:
+                ids.append(name)
+        for a in league_panel(base):
+            if a not in ids:
+                ids.append(a)
+        return ids
+    tally: dict[str, int] = {}
     for g in grouped:
-        gi = gen_index.get(g.get("gen"))
-        if gi is None:
-            continue
-        for p in g.get("pairs", []) or []:
-            a, b = p.get("a"), p.get("b")
-            if a not in pos or b not in pos:
-                continue
-            i, j = pos[a], pos[b]
-            if i == j:
-                continue
-            try:
-                sa, sb = float(p["score_a"]), float(p["score_b"])
-            except (TypeError, ValueError, KeyError):
-                continue
-            out = 1.0 if sa > sb else (0.0 if sb > sa else 0.5)
-            key = (i, j) if i < j else (j, i)
-            acc = per_gen[gi].setdefault(key, [0.0, 0.0])
-            if (i, j) == key:
-                acc[0] += out
-                acc[1] += 1.0 - out
-            else:
-                acc[0] += 1.0 - out
-                acc[1] += out
-    return per_gen
+        for s in g.get("seats", []) or []:
+            sid = s.get("id")
+            if isinstance(sid, str):
+                tally[sid] = tally.get(sid, 0) + 1
+    return sorted(tally, key=lambda m: -tally[m])[:8]
 
 
 def _readout_member(mi: int, opps: dict, theta: list[float],
@@ -772,215 +710,183 @@ def _elo_of(t: float) -> float | None:
     return math.log(t) * _BT_ELO_SCALE if t > 0 else None
 
 
-def _elo_extend(history: list[dict], ids: list[str], per_gen: list[dict],
-                sweeps: int, start: int, theta: list[float],
-                cand: list, champ: list, refs: dict, panel: list[str],
-                parents: dict | None = None,
-                seen: set | None = None) -> None:
-    """Extend the running-Elo series for gens [start, len(history)), in place.
+def _interval_elo_extend(ids: list[str], per_interval: list[dict],
+                       tracked: list[str], sweeps: int, start: int,
+                       theta: list[float], series: dict,
+                       parents: dict | None = None,
+                       seen: set | None = None,
+                       played: set | None = None) -> None:
+    """Extend per-learner trajectories over intervals, in place.
 
-    Single sequential pass: theta carries every game so far, and each
-    gen's pairs update both endpoints (a few Gauss-Seidel sweeps with
-    the field fixed at its current values), then cand/champ/panel are
-    read out. g000 is pinned at theta 1.0 -- the fixed zero, so no
-    anchoring subtraction is needed and the zero can never drift.
-    Every plotted value uses only games <= its gen (causal by
-    construction); extending from stored theta continues bitwise.
-
-    Gauge: every update carries virtual win+loss games against the
-    pinned level (the _BT_REG regularizer), so each gen's scale is set
-    absolutely by data-vs-anchor -- no per-gen subset gauge, no drift,
-    no lock. First-appearance members start from their recorded
-    parent's carried value (same lineage, continuing entity); true
-    newcomers start at the anchor. Seeds only set the solver start:
-    with the gauge fixed absolutely, the choice washes out (see
-    test_running_elo_seed_indifferent)."""
+    Same math as the retired duel pass: one sequential theta vector,
+    each interval's pairs move both endpoints (Gauss-Seidel sweeps
+    against the fixed field), g000 pinned at 1.0, lineage seeding for
+    first appearances, virtual win+loss gauge (_BT_REG). Only the
+    iteration unit (K-game intervals, not gens) and the readout
+    (tracked learner/anchor trajectories, not cand/champ) changed.
+    Every plotted value uses only games <= its interval (causal);
+    extending from stored theta continues bitwise."""
     pos = {cid: i for i, cid in enumerate(ids)}
     g0 = pos.get("g000")
     if seen is None:
         seen = set()
     if parents is None:
         parents = {}
-    for pid in panel:
-        refs.setdefault(pid, [])
-    reigning = history[0].get("champion") if history else None
-    for h in history[:start]:
-        if h.get("promoted"):
-            reigning = h.get("challenger", reigning)
-    for gi in range(start, len(history)):
-        h = history[gi]
-        opps = _gen_opponents(per_gen[gi] if gi < len(per_gen) else {})
+    if played is None:
+        played = set()
+    for mid in tracked:
+        series.setdefault(mid, [])
+    for gi in range(start, len(per_interval)):
+        opps = _gen_opponents(per_interval[gi]
+                              if gi < len(per_interval) else {})
         act = [m for m in opps if m != g0]
         for m in act:
             if m not in seen:
                 p = parents.get(ids[m])
                 if p in pos:
                     theta[m] = theta[pos[p]]
-        # plotted members start from their lineage even with no games
-        # this gen (a gameless challenger carries, never defaults).
-        c0 = h.get("challenger")
-        ci0 = pos.get(c0)
-        ri0 = pos.get(reigning) if reigning is not None else None
-        for m in (ci0, ri0):
-            if m is not None and m != g0 and m not in seen:
-                p = parents.get(ids[m])
+        # Gameless trackers carry their lineage at its CURRENT value
+        # every interval (a never-played member is still the same
+        # continuing entity); members with games keep their own rating.
+        for mid in tracked:
+            mi = pos.get(mid)
+            if mi is not None and mi != g0 and mi not in played:
+                p = parents.get(mid)
                 if p in pos:
-                    theta[m] = theta[pos[p]]
-                seen.add(m)
+                    theta[mi] = theta[pos[p]]
         if act:
             for _ in range(sweeps):
                 for m in act:
                     theta[m] = math.exp(_readout_member(m, opps[m], theta))
         seen.update(act)
-        c = h.get("challenger")
-        ci = pos.get(c)
-        cand.append(_elo_of(theta[ci]) if ci is not None else None)
-        ri = pos.get(reigning) if reigning is not None else None
-        champ.append(_elo_of(theta[ri]) if ri is not None else None)
-        for pid in panel:
-            pi = pos.get(pid)
-            refs[pid].append(_elo_of(theta[pi])
-                             if pi is not None else None)
-        if h.get("promoted"):
-            reigning = h.get("challenger", reigning)
+        played.update(act)
+        for mid in tracked:
+            mi = pos.get(mid)
+            series[mid].append(_elo_of(theta[mi])
+                               if mi is not None else None)
 
 
-def running_elo(history: list[dict], ids: list[str], per_gen: list[dict],
-                sweeps: int = _RUN_SWEEPS,
-                parents: dict | None = None) -> dict:
-    """Whole-population rating in one sequential pass, gen 0 -> G.
+def running_elo_intervals(ids: list[str], per_interval: list[dict],
+                          tracked: list[str],
+                          sweeps: int = _RUN_SWEEPS,
+                          parents: dict | None = None) -> dict:
+    """Per-learner trajectories in one sequential pass, interval 0 -> I.
 
-    The pass maintains a single theta vector: each gen's pairs move both
-    endpoints against the field as it stands, then rating(challenger)
-    and rating(champion) are read out for that gen. No windows, no
-    refits, no lookahead -- the plotted value at gen G is exactly what
-    the games <= G imply. parents maps member id -> parent id for
-    lineage seeding (same lineage starts from the parent's carried
-    value). Pure."""
-    panel = panel_ids(history)
+    The pass maintains a single theta vector: each interval's pairs
+    move both endpoints against the field as it stands, then every
+    tracked member (live main + live exploiters + anchors) is read
+    out. No windows, no refits, no lookahead, no takeover breaks --
+    the value at interval I is exactly what the games <= I imply.
+    parents maps member id -> parent id for lineage seeding. Pure."""
     theta = [1.0] * len(ids)
-    cand: list = []
-    champ: list = []
-    refs: dict = {}
-    _elo_extend(history, ids, per_gen, sweeps, 0, theta,
-                 cand, champ, refs, panel, parents, set())
-    return {"cand": cand, "champ": champ, "panel": panel,
-            "refs": refs}
+    series: dict = {}
+    _interval_elo_extend(ids, per_interval, tracked, sweeps, 0, theta,
+                         series, parents, set())
+    return {"tracked": list(tracked), "series": series}
 
 
-def turn_mismatch(history: list[dict]) -> list[dict]:
-    """Consecutive-gen ranges where train and eval turns differed.
-
-    Eval length is cfg eval_turns, defaulting to train's cfg turns
-    (evaluate.py: `turns=cfg.get("eval_turns") or cfg["turns"]`).
-    Ranges name challenger ids, e.g. g031-g045 at 60 vs 150. The Elo
-    card legend discloses these ranges; the fit itself is uncorrected."""
-    ranges: list[dict] = []
-    start: int | None = None
-    for i, h in enumerate(history):
-        cfg = h.get("config", {}) or {}
-        t = cfg.get("turns")
-        et = cfg.get("eval_turns") or t
-        bad = (t is not None and et is not None and et != t)
-        if bad and start is None:
-            start = i
-        if not bad and start is not None:
-            ranges.append({"from": history[start].get("challenger"),
-                           "to": history[i - 1].get("challenger"),
-                           "train_turns": history[start].get(
-                               "config", {}).get("turns"),
-                           "eval_turns": history[start].get(
-                               "config", {}).get("eval_turns")})
-            start = None
-    if start is not None:
-        ranges.append({"from": history[start].get("challenger"),
-                       "to": history[-1].get("challenger"),
-                       "train_turns": history[start].get(
-                           "config", {}).get("turns"),
-                       "eval_turns": history[start].get(
-                           "config", {}).get("eval_turns")})
-    return ranges
+def seat0_outcome(game: dict) -> str | None:
+    """Training-side outcome for one game: seats[0] is the training side
+    (learner first in run_tick, challenger first in legacy gens)."""
+    seats = game.get("seats", []) or []
+    if not seats:
+        return None
+    return member_game_result(game, seats[0].get("id"))
 
 
-def _eff(h: dict) -> float | None:
-    ev = h.get("eval", {}) or {}
-    if ev.get("games"):
-        return ev.get("win_rate", (ev.get("wins", 0)
-                                    + 0.5 * ev.get("draws", 0)) / ev["games"])
-    return None
+def game_margin(game: dict) -> float | None:
+    """Training-side edge for 2-seat games: seats[0] minus seats[1].
+
+    N-player games have no single training-side edge (extra seats are
+    shared weather); they read as None, never 0."""
+    seats = game.get("seats", []) or []
+    if len(seats) != 2:
+        return None
+    try:
+        return float(seats[0]["score"]) - float(seats[1]["score"])
+    except (TypeError, ValueError, KeyError):
+        return None
 
 
-def knock_conversion(history: list[dict], window: int = 15) -> dict:
-    """Knock marks + dual 15-gen window rates with Wilson whiskers.
+def conversion(batches: list[list[dict]], window: int = 15) -> dict:
+    """Per-interval training-side conversion with Wilson whiskers.
 
-    knock = eff >= .50 (challenging at even money); conversion =
-    promoted | knock. `knock` is the raw binary per-gen lane (1/0/None:
-    no-eval gens are gaps, never zeros); the trailing-window rates and
-    z=1.0 Wilson whiskers sit in a separate panel so they never fight
-    the 1690 per-gen marks."""
-    knock, rate, lo, hi, conv, clo, chi = [], [], [], [], [], [], []
-    for i in range(len(history)):
-        e = _eff(history[i])
-        knock.append(1 if e is not None and e >= _KNOCK_EFF
-                       else (0 if e is not None else None))
-        win = history[max(0, i - window + 1):i + 1]
-        effs = [(h.get("promoted", False), _eff(h)) for h in win]
-        effs = [(p, e) for p, e in effs if e is not None]
-        n = len(effs)
-        k = sum(1 for _, e in effs if e >= _KNOCK_EFF)
-        rate.append(k / n if n else None)
-        blo, bhi = wilson_bounds(k, n)
-        lo.append(blo if n else None)
-        hi.append(bhi if n else None)
-        pk = sum(1 for p, e in effs if e >= _KNOCK_EFF and p)
-        conv.append(pk / k if k else None)
-        clo_, chi_ = wilson_bounds(pk, k)
-        clo.append(clo_ if k else None)
-        chi.append(chi_ if k else None)
-    return {"knock": knock, "rate": rate, "lo": lo, "hi": hi,
-            "conv": conv, "clo": clo, "chi": chi}
+    The league translation of promoted|knock: no throne, just how often
+    the training side (seats[0]) converts eval games into wins. Each
+    trailing window pools its eval games (wins + draws/2 over games);
+    the mean plus z=1.0 Wilson whiskers smooth it. Train games are
+    practice, never conversion. Empty windows are gaps (None), never
+    zeros."""
+    conv, clo, chi = [], [], []
+    for i in range(len(batches)):
+        w = d = n = 0.0
+        window_games = [g for games in batches[max(0, i - window + 1):i + 1]
+                        for g in games]
+        for g in window_games:
+            if g.get("kind") != "eval":
+                continue
+            r = seat0_outcome(g)
+            if r == "win":
+                w += 1
+            elif r == "draw":
+                d += 1
+            elif r != "loss":
+                continue
+            n += 1
+        conv.append((w + 0.5 * d) / n if n else None)
+        lo, hi = wilson_bounds(w + 0.5 * d, n)
+        clo.append(lo if n else None)
+        chi.append(hi if n else None)
+    return {"conv": conv, "clo": clo, "chi": chi}
 
 
-def decisiveness(history: list[dict], games: list[dict],
+def main_history(history: list[dict]) -> list[dict]:
+    """Main-learner history rows only: league snapshot entries carry a
+    learner field; legacy gen entries predate roles and all read as
+    main, so old archives keep their PG/value curves."""
+    return [h for h in history if h.get("learner", "main") == "main"]
+
+
+def decisiveness(batches: list[list[dict]],
                  window: int = 15) -> dict:
-    """Nonzero-margin fraction: train from grouped games, eval from
-    duel margins. Raw per-gen lines plus a 15-gen MA each.
+    """Nonzero-margin fraction per K-game interval, split by kind.
 
-    A game is decisive unless every seat tied (max != min). Train games
-    key on the challenger id (= history order); eval margins are the
-    signed challenger-minus-champ duels."""
-    by_gen: dict[str, list] = {}
-    for g in games:
-        if g.get("kind") == "train":
-            by_gen.setdefault(g.get("gen"), []).append(g)
+    A game is decisive unless every seat tied (max != min). Raw per-
+    interval lines plus a trailing-window MA each. League games log as
+    eval kind, so the train lane fills only from legacy archives."""
     train, evalv = [], []
-    for h in history:
-        gs = by_gen.get(h.get("challenger"), [])
-        if gs:
-            dec = 0
-            for g in gs:
-                scores = [s["score"] for s in g.get("seats", [])]
-                if scores and max(scores) != min(scores):
-                    dec += 1
-            train.append(dec / len(gs))
-        else:
-            train.append(None)
-        margins = (h.get("eval", {}) or {}).get("margins", []) or []
-        evalv.append(sum(1 for m in margins if m != 0) / len(margins)
-                     if margins else None)
+    for games in batches:
+        for kind, out in (("train", train), ("eval", evalv)):
+            gs = [g for g in games if g.get("kind") == kind]
+            if gs:
+                dec = 0
+                for g in gs:
+                    scores = [s["score"] for s in g.get("seats", [])]
+                    if scores and max(scores) != min(scores):
+                        dec += 1
+                out.append(dec / len(gs))
+            else:
+                out.append(None)
     return {"train": train, "train_ma": roll_mean(train, window),
             "eval": evalv, "eval_ma": roll_mean(evalv, window)}
 
 
-def margin_band(history: list[dict], window: int = 15) -> dict:
-    """Eval margin median +/- IQR over pooled 15-gen windows, signed
-    challenger-minus-champ. Pooling (not median-of-medians) keeps big
-    duel counts honest."""
+def margin_band(batches: list[list[dict]], window: int = 15) -> dict:
+    """Training-side margin median +/- IQR over pooled trailing windows.
+
+    Per-game seats[0]-minus-seats[1] over eval 2-seat games. Pooling
+    (not median-of-medians) keeps game counts honest."""
     med, q1, q3 = [], [], []
-    for i in range(len(history)):
+    for i in range(len(batches)):
         pool: list[float] = []
-        for h in history[max(0, i - window + 1):i + 1]:
-            pool.extend((h.get("eval", {}) or {}).get("margins", []) or [])
+        window_games = [g for games in batches[max(0, i - window + 1):i + 1]
+                        for g in games]
+        for g in window_games:
+            if g.get("kind") != "eval":
+                continue
+            m = game_margin(g)
+            if m is not None:
+                pool.append(m)
         if pool:
             m, a, b = _hinges([float(x) for x in pool])
             med.append(m)
@@ -1046,66 +952,7 @@ def norm01(vals: list) -> list:
     return [(v - mn) / (mx - mn) if v is not None else None for v in vals]
 
 
-def reign_strip(history: list[dict]) -> dict:
-    """Tenure = gens held including current (the history-open throne
-    predates the log, so it starts at 1: a documented lower bound).
-    The crowning gen itself has tenure 0. turnover flags promotions.
-    entropy is the Nash-mixture entropy (nats) stored per gen."""
-    tenure, turnover, entropy = [], [], []
-    t = 0
-    for i, h in enumerate(history):
-        if h.get("promoted"):
-            t = 0
-            turnover.append(1)
-        else:
-            t = t + 1 if i else 1
-            turnover.append(0)
-        tenure.append(t)
-        mix = h.get("nash", {}) or {}
-        entropy.append(-sum(p * math.log(p) for p in mix.values() if p > 0)
-                         if mix else None)
-    best = max(tenure) if tenure else 0
-    last = tenure[-1] if tenure else 0
-    return {"tenure": tenure, "turnover": turnover, "entropy": entropy,
-            "entropy_n": norm01(entropy),
-            "readout": f"tenure {last} · best {best}"}
-
-
-def nplayer_start(history: list[dict], games: list[dict]) -> int | None:
-    """First history index whose challenger logged a 3+ seat game.
-
-    The N-player era boundary is DERIVED from grouped games, never
-    hardcoded. (The jury era has no boundary: exam juries were proposed
-    in run notes but no jury field or regime ever entered training
-    data, so per the no-invented-data rule no jury band is drawn.)"""
-    idx = {h.get("challenger"): i for i, h in enumerate(history)}
-    starts = [idx[g.get("gen")] for g in games
-              if (g.get("n", len(g.get("seats", []))) or 0) > 2
-              and g.get("gen") in idx]
-    return min(starts) if starts else None
-
-
-def crown_type(gen: dict) -> str:
-    """complete = beat the champ head-to-head AND the duel field;
-    soft = otherwise; held gens wear no crown ("—").
-
-    Derived from eval margins + totals only. Head-to-head = strict duel
-    majority (wins > losses, draws excluded). Field = aggregate scoring
-    edge (mean margin > 0 across ALL eval duels, draws included): a
-    draw-carried or outscored promotion takes the throne but not the
-    complete tag."""
-    if not gen.get("promoted"):
-        return "—"
-    ev = gen.get("eval", {}) or {}
-    wins = ev.get("wins", 0)
-    losses = ev.get("games", 0) - wins - ev.get("draws", 0)
-    margins = ev.get("margins", []) or []
-    mean_m = (sum(margins) / len(margins) if margins
-              else ev.get("mean_margin", 0.0))
-    return "complete" if wins > losses and mean_m > 0 else "soft"
-
-
-_elo_cache: dict = {}
+_interval_elo_cache: dict = {}
 
 
 def _parent_map(base: Path) -> dict:
@@ -1118,189 +965,320 @@ def _parent_map(base: Path) -> dict:
     return {r["id"]: r.get("parent") for r in rows if "id" in r}
 
 
-def _elo_cached(base: Path, history: list[dict],
-                grouped: list[dict]) -> dict:
-    """Running-Elo duel series: full pass once, streaming extends after.
+def _interval_elo_cached(base: Path, grouped: list[dict], K: int,
+                          tracked: list[str]) -> dict:
+    """Per-learner trajectories: full pass once, streaming extends after.
 
-    Training only appends, so when the challenger list and member ids
-    both extend the cached ones and the rebuilt early buckets match,
-    the pass continues from the stored theta (one cheap extension per
-    poll instead of a full rebuild); any rewrite falls back to a full
-    pass. Panel changes force a rebuild too (reference trajectories
-    need the final panel). Warm snapshots with no new gens reuse the
-    stored series for free."""
+    Same memo pattern as the retired duel cache: the game log only
+    appends, so when member ids extend the cached ones and the rebuilt
+    early buckets match, the pass continues from the stored theta (one
+    cheap extension per poll instead of a full rebuild); any rewrite
+    falls back to a full pass. Tracked-set changes force a rebuild
+    (every trajectory needs the final set)."""
     try:
         data = json.loads((base / "matrix.json").read_text())
         ids = data.get("ids", [])
     except (OSError, ValueError):
-        return {"cand": [], "champ": [], "panel": [], "refs": {}}
+        return {"tracked": tracked, "series": {m: [] for m in tracked}}
     pos = {cid: i for i, cid in enumerate(ids)}
-    gen_index = {h.get("challenger"): i for i, h in enumerate(history)}
-    per_gen = gen_pair_buckets(grouped, gen_index, pos, len(history))
-    challengers = [h.get("challenger") for h in history]
-    counts = [len(b) for b in per_gen]
-    panel = panel_ids(history)
+    per_interval = interval_pair_buckets(grouped, K, pos)
+    counts = [len(b) for b in per_interval]
     parents = _parent_map(base)
-    st = _elo_cache.get("state")
+    st = _interval_elo_cache.get("state")
     if (st is not None
-            and len(challengers) >= len(st["challengers"])
-            and challengers[:len(st["challengers"])] == st["challengers"]
             and len(ids) >= len(st["ids"])
             and ids[:len(st["ids"])] == st["ids"]
-            and len(per_gen) >= st["ngen"]
-            and counts[:st["ngen"]] == st["counts"]
-            and panel == st["panel"]):
+            and len(per_interval) >= st["n_interval"]
+            and counts[:st["n_interval"]] == st["counts"]
+            and tracked == st["tracked"]):
         theta = st["theta"] + [1.0] * (len(ids) - len(st["ids"]))
-        cand = list(st["cand"])
-        champ = list(st["champ"])
-        refs = {k: list(v) for k, v in st["refs"].items()}
+        series = {k: list(v) for k, v in st["series"].items()}
         seen = set(st["seen"])
-        _elo_extend(history, ids, per_gen, _RUN_SWEEPS, st["ngen"],
-                     theta, cand, champ, refs, panel, parents, seen)
-        ngen = len(history)
+        played = set(st["played"])
+        _interval_elo_extend(ids, per_interval, tracked, _RUN_SWEEPS,
+                             st["n_interval"], theta, series,
+                             parents, seen, played)
+        n_interval = len(per_interval)
     else:
         theta = [1.0] * len(ids)
-        cand, champ, refs, seen = [], [], {}, set()
-        _elo_extend(history, ids, per_gen, _RUN_SWEEPS, 0,
-                     theta, cand, champ, refs, panel, parents, seen)
-        ngen = len(history)
-    _elo_cache["state"] = {"challengers": challengers, "ids": ids,
-                              "counts": counts, "theta": theta,
-                              "panel": panel, "cand": cand,
-                              "champ": champ, "refs": refs,
-                              "seen": seen, "ngen": ngen}
-    return {"cand": cand, "champ": champ, "panel": panel,
-            "refs": refs}
+        series, seen, played = {}, set(), set()
+        _interval_elo_extend(ids, per_interval, tracked, _RUN_SWEEPS, 0,
+                             theta, series, parents, seen, played)
+        n_interval = len(per_interval)
+    _interval_elo_cache["state"] = {
+        "ids": ids, "counts": counts, "theta": theta,
+        "tracked": tracked, "series": series, "seen": seen,
+        "played": played,
+        "n_interval": n_interval}
+    # No matrix-membership filter: anchors and learner slots with no
+    # logged games yet read as None gaps (unknown) or the 0.0 default
+    # (known but unplayed), never dropped from the card.
+    return {"tracked": list(tracked), "series": series}
 
 
-def build_board(base: Path, history: list[dict],
-                grouped: list[dict]) -> dict:
-    """All seven curves, aligned to history order (x = challenger ids)."""
+def anchor_trend(base: Path, state: dict | None) -> dict:
+    """Main-vs-ladder per snapshot: THE absolute progress curve.
+
+    anchor.jsonl rows {snapshot_id, main_id, anchor_id, wins, losses,
+    draws} accumulate per (snapshot, anchor); the share is
+    (wins + draws/2) / total, one point per main snapshot in snapshot
+    order (state main_snapshots, else first-seen order). Anchor games
+    carry no gradient, so this curve moves only when the main does."""
+    anchors = list((state or {}).get("anchors", []) or [])
+    acc: dict[tuple, list] = {}
+    order: list[str] = []
+    for r in archive.list_anchors(base):
+        key = (r.get("snapshot_id"), r.get("anchor_id"))
+        cell = acc.setdefault(key, [0.0, 0.0, 0.0])
+        cell[0] += r.get("wins", 0)
+        cell[1] += r.get("losses", 0)
+        cell[2] += r.get("draws", 0)
+        if isinstance(key[0], str) and key[0] not in order:
+            order.append(key[0])
+    snaps = [s for s in (state or {}).get("main_snapshots", []) or []
+             if isinstance(s, str)]
+    snaps += [s for s in order if s not in snaps]
+    series = {}
+    for a in anchors:
+        line = []
+        for sid in snaps:
+            w, lo, d = acc.get((sid, a), [0.0, 0.0, 0.0])
+            t = w + lo + d
+            line.append((w + 0.5 * d) / t if t else None)
+        series[a] = line
+    return {"snapshots": snaps, "anchors": anchors, "series": series}
+
+
+def participation(grouped: list[dict]) -> dict[str, int]:
+    """Game appearances per member (one per game seating the member)."""
+    tally: dict[str, int] = {}
+    for g in grouped:
+        seen_here = {s.get("id") for s in g.get("seats", []) or []}
+        for sid in seen_here:
+            if isinstance(sid, str):
+                tally[sid] = tally.get(sid, 0) + 1
+    return tally
+
+
+def sampling_share(grouped: list[dict], top_n: int = 20) -> dict:
+    """Realized sampling share: game appearances of the top-N most-
+    played members over all appearances. The league-mechanism check
+    (plan falsifier: top-20 members >= 80% of matches means weighting
+    works, no junk churn)."""
+    tally = participation(grouped)
+    total = sum(tally.values())
+    covered = sum(sorted(tally.values(), reverse=True)[:top_n])
+    return {"top_n": top_n,
+            "share": covered / total if total else None,
+            "covered": covered, "total": total}
+
+
+def pool_health(base: Path, grouped: list[dict],
+                members: list[dict]) -> dict:
+    """Pool-health card: growth, sampling concentration, newcomer queue.
+
+    Growth = total members + by-role splits + league snapshot counter
+    (every snapshot is permanent; removal is forbidden). Newcomers =
+    members with <10 total games (the x5 boost window). Share = top-20
+    realized sampling share."""
+    part = participation(grouped)
     try:
-        duel = _elo_cached(base, history, grouped)
+        totals = archive.member_game_counts(base)
     except (OSError, ValueError, KeyError, TypeError):
-        duel = {"cand": [], "champ": [], "panel": [], "refs": {}}
-    kc = knock_conversion(history)
-    np_idx = nplayer_start(history, grouped)
-    return {
-        "ids": [h.get("challenger", "") or "" for h in history],
-        "elo": {**duel, "turn_note": turn_mismatch(history)},
-        "knock": kc,
-        "decisive": decisiveness(history, grouped),
-        "margin": margin_band(history),
-        "pg": pg_signal(history),
-        "vslope": value_slope(history),
-        "reign": reign_strip(history),
-        "regimes": {
-            "nplayer": np_idx,
-            "nplayer_gen": (history[np_idx].get("challenger")
-                             if np_idx is not None else None),
-        },
-    }
+        totals = {}
+    newcomers = sorted(
+        m["id"] for m in members
+        if isinstance(m.get("id"), str)
+        and totals.get(m["id"], part.get(m["id"], 0)) < 10)
+    by_role: dict[str, int] = {}
+    for m in members:
+        role = m.get("role") or "?"
+        by_role[role] = by_role.get(role, 0) + 1
+    state = league_state(base) or {}
+    return {"total": len(members), "by_role": by_role,
+            "snapshot_counter": state.get("snapshot_counter", 0),
+            "newcomers": newcomers, "newcomer_count": len(newcomers),
+            "top20": sampling_share(grouped)}
 
 
-def snapshot(base: Path) -> dict:
-    """Everything the page needs, in one JSON-able dict. One read per file."""
-    archive.init(base)
-    champ = None
-    try:
-        champ = archive.get_champion(base)
-    except (OSError, ValueError, KeyError, TypeError):
-        champ = None
-    try:
-        mix = _nash_cached(base)
-    except (OSError, ValueError, KeyError, TypeError):
-        mix = {}
-    history = cached_history(base)
-    grouped = cached_grouped(base)
-    tally = tally_eval(grouped)
-    members = []
-    for m in archive.members(base):
-        cid = m["id"]
-        w, d, l = tally.get(cid, [0, 0, 0])
-        members.append({
-            "id": cid, "role": m["role"], "parent": m["parent"],
-            "nash": round(mix.get(cid, 0.0), 4),
-            "wins": w, "draws": d, "losses": l,
-        })
-    gens = []
+def window_record(window: list) -> tuple[str, float | None]:
+    """Last-40 window to record text: ("W-D-L", win share)."""
+    plays = [x for x in window if isinstance(x, (int, float))]
+    w = sum(1 for x in plays if x == 1.0)
+    d = sum(1 for x in plays if x == 0.5)
+    n = len(plays)
+    return (f"{w}-{d}-{n - w - d}", (w + 0.5 * d) / n if n else None)
+
+
+def scheduler_strip(state: dict | None) -> dict | None:
+    """Scheduler-state strip: current learner, micro-batch progress,
+    live exploiter records. None on legacy archives without league.json."""
+    if not state:
+        return None
+    order = list(archive.SCHEDULER_ORDER)
+    exploiters = {}
+    for name, exp in (state.get("exploiters") or {}).items():
+        record, rate = window_record((exp or {}).get("window", []) or [])
+        exploiters[name] = {
+            "id": (exp or {}).get("id"),
+            "games": (exp or {}).get("games", 0),
+            "target": (exp or {}).get("target"),
+            "record": record, "rate": rate,
+        }
+    return {"learner": order[state.get("scheduler_pos", 0) % len(order)],
+            "tick": state.get("tick", 0),
+            "main_id": state.get("main_id"),
+            "progress": state.get("micro_batch_progress", 0),
+            "micro_size": state.get("micro_batch_size", 8),
+            "per_learner": state.get("micro", {}) or {},
+            "exploiters": exploiters}
+
+
+def history_rows(history: list[dict], base: Path) -> list[dict]:
+    """History table rows, newest first: league snapshot entries and
+    legacy gen entries side by side. Snapshot rows carry learner, tick
+    and anchor W-D-L; legacy rows carry train return/loss and eval
+    W-D-L. No verdicts, no crowns: the throne UI is retired."""
+    per: dict[str, list] = {}
+    for r in archive.list_anchors(base):
+        cell = per.setdefault(r.get("snapshot_id"), [0.0, 0.0, 0.0])
+        cell[0] += r.get("wins", 0)
+        cell[1] += r.get("losses", 0)
+        cell[2] += r.get("draws", 0)
+    anchor_wld = {sid: f"{int(w)}-{int(d)}-{int(lo)}"
+                  for sid, (w, lo, d) in per.items()}
+    rows = []
     for h in history:
+        if h.get("snapshot"):
+            rows.append({
+                "kind": "snapshot",
+                "id": h.get("snapshot"),
+                "learner": h.get("learner"),
+                "tick": h.get("tick"),
+                "games": h.get("games"),
+                "anchors": anchor_wld.get(h.get("snapshot")),
+            })
+            continue
         ev = h.get("eval", {}) or {}
         tr = h.get("train", {}) or {}
         losses = tr.get("losses", []) or []
-        thr = (h.get("config", {}) or {}).get("promote_threshold", 0.5)
-        draws = ev.get("draws", 0)
-        ngames = ev.get("games", 0)
-        wr = ev.get("win_rate", 0.0)
-        lower = archive.wilson_lower(ev.get("wins", 0) + 0.5 * draws, ngames)
-        cfg = h.get("config", {}) or {}
-        if not ev:
-            reason = "held: waiting on first eval"
-        elif h.get("promoted"):
-            reason = f"promoted: lower {lower:.2f} clears threshold {thr:.2f}"
-        else:
-            reason = f"held: lower {lower:.2f} vs threshold {thr:.2f}"
-        gens.append({
+        rows.append({
+            "kind": "gen",
             "id": h.get("challenger", h.get("id", "?")),
             "champion": h.get("champion"),
             "train_return": _rnd(tr.get("mean_return", 0.0), 2),
-            "train_loss": _rnd((sum(losses) / len(losses)) if losses else 0.0, 3),
-            "eval_w": ev.get("wins", 0), "eval_d": draws,
-            "eval_games": ngames, "win_rate": wr,
-            "wilson_lower": round(lower, 3),
-            "threshold": thr,
-            "promoted": bool(h.get("promoted")),
-            "reason": reason,
-            "crown": crown_type(h),
-            "arch": cfg.get("arch", "base"),
-            "turns": cfg.get("turns", 0),
-            "gamma": cfg.get("gamma", 0.0),
+            "train_loss": _rnd((sum(losses) / len(losses))
+                                 if losses else 0.0, 3),
+            "eval_w": ev.get("wins", 0), "eval_d": ev.get("draws", 0),
+            "eval_games": ev.get("games", 0),
+            "win_rate": ev.get("win_rate", 0.0),
             "mean_margin": _rnd(ev.get("mean_margin", 0.0), 2),
-            "margins": ev.get("margins", []),  # kept: feeds the W/D/L dot strip (P2-4)
-            "exploiter": bool(h.get("exploiter")),
+            "margins": ev.get("margins", []),
             "started_at": h.get("started_at"),
             "finished_at": h.get("finished_at"),
             "duration_s": h.get("duration_s"),
         })
-    gens.reverse()
-    durs = [h.get("duration_s") for h in history
-            if isinstance(h.get("duration_s"), (int, float))]
-    recent = durs[-5:]
-    avg = sum(recent) / len(recent) if recent else None
-    plan = {}
+    rows.reverse()
+    return rows
+
+
+def build_board(base: Path, history: list[dict],
+                grouped: list[dict]) -> dict:
+    """League progress board, aligned to K-game intervals."""
+    K = interval_size(base)
+    batches = interval_batches(grouped, K)
+    labels = interval_labels(grouped, K)
     try:
-        plan = json.loads((base / "run_plan.json").read_text())
-    except (OSError, ValueError):
-        plan = {}
-    target = plan.get("target_gens")
-    run = {
-        "finished": len(history),
-        "target": target if isinstance(target, int) else None,
-        "avg_s": round(avg, 1) if avg else None,
-        "last_finished_at": history[-1].get("finished_at") if history else None,
-    }
-    losses = []
-    for h in history:
-        ls = ((h.get("train", {}) or {}).get("losses", []) or [])
-        losses.append(sum(ls) / len(ls) if ls else None)
-    curves = {
-        "loss": losses,
-        "ret": [((h.get("train", {}) or {}).get("mean_return", 0.0)) for h in history],
-        "ids": [h.get("challenger", "") or "" for h in history],
-    }
+        duel = _interval_elo_cached(base, grouped, K,
+                                    tracked_members(base, grouped))
+    except (OSError, ValueError, KeyError, TypeError):
+        duel = {"tracked": [], "series": {}}
+    main_hist = main_history(history)
     return {
-        "champion": champ,
+        "k": K,
+        "labels": labels,
+        "elo": duel,
+        "conv": conversion(batches),
+        "decisive": decisiveness(batches),
+        "margin": margin_band(batches),
+        "pg": pg_signal(main_hist),
+        "vslope": value_slope(main_hist),
+    }
+
+
+_snapshot_cache: dict = {}
+
+
+def _snapshot_key(base: Path) -> tuple:
+    """Memo key covering every file snapshot() reads: mtime+size per
+    file, so any writer (scheduler, trainer, status) invalidates."""
+    parts = []
+    for name in ("games.jsonl", "history.jsonl", "matrix.json",
+                 "manifest.jsonl", "league.json", "anchor.jsonl",
+                 "champion.json", "status.json"):
+        try:
+            st = (base / name).stat()
+            parts.append((name, st.st_mtime_ns, st.st_size))
+        except OSError:
+            parts.append((name, None, None))
+    return (str(base.resolve()), tuple(parts))
+
+
+def snapshot(base: Path) -> dict:
+    """Everything the page needs, in one JSON-able dict.
+
+    Memoized on the file stats (same one-slot pattern as the grouped
+    cache): a poll storm between scheduler ticks reuses the last build
+    instead of regrouping 80k games and rerunning the Elo pass."""
+    return _memo(_snapshot_cache, _snapshot_key(base),
+                  lambda: _build_snapshot(base))
+
+
+def _build_snapshot(base: Path) -> dict:
+    archive.init(base)
+    state = league_state(base)
+    try:
+        champ = archive.get_champion(base)
+    except (OSError, ValueError, KeyError, TypeError):
+        champ = None
+    main = (state or {}).get("main_id", champ)
+    history = cached_history(base)
+    grouped = cached_grouped(base)
+    tally = tally_eval(grouped)
+    part = participation(grouped)
+    total_seats = sum(part.values())
+    members = []
+    for m in archive.members(base):
+        cid = m["id"]
+        w, d, l = tally.get(cid, [0, 0, 0])
+        appearance = part.get(cid, 0)
+        members.append({
+            "id": cid, "role": m["role"], "parent": m["parent"],
+            "share": (round(appearance / total_seats, 4)
+                        if total_seats else None),
+            "wins": w, "draws": d, "losses": l,
+        })
+    rows = history_rows(history, base)
+    K = interval_size(base)
+    games_total = len(grouped)
+    n_interval = (games_total + K - 1) // K if K > 0 else 0
+    return {
+        "main": main,
         "mtime": archive_mtime(base),
         "members": members,
-        "run": run,
-        "curves": curves,
+        "league": scheduler_strip(state),
+        "admissions": (state or {}).get("admissions", []) or [],
+        "anchor_trend": anchor_trend(base, state),
+        "pool": pool_health(base, grouped, members),
+        "intervals": {"k": K, "n": n_interval},
         "board": build_board(base, history, grouped),
-        "generations": gens,
+        "history": rows,
         "games": grouped[:50],
-        "game_total": len(grouped),
+        "game_total": games_total,
         "maps": summarize_maps(grouped),
         "status": archive.read_status(base),
-        "counts": {"generations": len(history), "games": len(grouped)},
+        "counts": {"rows": len(rows), "games": games_total,
+                   "members": len(members)},
     }
 
 
@@ -1487,15 +1465,14 @@ def replay_label(gen, replay) -> str:
     return f"gen {gen} · {short} →"
 
 
-def hero_run_text(run: dict) -> str:
-    """`gen 1690 · target 1689 reached` once finished >= target (P0-5)."""
-    fin = run.get("finished", 0) or 0
-    tgt = run.get("target")
-    if isinstance(tgt, int):
-        if fin >= tgt:
-            return f"gen {fin} · target {tgt} reached"
-        return f"gen {fin} · target {tgt}"
-    return f"gen {fin}"
+def hero_league_text(league: dict | None, intervals: dict) -> str:
+    """Hero sub-line for the continuous league: tick + interval shape."""
+    if not league:
+        return "no scheduler state yet — start the league loop"
+    k = (intervals or {}).get("k", "?")
+    n = (intervals or {}).get("n", "?")
+    return (f"tick {league.get('tick', 0)} · {n} × {k}-game intervals · "
+            f"current learner {league.get('learner', '?')}")
 
 
 def map_label(m) -> str:
@@ -1503,10 +1480,26 @@ def map_label(m) -> str:
     return m if m else MAP_UNLABELLED
 
 
-def status_html(st: dict, champ, ngens: int) -> tuple[str, int]:
+def status_html(st: dict, main, nrows: int) -> tuple[str, int]:
     """Status line + progress %, twin of the JS renderHeader branch."""
     st = st or {}
     phase = st.get("phase")
+    if phase == "league":
+        return (f"tick {st.get('tick', '?')}: <b>{_esc(st.get('learner', ''))}</b> "
+                f"vs {_esc(st.get('opponent', ''))} · "
+                f"own-games {st.get('own_games', '?')} · "
+                f"micro {st.get('micro', '?')}" +
+                (f" · admitted <b>{_esc(st['admitted'])}</b>"
+                 if st.get("admitted") else "") +
+                (f" · snapshot <b>{_esc(st['snapshot'])}</b>"
+                 if st.get("snapshot") else ""),
+                0)
+    if phase == "anchor":
+        done, total = max(0, int(st.get("done", 0) or 0)), \
+            max(1, int(st.get("total", 0) or 1))
+        return (f"measuring <b>{_esc(st.get('snapshot', ''))}</b> vs anchor "
+                f"<b>{_esc(st.get('anchor', ''))}</b> · "
+                f"game {done}/{st.get('total', 0)}", 100 * done // total)
     if phase == "train":
         done, total = max(0, int(st.get("done", 0) or 0)), \
             max(1, int(st.get("total", 0) or 1))
@@ -1532,9 +1525,9 @@ def status_html(st: dict, champ, ngens: int) -> tuple[str, int]:
         return (f"last run finished: <b>{_esc(st.get('challenger', ''))}</b> "
                 f"{badge} · champion {_esc(st.get('champion', ''))} · "
                 f"idle, waiting for the next run", 100)
-    if ngens:
-        return (f"idle · last champion {_esc(champ or '—')}", 0)
-    return ("waiting for the first generation…", 0)
+    if nrows:
+        return (f"idle · live main {_esc(main or '—')}", 0)
+    return ("waiting for the first games…", 0)
 
 
 def _num(x) -> float:
@@ -1542,65 +1535,44 @@ def _num(x) -> float:
     return x if isinstance(x, (int, float)) else 0.0
 
 
-def gen_row_html(g: dict) -> str:
-    """Twin of JS genRow: challenger · return · loss · eval · result · crown."""
-    pct = 100 * _num(g.get("win_rate"))
-    losses_n = max(0, int(_num(g.get("eval_games"))) - int(_num(g.get("eval_w")))
-                   - int(_num(g.get("eval_d"))))
-    wdl = f"{int(_num(g.get('eval_w')))}-{int(_num(g.get('eval_d')))}-{losses_n}"
-    rate = f"{_num(g.get('win_rate')) * 100:.1f}%"
-    thr = g.get("threshold", 0.5)
-    try:
-        thr_pct = f"{(float(thr) * 100):.0f}%"
-    except (TypeError, ValueError):
-        thr_pct = "50%"
-    mean_m = _num(g.get("mean_margin", 0.0))
-    margin_s = f"{float(mean_m):+.2f} pts"
-    crown = g.get("crown", "—")
-    if crown == "complete":
-        crown_h = ('<span class="badge promoted" '
-                   'title="beat the champ head-to-head AND the duel field">'
-                   'complete</span>')
-    elif crown == "soft":
-        crown_h = ('<span class="badge held" '
-                   'title="took the throne without both edges">soft</span>')
-    else:
-        crown_h = '<span class="legend">—</span>'
-    res = ('<span class="badge promoted">promoted ★</span>'
-           if g.get("promoted") else '<span class="badge held">held</span>')
-    expl = ' <span class="badge draw">exploiter</span>' if g.get("exploiter") else ""
+def hist_row_html(g: dict) -> str:
+    """Twin of JS histRow: league snapshot rows and legacy gen rows.
+
+    Snapshot: id · learner · tick · own-games · anchor W-D-L. Legacy:
+    id · train return/loss · eval W-D-L + margin dots. No verdicts, no
+    crowns: the throne UI is retired."""
     when = ""
     if g.get("finished_at"):
         when = (f'<div class="legend" title="{iso_time(g["finished_at"])} '
                 f'· {fmt_dur(g.get("duration_s"))}">'
                 f'{fmt_time(g["finished_at"])} · {fmt_dur(g.get("duration_s"))}</div>')
+    if g.get("kind") == "snapshot":
+        anchor = _esc(g.get("anchors") or "—")
+        return (
+            f"<tr><td class=\"truncate\" title=\"{_esc(g.get('id'))}\">"
+            f"{_esc(g.get('id'))}</td>"
+            f"<td><span class=\"pill train\">{_esc(g.get('learner'))}</span></td>"
+            f"<td class=\"num\">{_esc(g.get('tick'))}</td>"
+            f"<td class=\"num\">{_esc(g.get('games'))}</td>"
+            f"<td class=\"num\">{anchor}</td></tr>")
+    pct = 100 * _num(g.get("win_rate"))
+    losses_n = max(0, int(_num(g.get("eval_games"))) - int(_num(g.get("eval_w")))
+                   - int(_num(g.get("eval_d"))))
+    wdl = f"{int(_num(g.get('eval_w')))}-{int(_num(g.get('eval_d')))}-{losses_n}"
+    rate = f"{_num(g.get('win_rate')) * 100:.1f}%"
+    mean_m = _num(g.get("mean_margin", 0.0))
+    margin_s = f"{float(mean_m):+.2f} pts"
     return (
         f"<tr><td class=\"truncate\" title=\"{_esc(g.get('id'))}\">{_esc(g.get('id'))}{when}</td>"
         f"<td class=\"num\">{_num(g.get('train_return', 0.0)):.2f}</td>"
         f"<td class=\"num\">{_num(g.get('train_loss', 0.0)):.3f}</td>"
         f"<td><span class=\"rate-wrap rate-text\" "
-        f"title=\"challenger W-D-L · Wilson lower bound (z=1.0) "
-        f"{(g.get('wilson_lower', 0.0)):.2f} vs promotion threshold "
-        f"{float(thr) if isinstance(thr, (int, float)) else thr} · "
-        f"▲ {thr_pct} threshold\">"
-        f"<span class=\"rate-bar\"><div style=\"width:{pct:.0f}%\"></div>"
-        f"<span class=\"marker\" title=\"promotion threshold {thr}\" "
-        f"style=\"left:{pct_of_thr(thr)}\"></span></span>"
-        f"{wdl} · {rate} (draws count ½) · lower {_num(g.get('wilson_lower', 0.0)):.2f} · "
-        f"<span title=\"mean eval margin, challenger-minus-champion\">margin {margin_s}</span>"
+        f"title=\"legacy eval W-D-L · draws count ½\">"
+        f"<span class=\"rate-bar\"><div style=\"width:{pct:.0f}%\"></div></span>"
+        f"{wdl} · {rate} (draws count ½) · "
+        f"<span title=\"mean eval margin\">margin {margin_s}</span>"
         f"<div class=\"dots\" title=\"per-duel margins: green win, blue draw, red loss\">"
-        f"{dot_strip(g.get('margins'))}</div></span></td>"
-        f"<td class=\"res-cell\">{res}<div class=\"legend\" style=\"margin:4px 0 0\">{_esc(g.get('reason', ''))}</div>{expl}</td>"
-        f"<td>{crown_h}</td>"
-        f"<td class=\"num legend truncate\" title=\"{_esc(g.get('arch'))} · {_esc(g.get('turns'))} turns\">"
-        f"{_esc(g.get('arch'))} · {g.get('turns')} turns · γ {g.get('gamma')}</td></tr>")
-
-
-def pct_of_thr(thr) -> str:
-    try:
-        return f"{(float(thr) * 100):.0f}%"
-    except (TypeError, ValueError):
-        return "50%"
+        f"{dot_strip(g.get('margins'))}</div></span></td></tr>")
 
 
 def game_row_html(x: dict, member: str = "") -> str:
@@ -1643,21 +1615,22 @@ def game_row_html(x: dict, member: str = "") -> str:
         f"{_esc(label)}<span aria-hidden=\"true\"> ↗</span></a></td></tr>")
 
 
-def pop_row_html(m: dict, champ) -> str:
-    """Twin of JS popRow: id · role · parent · nash · W-D-L."""
+def pop_row_html(m: dict, main) -> str:
+    """Twin of JS popRow: id · role · parent · sampling share · W-D-L."""
     role = "seed" if m.get("role") == "main" else _esc(m.get("role"))
-    star = ' <span class="champ-star">★</span>' if m.get("id") == champ else ""
-    nash = m.get("nash", 0.0) or 0.0
-    pct = float(nash) * 100
-    bar = f"max({pct:.1f}%,{1 if nash > 0 else 0}px)"  # sub-1% still paints (P1-2)
+    star = ' <span class="champ-star">★</span>' if m.get("id") == main else ""
+    share = m.get("share")
+    pct = float(share) * 100 if isinstance(share, (int, float)) else 0.0
+    bar = f"max({pct:.1f}%,{1 if pct > 0 else 0}px)"  # sub-1% still paints
     seed_note = ' <span class="legend">founding weights</span>' \
         if m.get("role") == "main" else ""
+    share_s = f"{pct:.1f}%" if share is not None else "—"
     return (
         f"<tr><td class=\"truncate\" title=\"{_esc(m.get('id'))}\">{_esc(m.get('id'))}{star}</td>"
         f"<td>{role}{seed_note}</td><td class=\"truncate\" title=\"{_esc(m.get('parent'))}\">"
         f"{_esc(m.get('parent') or '—')}</td>"
-        f"<td><span class=\"nash-wrap\"><span class=\"nash-bar\">"
-        f"<div style=\"width:{bar}\"></div></span>{pct:.1f}%</span></td>"
+        f"<td><span class=\"share-wrap\"><span class=\"share-bar\">"
+        f"<div style=\"width:{bar}\"></div></span>{share_s}</span></td>"
         f"<td class=\"num\">{m.get('wins', 0)}-{m.get('draws', 0)}-{m.get('losses', 0)}</td></tr>")
 
 
@@ -1670,10 +1643,65 @@ def map_row_html(m: dict) -> str:
         f"<td class=\"num\">{m.get('cw', 0)}-{m.get('cd', 0)}-{m.get('cl', 0)}</td></tr>")
 
 
-def pop_first_page(members: list, champ) -> list:
-    """First paint mirrors the default view: Nash desc, zero-Nash hidden."""
-    ranked = sorted(members, key=lambda m: -(m.get("nash", 0.0) or 0.0))
-    return [m for m in ranked if (m.get("nash", 0.0) or 0.0) > 0]
+def league_strip_html(league: dict | None) -> str:
+    """Scheduler strip first-paint rows: learner · micro · exploiters."""
+    if not league:
+        return ('<tr><td colspan="4" class="empty">no scheduler state yet — '
+                'start the league loop</td></tr>')
+    rows = []
+    size = league.get("micro_size", 8) or 8
+    for name, exp in (league.get("exploiters") or {}).items():
+        rate = exp.get("rate")
+        rate_s = f"{rate * 100:.0f}%" if isinstance(rate, (int, float)) else "—"
+        rows.append(
+            f"<tr><td>{_esc(name)}</td>"
+            f"<td class=\"truncate\" title=\"{_esc(exp.get('id'))}\">"
+            f"{_esc(exp.get('id') or '—')}</td>"
+            f"<td class=\"num\">{exp.get('games', 0)}</td>"
+            f"<td class=\"num\">{_esc(exp.get('record', '—'))} · {rate_s}</td></tr>")
+    per = league.get("per_learner", {}) or {}
+    micro_s = ", ".join(f"{k} {v % size}/{size}" for k, v in per.items())
+    head = (f"<tr><td><b>{_esc(league.get('learner', '?'))}</b></td>"
+            f"<td class=\"num\">tick {_esc(league.get('tick', 0))}</td>"
+            f"<td class=\"num\" colspan=\"2\">{_esc(micro_s or '—')}</td></tr>")
+    return head + "".join(rows)
+
+
+def admissions_rows_html(admissions: list[dict]) -> str:
+    """Admissions log first-paint rows: id · role · at-game · record."""
+    if not admissions:
+        return ('<tr><td colspan="4" class="empty">no admissions yet — '
+                'exploiters are admitted past the bar</td></tr>')
+    return "".join(
+        f"<tr><td class=\"truncate\" title=\"{_esc(a.get('id'))}\">"
+        f"{_esc(a.get('id'))}</td><td>{_esc(a.get('role'))}</td>"
+        f"<td class=\"num\">{_esc(a.get('at_game'))}</td>"
+        f"<td class=\"num\">{_esc(a.get('record'))}</td></tr>"
+        for a in admissions)
+
+
+def pool_html(pool: dict | None) -> tuple[str, str, str]:
+    """Pool-health first paint: (summary line, role line, newcomer line)."""
+    if not pool:
+        return ("—", "—", "no pool data yet")
+    top = pool.get("top20", {}) or {}
+    share = top.get("share")
+    share_s = f"{share * 100:.1f}%" if isinstance(share, (int, float)) else "—"
+    summary = (f"{pool.get('total', 0)} members · snapshots "
+               f"{pool.get('snapshot_counter', 0)} · top-20 share {share_s}")
+    roles = ", ".join(f"{k} {v}"
+                       for k, v in sorted((pool.get("by_role") or {}).items()))
+    newcs = pool.get("newcomers", []) or []
+    newcomers = (", ".join(newcs[:12]) + (f" +{len(newcs) - 12} more"
+                                            if len(newcs) > 12 else "")
+                 if newcs else "none — every member has 10+ games")
+    return (summary, roles or "—", newcomers)
+
+
+def pop_first_page(members: list, main) -> list:
+    """First paint mirrors the default view: share desc, zero-share hidden."""
+    ranked = sorted(members, key=lambda m: -(m.get("share") or 0.0))
+    return [m for m in ranked if (m.get("share") or 0.0) > 0] or ranked[:100]
 
 
 # ---------------------------------------------------------------- PAGE
@@ -1719,7 +1747,6 @@ h1{font-size:20px; margin:0 0 4px;}
 .chart-card h3{margin:0 0 2px; font-size:14px;}
 .chart-sub{font-size:12px; color:var(--muted); margin:0 0 8px;}
 .chart-head{display:flex; justify-content:space-between; align-items:baseline;}
-.chart-head #tenure-now{font-size:12px; font-weight:700; color:var(--accent); margin-left:8px; white-space:nowrap;}
 .delta{font-size:12px; font-weight:700; padding:2px 8px; border-radius:20px;}
 .delta.up{color:var(--success); background:#E6F4EC;}
 .delta.down{color:var(--danger); background:#FBEAE8;}
@@ -1748,9 +1775,9 @@ td.num, th.num{text-align:right;}
 .badge.draw{color:var(--eval-ink); background:var(--eval-bg);}
 .badge.promoted{color:var(--success); background:#E6F4EC;}
 .badge.held{color:var(--warn); background:#FBF3E2;}
-.nash-wrap{display:flex; align-items:center; gap:8px;}
-.nash-bar{flex:1; min-width:60px; height:6px; background:var(--border); border-radius:3px; overflow:hidden;}
-.nash-bar>div{height:100%; background:var(--accent);}
+.share-wrap{display:flex; align-items:center; gap:8px;}
+.share-bar{flex:1; min-width:60px; height:6px; background:var(--border); border-radius:3px; overflow:hidden;}
+.share-bar>div{height:100%; background:var(--accent);}
 .rate-wrap{display:flex; align-items:center; gap:8px;}
 td.matchup, td.replay, .rate-text{white-space:nowrap;}
 .pairs{font-size:12px; color:var(--muted); margin-top:3px; white-space:normal;}
@@ -1788,7 +1815,6 @@ caption{text-align:left; font-size:12px; color:var(--muted); padding:0 0 6px; ca
 .hero-champ{font-size:30px; font-weight:800; font-variant-numeric:tabular-nums; margin:2px 0 4px;
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .hero-run{font-size:13px; color:var(--secondary); line-height:1.6; margin:4px 0 2px;}
-#st-eta{margin:6px 0 0; line-height:1.6;}
 .hero .progress{margin-top:12px;}
 .strip{display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-top:16px;}
 .mini{background:var(--card); border:1px solid var(--border); border-radius:10px; padding:10px 16px;}
@@ -1967,31 +1993,27 @@ function keepScroll(scroller,fn){
 /* Board charts: shared frame geometry, gridlines, min/max labels, headroom, HiDPI. */
 function clock(ts){const d=new Date(ts*1000);return d.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});}
 function renderHeader(){
-  $("st-champ").innerHTML=esc(S.champion||"—")+(S.champion?' <span class="champ-star">★</span>':"");
-  $("getting-started").style.display=S.counts.generations?"none":"block";
-  $("st-gen").textContent=S.counts.generations;
+  $("st-champ").innerHTML=esc(S.main||"—")+(S.main?' <span class="champ-star">★</span>':"");
+  $("getting-started").style.display=S.counts.rows?"none":"block";
+  $("st-gen").textContent=S.counts.rows;
   $("st-games").textContent=S.counts.games;
   $("st-members").textContent=(S.members||[]).length;
   $("st-maps").textContent=(S.maps||[]).length;
-  const r=S.run||{};
-  const tgt=(typeof r.target==="number")?r.target:null;
-  // P0-5: once finished >= target say so and suppress the ETA.
-  if(tgt!==null&&r.finished>=tgt)
-    $("st-run").textContent=`gen ${r.finished} · target ${tgt} reached`;
-  else if(tgt!==null)
-    $("st-run").textContent=`gen ${r.finished} · target ${tgt}`;
-  else $("st-run").textContent=`gen ${r.finished||0}`;
-  const bits=[];
-  if(r.last_finished_at) bits.push("last finished "+fmtTime(r.last_finished_at));
-  if(r.avg_s) bits.push(`avg ${r.avg_s}s/gen`);
-  if(!(tgt!==null&&r.finished>=tgt)&&tgt!==null&&r.avg_s&&tgt>r.finished)
-    bits.push(`ETA ${fmtTime(Date.now()/1000+(tgt-r.finished)*r.avg_s)}`);
-  $("st-eta").textContent=bits.join(" · ")||"no timing data yet";
-  $("st-eta").title=r.last_finished_at?("last finished "+isoT(r.last_finished_at)):"";
+  const L=S.league,iv=S.intervals||{};
+  if(L) $("st-run").textContent=`tick ${L.tick} · ${iv.n??"?"} × ${iv.k??"?"}-game intervals · current learner ${L.learner||"?"}`;
+  else $("st-run").textContent="no scheduler state yet";
   const st=S.status||{},el=$("st-status"),bar=$("st-bar"),wrap=$("st-barwrap");
   let pct=0;
   bar.style.background="var(--accent)";
-  if(st.phase==="train"){
+  if(st.phase==="league"){
+    let extra="";
+    if(st.admitted)extra+=` · admitted <b>${esc(st.admitted)}</b>`;
+    if(st.snapshot)extra+=` · snapshot <b>${esc(st.snapshot)}</b>`;
+    el.innerHTML=`tick ${st.tick??"?"}: <b>${esc(st.learner||"")}</b> vs ${esc(st.opponent||"")} · own-games ${esc(st.own_games??"?")} · micro ${esc(st.micro??"?")}`+extra;
+  }else if(st.phase==="anchor"){
+    el.innerHTML=`measuring <b>${esc(st.snapshot||"")}</b> vs anchor <b>${esc(st.anchor||"")}</b> · game ${Math.max(0,+st.done||0)}/${Math.max(0,+st.total||0)}`;
+    pct=100*st.done/Math.max(1,st.total);
+  }else if(st.phase==="train"){
     el.innerHTML=`training <b>${esc(st.challenger||"")}</b> · game ${Math.max(0,+st.done||0)}/${Math.max(0,+st.total||0)} · last mean return <b>${(+st.last_mean_return||0).toFixed(2)}</b>`;
     pct=100*st.done/Math.max(1,st.total);
   }else if(st.phase==="eval"){
@@ -2005,7 +2027,7 @@ function renderHeader(){
     // Held stays amber everywhere, including the bar (P2-6).
     bar.style.background=st.promoted?"var(--success)":"var(--warn)";
   }else{
-    el.innerHTML=S.counts.generations?`idle · last champion ${esc(S.champion||"—")}`:"waiting for the first generation…";
+    el.innerHTML=S.counts.rows?`idle · live main ${esc(S.main||"—")}`:"waiting for the first games…";
   }
   bar.style.width=pct+"%";
   wrap.setAttribute("aria-valuenow",Math.round(pct));
@@ -2125,79 +2147,6 @@ function plotBand(id,med,q1,q3,color,fill,labels,desc,opt){
   band(F,q1,q3,fill);
   smoothLine(F,med,color,2);
 }
-function plotTicks(id,knock,labels,desc){
-  // Binary per-gen knock lane: one tick per gen, same x-geometry as the
-  // rate panel below (L=48/R=8) so marks line up with the curves.
-  // 1690 ticks overplot, so knocks draw tall at alpha .55 (the envelope
-  // reads as density) and holds draw short and faint; no-eval gens gap.
-  const cv=$(id),ctx=cv.getContext("2d");
-  const dpr=window.devicePixelRatio||1,W=cv.clientWidth,H=cv.clientHeight;
-  cv.width=W*dpr;cv.height=H*dpr;ctx.scale(dpr,dpr);
-  ctx.clearRect(0,0,W,H);
-  cv.setAttribute("role","img");
-  if(desc)cv.setAttribute("aria-label",desc);
-  const L=48,R=8,T=6,B=16,n=Math.max(knock.length,1);
-  const X=i=>L+(W-L-R)*(n<2?0.5:i/(n-1));
-  ctx.strokeStyle="#E9EDF1";ctx.fillStyle="#6B7480";ctx.font="10px system-ui";ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(L,H-B);ctx.lineTo(W-R,H-B);ctx.stroke();
-  ctx.fillText("knock",4,T+6);
-  ctx.fillText("held",4,H-B);
-  const slot=n<2?20:(W-L-R)/n;
-  const bw=Math.max(1,Math.min(4,slot*0.7));
-  knock.forEach((k,i)=>{
-    if(k===null||k===undefined)return;
-    if(k){
-      ctx.fillStyle="rgba(36,86,224,.55)";
-      ctx.fillRect(X(i)-bw/2,T,bw,H-B-T);
-    }else{
-      ctx.fillStyle="rgba(91,100,112,.30)";
-      ctx.fillRect(X(i)-bw/2,H-B-6,bw,6);
-    }
-  });
-  const x0=(labels&&labels[0])||"gen 0";
-  const x1=(labels&&labels[labels.length-1])||("gen "+(n-1));
-  ctx.fillStyle="#6B7480";
-  ctx.fillText(x0,L,H-4);
-  const w1=ctx.measureText(x1).width;
-  ctx.fillText(x1,W-R-w1,H-4);
-}
-function plotKnock(id,K,labels,desc,opt){
-  // Rate panel under the marks lane: knock-rate (blue) and conversion
-  // (green) lines with Wilson bands, one shared frame.
-  const F=frame(id,[K.rate,K.lo,K.hi,K.conv,K.clo,K.chi],labels,desc,opt);
-  if(!F)return;
-  band(F,K.lo,K.hi,"rgba(36,86,224,.18)");
-  band(F,K.clo,K.chi,"rgba(24,121,78,.16)");
-  smoothLine(F,K.rate,"#2456E0",2);
-  smoothLine(F,K.conv,"#18794E",2);
-}
-function plotNorm(id,norm,raw,labels,desc){
-  // Normalized lane (0..1 geometry) labeled with the TRUE min/max so
-  // the scale is never a lie: near-constant stretches fill the lane
-  // and the axis still reads in real units.
-  const F=frame(id,[norm],labels,desc);
-  if(!F)return;
-  const{ctx,X,Y,W,H,T,B}=F;
-  const have=(raw||[]).filter(v=>v!==null&&Number.isFinite(v));
-  if(have.length){
-    const mn=Math.min(...have),mx=Math.max(...have);
-    ctx.save();ctx.fillStyle="#5B6470";ctx.textAlign="right";
-    ctx.fillText("max "+mx.toFixed(2),W-2,T+10);
-    ctx.fillText("min "+mn.toFixed(2),W-2,H-B-4);
-    ctx.restore();
-  }
-  ctx.fillStyle="rgba(22,25,29,.08)";
-  let run=[];
-  const flush=()=>{
-    if(run.length>1){ctx.beginPath();
-      run.forEach((i,k)=>k?ctx.lineTo(X(i),Y(norm[i])):ctx.moveTo(X(i),Y(norm[i])));
-      ctx.lineTo(X(run[run.length-1]),Y(0));ctx.lineTo(X(run[0]),Y(0));
-      ctx.closePath();ctx.fill();}
-    run=[];};
-  norm.forEach((v,i)=>{if(v===null||!Number.isFinite(v))flush();else run.push(i);});
-  flush();
-  smoothLine(F,norm,"#16191D",2.5);
-}
 function plotBars(id,groups,colors,labels,desc,whisk,opt){
   // groups: one array per bar series; whisk: matching [lo,hi] pairs.
   const all=groups.slice();
@@ -2244,111 +2193,101 @@ function plotDual(id,a,amed,b,bmed,labels,desc,opt){
   smoothLine(F,a,"#E8A0A6",1);
   smoothLine(F,amed,"#C4322B",2);
 }
-function plotStrip(id,tenure,turnover,nplayer,labels,desc){
-  const F=frame(id,[tenure],labels,desc);
-  if(!F)return;
-  const{ctx,X,Y,W,R,T}=F,n=F.n;
-  if(nplayer!==null&&nplayer!==undefined&&nplayer<n){
-    ctx.fillStyle="rgba(36,86,224,.12)";
-    ctx.fillRect(X(nplayer),T,W-R-X(nplayer),F.H-F.T-F.B);
-    ctx.fillStyle="#2456E0";ctx.font="10px system-ui";
-    ctx.fillText("N-player",X(nplayer)+4,T+12);
-  }
-  const slot=n<2?20:Math.min(20,(W-F.L-R)/n);
-  ctx.fillStyle="#2456E0";
-  tenure.forEach((v,i)=>{
-    if(v===null||!Number.isFinite(v))return;
-    const y1=Y(v),bw=Math.max(2,slot*0.7);
-    ctx.fillRect(X(i)-bw/2,y1,bw,Math.max(1,Y(0)-y1));
-  });
-  turnover.forEach((t,i)=>{
-    if(!t)return;
-    const cx=X(i),cy=T+10,s=6;
-    ctx.beginPath();ctx.moveTo(cx,cy-s);ctx.lineTo(cx+s,cy);
-    ctx.lineTo(cx,cy+s);ctx.lineTo(cx-s,cy);ctx.closePath();
-    ctx.fillStyle="#C4322B";ctx.fill();
-    ctx.lineWidth=2;ctx.strokeStyle="#FFFFFF";ctx.stroke();
-  });
-}
-function changeTicks(B,ids){
-  // Champion-change gens label the x-axis between first and last (P1-4).
-  const to=(B.reign&&B.reign.turnover)||[];
-  let idx=[];
-  to.forEach((t,i)=>{if(t)idx.push(i);});
-  if(idx.length>8){const step=Math.ceil(idx.length/8);idx=idx.filter((_,k)=>k%step===0);}
-  return idx.map(i=>[i,ids[i]||("gen "+i)]);
+function anchorPalette(n){
+  const base=["#2456E0","#18794E","#8A5A00","#C4322B","#6B4EFF","#0E7C86","#B23C8A","#5B6470"];
+  const out=[];
+  for(let i=0;i<n;i++)out.push(base[i%base.length]);
+  return out;
 }
 function renderBoard(){
-  const B=S.board,ids=B.ids;
-  const refIds=B.elo.panel||[];
-  const ticks=changeTicks(B,ids);
-  plotLines("ch-elo",[...refIds.map(pid=>((B.elo.refs||{})[pid]||[])),B.elo.cand,B.elo.champ],[...refIds.map(()=>"#C9CFD6"),"#9EC5FE","#2456E0"],[...refIds.map(()=>1),1.5,2],ids,
-    adesc("candidate vs defending-champion causal Elo",B.elo.cand||[],ids),{yt:"Elo",ticks});
-  deltaChip("d-elo",B.elo.cand||[]);
-  const tn=(B.elo.turn_note||[]).map(r=>`${r.from}–${r.to}: train ${r.train_turns} vs eval ${r.eval_turns} turns`).join("; ");
-  $("elo-turn").textContent=tn?`turn confound (${tn}) — mixed, not corrected`:
-    "train+eval fit: turn counts match across eras";
-  plotTicks("ch-knock-marks",B.knock.knock,ids,"knock marks, "+B.knock.knock.length+" gens");
-  plotKnock("ch-knock",B.knock,ids,adesc("knock rate",B.knock.rate||[],ids),{yt:"rate",ticks});
-  deltaChip("d-knock",B.knock.rate||[]);
+  const B=S.board,ids=B.labels||[];
+  const tracked=B.elo.tracked||[];
+  const series=tracked.map(m=>((B.elo.series||{})[m]||[]));
+  plotLines("ch-elo",series,anchorPalette(Math.max(1,tracked.length)),tracked.map(()=>2),ids,
+    adesc("per-learner causal Elo",series[0]||[],ids),{yt:"Elo"});
+  deltaChip("d-elo",series.length?series[0]:[]);
+  $("elo-note").textContent=`K=${B.k} from league.json · ${tracked.length} tracked`;
+  const AT=S.anchor_trend||{snapshots:[],anchors:[],series:{}};
+  const alabels=AT.snapshots||[];
+  const aseries=(AT.anchors||[]).map(a=>((AT.series||{})[a]||[]));
+  plotLines("ch-anchor",aseries,anchorPalette(Math.max(1,aseries.length)),aseries.map(()=>2),alabels,
+    adesc("anchor trend",aseries[0]||[],alabels),{yt:"share"});
+  plotBand("ch-conv",B.conv.conv,B.conv.clo,B.conv.chi,"#18794E","rgba(24,121,78,.16)",ids,
+    adesc("train conversion",B.conv.conv||[],ids),{yt:"share"});
+  deltaChip("d-conv",B.conv.conv||[]);
   plotLines("ch-dec",[B.decisive.train,B.decisive.train_ma,B.decisive.eval,B.decisive.eval_ma],
     ["#E8A0A6","#C4322B","#9EC5FE","#2456E0"],[1,2,1,2],ids,
-    adesc("decisiveness train vs eval",B.decisive.train||[],ids),{yt:"frac",ticks});
+    adesc("decisiveness train vs eval",B.decisive.train||[],ids),{yt:"frac"});
   deltaChip("d-dec",B.decisive.train_ma||[]);
   plotBand("ch-marg",B.margin.med,B.margin.q1,B.margin.q3,"#2456E0","rgba(36,86,224,.15)",ids,
-    adesc("eval margin median",B.margin.med||[],ids),{yt:"pts",ticks});
+    adesc("training-side margin median",B.margin.med||[],ids),{yt:"pts"});
   deltaChip("d-marg",B.margin.med||[]);
   plotDual("ch-pg",B.pg.ratio,B.pg.ratio_med,B.pg.entropy,B.pg.entropy_med,ids,
-    adesc("PG signal ratio",B.pg.ratio||[],ids),{yt:"ratio",ticks});
+    adesc("PG signal ratio",B.pg.ratio||[],ids),{yt:"ratio"});
   deltaChip("d-pg",B.pg.ratio_med||[]);
   plotBars("ch-vslope",[B.vslope],["#8A5A00"],ids,
-    adesc("value-fit slope",B.vslope||[],ids),null,{yt:"slope",ticks});
+    adesc("value-fit slope",B.vslope||[],ids),null,{yt:"slope"});
   deltaChip("d-vsl",B.vslope||[]);
-  plotStrip("ch-tenure",B.reign.tenure,B.reign.turnover,B.regimes.nplayer,ids,
-    adesc("tenure",B.reign.tenure||[],ids));
-  $("tenure-now").textContent=B.reign.readout||"";
-  plotNorm("ch-entlane",B.reign.entropy_n,B.reign.entropy,ids,
-    adesc("Nash entropy",B.reign.entropy||[],ids));
+}
+function renderLeague(){
+  const L=S.league;
+  const size=(L&&L.micro_size)||8;
+  let rows;
+  if(!L)rows='<tr><td colspan="4" class="empty">no scheduler state yet — start the league loop</td></tr>';
+  else{
+    const per=L.per_learner||{};
+    const micro=Object.keys(per).map(k=>`${esc(k)} ${(per[k]%size+size)%size}/${size}`).join(", ")||"—";
+    rows=`<tr><td><b>${esc(L.learner||"?")}</b></td><td class="num">tick ${L.tick??0}</td><td class="num" colspan="2">${micro} · main ${esc(L.main_id||"—")}</td></tr>`;
+    for(const[name,exp]of Object.entries(L.exploiters||{})){
+      const rate=(typeof exp.rate==="number")?`${(exp.rate*100).toFixed(0)}%`:"—";
+      rows+=`<tr><td>${esc(name)}</td><td class="truncate" title="${esc(exp.id||"")}">${esc(exp.id||"—")}</td><td class="num">${exp.games??0}</td><td class="num">${esc(exp.record||"—")} · ${rate} vs ${esc(exp.target||"")}</td></tr>`;
+    }
+  }
+  if($("league-body").innerHTML!==rows)$("league-body").innerHTML=rows;
+  const admits=(S.admissions||[]).map(a=>`<tr><td class="truncate" title="${esc(a.id)}">${esc(a.id)}</td><td>${esc(a.role)}</td><td class="num">${a.at_game}</td><td class="num">${esc(a.record)}</td></tr>`).join("")||'<tr><td colspan="4" class="empty">no admissions yet — exploiters are admitted past the bar</td></tr>';
+  if($("admit-body").innerHTML!==admits)$("admit-body").innerHTML=admits;
+  const P=S.pool;
+  if(P){
+    const sh=(P.top20&&typeof P.top20.share==="number")?`${(P.top20.share*100).toFixed(1)}%`:"—";
+    $("pool-summary").textContent=`${P.total} members · snapshots ${P.snapshot_counter} · top-20 share ${sh}`;
+    $("pool-roles").textContent=Object.entries(P.by_role||{}).sort().map(([k,v])=>`${k} ${v}`).join(", ")||"—";
+    const nq=P.newcomers||[];
+    $("pool-new").textContent=nq.length?nq.slice(0,12).join(", ")+(nq.length>12?` +${nq.length-12} more`:""):"none — every member has 10+ games";
+  }
 }
 const PAGE=100;
-let genPage=0, popPage=0, lastGens="", lastPop="", lastMaps="";
-function genFiltered(){
-  // P1-3: the member input filters generations too (challenger OR champ).
+let histPage=0, popPage=0, lastHist="", lastPop="", lastMaps="";
+function histFiltered(){
+  // P1-3: the member input filters history too (id OR champion OR learner).
   const m=$("member").value.trim();
-  return (S.generations||[]).filter(g=>!m||g.id===m||g.champion===m);
+  return (S.history||[]).filter(g=>!m||g.id===m||g.champion===m||g.learner===m);
 }
-function genRow(g){
-  // Twin of Python gen_row_html — keep both sides in step.
-  const pct=g.eval_games?100*g.win_rate:0;
-  const losses=Math.max(0,g.eval_games-g.eval_w-g.eval_d);
-  const thr=(typeof g.threshold==="number")?g.threshold:0.5;
-  const margin=(typeof g.mean_margin==="number")?g.mean_margin:0;
-  const crown=g.crown==="complete"
-    ?'<span class="badge promoted" title="beat the champ head-to-head AND the duel field">complete</span>'
-    :g.crown==="soft"
-    ?'<span class="badge held" title="took the throne without both edges">soft</span>'
-    :'<span class="legend">—</span>';
+function histRow(g){
+  // Twin of Python hist_row_html — keep both sides in step.
   const when=g.finished_at
     ?`<div class="legend" title="${esc(isoT(g.finished_at))} · ${fmtDur(g.duration_s)}">${fmtTime(g.finished_at)} · ${fmtDur(g.duration_s)}</div>`:"";
+  if(g.kind==="snapshot")
+    return `<tr><td class="truncate" title="${esc(g.id)}">${esc(g.id)}</td>`+
+    `<td><span class="pill train">${esc(g.learner)}</span> tick ${esc(g.tick)}</td>`+
+    `<td class="num">${esc(g.games)} own-games</td>`+
+    `<td class="num">anchors ${esc(g.anchors||"—")}</td></tr>`;
+  const pct=g.eval_games?100*g.win_rate:0;
+  const losses=Math.max(0,g.eval_games-g.eval_w-g.eval_d);
+  const margin=(typeof g.mean_margin==="number")?g.mean_margin:0;
   return `<tr><td class="truncate" title="${esc(g.id)}">${esc(g.id)}${when}</td>`+
-  `<td class="num">${(+g.train_return||0).toFixed(2)}</td>`+
-  `<td class="num">${(+g.train_loss||0).toFixed(3)}</td>`+
-  `<td><span class="rate-wrap rate-text" title="challenger W-D-L · Wilson lower bound (z=1.0) ${g.wilson_lower.toFixed(2)} vs promotion threshold ${thr.toFixed(2)} · ▲ ${(thr*100).toFixed(0)}% threshold"><span class="rate-bar"><div style="width:${pct.toFixed(0)}%"></div>`+
-  `<span class="marker" style="left:${(thr*100).toFixed(0)}%" title="promotion threshold ${thr.toFixed(2)}"></span></span>`+
-  `${g.eval_w}-${g.eval_d}-${losses} · ${(g.win_rate*100).toFixed(1)}% (draws count ½) · lower ${g.wilson_lower.toFixed(2)} · `+
-  `<span title="mean eval margin, challenger-minus-champion">margin ${margin>=0?"+"+margin.toFixed(2):margin.toFixed(2)} pts</span>`+
-  `<div class="dots" title="per-duel margins: green win, blue draw, red loss">${dotStrip(g.margins)}</div></span></td>`+
-  `<td class="res-cell">${g.promoted?'<span class="badge promoted">promoted ★</span>':'<span class="badge held">held</span>'}`+
-  `<div class="legend" style="margin:4px 0 0">${esc(g.reason)}</div>`+(g.exploiter?` <span class="badge draw">exploiter</span>`:'')+`</td>`+
-  `<td>${crown}</td>`+
-  `<td class="num legend truncate" title="${esc(g.arch)} · ${g.turns} turns">${esc(g.arch)} · ${g.turns} turns · γ ${g.gamma}</td></tr>`;
+  `<td>vs ${esc(g.champion||"?")}</td>`+
+  `<td class="num">${(+g.train_return||0).toFixed(2)} · ${(+g.train_loss||0).toFixed(3)}</td>`+
+  `<td><span class="rate-wrap rate-text" title="legacy eval W-D-L · draws count ½"><span class="rate-bar"><div style="width:${pct.toFixed(0)}%"></div></span>`+
+  `${g.eval_w}-${g.eval_d}-${losses} · ${(g.win_rate*100).toFixed(1)}% · `+
+  `<span title="mean eval margin">margin ${margin>=0?"+"+margin.toFixed(2):margin.toFixed(2)} pts</span>`+
+  `<div class="dots" title="per-duel margins: green win, blue draw, red loss">${dotStrip(g.margins)}</div></span></td></tr>`;
 }
 function renderPopulation(){
   if(tableBusy("pop-body"))return; // P0-3: reader busy, retry next poll
-  // P1-2: Nash desc, zero-Nash hidden by default, % at 1dp, ≥1px bars.
+  // Share desc, zero-share hidden by default, % at 1dp, ≥1px bars.
   const hide=$("hide-zero")&&$("hide-zero").checked;
-  const ranked=[...(S.members||[])].sort((a,b)=>(b.nash||0)-(a.nash||0));
-  const vis=hide?ranked.filter(m=>(m.nash||0)>0):ranked;
+  const ranked=[...(S.members||[])].sort((a,b)=>((b.share||0)-(a.share||0)));
+  const vis=hide?ranked.filter(m=>(m.share||0)>0):ranked;
   const pages=Math.max(1,Math.ceil(vis.length/PAGE));
   popPage=Math.min(popPage,pages-1);
   const h=hide+"|"+popPage+"|"+JSON.stringify(vis.slice(popPage*PAGE,popPage*PAGE+PAGE));
@@ -2356,7 +2295,7 @@ function renderPopulation(){
   lastPop=h;
   const rows=vis.slice(popPage*PAGE,popPage*PAGE+PAGE).map(m=>popRow(m)).join("");
   keepScroll($("pop-scroll"),()=>{
-    $("pop-body").innerHTML=rows||'<tr><td colspan="5" class="empty">no checkpoints yet — start a generation</td></tr>';
+    $("pop-body").innerHTML=rows||'<tr><td colspan="5" class="empty">no checkpoints yet — start the league loop</td></tr>';
   });
   const page=Math.min(popPage+1,pages);
   const shown=vis.slice(popPage*PAGE,popPage*PAGE+PAGE).length;
@@ -2367,32 +2306,34 @@ function renderPopulation(){
 function popRow(m){
   // Twin of Python pop_row_html.
   const role=m.role==="main"?"seed":m.role;
-  const pct=(m.nash||0)*100;
-  const bar=`max(${pct.toFixed(1)}%,${(m.nash||0)>0?1:0}px)`;
-  return `<tr><td class="truncate" title="${esc(m.id)}">${esc(m.id)}${m.id===S.champion?' <span class="champ-star">★</span>':""}</td>`+
+  const share=(typeof m.share==="number")?m.share:null;
+  const pct=share===null?0:share*100;
+  const bar=`max(${pct.toFixed(1)}%,${pct>0?1:0}px)`;
+  const disp=share===null?"—":`${pct.toFixed(1)}%`;
+  return `<tr><td class="truncate" title="${esc(m.id)}">${esc(m.id)}${m.id===S.main?' <span class="champ-star">★</span>':""}</td>`+
   `<td>${esc(role)}${m.role==="main"?' <span class="legend">founding weights</span>':""}</td><td class="truncate" title="${esc(m.parent||"")}">${esc(m.parent||"—")}</td>`+
-  `<td><span class="nash-wrap"><span class="nash-bar"><div style="width:${bar}"></div></span>${pct.toFixed(1)}%</span></td>`+
+  `<td><span class="share-wrap"><span class="share-bar"><div style="width:${bar}"></div></span>${disp}</span></td>`+
   `<td class="num">${m.wins}-${m.draws}-${m.losses}</td></tr>`;
 }
-function renderGenerations(){
-  if(tableBusy("gen-body"))return; // P0-3: reader busy, retry next poll
-  const vis=genFiltered();
+function renderHistory(){
+  if(tableBusy("hist-body"))return; // P0-3: reader busy, retry next poll
+  const vis=histFiltered();
   const pages=Math.max(1,Math.ceil(vis.length/PAGE));
-  genPage=Math.min(genPage,pages-1);
-  const h=$("member").value+"|"+genPage+"|"+JSON.stringify(vis.slice(genPage*PAGE,genPage*PAGE+PAGE));
-  if(h===lastGens)return; // unchanged: keep focus, selection, scroll
-  lastGens=h;
-  const rows=vis.slice(genPage*PAGE,genPage*PAGE+PAGE).map(g=>genRow(g)).join("");
-  keepScroll($("gen-scroll"),()=>{
-    $("gen-body").innerHTML=rows||($("member").value
-      ?`<tr><td colspan="7" class="empty">no generations for ${esc($("member").value)} yet — <a href="#" class="js-clear">clear filter</a></td></tr>`
-      :'<tr><td colspan="7" class="empty">no completed generations yet</td></tr>');
+  histPage=Math.min(histPage,pages-1);
+  const h=$("member").value+"|"+histPage+"|"+JSON.stringify(vis.slice(histPage*PAGE,histPage*PAGE+PAGE));
+  if(h===lastHist)return; // unchanged: keep focus, selection, scroll
+  lastHist=h;
+  const rows=vis.slice(histPage*PAGE,histPage*PAGE+PAGE).map(g=>histRow(g)).join("");
+  keepScroll($("hist-scroll"),()=>{
+    $("hist-body").innerHTML=rows||($("member").value
+      ?`<tr><td colspan="4" class="empty">no history for ${esc($("member").value)} yet — <a href="#" class="js-clear">clear filter</a></td></tr>`
+      :'<tr><td colspan="4" class="empty">no history yet — games appear here as the league ticks</td></tr>');
   });
   bindClear();
-  const page=Math.min(genPage+1,pages);
-  $("gen-count").textContent=`showing ${vis.slice(genPage*PAGE,genPage*PAGE+PAGE).length} of ${vis.length} · page ${page} of ${pages}`;
-  $("gen-prev").disabled=genPage<=0;
-  $("gen-next").disabled=genPage+1>=pages;
+  const page=Math.min(histPage+1,pages);
+  $("hist-count").textContent=`showing ${vis.slice(histPage*PAGE,histPage*PAGE+PAGE).length} of ${vis.length} · page ${page} of ${pages}`;
+  $("hist-prev").disabled=histPage<=0;
+  $("hist-next").disabled=histPage+1>=pages;
 }
 function memberIds(){return S.members.map(m=>m.id);}
 function renderMemberOptions(){
@@ -2419,9 +2360,9 @@ function bindClear(){
 }
 function clearMember(){
   $("member").value="";
-  gamesOffset=0;genPage=0;
+  gamesOffset=0;histPage=0;
   history.replaceState(null,"",location.pathname);
-  syncClear();renderGenerations();renderGames(++seq);
+  syncClear();renderHistory();renderGames(++seq);
 }
 function gameRow(x){
   // Twin of Python game_row_html.
@@ -2509,9 +2450,9 @@ function seedMember(){
     return;
   }
   $("member").value=want;
-  gamesOffset=0;genPage=0;
+  gamesOffset=0;histPage=0;
   history.replaceState(null,"","#member="+encodeURIComponent(want));
-  syncClear();renderGenerations();
+  syncClear();renderHistory();
 }
 async function load(){
   if(!live) return;
@@ -2528,7 +2469,7 @@ async function load(){
       S=snap;
       const h=JSON.stringify(snap);
       if(h!==lastHash){lastHash=h;
-        renderHeader();renderBoard();renderPopulation();renderGenerations();renderMemberOptions();renderMaps();}
+        renderHeader();renderBoard();renderLeague();renderPopulation();renderHistory();renderMemberOptions();renderMaps();}
       else renderHeader();
       if(!hashSeeded){hashSeeded=true;seedMember();}
     }
@@ -2541,14 +2482,14 @@ async function load(){
       :"connection lost ("+e.message+") — no data yet. retrying…";
   }
 }
-function activePhase(){const p=S&&S.status&&S.status.phase;return p==="train"||p==="eval";}
+function activePhase(){const p=S&&S.status&&S.status.phase;return p==="train"||p==="eval"||p==="league"||p==="anchor";}
 function tick(){renderPill();load().finally(()=>setTimeout(tick,live?(activePhase()?5000:15000):15000));}
 let gamesOffset=0,hashSeeded=false;
-$("member").addEventListener("input",()=>{gamesOffset=0;genPage=0;++seq;syncClear();renderGenerations();renderGames(seq);});
-$("member").addEventListener("change",()=>{gamesOffset=0;genPage=0;++seq;syncClear();renderGenerations();renderGames(seq);});
+$("member").addEventListener("input",()=>{gamesOffset=0;histPage=0;++seq;syncClear();renderHistory();renderGames(seq);});
+$("member").addEventListener("change",()=>{gamesOffset=0;histPage=0;++seq;syncClear();renderHistory();renderGames(seq);});
 $("clear-filter").addEventListener("click",e=>{e.preventDefault();clearMember();});
-$("gen-prev").addEventListener("click",()=>{genPage=Math.max(0,genPage-1);renderGenerations();});
-$("gen-next").addEventListener("click",()=>{genPage+=1;renderGenerations();});
+$("hist-prev").addEventListener("click",()=>{histPage=Math.max(0,histPage-1);renderHistory();});
+$("hist-next").addEventListener("click",()=>{histPage+=1;renderHistory();});
 $("pop-prev").addEventListener("click",()=>{popPage=Math.max(0,popPage-1);renderPopulation();});
 $("pop-next").addEventListener("click",()=>{popPage+=1;renderPopulation();});
 $("hide-zero").addEventListener("change",()=>{popPage=0;lastPop="";renderPopulation();});
@@ -2572,11 +2513,14 @@ def render_page(snap: dict | None = None) -> str:
     if snap is None:
         skel3 = "".join(
             '<tr class="skel">' + "<td><span></span></td>" * 4 + "</tr>" for _ in range(3))
-        hero_champ, hero_run, hero_eta = "loading…", "gen —", ""
+        hero_main, hero_run = "loading…", "tick —"
         status_line, pct, bar_bg = "loading…", 0, "var(--accent)"
         counts = ("0", "0", "0", "0")
-        gen_rows = skel3
-        gen_count = "loading…"
+        league_rows = skel3
+        admit_rows = skel3
+        pool_summary, pool_roles, pool_new = "loading…", "loading…", "loading…"
+        hist_rows = skel3
+        hist_count = "loading…"
         game_rows = skel3
         game_count = "loading…"
         pop_rows = skel3
@@ -2585,45 +2529,37 @@ def render_page(snap: dict | None = None) -> str:
         map_count = "loading…"
         footer_counts = "0 games"
     else:
-        champ = snap.get("champion")
-        star = ' <span class="champ-star">★</span>' if champ else ""
-        hero_champ = f"{_esc(champ or '—')}{star}"
-        run = snap.get("run", {}) or {}
-        hero_run = _esc(hero_run_text(run))
-        hero_eta = ""
-        tgt = run.get("target")
-        if not (isinstance(tgt, int) and (run.get("finished", 0) or 0) >= tgt):
-            bits = []
-            if run.get("last_finished_at"):
-                bits.append("last finished " + fmt_time(run["last_finished_at"]))
-            if run.get("avg_s"):
-                bits.append(f"avg {run['avg_s']}s/gen")
-            if isinstance(tgt, int) and run.get("avg_s") and tgt > (run.get("finished", 0) or 0):
-                bits.append("ETA " + fmt_time(time.time() + (tgt - run["finished"]) * run["avg_s"]))
-            hero_eta = _esc(" · ".join(bits) or "no timing data yet")
-        status_line, pct = status_html(snap.get("status"), champ,
-                                       snap.get("counts", {}).get("generations", 0))
+        main = snap.get("main")
+        star = ' <span class="champ-star">★</span>' if main else ""
+        hero_main = f"{_esc(main or '—')}{star}"
+        league = snap.get("league")
+        hero_run = _esc(hero_league_text(league, snap.get("intervals")))
+        status_line, pct = status_html(snap.get("status"), main,
+                                       snap.get("counts", {}).get("rows", 0))
         st = snap.get("status", {}) or {}
         bar_bg = ("var(--success)" if st.get("phase") == "done" and st.get("promoted")
                   else "var(--warn)" if st.get("phase") == "done"
                   else "var(--accent)")
-        counts = (str(snap.get("counts", {}).get("generations", 0)),
+        counts = (str(snap.get("counts", {}).get("rows", 0)),
                   str(snap.get("counts", {}).get("games", 0)),
                   str(len(snap.get("members", []))),
                   str(len(snap.get("maps", []))))
-        gens = snap.get("generations", [])
-        gen_rows = "".join(gen_row_html(g) for g in gens[:PAGE_SIZE]) or \
-            '<tr><td colspan="7" class="empty">no completed generations yet</td></tr>'
-        npages = max(1, (len(gens) + PAGE_SIZE - 1) // PAGE_SIZE)
-        gen_count = f"showing {min(len(gens), PAGE_SIZE)} of {len(gens)} · page 1 of {npages}"
+        league_rows = league_strip_html(league)
+        admit_rows = admissions_rows_html(snap.get("admissions", []))
+        pool_summary, pool_roles, pool_new = pool_html(snap.get("pool"))
+        rows = snap.get("history", [])
+        hist_rows = "".join(hist_row_html(g) for g in rows[:PAGE_SIZE]) or \
+            '<tr><td colspan="4" class="empty">no history yet — games appear here as the league ticks</td></tr>'
+        npages = max(1, (len(rows) + PAGE_SIZE - 1) // PAGE_SIZE)
+        hist_count = f"showing {min(len(rows), PAGE_SIZE)} of {len(rows)} · page 1 of {npages}"
         games = snap.get("games", [])
         game_rows = "".join(game_row_html(x) for x in games) or \
             f'<tr><td colspan="5" class="empty">{EMPTY_GAMES}</td></tr>'
         total = snap.get("game_total", len(games))
         game_count = f"showing {len(games)} of {total} · page 1 of {max(1, (total + 99) // 100)}"
-        vis = pop_first_page(snap.get("members", []), champ)
-        pop_rows = "".join(pop_row_html(m, champ) for m in vis[:PAGE_SIZE]) or \
-            '<tr><td colspan="5" class="empty">no checkpoints yet — start a generation</td></tr>'
+        vis = pop_first_page(snap.get("members", []), main)
+        pop_rows = "".join(pop_row_html(m, main) for m in vis[:PAGE_SIZE]) or \
+            '<tr><td colspan="5" class="empty">no checkpoints yet — start the league loop</td></tr>'
         ppp = max(1, (len(vis) + PAGE_SIZE - 1) // PAGE_SIZE)
         pop_count = f"showing {min(len(vis), PAGE_SIZE)} of {len(vis)} · page 1 of {ppp}"
         maps = snap.get("maps", [])
@@ -2636,65 +2572,70 @@ def render_page(snap: dict | None = None) -> str:
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AlphaAnt training</title>
 <style>{STYLES}</style></head>
-<body><a class="skip" href="#games-card">skip to games</a><a class="skip" href="#gen-card">skip to generations</a><div class="wrap">
-<h1>AlphaAnt training</h1>
-<p class="sub">mirror self-play · policy gradients · scripted promotion — nothing external, ever</p>
+<body><a class="skip" href="#games-card">skip to games</a><a class="skip" href="#hist-card">skip to history</a><div class="wrap">
+<h1>AlphaAnt continuous league</h1>
+<p class="sub">four learners, equal shares · fixed anchor ladder · no generations, no throne</p>
 <div id="error" role="alert"></div>
-<div class="card" id="getting-started" style="display:none"><b>No generations yet.</b> Start one with:
-<code>.venv/bin/python ml/selfplay.py --train-games 4 --eval-games 6 --turns 50 --no-commit</code>
-— games, curves and population appear here as it runs.</div>
+<div class="card" id="getting-started" style="display:none"><b>No games yet.</b> Start the league with:
+<code>.venv/bin/python ml/selfplay.py --ticks 100 --anchors g000</code>
+— games, curves and population appear here as it ticks.</div>
 <div class="card hero" id="hero">
-  <div class="hero-main"><div class="stat-label">★ Champion</div>
-    <div class="hero-champ" id="st-champ">{hero_champ}</div>
-    <div class="hero-run" id="st-run">{hero_run}</div>
-    <div class="legend" id="st-eta">{hero_eta}</div></div>
+  <div class="hero-main"><div class="stat-label">Live main</div>
+    <div class="hero-champ" id="st-champ">{hero_main}</div>
+    <div class="hero-run" id="st-run">{hero_run}</div></div>
   <div class="hero-side"><div class="stat-label">Status</div>
     <div class="status-line" id="st-status">{status_line}</div>
     <div class="progress" role="progressbar" aria-label="run progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{pct}" id="st-barwrap"><div id="st-bar" style="width:{pct}%;background:{bar_bg}"></div></div></div>
 </div>
 <div class="strip" id="stats-row">
-  <div class="mini"><div class="stat-label">Generations</div><div class="stat-value" id="st-gen">{counts[0]}</div></div>
+  <div class="mini"><div class="stat-label">History rows</div><div class="stat-value" id="st-gen">{counts[0]}</div></div>
   <div class="mini"><div class="stat-label">Games</div><div class="stat-value" id="st-games">{counts[1]}</div></div>
   <div class="mini"><div class="stat-label">Members</div><div class="stat-value" id="st-members">{counts[2]}</div></div>
   <div class="mini"><div class="stat-label">Maps × seats</div><div class="stat-value" id="st-maps">{counts[3]}</div></div>
 </div>
+<div class="section-title">Scheduler</div>
+<div class="legend">current learner · micro-batch progress · live exploiter records vs their bar</div>
+<div class="card table-scroll" id="league-card"><table>
+<caption>Scheduler state, live</caption>
+<tr><th scope="col">learner</th><th scope="col">tick</th><th scope="col" class="num">own-games</th><th scope="col" class="num">last-40 record</th></tr>
+<tbody id="league-body">{league_rows}</tbody></table></div>
 <div class="section-title">Progress board</div>
-<div class="legend">seven training curves, one point per generation, oldest → newest</div>
-<details class="why"><summary>what am I looking at?</summary><p>Each card plots one signal per generation, oldest on the left. <b>Return</b> is the mean engine score per training game. Thick lines are window medians over faint per-generation points; shaded bands are the spread. The PG ratio card is experimental — it has no literature backing, unlike the rest.</p></details>
+<div class="legend">one point per K-game interval, oldest → newest</div>
+<details class="why"><summary>what am I looking at?</summary><p>Each card plots one signal per K-game interval, oldest on the left. The anchor-trend card is the absolute progress curve: each main snapshot's win share against the frozen ladder. Thick lines are window medians over faint per-interval points; shaded bands are the spread. The PG ratio card is experimental — it has no literature backing, unlike the rest.</p></details>
 <div class="charts">
-  <div class="card chart-card chart-wide"><div class="chart-head"><h3>Candidate vs champion Elo</h3><span class="delta flat" id="d-elo" style="display:none"></span></div>
-    <p class="chart-sub">running Bradley-Terry over train+eval pairs · one pass, gen 0 to G · g000 pinned at 0 · <span id="elo-turn"></span></p><canvas id="ch-elo"></canvas></div>
-  <div class="card chart-card"><div class="chart-head"><h3>Knock marks + rates</h3><span class="delta flat" id="d-knock" style="display:none"></span></div>
-    <p class="chart-sub">top: one tick per gen (blue knock ≥ .50, gray held) · bottom: 15-gen rates + Wilson bands</p><canvas id="ch-knock-marks" style="height:64px"></canvas><canvas id="ch-knock" style="margin-top:8px"></canvas></div>
+  <div class="card chart-card chart-wide"><div class="chart-head"><h3>Per-learner Elo</h3><span class="delta flat" id="d-elo" style="display:none"></span></div>
+    <p class="chart-sub">running Bradley-Terry over train+eval pairs · one pass, interval 0 to I · g000 pinned at 0 · live main + exploiters + anchors · <span id="elo-note"></span></p><canvas id="ch-elo"></canvas></div>
+  <div class="card chart-card chart-wide"><div class="chart-head"><h3>Anchor trend — main vs ladder</h3></div>
+    <p class="chart-sub">main snapshot win share per frozen anchor · measurement only, no training · THE progress curve</p><canvas id="ch-anchor"></canvas></div>
+  <div class="card chart-card"><div class="chart-head"><h3>Train conversion</h3><span class="delta flat" id="d-conv" style="display:none"></span></div>
+    <p class="chart-sub">training-side win share per interval · trailing mean + Wilson bands</p><canvas id="ch-conv"></canvas></div>
   <div class="card chart-card"><div class="chart-head"><h3>Decisiveness train vs eval</h3><span class="delta flat" id="d-dec" style="display:none"></span></div>
-    <p class="chart-sub">nonzero-margin fraction · faint raw, bold 15-gen average</p><canvas id="ch-dec"></canvas></div>
-  <div class="card chart-card"><div class="chart-head"><h3>Eval margin median ± IQR</h3><span class="delta flat" id="d-marg" style="display:none"></span></div>
-    <p class="chart-sub">pooled trailing 15-gen window · signed challenger-minus-champ, pts</p><canvas id="ch-marg"></canvas></div>
+    <p class="chart-sub">nonzero-margin fraction · faint raw, bold 15-interval average</p><canvas id="ch-dec"></canvas></div>
+  <div class="card chart-card"><div class="chart-head"><h3>Training-side margin median ± IQR</h3><span class="delta flat" id="d-marg" style="display:none"></span></div>
+    <p class="chart-sub">pooled trailing 15-interval window · seats[0]-minus-seats[1], pts</p><canvas id="ch-marg"></canvas></div>
   <div class="card chart-card"><div class="chart-head"><h3>PG signal ratio + entropy</h3><span class="delta flat" id="d-pg" style="display:none"></span></div>
-    <p class="chart-sub">ratio = |pg_loss|/pg_abs at last epoch · EXPERIMENTAL · entropy on right axis</p><canvas id="ch-pg"></canvas></div>
+    <p class="chart-sub">ratio = |pg_loss|/pg_abs at last epoch · main snapshots only · EXPERIMENTAL · entropy on right axis</p><canvas id="ch-pg"></canvas></div>
   <div class="card chart-card"><div class="chart-head"><h3>Value-fit slope</h3><span class="delta flat" id="d-vsl" style="display:none"></span></div>
-    <p class="chart-sub">(v_loss[0]−v_loss[−1])/v_loss[0] · + means the critic learned in-gen</p><canvas id="ch-vslope"></canvas></div>
-  <div class="card chart-card"><div class="chart-head"><h3>Tenure / turnover + Nash entropy <span id="tenure-now"></span></h3></div>
-    <p class="chart-sub">tenure = gens held (crowning gen = 0) · ◆ = new crown · shaded = N-player era</p><canvas id="ch-tenure"></canvas><canvas id="ch-entlane" style="margin-top:8px"></canvas></div>
+    <p class="chart-sub">(v_loss[0]−v_loss[−1])/v_loss[0] · main snapshots only · + means the critic learned</p><canvas id="ch-vslope"></canvas></div>
 </div>
 <div class="tables-2col">
 <div class="tcell">
-<div class="section-title">Generations</div>
-<div class="legend">challenger W-D-L vs the champion · green fill is win rate, ▲ is the promotion threshold</div>
-<details class="why"><summary>jargon guide</summary><p>Each row is one challenger against the reigning champion. <b>Promoted</b> means its Wilson lower-bound win rate cleared the threshold (default 0.50) — it takes the throne. <b>Held</b> means it waits. <b>Crown</b> marks throne-takers: complete beat the champ head-to-head AND the duel field, soft took the throne without both. An <b>exploiter</b> badge flags challengers trained to probe weaknesses.</p></details>
+<div class="section-title">History</div>
+<div class="legend">league snapshots (learner · tick · anchors) and legacy challenger rows, newest first</div>
+<details class="why"><summary>jargon guide</summary><p>Each row is one league snapshot (its learner, scheduler tick, own-games and anchor W-D-L) or, from before the league, one challenger with its train return/loss and eval W-D-L. There are no promotions, no crowns, no verdicts — snapshots are permanent.</p></details>
 <div class="toolbar">
-<span class="pager"><button id="gen-prev" type="button" aria-label="newer generations page">← newer</button><button id="gen-next" type="button" aria-label="older generations page">older →</button></span>
-<span class="legend" id="gen-count" style="margin:0">{gen_count}</span>
+<span class="pager"><button id="hist-prev" type="button" aria-label="newer history page">← newer</button><button id="hist-next" type="button" aria-label="older history page">older →</button></span>
+<span class="legend" id="hist-count" style="margin:0">{hist_count}</span>
 </div>
-<div class="card table-scroll table-tall" id="gen-scroll"><table id="gen-card">
-<caption>Generations, newest first — the member filter above applies here too</caption>
-<tr><th scope="col">challenger</th><th scope="col" class="num">train return</th><th scope="col" class="num">train loss</th><th scope="col">eval vs champion</th><th scope="col">result</th><th scope="col">crown</th><th scope="col" class="num">config</th></tr>
-<tbody id="gen-body">{gen_rows}</tbody></table></div>
+<div class="card table-scroll table-tall" id="hist-scroll"><table id="hist-card">
+<caption>History, newest first — the member filter above applies here too</caption>
+<tr><th scope="col">id</th><th scope="col">vs / learner</th><th scope="col" class="num">training</th><th scope="col">eval / anchors</th></tr>
+<tbody id="hist-body">{hist_rows}</tbody></table></div>
 </div>
 <div class="tcell">
 <div class="section-title">Recent games</div>
-<div class="legend">train = practice · eval = promotion duels vs champion · scores are engine points</div>
-<details class="why"><summary>jargon guide</summary><p><b>Train</b> games are practice, including self-play. <b>Eval</b> games are promotion duels against the champion. The <b>result</b> badge reads from the filtered member's view when a filter is set, else the first-listed side. Games with 3+ seats list every seat with pair scores below.</p></details>
+<div class="legend">train = practice · eval = league games (learner seats first) · scores are engine points</div>
+<details class="why"><summary>jargon guide</summary><p><b>Train</b> games are practice, including self-play. <b>Eval</b> games are league games; the learner always seats first, so the <b>result</b> badge reads from the training side unless a member filter is set. Games with 3+ seats list every seat with pair scores below.</p></details>
 <div class="card" id="games-card">
 <div class="toolbar">
 <label for="member">member</label>
@@ -2715,28 +2656,44 @@ def render_page(snap: dict | None = None) -> str:
 </div>
 <div class="tcell">
 <div class="section-title">Population</div>
-<div class="legend">nash = mixture share in %, display only · W-D-L counts eval games</div>
-<details class="why"><summary>jargon guide</summary><p><b>Nash</b> is each checkpoint's share of the equilibrium mixture: it guides matchmaking, never ranking. <b>W-D-L</b> counts eval games only — one entry per game, where a win is the sole top score and a draw is a tied top. <b>Seed</b> is the founding-weights checkpoint everything descends from.</p></details>
+<div class="legend">share = realized sampling share (game seats) · W-D-L counts eval games</div>
+<details class="why"><summary>jargon guide</summary><p><b>Share</b> is each member's fraction of logged game seats: it shows where the scheduler actually spends games, never a ranking. <b>W-D-L</b> counts eval games only — one entry per game, where a win is the sole top score and a draw is a tied top. <b>Seed</b> is the founding-weights checkpoint everything descends from.</p></details>
 <div class="toolbar">
-<label class="live-toggle"><input type="checkbox" id="hide-zero" checked> hide zero-Nash</label>
+<label class="live-toggle"><input type="checkbox" id="hide-zero" checked> hide zero-share</label>
 <span class="pager"><button id="pop-prev" type="button" aria-label="previous population page">← prev</button><button id="pop-next" type="button" aria-label="next population page">next →</button></span>
 <span class="legend" id="pop-count" style="margin:0">{pop_count}</span>
 </div>
 <div class="card table-scroll table-tall" id="pop-scroll"><table>
-<caption>Population by Nash share, highest first</caption>
-<tr><th scope="col">id</th><th scope="col">role</th><th scope="col">parent</th><th scope="col">nash</th><th scope="col" class="num">W-D-L (eval)</th></tr>
+<caption>Population by sampling share, highest first</caption>
+<tr><th scope="col">id</th><th scope="col">role</th><th scope="col">parent</th><th scope="col">share</th><th scope="col" class="num">W-D-L (eval)</th></tr>
 <tbody id="pop-body">{pop_rows}</tbody></table></div>
 </div>
 <div class="tcell">
+<div class="section-title">Admissions</div>
+<div class="legend">exploiters frozen into the pool past the bar, newest last</div>
+<div class="card table-scroll table-tall" id="admit-scroll"><table>
+<caption>Admissions log from league.json</caption>
+<tr><th scope="col">id</th><th scope="col">role</th><th scope="col" class="num">at game</th><th scope="col" class="num">record</th></tr>
+<tbody id="admit-body">{admit_rows}</tbody></table></div>
+</div>
+<div class="tcell">
+<div class="section-title">Pool health</div>
+<div class="legend" id="pool-summary">{pool_summary}</div>
+<div class="card" id="pool-card">
+<div class="legend" style="margin:0 0 8px">roles: <span id="pool-roles">{pool_roles}</span></div>
+<div style="font-size:13.5px">newcomer queue (&lt;10 games): <span id="pool-new">{pool_new}</span></div>
+</div>
+</div>
+<div class="tcell">
 <div class="section-title">Maps</div>
-<div class="legend">per board and seat count — games per phase · challenger record on eval</div>
-<details class="why"><summary>jargon guide</summary><p>Each row is one board at one seat count. The <b>challenger record</b> covers eval games only, read off fixed seats 0 and 1 — extra seats are shared weather. Rows labelled unlabelled ran before map logging existed.</p></details>
+<div class="legend">per board and seat count — games per phase · training-side record on eval</div>
+<details class="why"><summary>jargon guide</summary><p>Each row is one board at one seat count. The <b>record</b> covers eval games only, read off fixed seats 0 and 1 — extra seats are shared weather. Rows labelled unlabelled ran before map logging existed.</p></details>
 <div class="toolbar">
 <span class="legend" id="maps-count" style="margin:0">{map_count}</span>
 </div>
 <div class="card table-scroll table-tall" id="maps-scroll"><table>
 <caption>Maps by games logged</caption>
-<tr><th scope="col">map</th><th scope="col" class="num">seats</th><th scope="col" class="num">train</th><th scope="col" class="num">eval</th><th scope="col" class="num">challenger W-D-L (eval)</th></tr>
+<tr><th scope="col">map</th><th scope="col" class="num">seats</th><th scope="col" class="num">train</th><th scope="col" class="num">eval</th><th scope="col" class="num">training-side W-D-L (eval)</th></tr>
 <tbody id="maps-body">{map_rows}</tbody></table></div>
 </div>
 </div>
