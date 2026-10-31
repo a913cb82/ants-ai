@@ -1082,7 +1082,7 @@ def render_page() -> str:
 <div class="cols">
 <div>
 <div class="section-title">Population</div>
-<div class="legend">nash = mixture share, display only (challengers only face the champion, so it cannot rank them) · W-D-L counts eval games: one entry per game (win = sole top score, draw = tied top)</div>
+<div class="legend">nash = mixture share, display only (it guides matchmaking, never ranking) · W-D-L counts eval games: one entry per game (win = sole top score, draw = tied top)</div>
 <div class="card table-scroll table-tall"><table>
 <tr><th>id</th><th>role</th><th>parent</th><th>nash</th><th class="num">W-D-L (eval)</th></tr>
 <tbody id="pop-body"></tbody></table></div>
