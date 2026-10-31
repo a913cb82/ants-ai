@@ -148,23 +148,24 @@ def test_batch_requires_out_dir(tmp_path):
     assert proc.returncode != 0
 
 
-def test_fresh_pool_collects_exact_2p_counts(tmp_path):
+def test_fresh_pool_draws_mixed_counts(tmp_path):
     import gen_mixed
     train_maps, eval_maps = gen_mixed.fresh_pool(
         4, 2, tmp_path / "gen000", seed=31337, jobs=1)
     assert len(train_maps) == 4 and len(eval_maps) == 2
+    seen_n = set()
     for p in train_maps + eval_maps:
         text = Path(p).read_text()
         n = int([l for l in text.splitlines()
                  if l.startswith("players")][0].split()[1])
-        assert n == 2, p
-        ok, reason = gen_mixed.validate(text, 2)
+        seen_n.add(n)
+        ok, reason = gen_mixed.validate(text, n)
         assert ok, (p, reason)
+    assert seen_n != {2}  # unpinned draws span player counts
     # Deterministic: same seed replays byte-identical files.
     again = tmp_path / "gen000b"
     t2, e2 = gen_mixed.fresh_pool(4, 2, again, seed=31337, jobs=1)
     for a, b in zip(train_maps + eval_maps, t2 + e2):
-        assert Path(a).read_bytes() != b""
         assert Path(a).name == Path(b).name
         assert Path(a).read_bytes() == Path(b).read_bytes()
 

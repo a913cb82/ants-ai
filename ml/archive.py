@@ -187,6 +187,33 @@ def _key(a: str, b: str) -> str:
     return f"{a} vs {b}"
 
 
+def sample_mixture(base: Path, k: int, seed: int = 0,
+                   exclude: tuple = ()) -> list[str]:
+    """k opponent ids drawn ∝ Nash mixture with replacement.
+
+    The FULL train/exam selection rule: renormalized over loadable
+    members minus `exclude` (usually the student). Degenerate matrix
+    (fresh archive, all draws) falls back to uniform over eligible --
+    that is the Nash of an all-zero matrix, not a special case. Empty
+    eligible set returns [] (fresh-archive gen 0: only the student
+    exists; callers mirror). Deterministic in seed.
+    """
+    rng = np.random.default_rng(seed)
+    try:
+        ids = [m["id"] for m in members(base)
+               if m["id"] not in exclude]
+    except (OSError, ValueError):
+        return []
+    if not ids or k <= 0:
+        return []
+    mix = nash_mixture(base)
+    w = np.array([mix.get(i, 0.0) for i in ids], dtype=float)
+    if w.sum() <= 0:
+        w = np.ones(len(ids))
+    w = w / w.sum()
+    return [str(x) for x in rng.choice(ids, size=k, p=w)]
+
+
 def outcome_of(score_a: float, score_b: float) -> float:
     """Duel outcome from A's view: 1.0 win, 0.5 draw, 0.0 loss.
 
@@ -323,47 +350,6 @@ def win_rates(
         mine, theirs = _head_to_head(data, kind, student, cid)
         rates[cid] = theirs / (mine + theirs)
     return rates
-
-
-def sample_opponents(
-    base: Path, student: str, k: int, self_play_frac: float = 0.35, seed: int = 0,
-    window: int = 15, include: tuple = (),
-) -> list[str]:
-    """PFSP-lite on the eval matrix: mostly the opponents that beat you,
-    some mirror self. Restricted to the frontier: only members within
-    `window` gens of the newest plus `include` (e.g. the champion)
-    are eligible. A flat-rate draw regime over 300 members degenerates
-    to uniform-over-history — ancient weaklings teaching nothing — so
-    the window keeps every train game informative. Empty filter falls
-    back to everyone (fresh archives)."""
-    rng = np.random.default_rng(seed)
-    rates = win_rates(base, student)
-    try:
-        newest = max(int(m["id"][1:]) for m in members(base))
-    except (ValueError, KeyError):
-        newest = -1
-
-    def eligible(i: str) -> bool:
-        try:
-            age = newest - int(i[1:])
-        except (ValueError, IndexError):
-            return True
-        return age < window or i in include or i == student
-
-    picks = []
-    for _ in range(k):
-        if rng.random() < self_play_frac or not rates:
-            picks.append(student)
-        else:
-            ids = sorted(i for i in rates if eligible(i))
-            if not ids:
-                # PFSP is blind (nothing rated at the frontier): mirror
-                # the student rather than raiding history for ancients.
-                ids = [student]
-                rates = {student: 0.0}
-            w = np.array([rates[i] + 0.05 for i in ids])
-            picks.append(str(rng.choice(ids, p=w / w.sum())))
-    return picks
 
 
 def payoff_matrix(base: Path, kind: str = "eval") -> tuple[list[str], np.ndarray]:

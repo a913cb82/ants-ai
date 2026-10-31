@@ -311,57 +311,36 @@ def run_batch(count, out_dir, seed, gen_pin, n_pin, min_hill_dist, jobs):
 
 def fresh_pool(n_train_games, n_eval_games, out_dir, seed, min_hill_dist=4.0,
              jobs=8):
-    """Generate until n_train_games+n_eval_games 2p maps are collected.
+    """Draw exactly n_train_games+n_eval_games maps, any player count.
 
-    No-args draws (random type, random 2-4 players). Non-2p maps are
-    written alongside and set aside for the >2p discussion, never
-    returned: the 2-bot engine rejects hill digits >= num_players at
-    parse time, so only 2p boards can host games today. Deterministic
-    in seed; bounded (fail loud past the draw cap). Returns
-    (train_paths, eval_paths) as strings, 1:1 with games.
+    No-args draws (random type, random 2-4 players): the user decides
+    nothing per map, the script decides everything. Deterministic in
+    seed. Returns (train_paths, eval_paths) as strings, 1:1 with games.
     """
     need = n_train_games + n_eval_games
     _load_genmods()  # before any fork: workers inherit loaded modules
     rng = random.Random(seed)
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
-    two_p: list[str] = []
-    idx = draws = 0
-    use_pool = jobs != 1
-    pool = None
-    if use_pool:
+    batch = []
+    for i in range(need):
+        gen = rng.choice(GENS)
+        n = rng.choice([2, 3, 4])
+        batch.append((i, gen, n, rng.randrange(1 << 30)))
+    plans = [(i, g, n, s, min_hill_dist, f"{seed} fresh draw {i}")
+             for i, g, n, s in batch]
+    if jobs == 1:
+        results = [_batch_task(p) for p in plans]
+    else:
         import multiprocessing
-        pool = multiprocessing.get_context("fork").Pool(
-            processes=max(1, jobs))
-    try:
-        while len(two_p) < need:
-            if draws >= 10 * need + 64:
-                raise RuntimeError(
-                    f"fresh_pool: only {len(two_p)}/{need} 2p maps "
-                    f"in {draws} draws (seed {seed})")
-            batch = []
-            for _ in range(max(8, need)):
-                gen = rng.choice(GENS)
-                n = rng.choice([2, 3, 4])
-                batch.append((idx, gen, n, rng.randrange(1 << 30)))
-                idx += 1
-            draws += len(batch)
-            plans = [(i, g, n, s, min_hill_dist, f"{seed} fresh draw {i}")
-                     for i, g, n, s in batch]
-            if pool is None:
-                results = [_batch_task(p) for p in plans]
-            else:
-                results = pool.map(_batch_task, plans)
-            for (name, content), (_, _, pn, _, _, _) in zip(results,
-                                                              plans):
-                (out / name).write_text(content)
-                if pn == 2:
-                    two_p.append(str(out / name))
-    finally:
-        if pool is not None:
-            pool.close()
-            pool.join()
-    return two_p[:n_train_games], two_p[n_train_games:need]
+        ctx = multiprocessing.get_context("fork")
+        with ctx.Pool(processes=max(1, jobs)) as pool:
+            results = pool.map(_batch_task, plans)
+    paths = []
+    for name, content in results:
+        (out / name).write_text(content)
+        paths.append(str(out / name))
+    return paths[:n_train_games], paths[n_train_games:]
 
 
 def main(argv=None):

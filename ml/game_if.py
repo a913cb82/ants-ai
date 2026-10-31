@@ -79,27 +79,36 @@ def stage_side(base: Path, weights: dict, tag: str, name: str = "side") -> Path:
     return side
 
 
+def map_player_count(map_path) -> int:
+    """Player count from the map header (single small read)."""
+    with open(map_path) as f:
+        for line in f:
+            if line.startswith("players "):
+                return int(line.split()[1])
+    raise ValueError(f"no players header in {map_path}")
+
+
 def play(
     root: Path,
     python: str,
-    weights_a: dict,
-    weights_b: dict,
+    weights: list[dict],
     cfg: GameConfig,
     outdir: Path,
-    name_a: str = "A",
-    name_b: str = "B",
+    names: list[str] | None = None,
 ) -> dict:
-    """Mirror-capable game. Returns {"game", "records_a", "records_b"}.
+    """N-sided game. Returns {"game", "records" (per-seat list), ...}.
 
-    Records land in each side's own dir: AA_RECORD_DIR is relative,
-    so it resolves under the side's working directory. Attribution by
+    Seats are fixed: weights[i] plays engine player i. Attribution by
     side is exact, and nothing touches the real bot tree. Staged sides
     are removed before return; the replay logs stay.
     """
+    if names is None:
+        names = [f"side_{i}" for i in range(len(weights))]
+    assert len(names) == len(weights)
     outdir = Path(outdir)
     log_dir = outdir / "logs"
-    side_a = stage_side(outdir, weights_a, "side_a", name_a)
-    side_b = stage_side(outdir, weights_b, "side_b", name_b)
+    sides = [stage_side(outdir, w, f"side_{i}", names[i])
+             for i, w in enumerate(weights)]
     env = _bot_env(cfg)
     cmd = [
         python,
@@ -119,36 +128,35 @@ def play(
         str(cfg.loadtime_ms),
         "--log_dir",
         str(log_dir),
-        f"{python} {side_a / (_safe_name(name_a) + '.py')}",
-        f"{python} {side_b / (_safe_name(name_b) + '.py')}",
     ]
+    for i, side in enumerate(sides):
+        cmd.append(f"{python} {side / (_safe_name(names[i]) + '.py')}")
     try:
         _run_once(cmd, root, env, cfg.timeout)
     finally:
-        records_a, records_b = _read_records(side_a), _read_records(side_b)
+        records = [_read_records(side) for side in sides]
         cleanup(outdir)
     game = json.loads((log_dir / "0.replay").read_text())
     retried = False
     if game.get("game_length", 1) == 0:
-        # Turn-1 timeout under load: both sides log nothing and the game
+        # Turn-1 timeout under load: all sides log nothing and the game
         # carries zero signal. One retry with a fresh engine seed; a
         # double-timeout is reported, not hidden.
-        for tag in ("side_a", "side_b"):
-            shutil.rmtree(outdir / tag, ignore_errors=True)
+        for i in range(len(sides)):
+            shutil.rmtree(outdir / f"side_{i}", ignore_errors=True)
         shutil.rmtree(log_dir, ignore_errors=True)
-        side_a = stage_side(outdir, weights_a, "side_a", name_a)
-        side_b = stage_side(outdir, weights_b, "side_b", name_b)
+        sides = [stage_side(outdir, w, f"side_{i}", names[i])
+                 for i, w in enumerate(weights)]
         at = cmd.index("--engine_seed") + 1
-        cmd_retry = cmd[:at] + [str(cfg.engine_seed + 7919)] + cmd[at + 1 :]
+        cmd_retry = cmd[:at] + [str(cfg.engine_seed + 7919)] + cmd[at + 1:]
         try:
             _run_once(cmd_retry, root, env, cfg.timeout)
         finally:
-            records_a, records_b = _read_records(side_a), _read_records(side_b)
+            records = [_read_records(side) for side in sides]
             cleanup(outdir)
         game = json.loads((log_dir / "0.replay").read_text())
         retried = True
-    return {"game": game, "records_a": records_a, "records_b": records_b,
-            "retried": retried}
+    return {"game": game, "records": records, "retried": retried}
 
 
 def _run_once(cmd: list, root: Path, env: dict, timeout: int) -> None:
@@ -185,5 +193,5 @@ def _read_records(side: Path) -> list:
 
 def cleanup(outdir: Path) -> None:
     """Drop staged side dirs after pricing; keep the replay logs."""
-    for tag in ("side_a", "side_b"):
-        shutil.rmtree(Path(outdir) / tag, ignore_errors=True)
+    for tag in Path(outdir).glob("side_*"):
+        shutil.rmtree(tag, ignore_errors=True)

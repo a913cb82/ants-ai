@@ -1,14 +1,14 @@
-"""One generation's exam: greedy duels, Wilson promotion rule.
+"""One generation's exam: fixed-seat games, Wilson promotion rule.
 
 Knows evaluation. Knows nothing about training; returns a verdict the
-driver acts on. Promotion needs both evidence of strength (Wilson lower
-bound on the duel win rate clears the bar) and population relevance
-(Nash mass at least the champion's) — no judgment calls anywhere.
+driver acts on. Promotion needs evidence of strength (Wilson lower
+bound on the challenger-vs-champion score comparison clears the bar).
+Every opponent seat is Nash-sampled with replacement; the verdict is
+challenger score vs champion score only.
 """
 
 from __future__ import annotations
 
-import random
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -18,84 +18,6 @@ sys.path.insert(0, str(ROOT / "ml"))
 
 import archive
 import game_if
-
-
-JURY_WINDOW = 15
-JURY_CHAMP_NUM = 3
-JURY_CHAMP_DEN = 5
-"""Jury exam split: the champ keeps a 3/5 majority share of the exam
-(12 of 20); the remaining games spread round-robin across the jurors.
-Same games total, same Wilson bar -- only the opponent mix changes."""
-
-
-def select_jury(base, chal_id, champ_id, n, seed=0,
-                window=JURY_WINDOW):
-    """PFSP-frontier jury plus the strongest recorded counter.
-
-    Frontier: members within `window` gens of the newest (the same
-    recency rule as train-time PFSP), ranked by win rate against the
-    champ (counter strength first), then Nash mass. Exact ties break
-    by `seed` (deterministic). The highest-Nash non-champ member that
-    beats the champ is mandatory: if it sits outside the frontier cut
-    it displaces the last juror (the g1234 class stays examined until
-    dethroned). The champ itself holds a guaranteed slot -- it is not
-    in this list; the plan deals its games separately.
-    """
-    if n <= 0:
-        return []
-    try:
-        mems = archive.members(base)
-    except (OSError, ValueError):
-        return []
-    try:
-        newest = max(int(m["id"][1:]) for m in mems)
-    except (ValueError, KeyError):
-        return []
-    rates = archive.win_rates(base, champ_id)  # opp -> opp's rate vs champ
-    mix = archive.nash_mixture(base)
-    rng = random.Random(seed)
-    order = [m["id"] for m in mems
-             if m["id"] not in (chal_id, champ_id)]
-    rng.shuffle(order)  # seeded: exact ranking ties break deterministically
-    frontier = []
-    for cid in order:
-        try:
-            age = newest - int(cid[1:])
-        except (ValueError, IndexError):
-            continue
-        if age < window:
-            frontier.append(cid)
-    frontier.sort(key=lambda c: (-rates.get(c, 0.0), -mix.get(c, 0.0)))
-    jury = frontier[:max(n, 0)]
-    counters = [c for c in order if rates.get(c, 0.0) > 0.5]
-    if counters:
-        top = max(counters,
-                  key=lambda c: (mix.get(c, 0.0), rates.get(c, 0.0), c))
-        if top not in jury:
-            if len(jury) < n:
-                jury.append(top)
-            else:
-                jury[-1] = top
-    return jury
-
-
-def plan_exam_opponents(base, chal_id, champ_id,
-                        eval_games, jury_size=0, seed=0):
-    """Per-game exam opponents. jury_size=0 is the legacy path: every
-    game vs the champ (byte-identical to the old exam)."""
-    if eval_games <= 0:
-        return []
-    if not jury_size:
-        return [champ_id] * eval_games
-    jury = select_jury(base, chal_id, champ_id, jury_size, seed=seed)
-    if not jury:
-        return [champ_id] * eval_games  # fresh archive: nobody to convene
-    champ_games = eval_games * JURY_CHAMP_NUM // JURY_CHAMP_DEN
-    jury_games = eval_games - champ_games
-    games = [champ_id] * champ_games
-    games += [jury[i % len(jury)] for i in range(jury_games)]
-    random.Random(seed).shuffle(games)  # deterministic given seed
-    return games
 
 
 def should_promote(
@@ -114,28 +36,24 @@ def should_promote(
     return lower > threshold
 
 
-def _eval_map_for(cfg, g, offset):
-    """Map for eval game g. Fresh pools use the dedicated eval slice 1:1;
-    legacy pools cycle held-or-maps by generation offset."""
-    if cfg.get("eval_maps"):
-        return cfg["eval_maps"][g]
-    pool = cfg.get("held_maps") or cfg["maps"]  # evals on unseen maps
-    return pool[(offset + g) % len(pool)]
+def _eval_map_for(cfg, g):
+    """Map for eval game g: the dedicated eval slice 1:1."""
+    return cfg["eval_maps"][g]
 
 
 def _play_duel(args) -> tuple[float, float]:
-    """One eval duel: play and record. Thread-safe via archive lock."""
-    (cfg, base, chal_id, opp_id, me_w, other_w, slot, g, offset) = args
-    # A one-map curriculum has no held-out pool: evals run the same map.
-    # Fresh pools use the dedicated eval slice; legacy pools cycle held.
-    map_path = _eval_map_for(cfg, g, offset)
+    """One eval game: play and record. Thread-safe via archive lock.
+
+    Seats are fixed: challenger 0, champion 1, Nash-sampled extras.
+    The verdict is chal score vs champ score only; extras are shared
+    weather. Every seat pair is recorded (pairwise matrix food)."""
+    (cfg, base, chal_id, champ_id, field, weights, g) = args
+    map_path = _eval_map_for(cfg, g)
     rel = f"games/{chal_id}/eval{g}"
-    first, second = (chal_id, opp_id) if slot == 0 else (opp_id, chal_id)
     out = game_if.play(
         ROOT,
         sys.executable,
-        me_w,
-        other_w,
+        weights,
         game_if.GameConfig(
             map=map_path,
             # exams run long: 60-turn games truncate before skill gaps
@@ -147,47 +65,48 @@ def _play_duel(args) -> tuple[float, float]:
             engine_seed=9000 + g,
         ),
         base / rel,
-        name_a=first,
-        name_b=second,
+        names=field,
     )
     game = out["game"]
-    sa, sb = game["score"][0], game["score"][1]
-    archive.record_result(base, first, second, sa, sb, kind="eval")
-    archive.log_game(base, chal_id, "eval", first, second, sa, sb,
-                     rel + "/logs/0.replay", map=Path(map_path).name)
-    return sa, sb
+    scores = game["score"]
+    for x in range(len(field)):
+        for y in range(x + 1, len(field)):
+            archive.record_result(base, field[x], field[y],
+                                  scores[x], scores[y], kind="eval")
+            archive.log_game(base, chal_id, "eval", field[x], field[y],
+                             scores[x], scores[y],
+                             rel + "/logs/0.replay", map=Path(map_path).name)
+    return scores[0], scores[1]
 
 
 def evaluate(
     cfg: dict, base: Path, chal_id: str, chal_w: dict, champ_id: str, champ_w: dict,
-    map_offset: int = 0,
 ) -> dict:
-    opponents = plan_exam_opponents(
-        base, chal_id, champ_id, cfg["eval_games"],
-        jury_size=cfg.get("exam_jury_size", 0) or 0,
-        seed=cfg.get("seed", 0))
     wcache = {champ_id: champ_w, chal_id: chal_w}
     jobs = []
-    for g, opp_id in enumerate(opponents):
-        slot = g % 2
-        if opp_id not in wcache:  # juror weights are frozen in the archive
-            wcache[opp_id] = archive.load_checkpoint(base, opp_id)
-        opp_w = wcache[opp_id]
-        me_w, other_w = (chal_w, opp_w) if slot == 0 else (opp_w, chal_w)
-        jobs.append((cfg, base, chal_id, opp_id, me_w, other_w, slot, g,
-                       map_offset))
+    for g in range(cfg["eval_games"]):
+        map_path = _eval_map_for(cfg, g)
+        n_seats = game_if.map_player_count(map_path)
+        field = [chal_id, champ_id] + archive.sample_mixture(
+            base, k=n_seats - 2, seed=cfg.get("seed", 0) + g,
+            exclude=(chal_id, champ_id))
+        weights = []
+        for fid in field:
+            if fid not in wcache:  # extras load frozen from the archive
+                wcache[fid] = archive.load_checkpoint(base, fid)
+            weights.append(wcache[fid])
+        jobs.append((cfg, base, chal_id, champ_id, field, weights, g))
     workers = min(cfg.get("workers", 8), len(jobs)) or 1
     wins = draws = finished = 0
     margins: list[int] = [0] * cfg["eval_games"]
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        future_to_g = {pool.submit(_play_duel, job): job[7] for job in jobs}
+        future_to_g = {pool.submit(_play_duel, job): job[6] for job in jobs}
         for future in as_completed(future_to_g):
             g = future_to_g[future]
-            sa, sb = future.result()
-            chal_score, opp_score = (sa, sb) if g % 2 == 0 else (sb, sa)
-            wins += chal_score > opp_score
-            draws += chal_score == opp_score
-            margins[g] = chal_score - opp_score  # duel order, not finish order
+            chal_score, champ_score = future.result()
+            wins += chal_score > champ_score
+            draws += chal_score == champ_score
+            margins[g] = chal_score - champ_score  # seat order, not finish order
             finished += 1
             archive.write_status(base, {
                 "phase": "eval", "challenger": chal_id,

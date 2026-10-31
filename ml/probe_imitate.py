@@ -135,15 +135,13 @@ def scratch_match(student_w: dict, champ_w: dict, games: int = 4,
             outdir = tmp / f"g{g}"
             # Alternate colors: student attacks both sides of the matchup.
             if g % 2 == 0:
-                out = game_if.play(ROOT, sys.executable, student_w, champ_w,
-                                   cfg, outdir, name_a="student",
-                                   name_b="champ")
+                out = game_if.play(ROOT, sys.executable, [student_w, champ_w],
+                                   cfg, outdir, names=["student", "champ"])
                 s = out["game"]["score"]
                 me, opp = s[0], s[1]
             else:
-                out = game_if.play(ROOT, sys.executable, champ_w, student_w,
-                                   cfg, outdir, name_a="champ",
-                                   name_b="student")
+                out = game_if.play(ROOT, sys.executable, [champ_w, student_w],
+                                   cfg, outdir, names=["champ", "student"])
                 s = out["game"]["score"]
                 me, opp = s[1], s[0]
             win += me > opp

@@ -24,47 +24,16 @@ import game_if
 import rewards
 
 
-def _train_opponents(base: Path, student: str, champ_id: str, n: int,
-                     seed: int, champ_share: float = 0.25) -> list[str]:
-    """Frontier rivals with champ-share slots first.
-
-    The eval target must be trained against, not merely whitelisted:
-    PFSP weights can starve a whitelisted champ 0/60 (round-40
-    forensics — Laplace 0.55 loses to beat-you 1.05 every draw).
-    The first round(n * champ_share) slots are the champ (first slot
-    always the champ when share > 0: the round-40 guaranteed slot);
-    the rest are frontier-sampled as before. share 0.0 waives the
-    guarantee (zero champ slots); 1.0 fills every slot with the champ.
-    At the default (n=4, share 0.25) this is exactly slot 0 champ +
-    3 PFSP draws with seeds seed+g — byte-identical to the old code."""
-    if n <= 0:
-        return []
-    if champ_share <= 0:
-        n_champ = 0
-    else:
-        n_champ = max(1, round(n * champ_share))
-        n_champ = min(n_champ, n)
-    opps = [champ_id] * n_champ
-    for g in range(n_champ, n):
-        # PFSP draws keep the legacy seed stride (seed+g with the same
-        # game index g), so train-4 runs are byte-identical to before.
-        opps.append(archive.sample_opponents(
-            base, student, 1, seed=seed + g, include=(champ_id,))[0])
-    return opps
-
-
 def _penalty_rng(cfg: dict, gen_index: int, g: int) -> random.Random:
     """Deterministic per-game penalty draw, seeded by (seed, gen, game)."""
     return random.Random(f"{cfg.get('seed', 0)}:{gen_index}:{g}")
 
 
-def _train_map_for(cfg, g, slot, drill_maps):
-    """Map for train game (g, slot). Fresh pools index 1:1 (game g*2+slot
-    plays maps[g*2+slot]); legacy pools keep drill reservation per
-    opponent."""
-    if cfg.get("fresh_maps"):
-        return cfg["maps"][g * 2 + slot]
-    return drill_maps[g]
+def _train_map_for(cfg, i):
+    """Map for train game i: first train_games*2 boards 1:1, cycling if
+    the pool is shorter (debug pools)."""
+    maps = cfg["maps"]
+    return maps[i % len(maps)]
 
 
 def _is_penalty_game(cfg: dict, g: int, gen_index: int = 0) -> bool:
@@ -84,51 +53,51 @@ def _is_penalty_game(cfg: dict, g: int, gen_index: int = 0) -> bool:
 
 def _play_one(args) -> dict:
     """One train game: play, price, record. Thread-safe via archive lock."""
-    (cfg, base, chal_id, opp_id, me_w, other_w, slot, g, role,
-     map_path) = args
+    (cfg, base, chal_id, field, weights, i, role, map_path) = args
     try:
         gen_index = int(chal_id[1:])
     except (ValueError, IndexError):
         gen_index = 0
-    rel = f"games/{chal_id}/train{g}_slot{slot}"
-    first, second = (chal_id, opp_id) if slot == 0 else (opp_id, chal_id)
+    rel = f"games/{chal_id}/train{i}"
     out = game_if.play(
         ROOT,
         sys.executable,
-        me_w,
-        other_w,
+        weights,
         game_if.GameConfig(
             map=map_path,
             turns=cfg["turns"],
             temperature=cfg["temperature"],
-            player_seed=cfg["seed"] + g,
-            engine_seed=1000 + g,
+            player_seed=cfg["seed"] + i,
+            engine_seed=1000 + i,
         ),
         base / rel,
-        name_a=first,
-        name_b=second,
+        names=field,
     )
     game = out["game"]
-    rows = algorithm.compact_records(
-        out["records_a"] if slot == 0 else out["records_b"])
-    rets = rewards.compute_returns(game, slot, rows, rewards.scales_for(role),
+    rows = algorithm.compact_records(out["records"][0])  # student seat 0
+    rets = rewards.compute_returns(game, 0, rows, rewards.scales_for(role),
                                    role,
-                                   draw_as_loss=_is_penalty_game(cfg, g, gen_index),
+                                   draw_as_loss=_is_penalty_game(cfg, i, gen_index),
                                    enable_water_stall=cfg.get("water_stall_tax", False))
-    sa, sb = game["score"][0], game["score"][1]
-    archive.record_result(base, first, second, sa, sb, kind="train")
-    archive.log_game(base, chal_id, "train", first, second, sa, sb,
-                     rel + "/logs/0.replay", map=Path(map_path).name)
+    scores = game["score"]
+    for x in range(len(field)):
+        for y in range(x + 1, len(field)):
+            archive.record_result(base, field[x], field[y],
+                                  scores[x], scores[y], kind="train")
+            archive.log_game(base, chal_id, "train", field[x], field[y],
+                             scores[x], scores[y],
+                             rel + "/logs/0.replay", map=Path(map_path).name)
+    n_games = cfg["train_games"] * 2
     archive.write_status(base, {
         "phase": "train", "challenger": chal_id,
-        "done": g * 2 + slot + 1, "total": cfg["train_games"] * 2,
+        "done": i + 1, "total": n_games,
         "last_mean_return": sum(rets) / len(rets) if rets else 0.0,
         "last_game": rel,
     })
     return {"rows": rows, "rets": rets}
 
 
-def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict, role: str = "challenger", parent: str | None = None, opt_state: dict | None = None, anchor: dict | None = None, kl_anchor_beta: float = 0.0, student: str | None = None, line: int | None = None) -> tuple[str, dict, dict, dict]:
+def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict, role: str = "challenger", parent: str | None = None, opt_state: dict | None = None, anchor: dict | None = None, kl_anchor_beta: float = 0.0, line: int | None = None) -> tuple[str, dict, dict, dict]:
     """Self-play training games -> (challenger id, weights, train stats, opt state).
 
     The snapshot's parent defaults to the champion; the continuous
@@ -146,23 +115,21 @@ def train_generation(cfg: dict, base: Path, champ_id: str, champ_w: dict, role: 
         anchor_pol = algorithm.new_policy(anchor)
         anchor_pol.eval()
     jobs = []
-    try:
-        gen_num = int(chal_id[1:])
-    except (ValueError, IndexError):
-        gen_num = 0
-    drill_maps = None
-    if not cfg.get("fresh_maps"):
-        drill_maps = archive.next_drill_maps(
-            base, cfg["maps"], cfg["train_games"], gen_num)
-    for g, opp_id in enumerate(_train_opponents(
-            base, student or champ_id, champ_id, cfg["train_games"],
-            cfg["seed"], cfg.get("champ_share", 0.25))):
-        opp_w = archive.load_checkpoint(base, opp_id)
-        for slot in (0, 1):
-            me_w, other_w = (chal_w, opp_w) if slot == 0 else (opp_w, chal_w)
-            jobs.append((cfg, base, chal_id, opp_id, me_w, other_w, slot,
-                         g, role, _train_map_for(cfg, g, slot,
-                                                drill_maps)))
+    n_games = cfg["train_games"] * 2
+    wcache = {chal_id: chal_w}
+    for i in range(n_games):
+        map_path = _train_map_for(cfg, i)
+        n_seats = game_if.map_player_count(map_path)
+        field = [chal_id] + archive.sample_mixture(
+            base, k=n_seats - 1, seed=cfg["seed"] + i,
+            exclude=(chal_id,))
+        weights = []
+        for fid in field:
+            if fid not in wcache:
+                wcache[fid] = archive.load_checkpoint(base, fid)
+            weights.append(wcache[fid])
+        jobs.append((cfg, base, chal_id, field, weights, i, role,
+                     map_path))
     workers = min(cfg.get("workers", 8), len(jobs)) or 1
     with ThreadPoolExecutor(max_workers=workers) as pool:
         games = list(pool.map(_play_one, jobs))

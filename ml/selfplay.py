@@ -62,9 +62,7 @@ def default_config() -> dict:
         "train_draw_penalty_every": 0,
         "water_stall_tax": False,
         "train_games": 4,
-        "champ_share": 0.25,
         "eval_games": 20,
-        "exam_jury_size": 0,
         "temperature": 1.0,
         "lr": 1e-3,
         "epochs": 3,
@@ -94,9 +92,6 @@ def parse_args(argv: list[str] | None = None) -> dict:
     p.add_argument("--maps", nargs="+", default=None)
     p.add_argument("--turns", type=int, default=defaults["turns"])
     p.add_argument("--train-games", type=int, default=defaults["train_games"])
-    p.add_argument("--champ-share", type=float, default=defaults["champ_share"],
-                     help="fraction of train games vs the champion "
-                     "(first slots); 0 disables the champ slot")
     p.add_argument("--train-draw-penalty-every", type=int,
                      default=defaults["train_draw_penalty_every"],
                      help="every Nth train game prices draws as losses "
@@ -106,10 +101,6 @@ def parse_args(argv: list[str] | None = None) -> dict:
                      help="tax unproductive stays near water "
                      "(anti-dwell shaping); default off = legacy")
     p.add_argument("--eval-games", type=int, default=defaults["eval_games"])
-    p.add_argument("--exam-jury-size", type=int, default=defaults["exam_jury_size"],
-                     help="jury exam: challenger faces the champ (3/5 of games) "
-                     "plus this many PFSP-frontier jurors incl. the top "
-                     "recorded counter; 0 = champ-only legacy exam")
     p.add_argument("--temperature", type=float, default=defaults["temperature"])
     p.add_argument("--lr", type=float, default=defaults["lr"])
     p.add_argument("--epochs", type=int, default=defaults["epochs"])
@@ -148,11 +139,9 @@ def parse_args(argv: list[str] | None = None) -> dict:
         "fresh_maps": args.maps is None,
         "turns": args.turns,
         "train_games": args.train_games,
-        "champ_share": args.champ_share,
         "train_draw_penalty_every": args.train_draw_penalty_every,
         "water_stall_tax": args.water_stall_tax,
         "eval_games": args.eval_games,
-        "exam_jury_size": args.exam_jury_size,
         "temperature": args.temperature,
         "lr": args.lr,
         "epochs": args.epochs,
@@ -298,6 +287,14 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
             seed=map_seed, jobs=cfg.get("workers", 8))
         cfg = dict(cfg, maps=train_maps + eval_maps,
                    eval_maps=eval_maps)
+    else:
+        # Explicit --maps debug pools: cycle the pool for train, slice
+        # the head for eval (pools shorter than the exam repeat boards).
+        # Missing pool (mocked-train tests) means eval is mocked too.
+        pool = cfg.get("maps") or []
+        cfg = dict(cfg, eval_maps=[pool[i % len(pool)]
+                                   for i in range(cfg["eval_games"])]
+                   if pool else [])
     exploiter = gen_index % 3 == 2
     line = _exploiter_line(gen_index) if exploiter else None
     if exploiter:
@@ -345,7 +342,6 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
     chal_id, chal_w, train_stats, opt_out = train.train_generation(
         cfg, base, champ_id, start_w, role=role, parent=parent,
         opt_state=opt_in, anchor=anchor_w, line=line,
-        student=main_id if role == "challenger" else champ_id,
         # Scouts drift — that's their job. The anchor binds the main
         # to the supervised manifold; on exploiters it homogenizes
         # every origin back to BC (round-35 confound: champ-clones
@@ -357,8 +353,7 @@ def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
         archive.save_opt(base, chal_id, opt_out)
     else:
         archive.save_opt(base, chal_id, opt_out)  # rival banks its own
-    ev = evaluate.evaluate(cfg, base, chal_id, chal_w, champ_id, champ_w,
-                             map_offset=gen_index)
+    ev = evaluate.evaluate(cfg, base, chal_id, chal_w, champ_id, champ_w)
     archive.atomic_write_json(
         base / "critic.json",
         {k: v for k, v in chal_w.items() if model.is_critic_key(k)})

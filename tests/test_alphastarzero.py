@@ -817,21 +817,6 @@ def test_opt_state_drops_reshaped_params():
                     assert v.shape == p.shape
 
 
-def test_train_opponents_guarantee_champ_slot(tmp_path):
-    import archive
-    import train
-
-    base = tmp_path / "archive"
-    for _ in range(21):
-        archive.save_checkpoint(base, {"w": [1.0]}, "main", None)
-    archive.set_champion(base, "g020")
-    for old in ("g000", "g001"):
-        archive.record_result(base, "g020", old, 3, 0)
-    opps = train._train_opponents(base, "g020", "g019", 4, seed=3)
-    assert opps[0] == "g019"  # the eval target is always trained against
-    assert len(opps) == 4
-
-
 def test_last_exploiter_returns_most_recent(tmp_path):
     import archive
 
@@ -1118,20 +1103,6 @@ def test_nash_crowns_dominant_strategy(tmp_path):
     assert mix[a] > 0.9 and mix[b] < 0.1
 
 
-def test_pfsp_prefers_beaters(tmp_path):
-    import archive
-
-    base = tmp_path / "archive"
-    champ = archive.save_checkpoint(base, {}, role="main", parent=None)
-    beater = archive.save_checkpoint(base, {}, role="main", parent=None)
-    victim = archive.save_checkpoint(base, {}, role="main", parent=None)
-    for _ in range(5):
-        archive.record_result(base, beater, champ, 1, 0)
-        archive.record_result(base, champ, victim, 1, 0)
-    picks = archive.sample_opponents(base, champ, 200, self_play_frac=0.0, seed=0)
-    assert picks.count(beater) > picks.count(victim) * 2
-
-
 def test_to_batch_converts_rows_and_returns():
     import torch
 
@@ -1291,8 +1262,8 @@ def test_game_if_mirror_plays_and_prices(tmp_path):
     out = game_if.play(
         ROOT,
         sys.executable,
-        json.loads((ROOT / "bots" / "alphaant" / "weights.json").read_text()),
-        json.loads((ROOT / "bots" / "alphaant" / "weights.json").read_text()),
+        [json.loads((ROOT / "bots" / "alphaant" / "weights.json").read_text()),
+         json.loads((ROOT / "bots" / "alphaant" / "weights.json").read_text())],
         game_if.GameConfig(
             map="tools/maps/example/tutorial1.map",
             turns=10,
@@ -1303,9 +1274,9 @@ def test_game_if_mirror_plays_and_prices(tmp_path):
         tmp_path / "g0",
     )
     assert out["game"]["game_length"] == 10
-    assert out["records_a"] and out["records_b"]
-    r = rewards.compute_returns(out["game"], 0, out["records_a"])
-    assert len(r) == len(out["records_a"])
+    assert out["records"][0] and out["records"][1]
+    r = rewards.compute_returns(out["game"], 0, out["records"][0])
+    assert len(r) == len(out["records"][0])
 
 
 def test_cli_defaults_match_default_config():
@@ -2008,7 +1979,13 @@ def test_custom_maps_resplit_for_unseen_evals():
     assert len(cfg["held_maps"]) == 3  # every 13th of 30
 
 
-def test_eval_uses_held_maps_only(tmp_path, monkeypatch):
+def _tmp_2p_map(tmp_path, name="e.map"):
+    p = tmp_path / name
+    p.write_text("rows 16\ncols 24\nplayers 2\n" + "m " + "." * 24 + "\n")
+    return str(p)
+
+
+def test_eval_uses_eval_slice_one_to_one(tmp_path, monkeypatch):
     import archive
     import evaluate
     import game_if
@@ -2018,49 +1995,20 @@ def test_eval_uses_held_maps_only(tmp_path, monkeypatch):
     champ = archive.save_checkpoint(base, w, role="main", parent=None)
     seen = []
 
-    class FakeGame:
-        pass
-
-    def fake_play(root, python, wa, wb, gcfg, outdir, **kwargs):
+    def fake_play(root, python, weights, gcfg, outdir, names=None, **kwargs):
         seen.append(gcfg.map)
         (outdir / "logs").mkdir(parents=True, exist_ok=True)
         (outdir / "logs" / "0.replay").write_text(
             '{"game_length": 10, "score": [1, 0], "replaydata": {}}'
         )
         return {"game": {"game_length": 10, "score": [1, 0], "replaydata": {}},
-                "records_a": [], "records_b": []}
+                "records": [[], []]}
 
     monkeypatch.setattr(game_if, "play", fake_play)
-    cfg = {"eval_games": 4, "maps": ["train.map"], "held_maps": ["h1.map", "h2.map"],
+    cfg = {"eval_games": 2, "eval_maps": [_tmp_2p_map(tmp_path, "e1.map"), _tmp_2p_map(tmp_path, "e2.map")],
            "turns": 5, "temperature": 0.0, "seed": 0}
     evaluate.evaluate(cfg, base, "chal", w, champ, w)
-    assert seen == ["h1.map", "h2.map", "h1.map", "h2.map"]
-
-
-def test_eval_falls_back_to_train_maps_without_held_pool(tmp_path, monkeypatch):
-    import evaluate
-    import game_if
-
-    base = tmp_path / "archive"
-    w = {"a": [1.0]}
-    seen = []
-
-    def fake_play(root, python, wa, wb, gcfg, outdir, **kwargs):
-        seen.append(gcfg.map)
-        (outdir / "logs").mkdir(parents=True, exist_ok=True)
-        (outdir / "logs" / "0.replay").write_text(
-            '{"game_length": 10, "score": [1, 1], "replaydata": {}}'
-        )
-        return {"game": {"game_length": 10, "score": [1, 1],
-                            "replaydata": {}},
-                "records_a": [], "records_b": []}
-
-    monkeypatch.setattr(game_if, "play", fake_play)
-    # one-map curriculum: split leaves held empty, evals run the map.
-    cfg = {"eval_games": 2, "maps": ["only.map"], "held_maps": [],
-           "turns": 5, "temperature": 0.0, "seed": 0, "workers": 1}
-    evaluate.evaluate(cfg, base, "chal", w, "champ", w)
-    assert seen == ["only.map", "only.map"]
+    assert [Path(m).name for m in seen] == ["e1.map", "e2.map"]
 
 
 def test_eval_reports_score_margins(tmp_path, monkeypatch):
@@ -2073,17 +2021,17 @@ def test_eval_reports_score_margins(tmp_path, monkeypatch):
     champ = archive.save_checkpoint(base, w, role="main", parent=None)
     scores = iter([(3, 1), (1, 1)])
 
-    def fake_play(root, python, wa, wb, gcfg, outdir, **kwargs):
+    def fake_play(root, python, weights, gcfg, outdir, names=None, **kwargs):
         sa, sb = next(scores)
         (outdir / "logs").mkdir(parents=True, exist_ok=True)
         (outdir / "logs" / "0.replay").write_text(
             '{"game_length": 10, "score": [%d, %d], "replaydata": {}}' % (sa, sb)
         )
         return {"game": {"game_length": 10, "score": [sa, sb], "replaydata": {}},
-                "records_a": [], "records_b": []}
+                "records": [[], []]}
 
     monkeypatch.setattr(game_if, "play", fake_play)
-    cfg = {"eval_games": 2, "maps": ["m.map"], "turns": 5,
+    cfg = {"eval_games": 2, "eval_maps": [_tmp_2p_map(tmp_path), _tmp_2p_map(tmp_path, "m2.map")], "turns": 5,
            "temperature": 0.0, "seed": 0, "workers": 1}
     ev = evaluate.evaluate(cfg, base, "chal", w, champ, w)
     # Slot 0: chal is A (3-1 -> +2). Slot 1: chal is B (1-1 -> 0).
@@ -2118,16 +2066,16 @@ def test_play_stages_checkpoint_names(tmp_path, monkeypatch):
     monkeypatch.setattr(game_if, "_run_once", fake_run)
     w = {"a": [1.0]}
     out = game_if.play(
-        tmp_path, "python", w, w,
+        tmp_path, "python", [w, w],
         game_if.GameConfig(map="m.map", turns=10),
-        tmp_path / "g0", name_a="g004", name_b="g000",
+        tmp_path / "g0", names=["g004", "g000"],
     )
     assert out["game"]["game_length"] == 10
-    assert seen["bots"][0].endswith("side_a/g004.py")
-    assert seen["bots"][1].endswith("side_b/g000.py")
+    assert seen["bots"][0].endswith("side_0/g004.py")
+    assert seen["bots"][1].endswith("side_1/g000.py")
 
 
-def test_eval_map_offset_rotates_held_pool(tmp_path, monkeypatch):
+def test_eval_fixed_seats_chal_zero_champ_one(tmp_path, monkeypatch):
     import archive
     import evaluate
     import game_if
@@ -2137,21 +2085,20 @@ def test_eval_map_offset_rotates_held_pool(tmp_path, monkeypatch):
     champ = archive.save_checkpoint(base, w, role="main", parent=None)
     seen = []
 
-    def fake_play(root, python, wa, wb, gcfg, outdir, **kwargs):
-        seen.append(gcfg.map)
+    def fake_play(root, python, weights, gcfg, outdir, names=None, **kwargs):
+        seen.append((list(names), len(weights)))
         (outdir / "logs").mkdir(parents=True, exist_ok=True)
         (outdir / "logs" / "0.replay").write_text(
             '{"game_length": 10, "score": [1, 1], "replaydata": {}}'
         )
         return {"game": {"game_length": 10, "score": [1, 1], "replaydata": {}},
-                "records_a": [], "records_b": []}
+                "records": [[], []]}
 
     monkeypatch.setattr(game_if, "play", fake_play)
-    cfg = {"eval_games": 2, "maps": ["t.map"],
-           "held_maps": ["h1.map", "h2.map", "h3.map"],
+    cfg = {"eval_games": 2, "eval_maps": [_tmp_2p_map(tmp_path), _tmp_2p_map(tmp_path, "e2.map")],
            "turns": 5, "temperature": 0.0, "seed": 0, "workers": 1}
-    evaluate.evaluate(cfg, base, "chal", w, champ, w, map_offset=1)
-    assert seen == ["h2.map", "h3.map"]
+    evaluate.evaluate(cfg, base, "chal", w, champ, w)
+    assert seen == [(["chal", champ], 2), (["chal", champ], 2)]
 
 
 def test_eval_turns_overrides_training_turns(tmp_path, monkeypatch):
@@ -2162,7 +2109,7 @@ def test_eval_turns_overrides_training_turns(tmp_path, monkeypatch):
     w = {"a": [1.0]}
     seen = []
 
-    def fake_play(root, python, wa, wb, gcfg, outdir, **kwargs):
+    def fake_play(root, python, weights, gcfg, outdir, names=None, **kwargs):
         seen.append(gcfg.turns)
         (outdir / "logs").mkdir(parents=True, exist_ok=True)
         (outdir / "logs" / "0.replay").write_text(
@@ -2170,10 +2117,10 @@ def test_eval_turns_overrides_training_turns(tmp_path, monkeypatch):
         )
         return {"game": {"game_length": 10, "score": [1, 1],
                             "replaydata": {}},
-                "records_a": [], "records_b": []}
+                "records": [[], []]}
 
     monkeypatch.setattr(game_if, "play", fake_play)
-    cfg = {"eval_games": 2, "maps": ["t.map"], "turns": 60,
+    cfg = {"eval_games": 2, "eval_maps": [_tmp_2p_map(tmp_path, "t.map"), _tmp_2p_map(tmp_path, "t2.map")], "turns": 60,
            "eval_turns": 250, "temperature": 0.0, "seed": 0,
            "workers": 1}
     evaluate.evaluate(cfg, base, "chal", w, "champ", w)
@@ -2222,30 +2169,39 @@ def test_pg_abs_bounds_pg_magnitude():
     assert stats["pg_abs"] >= abs(stats["pg_loss"])
 
 
-def test_train_generation_reserves_drills(tmp_path, monkeypatch):
+def test_train_generation_plays_maps_one_to_one(tmp_path, monkeypatch):
     import archive
+    import game_if
     import train
 
     base = tmp_path / "archive"
     w = {"a": [1.0]}
     champ = archive.save_checkpoint(base, w, role="main", parent=None)
     archive.set_champion(base, champ)
-    cfg = {"train_games": 0, "eval_games": 0, "workers": 8,
-           "maps": ["a.map", "b.map"], "turns": 1,
+    maps = []
+    for i in range(4):
+        p = tmp_path / f"m{i}.map"
+        p.write_text("rows 16\ncols 24\nplayers 2\n" + "m " + "." * 24 + "\n")
+        maps.append(str(p))
+    cfg = {"train_games": 2, "eval_games": 0, "workers": 1,
+           "maps": maps, "turns": 1,
            "lr": 1e-3, "epochs": 1, "temperature": 0.0, "seed": 0,
            "clip": 0.2, "vf_coef": 0.5, "entropy_beta": 0.01,
            "max_norm": 1.0, "minibatch": 64}
-    seen = {}
-    real = archive.next_drill_maps
+    seen = []
 
-    def spy(b, pool, n, gen_num):
-        seen["args"] = (pool, n, gen_num)
-        return real(b, pool, n, gen_num)
+    def fake_play(root, python, weights, gcfg, outdir, names=None):
+        seen.append((gcfg.map, list(names)))
+        game = _game(score=[0, 0])
+        return {"game": game, "records": [[], []]}
 
-    monkeypatch.setattr(archive, "next_drill_maps", spy)
+    monkeypatch.setattr(game_if, "play", fake_play)
+    monkeypatch.setattr(archive, "record_result", lambda *a, **k: None)
+    monkeypatch.setattr(archive, "log_game", lambda *a, **k: None)
     train.train_generation(cfg, base, champ, w)
-    assert seen["args"][0] == ["a.map", "b.map"]
-    assert seen["args"][1] == 0
+    # 2 opponents x 2... 4 games, 1:1 with the first 4 boards, chal seat 0.
+    assert [m for m, _ in seen] == maps
+    assert all(names[0].startswith("g") for _, names in seen)
 
 
 def _mocked_generation(monkeypatch, captured):
@@ -2264,8 +2220,7 @@ def _mocked_generation(monkeypatch, captured):
         cid = archive.save_checkpoint(base, copy.deepcopy(champ_w), role, champ_id if parent is None else parent)
         return cid, copy.deepcopy(champ_w), {"rows": 0}, None
 
-    def fake_eval(cfg, base, chal_id, chal_w, champ_id, champ_w,
-                  map_offset=0):
+    def fake_eval(cfg, base, chal_id, chal_w, champ_id, champ_w):
         return {"wins": 0, "draws": 0, "games": 0, "win_rate": 0.0,
                 "margins": [], "mean_margin": 0.0}
 
@@ -2360,26 +2315,7 @@ def test_exploiter_triggers_every_third_generation(tmp_path, monkeypatch, hist_l
     assert archive.read_status(base)["exploiter"] is expected
 
 
-def test_sample_opponents_trains_at_the_frontier(tmp_path):
-    import archive
-
-    base = tmp_path / "archive"
-    for _ in range(21):
-        archive.save_checkpoint(base, {"w": [1.0]}, "main", None)
-    archive.set_champion(base, "g020")
-    # g020 beats the ancients: rates exist so PFSP doesn't degenerate
-    # to self-play; the window then decides eligibility.
-    for old in ("g000", "g001", "g002"):
-        archive.record_result(base, "g020", old, 3, 0)
-    got = archive.sample_opponents(
-        base, "g020", 50, seed=1, window=15,
-        include=("g019",))
-    recent = {f"g{i:03d}" for i in range(6, 21)} | {"g020", "g019"}
-    assert set(got) <= recent
-    assert "g000" not in got  # ancient weaklings never train
-
-
-def test_run_generation_passes_main_as_student(tmp_path, monkeypatch):
+def test_run_generation_chains_main_parents(tmp_path, monkeypatch):
     import archive
     import selfplay
 
@@ -2389,10 +2325,13 @@ def test_run_generation_passes_main_as_student(tmp_path, monkeypatch):
     cfg = _exploiter_cfg()
     selfplay.run_generation(cfg, base, commit=False)  # gen 0 challenger
     selfplay.run_generation(cfg, base, commit=False)  # gen 1 challenger
-    # gen 0 bootstraps the main from the champ; gen 1 trains from it,
-    # so the student is the main (g001), not the champ (g000).
-    # (get_main has since advanced to g002; the capture is what matters.)
-    assert captured["student"] == "g001"
+    # gen 0 bootstraps the main from the champ; gen 1 trains from it:
+    # the parent chain is g000 -> g001 -> g003, not a champ star.
+    parents = {m["id"]: m["parent"] for m in archive.members(base)}
+    assert parents["g001"] == "g000"
+    chal1 = [m["id"] for m in archive.members(base)
+             if m["role"] == "challenger"][-1]
+    assert parents[chal1] == "g001"
 
 
 def test_exploiters_run_unanchored(tmp_path, monkeypatch):
@@ -2536,7 +2475,7 @@ def test_exploiter_gens_alternate_lines_end_to_end(tmp_path, monkeypatch):
             line=kwargs.get("line"))
         return cid, copy.deepcopy(champ_w), {"rows": 0}, None
 
-    def fake_eval(cfg, base, chal_id, chal_w, champ_id, champ_w, map_offset=0):
+    def fake_eval(cfg, base, chal_id, chal_w, champ_id, champ_w):
         return {"wins": 0, "draws": 0, "games": 0, "win_rate": 0.0,
                 "margins": [], "mean_margin": 0.0}
 
@@ -2693,8 +2632,8 @@ def test_train_draw_penalty_flags_seeded_subset(tmp_path, monkeypatch):
     game = _hill_game([0, 0])  # drawn game: penalty visible in returns
     recs = [{"turn": 1, "loc": [5, 5], "dest": [6, 6], "action": "s"}]
 
-    def fake_play(root, python, wa, wb, cfg, outdir, name_a="A", name_b="B"):
-        return {"game": game, "records_a": list(recs), "records_b": []}
+    def fake_play(root, python, weights, cfg, outdir, names=None):
+        return {"game": game, "records": [list(recs), []]}
 
     monkeypatch.setattr(game_if, "play", fake_play)
     monkeypatch.setattr(archive, "record_result", lambda *a, **k: None)
@@ -2706,8 +2645,8 @@ def test_train_draw_penalty_flags_seeded_subset(tmp_path, monkeypatch):
 
     def run(g):
         return train._play_one(
-            (cfg, base, "g003", "g000", {"w": [1.0]}, {"w": [1.0]},
-             0, g, "challenger", "somemap"))
+            (cfg, base, "g003", ["g003", "g000"], [{"w": [1.0]}, {"w": [1.0]}],
+             g, "challenger", "somemap"))
 
     # the challenger id pins the gen (g003 -> gen 3): expected flags come
     # straight from the seeded assignment, and plumbing prices exactly
@@ -2837,7 +2776,7 @@ def test_spoiler_chains_line2_tip_line1_neglected(tmp_path, monkeypatch):
             line=kwargs.get("line"))
         return cid, copy.deepcopy(champ_w), {"rows": 0}, None
 
-    def fake_eval(cfg, base, chal_id, chal_w, champ_id, champ_w, map_offset=0):
+    def fake_eval(cfg, base, chal_id, chal_w, champ_id, champ_w):
         return {"wins": 0, "draws": 0, "games": 0, "win_rate": 0.0,
                 "margins": [], "mean_margin": 0.0}
 
@@ -2945,7 +2884,7 @@ def test_spoiler_fold_end_to_end_single_line(tmp_path, monkeypatch):
             line=kwargs.get("line"))
         return cid, copy.deepcopy(champ_w), {"rows": 0}, None
 
-    def fake_eval(cfg, base, chal_id, chal_w, champ_id, champ_w, map_offset=0):
+    def fake_eval(cfg, base, chal_id, chal_w, champ_id, champ_w):
         return {"wins": 0, "draws": 0, "games": 0, "win_rate": 0.0,
                 "margins": [], "mean_margin": 0.0}
 
@@ -2985,78 +2924,94 @@ def _seeded_frontier(tmp_path):
     return base
 
 
-def test_train_opponents_default_share_reproduces_train4(tmp_path):
-    import archive
-    import train
-
-    base = _seeded_frontier(tmp_path)
-    # today's behavior: slot 0 champ + 3 PFSP draws with seeds seed+g.
-    expected = ["g019"] + [archive.sample_opponents(
-        base, "g020", 1, seed=3 + g, include=("g019",))[0]
-        for g in range(1, 4)]
-    got = train._train_opponents(base, "g020", "g019", 4, seed=3)
-    assert got == expected
-    assert got[0] == "g019" and len(got) == 4
-    # explicit default share matches the implicit default.
-    assert train._train_opponents(
-        base, "g020", "g019", 4, seed=3, champ_share=0.25) == expected
-
-
-def test_train_opponents_champ_share_30(tmp_path):
-    import train
-
-    base = _seeded_frontier(tmp_path)
-    opps = train._train_opponents(base, "g020", "g019", 30, seed=3,
-                                  champ_share=0.25)
-    assert len(opps) == 30
-    assert opps[0] == "g019"  # round-40 guaranteed-champ-slot invariant
-    assert 7 <= opps.count("g019") <= 8  # round(30 * 0.25)
-    # champ slots are first, contiguous.
-    n_champ = opps.count("g019")
-    assert opps[:n_champ] == ["g019"] * n_champ
-    assert "g019" not in opps[n_champ:]
-
-
-def test_train_opponents_share_zero_no_champ(tmp_path):
-    import train
-
-    base = _seeded_frontier(tmp_path)
-    # choice: share 0.0 waives the guaranteed slot — zero champ slots.
-    opps = train._train_opponents(base, "g020", "g019", 8, seed=3,
-                                  champ_share=0.0)
-    assert len(opps) == 8
-    assert "g019" not in opps
-
-
-def test_train_opponents_share_one_all_champ(tmp_path):
-    import train
-
-    base = _seeded_frontier(tmp_path)
-    opps = train._train_opponents(base, "g020", "g019", 6, seed=3,
-                                  champ_share=1.0)
-    assert opps == ["g019"] * 6
-
-
-def test_train_map_for_fresh_indexing():
+def test_train_map_for_indexing():
     import train
 
     maps = [f"m{i}.map" for i in range(80)]
-    cfg = {"fresh_maps": True, "maps": maps}
-    assert train._train_map_for(cfg, 0, 0, ["d0"]) == "m0.map"
-    assert train._train_map_for(cfg, 0, 1, ["d0"]) == "m1.map"
-    assert train._train_map_for(cfg, 29, 1, ["d29"]) == "m59.map"
-    # Legacy path untouched: drill reservation per opponent.
     cfg = {"maps": maps}
-    assert train._train_map_for(cfg, 3, 1, ["d0", "d1", "d2", "d3"]) == "d3"
+    assert train._train_map_for(cfg, 0) == "m0.map"
+    assert train._train_map_for(cfg, 59) == "m59.map"
+    assert train._train_map_for(cfg, 80) == "m0.map"  # short pools cycle
 
 
-def test_eval_map_for_fresh_slice():
+def test_eval_map_for_slice():
     import evaluate
 
     eval_maps = [f"e{i}.map" for i in range(20)]
-    cfg = {"eval_maps": eval_maps, "maps": [f"m{i}.map" for i in range(80)]}
-    assert evaluate._eval_map_for(cfg, 0, 999) == "e0.map"
-    assert evaluate._eval_map_for(cfg, 19, 999) == "e19.map"
-    # Legacy path untouched: offset cycling over held-or-maps pool.
-    cfg = {"maps": ["a", "b", "c"]}
-    assert evaluate._eval_map_for(cfg, 4, 1) == "c"
+    cfg = {"eval_maps": eval_maps}
+    assert evaluate._eval_map_for(cfg, 0) == "e0.map"
+    assert evaluate._eval_map_for(cfg, 19) == "e19.map"
+
+
+def test_sample_mixture_even_split_without_data(tmp_path):
+    import archive
+
+    base = tmp_path / "archive"
+    for _ in range(3):
+        archive.save_checkpoint(base, {"w": [1.0]}, "main", None)
+    got = archive.sample_mixture(base, k=30, seed=7, exclude=("g002",))
+    assert len(got) == 30
+    assert set(got) == {"g000", "g001"}  # uniform over eligible
+    assert all(g != "g002" for g in got)
+
+
+def test_sample_mixture_follows_mass_with_replacement(tmp_path):
+    import archive
+
+    base = tmp_path / "archive"
+    for _ in range(2):
+        archive.save_checkpoint(base, {"w": [1.0]}, "main", None)
+    for _ in range(6):
+        archive.record_result(base, "g000", "g001", 5, 0)
+    # g000 dominates the only rated matchup: excluding it leaves g001.
+    got = archive.sample_mixture(base, k=10, seed=11, exclude=("g000",))
+    assert got == ["g001"] * 10
+    # ...and excluding the loser leaves the dominant winner.
+    got = archive.sample_mixture(base, k=10, seed=11, exclude=("g001",))
+    assert got == ["g000"] * 10
+
+
+def test_sample_mixture_excludes_and_deterministic(tmp_path):
+    import archive
+
+    base = _seeded_frontier(tmp_path)
+    a = archive.sample_mixture(base, k=10, seed=5, exclude=("g020", "g019"))
+    b = archive.sample_mixture(base, k=10, seed=5, exclude=("g020", "g019"))
+    assert a == b
+    assert all(g not in ("g020", "g019") for g in a)
+
+
+def test_map_player_count_reads_header(tmp_path):
+    import game_if
+
+    p = tmp_path / "m.map"
+    p.write_text("rows 16\ncols 24\nplayers 3\nm " + "." * 24 + "\n")
+    assert game_if.map_player_count(p) == 3
+
+
+@pytest.mark.slow
+def test_3p_game_end_to_end_fixed_seats(tmp_path):
+    """A real 3-player engine game through the N-seat path: 3 bots, 3 scores,
+    per-seat records, student seat 0 priced without crashing."""
+    import game_if
+    import model
+    import rewards
+
+    sys.path.insert(0, str(ROOT / "tools" / "mapgen"))
+    import gen_mixed
+
+    train, _eval = gen_mixed.fresh_pool(1, 0, tmp_path / "maps", seed=99,
+                                        jobs=1)
+    maps3 = [m for m in train if game_if.map_player_count(m) == 3]
+    assert maps3, "seed 99 must draw a 3p map"
+    w = model.state_dict_to_lists(model.CNNPolicy())
+    out = game_if.play(
+        ROOT, sys.executable, [w, w, w],
+        game_if.GameConfig(map=maps3[0], turns=2, temperature=0.0,
+                           player_seed=1, engine_seed=1),
+        tmp_path / "g3", names=["s", "c", "x"])
+    assert len(out["game"]["score"]) == 3
+    assert len(out["records"]) == 3
+    rows = out["records"][0]
+    rets = rewards.compute_returns(out["game"], 0, rows)
+    assert len(rets) == len(rows)
