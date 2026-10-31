@@ -1762,8 +1762,10 @@ h1{font-size:20px; margin:0 0 4px;}
 .charts{display:grid; grid-template-columns:repeat(3,1fr); gap:16px;}
 .chart-card.chart-wide{grid-column:1/-1;}
 .chart-card.chart-wide canvas{height:280px;}
-.tables-2col{display:grid; grid-template-columns:1.35fr 1fr; gap:16px; align-items:start;}
-.tables-2col.even{grid-template-columns:1fr 1fr;}
+.tables-2col{display:grid; grid-template-columns:1.3fr 1fr; gap:16px; align-items:stretch;}
+.tcell{display:flex; flex-direction:column; min-width:0;}
+.tcell>.card{flex:1 1 auto;}
+.tables-2col .toolbar{min-height:34px;}
 .res-cell{min-width:180px;}
 .res-cell .badge{white-space:nowrap;}
 .chart-card h3{margin:0 0 2px; font-size:14px;}
@@ -1868,7 +1870,7 @@ tbody tr:hover{background:#EFF4FA;}
 @media (max-width:1150px){
   .charts{grid-template-columns:1fr 1fr;}
   .chart-card.chart-wide{grid-column:1/-1;}
-  .tables-2col,.tables-2col.even{grid-template-columns:1fr;}
+  .tables-2col{grid-template-columns:1fr;}
 }
 @media (max-width:900px){
   .charts{grid-template-columns:1fr;}
@@ -2632,6 +2634,7 @@ def render_page(snap: dict | None = None) -> str:
         pop_rows = skel3
         pop_count = "loading…"
         map_rows = skel3
+        map_count = "loading…"
         footer_counts = "0 games"
     else:
         champ = snap.get("champion")
@@ -2678,6 +2681,7 @@ def render_page(snap: dict | None = None) -> str:
         maps = snap.get("maps", [])
         map_rows = "".join(map_row_html(m) for m in maps) or \
             f'<tr><td colspan="5" class="empty">{EMPTY_GAMES}</td></tr>'
+        map_count = f"{len(maps)} boards"
         footer_counts = f"{snap.get('game_total', 0)} games"
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
@@ -2726,7 +2730,7 @@ def render_page(snap: dict | None = None) -> str:
     <p class="chart-sub">tenure = gens held (crowning gen = 0) · ◆ = new crown · shaded = N-player era</p><canvas id="ch-tenure"></canvas><canvas id="ch-entlane" style="margin-top:8px"></canvas></div>
 </div>
 <div class="tables-2col">
-<div>
+<div class="tcell">
 <div class="section-title">Generations</div>
 <div class="legend">challenger W-D-L vs the champion · green fill is win rate, ▲ is the promotion threshold</div>
 <details class="why"><summary>jargon guide</summary><p>Each row is one challenger against the reigning champion. <b>Promoted</b> means its Wilson lower-bound win rate cleared the threshold (default 0.50) — it takes the throne. <b>Held</b> means it waits. <b>Crown</b> marks throne-takers: complete beat the champ head-to-head AND the duel field, soft took the throne without both. An <b>exploiter</b> badge flags challengers trained to probe weaknesses.</p></details>
@@ -2739,7 +2743,7 @@ def render_page(snap: dict | None = None) -> str:
 <tr><th scope="col">challenger</th><th scope="col" class="num">train return</th><th scope="col" class="num">train loss</th><th scope="col">eval vs champion</th><th scope="col">result</th><th scope="col">crown</th><th scope="col" class="num">config</th></tr>
 <tbody id="gen-body">{gen_rows}</tbody></table></div>
 </div>
-<div>
+<div class="tcell">
 <div class="section-title">Recent games</div>
 <div class="legend">train = practice · eval = promotion duels vs champion · scores are engine points</div>
 <details class="why"><summary>jargon guide</summary><p><b>Train</b> games are practice, including self-play. <b>Eval</b> games are promotion duels against the champion. The <b>result</b> badge reads from the filtered member's view when a filter is set, else the first-listed side. Games with 3+ seats list every seat with pair scores below.</p></details>
@@ -2761,8 +2765,7 @@ def render_page(snap: dict | None = None) -> str:
 <tbody id="games-body">{game_rows}</tbody></table></div>
 </div>
 </div>
-<div class="tables-2col even">
-<div>
+<div class="tcell">
 <div class="section-title">Population</div>
 <div class="legend">nash = mixture share in %, display only · W-D-L counts eval games</div>
 <details class="why"><summary>jargon guide</summary><p><b>Nash</b> is each checkpoint's share of the equilibrium mixture: it guides matchmaking, never ranking. <b>W-D-L</b> counts eval games only — one entry per game, where a win is the sole top score and a draw is a tied top. <b>Seed</b> is the founding-weights checkpoint everything descends from.</p></details>
@@ -2776,10 +2779,13 @@ def render_page(snap: dict | None = None) -> str:
 <tr><th scope="col">id</th><th scope="col">role</th><th scope="col">parent</th><th scope="col">nash</th><th scope="col" class="num">W-D-L (eval)</th></tr>
 <tbody id="pop-body">{pop_rows}</tbody></table></div>
 </div>
-<div>
+<div class="tcell">
 <div class="section-title">Maps</div>
 <div class="legend">per board and seat count — games per phase · challenger record on eval</div>
 <details class="why"><summary>jargon guide</summary><p>Each row is one board at one seat count. The <b>challenger record</b> covers eval games only, read off fixed seats 0 and 1 — extra seats are shared weather. Rows labelled unlabelled ran before map logging existed.</p></details>
+<div class="toolbar">
+<span class="legend" id="maps-count" style="margin:0">{map_count}</span>
+</div>
 <div class="card table-scroll table-tall" id="maps-scroll"><table>
 <caption>Maps by games logged</caption>
 <tr><th scope="col">map</th><th scope="col" class="num">seats</th><th scope="col" class="num">train</th><th scope="col" class="num">eval</th><th scope="col" class="num">challenger W-D-L (eval)</th></tr>
