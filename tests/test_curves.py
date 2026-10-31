@@ -9,6 +9,8 @@ import math
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "ml"))
 
@@ -337,6 +339,12 @@ def test_snapshot_duel_cand_above_champ(tmp_path):
     archive.set_champion(base, a)
     archive.record_result(base, b, a, 5, 1)  # eval: challenger takes it
     archive.record_result(base, b, a, 4, 0, kind="train")  # train agrees
+    archive.log_game(base, b, "eval", b, a, 5, 1,
+                     "games/g001/eval0/logs/0.replay", map="m",
+                     game="games/g001/eval0#e1")
+    archive.log_game(base, b, "train", b, a, 4, 0,
+                     "games/g001/train0/logs/0.replay", map="m",
+                     game="games/g001/train0#t1")
     selfplay.append_history(base, {
         "challenger": b, "champion": a, "promoted": True,
         "train": {"losses": [0.5], "mean_return": 1.0},
@@ -347,3 +355,135 @@ def test_snapshot_duel_cand_above_champ(tmp_path):
     elo = snap["board"]["elo"]
     assert elo["cand"][0] > elo["champ"][0]  # staircase: above pre-crown
     assert elo["turn_note"] == []  # matching turns: nothing to disclose
+
+
+# --- R4: causal Elo (quantized refits, g000 anchor) ---
+
+def _mini_history(base, n_gens, tag="c"):
+    """Tiny archive: every challenger beats the champ 3-1 in train+eval."""
+    import archive
+    import selfplay
+
+    g000 = archive.save_checkpoint(base, {}, role="main", parent=None)
+    archive.set_champion(base, g000)
+    champ = g000
+    for i in range(1, n_gens + 1):
+        cid = f"{tag}{i:03d}"
+        archive.save_checkpoint(base, {}, role="challenger", parent=champ)
+        for kind in ("train", "eval"):
+            archive.log_game(base, cid, kind, cid, champ, 3, 1,
+                             f"games/{cid}/{kind}0/logs/0.replay", map="m",
+                             game=f"games/{cid}/{kind}0#{kind}{i}")
+            archive.record_result(base, cid, champ, 3, 1,
+                                  kind=kind if kind == "eval" else "train")
+        promoted = (i % 2 == 0)
+        selfplay.append_history(base, {
+            "challenger": cid, "champion": champ, "promoted": promoted,
+            "train": {"losses": [0.5], "mean_return": 1.0},
+            "eval": {"wins": 1, "draws": 0, "games": 1, "win_rate": 1.0,
+                     "margins": [2], "mean_margin": 2.0},
+            "nash": {}, "config": {}})
+        if promoted:
+            champ = cid
+            archive.set_champion(base, champ)
+    return g000
+
+
+def test_causal_step_held_within_window():
+    import dashboard
+
+    ids = ["g000", "c001", "c002"]
+    per_gen = [{(0, 1): [3.0, 1.0]}, {}, {}]
+    refits = dashboard.causal_refits(ids, per_gen, step=2)
+    assert len(refits) == 2  # gens 0 and 2
+    s = dashboard.causal_duel(
+        [{"challenger": "c001", "champion": "g000"},
+         {"challenger": "c001", "champion": "g000", "promoted": True},
+         {"challenger": "c002", "champion": "c001"}],
+        ids, refits, step=2)
+    assert s["cand"][0] == s["cand"][1]  # step-held: same refit
+    assert abs(s["champ"][2] - s["cand"][1]) < 1e-3  # crowned converges
+
+
+def test_causal_prefix_property_truncated_windows():
+    import dashboard
+
+    ids = ["g000", "c001", "c002"]
+    full = [{(0, 1): [3.0, 1.0]}, {(0, 2): [0.0, 4.0]}, {(1, 2): [2.0, 2.0]}]
+    part = full[:2]
+    rf = dashboard.causal_refits(ids, full, step=1)
+    rp = dashboard.causal_refits(ids, part, step=1)
+    assert len(rf) == 3 and len(rp) == 2
+    for r in range(2):  # later windows cannot move earlier refits
+        assert rp[r] == rf[r]
+
+
+def test_causal_g000_anchor_only():
+    import dashboard
+
+    ids = ["g000", "c001"]
+    refits = dashboard.causal_refits(ids, [{(0, 1): [1.0, 3.0]}], step=15)
+    s = dashboard.causal_duel(
+        [{"challenger": "c001", "champion": "g000"}], ids, refits)
+    assert s["refs"]["g000"] == [0.0]  # the zero never moves
+    assert s["cand"][0] > 0  # 3-1 winner above the g000 zero
+
+
+def test_causal_twin_archives_agree_on_shared_gens(tmp_path):
+    import dashboard
+
+    full = tmp_path / "full"
+    trunc = tmp_path / "trunc"
+    full.mkdir()
+    trunc.mkdir()
+    _mini_history(full, 35)
+    _mini_history(trunc, 20)
+    sf = dashboard.snapshot(full)
+    st = dashboard.snapshot(trunc)
+    ef, et = sf["board"]["elo"], st["board"]["elo"]
+    for k in ("cand", "champ"):
+        for a, b in zip(ef[k][:20], et[k][:20]):
+            assert (a is None and b is None) or abs(a - b) < 1e-9
+    # staircase reads at a window boundary (gen 30: cand's own games are
+    # in refit 2, so the candidate line is meaningful there, not unseen)
+    assert ef["cand"][30] > ef["champ"][30]
+
+
+@pytest.mark.slow
+def test_causal_board_perf_real_archive():
+    import time
+
+    import dashboard
+
+    base = Path("/home/abrai/projects/ants-ai/ml/archive")
+    if not (base / "history.jsonl").exists():
+        pytest.skip("no live archive here")
+    for c in (dashboard._causal_cache, dashboard._bt_digest_cache,
+              dashboard._nash_cache,
+              dashboard._games_cache,
+              dashboard._grouped_cache, dashboard._history_cache):
+        c.clear()
+    t0 = time.time()
+    snap = dashboard.snapshot(base)
+    cold = time.time() - t0
+    assert len(snap["board"]["elo"]["cand"]) > 1000
+    t0 = time.time()
+    dashboard.snapshot(base)
+    warm = time.time() - t0
+    print(f"\ncausal board: cold {cold:.1f}s warm {warm:.2f}s")
+    assert cold < 60  # cold-start budget; actual reported in CURVES_VERIFY
+    assert warm < 10
+
+
+def test_causal_streaming_extend_matches_rebuild(tmp_path):
+    import dashboard
+
+    base = tmp_path / "arch"
+    base.mkdir()
+    _mini_history(base, 20, tag="c")
+    s1 = dashboard.snapshot(base)["board"]["elo"]
+    _mini_history(base, 15, tag="d")  # same dir, more gens (d016..d030)
+    s2 = dashboard.snapshot(base)["board"]["elo"]
+    assert s2["cand"][:20] == s1["cand"][:20]  # extend reuses stored refits
+    assert s2["champ"][:20] == s1["champ"][:20]
+    assert len(s2["cand"]) == 35

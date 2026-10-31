@@ -595,12 +595,50 @@ def merge_pairs(*dicts: dict) -> dict:
     return out
 
 
+def _mm_run(n: int, totals: dict, theta: list[float], iters: int,
+            tol: float) -> list[float]:
+    """Gauss-Seidel MM sweeps over played pairs (Hunter 2004), in place.
+
+    totals maps (i, j), i<j, to [wins_ij, wins_ji] WITHOUT the Laplace
+    prior (added here, +1/+1 per pair, cf. archive._head_to_head) plus
+    the virtual-opponent regularizer: one virtual win and 2*_BT_REG
+    virtual games vs a rating-0 opponent per member. Shared by the
+    one-shot bt_fit and the warm-started causal refits; tol<=0 runs all
+    `iters` sweeps (bt_fit parity), otherwise stops when no log-rating
+    moves more than tol."""
+    adj: list[list[tuple[int, float]]] = [[] for _ in range(n)]
+    wins = [0.0] * n
+    for (i, j), w in totals.items():
+        mine, theirs = w[0] + 1.0, w[1] + 1.0
+        total = mine + theirs
+        adj[i].append((j, total))
+        adj[j].append((i, total))
+        wins[i] += mine
+        wins[j] += theirs
+    theta = list(theta)
+    for _ in range(iters):
+        maxd = 0.0
+        for i in range(n):
+            denom = 2.0 * _BT_REG / (theta[i] + 1.0)
+            for j, total in adj[i]:
+                denom += total / (theta[i] + theta[j])
+            new = (wins[i] + _BT_REG) / denom if denom > 0 else theta[i]
+            if new > 0 and theta[i] > 0:
+                d = abs(math.log(new) - math.log(theta[i]))
+                if d > maxd:
+                    maxd = d
+            theta[i] = new
+        if tol > 0 and maxd < tol:
+            break
+    return theta
+
+
 def bt_fit(ids: list[str], ev: dict, iters: int = _BT_ITERS) -> dict:
     """Regularized Bradley-Terry ratings (logit) over train+eval pairs.
 
     Train games are valid engine games, so the fit takes both matrices
-    merged (see _sparse_bt): ~5.7k eval + ~22k train keys, ~25k unordered
-    pairs after overlap. Sparse MM (Hunter 2004): each sweep touches only
+    merged (train + eval game-log pairs, see gen_pair_buckets): ~25k
+    unordered pairs. Sparse MM (Hunter 2004): each sweep touches only
     played pairs, ~0.5s cold (100 sweeps), cached per matrix-digest like
     Nash. Draws ride as half-wins, the codebase-wide outcome_of
     convention. Turn-count confound, disclosed not corrected: gens
@@ -614,45 +652,39 @@ def bt_fit(ids: list[str], ev: dict, iters: int = _BT_ITERS) -> dict:
     if not n:
         return {}
     pos = {cid: i for i, cid in enumerate(ids)}
-    wins = [0.0] * n
-    games: list[dict[int, float]] = [{} for _ in range(n)]
-    for key, w in ev.items():
+    totals: dict[tuple[int, int], list[float]] = {}
+    seen: set[tuple[int, int]] = set()
+    for key, _w in ev.items():
         pair = _split_pair(key, pos)
         if pair is None:
             continue
         i, j = pair
         if i == j:
             continue
-        try:
-            wab0, wab1 = float(w[0]), float(w[1])
-        except (TypeError, ValueError, IndexError):
+        # One entry per unordered pair (a matrix pair logged in both
+        # directions still counts once); both orders fold into a single
+        # mine/theirs split relative to canonical (a, b) order.
+        a, b = (i, j) if i < j else (j, i)
+        if (a, b) in seen:
             continue
-        wba = ev.get(f"{ids[j]} vs {ids[i]}", [0.0, 0.0])
+        seen.add((a, b))
+        wab = ev.get(f"{ids[a]} vs {ids[b]}", [0.0, 0.0])
+        wba = ev.get(f"{ids[b]} vs {ids[a]}", [0.0, 0.0])
         try:
+            wab0, wab1 = float(wab[0]), float(wab[1])
             wba0, wba1 = float(wba[0]), float(wba[1])
         except (TypeError, ValueError, IndexError):
             continue
-        mine = wab0 + wba1 + 1.0  # Laplace, cf. _head_to_head
-        theirs = wab1 + wba0 + 1.0
-        total = mine + theirs
-        if total <= 2.0:  # Laplace only: never actually played
+        mine, theirs = wab0 + wba1, wab1 + wba0
+        if mine + theirs <= 0:  # Laplace only: never actually played
             continue
-        wins[i] += mine
-        wins[j] += theirs
-        games[i][j] = games[i].get(j, 0.0) + total
-        games[j][i] = games[j].get(i, 0.0) + total
-    theta = [1.0] * n
-    for _ in range(iters):
-        for i in range(n):
-            denom = 2.0 * _BT_REG / (theta[i] + 1.0)  # virtual 0-rated opp
-            for j, nij in games[i].items():
-                denom += nij / (theta[i] + theta[j])
-            if denom > 0:
-                theta[i] = (wins[i] + _BT_REG) / denom
-    return {cid: (math.log(t) if t > 0 else 0.0) for cid, t in zip(ids, theta)}
+        acc = totals.setdefault((a, b), [0.0, 0.0])
+        acc[0] += mine
+        acc[1] += theirs
+    theta = _mm_run(n, totals, [1.0] * n, iters, tol=0.0)
+    return {cid: (math.log(t) if t > 0 else 0.0) for cid, t in zip(ids, theta, strict=True)}
 
 
-_bt_cache: dict = {}
 _bt_digest_cache: dict = {}
 
 
@@ -681,22 +713,6 @@ def _bt_digest(base: Path) -> tuple:
     return digest
 
 
-def _bt_cached(base: Path) -> dict:
-    """BT ratings, re-fit only when either matrix changes."""
-    key = (str(base.resolve()), _bt_digest(base))
-    return _memo(_bt_cache, key, lambda: _sparse_bt(base))
-
-
-def _sparse_bt(base: Path, iters: int = _BT_ITERS) -> dict[str, float]:
-    """Read both matrices once, fit BT over merged played pairs."""
-    try:
-        data = json.loads((base / "matrix.json").read_text())
-    except (OSError, ValueError):
-        return {}
-    pairs = merge_pairs(data.get("eval", {}), data.get("train", {}))
-    return bt_fit(data.get("ids", []), pairs, iters)
-
-
 def panel_ids(history: list[dict]) -> list[str]:
     """Fixed Elo anchor panel: BC g000 plus the last 3 deposed champs.
 
@@ -721,6 +737,128 @@ def anchored_elo(ids: list[str], ev: dict, panel: list[str],
     have = [ratings[p] for p in panel if p in ratings]
     zero = sum(have) / len(have) if have else 0.0
     return {cid: (r - zero) * _BT_ELO_SCALE for cid, r in ratings.items()}
+
+
+CAUSAL_STEP = 15  # refit cadence, aligned to the knock/conversion windows
+_CAUSAL_TOL = 3e-5  # warm-started sweeps stop here (cap stays _BT_ITERS).
+# Cost/precision on the 1690-gen archive: full build ~7s cold (vs ~10s at
+# tol 0 / 2s at tol 1e-3); worst plotted-series deviation vs the
+# fully-converged reference is 0.41 Elo (p99 0.25, median 0.0002) —
+# sub-pixel except single-point wobbles. Display precision, not truth.
+
+
+def gen_pair_buckets(grouped: list[dict], gen_index: dict,
+                     pos: dict, n_gen: int) -> list[dict]:
+    """Per-gen aggregated unordered pairs from the grouped game log.
+
+    One entry per (gen, seat-pair): outcome from the canonically-first
+    member's view (draws = 0.5, the outcome_of convention), train and
+    eval kinds together. Pairs naming unknown members and self-pairs
+    are skipped, as in the matrix fits. The game log is used instead of
+    matrix.json because only the log carries gen attribution; the two
+    agree pair-for-pair (record_result and log_game fire together per
+    seat-pair in train.py/evaluate.py) except legacy double-logs, which
+    the matrix counts twice and grouping dedupes once."""
+    per_gen: list[dict] = [{} for _ in range(n_gen)]
+    for g in grouped:
+        gi = gen_index.get(g.get("gen"))
+        if gi is None:
+            continue
+        for p in g.get("pairs", []) or []:
+            a, b = p.get("a"), p.get("b")
+            if a not in pos or b not in pos:
+                continue
+            i, j = pos[a], pos[b]
+            if i == j:
+                continue
+            try:
+                sa, sb = float(p["score_a"]), float(p["score_b"])
+            except (TypeError, ValueError, KeyError):
+                continue
+            out = 1.0 if sa > sb else (0.0 if sb > sa else 0.5)
+            key = (i, j) if i < j else (j, i)
+            acc = per_gen[gi].setdefault(key, [0.0, 0.0])
+            if (i, j) == key:
+                acc[0] += out
+                acc[1] += 1.0 - out
+            else:
+                acc[0] += 1.0 - out
+                acc[1] += out
+    return per_gen
+
+
+def _refits_from(ids: list[str], per_gen: list[dict], totals: dict,
+                 theta: list[float], start: int,
+                 step: int = CAUSAL_STEP, iters: int = _BT_ITERS,
+                 tol: float = _CAUSAL_TOL) -> tuple[list, dict, list]:
+    """Accumulate per-gen buckets from `start`, refitting at gi % step == 0.
+
+    Warm-started: theta carries the previous refit's solution forward
+    (extended with 1.0 for members first seen later), so each refit
+    converges in a handful of sweeps. Returns (refit dicts, totals,
+    theta) for the caller to cache; pure given its inputs."""
+    n = len(ids)
+    refits: list[dict] = []
+    for gi in range(start, len(per_gen)):
+        for key, w in per_gen[gi].items():
+            acc = totals.setdefault(key, [0.0, 0.0])
+            acc[0] += w[0]
+            acc[1] += w[1]
+        if gi % step == 0:
+            theta = _mm_run(n, totals, theta, iters, tol)
+            refits.append({cid: (math.log(t) if t > 0 else 0.0)
+                           for cid, t in zip(ids, theta, strict=True)})
+    return refits, totals, theta
+
+
+def causal_refits(ids: list[str], per_gen: list[dict],
+                  step: int = CAUSAL_STEP, iters: int = _BT_ITERS,
+                  tol: float = _CAUSAL_TOL) -> list[dict]:
+    """Quantized causal refits: refit r uses only pairs with gen <= r*step.
+
+    No naive per-gen refits (1690 full fits): refits happen every `step`
+    gens, each warm-started from the previous refit's theta, so late
+    refits converge in a handful of sweeps (each window adds ~1% of the
+    data). Members unseen so far sit at exactly 0 via the virtual
+    regularizer. Returns one {cid: logit} dict per refit, in order;
+    plotted value at gen G is refits[G // step] (step-held), which uses
+    only games with gen <= step*(G//step) <= G: causal by construction.
+    Later windows cannot move earlier refits (sequential accumulation)."""
+    refits, _, _ = _refits_from(ids, per_gen, {}, [1.0] * len(ids), 0,
+                                step, iters, tol)
+    return refits
+
+
+def causal_duel(history: list[dict], ids: list[str],
+                refits: list[dict], step: int = CAUSAL_STEP) -> dict:
+    """Candidate vs defending-champion Elo from the causal refits.
+
+    cand[G] = this gen's challenger, champ[G] = the throne's defender,
+    both read out of refits[G // step] and anchored at g000 (known at
+    gen 0, so the zero is causal too). Panel members (g000 + last 3
+    deposed) ride along as reference trajectories from the same refits;
+    panel MEMBERSHIP is picked from full history (a display choice: which
+    lines to draw), but every plotted VALUE uses only games <= G."""
+    tables: list[dict] = []
+    for r in refits:
+        zero = r.get("g000", 0.0)
+        tables.append({cid: (v - zero) * _BT_ELO_SCALE
+                       for cid, v in r.items()})
+    panel = panel_ids(history)
+    cand: list = []
+    champ: list = []
+    refs: dict[str, list] = {pid: [] for pid in panel}
+    reigning = history[0].get("champion") if history else None
+    for gi, h in enumerate(history):
+        tab = tables[gi // step] if tables else {}
+        c = h.get("challenger")
+        cand.append(tab.get(c))
+        champ.append(tab.get(reigning) if reigning is not None else None)
+        for pid in panel:
+            refs[pid].append(tab.get(pid))
+        if h.get("promoted"):
+            reigning = c
+    return {"cand": cand, "champ": champ, "panel": panel, "refs": refs}
 
 
 def elo_duel(history: list[dict], elos: dict) -> dict:
@@ -981,23 +1119,69 @@ def crown_type(gen: dict) -> str:
     return "complete" if wins > losses and mean_m > 0 else "soft"
 
 
+_causal_cache: dict = {}
+
+
+def _causal_cached(base: Path, history: list[dict],
+                   grouped: list[dict]) -> dict:
+    """Causal duel series: full build once, streaming extends after.
+
+    Training only appends (new games carry the current challenger's gen;
+    matrix ids only append), so when the challenger list and member ids
+    both extend the cached ones AND the rebuilt early buckets are
+    unchanged, only gens past the cached point are accumulated and only
+    refits at or past it re-run, warm-started from the stored theta.
+    During a run that is one cheap refit per poll instead of 113; any
+    rewrite (truncation, reorder) falls back to a full rebuild. The
+    in-progress gen's games join its bucket (visible in training-curve
+    detail) but only move plotted Elo at its window's refit, by design.
+    Warm snapshots with no new gens reuse the stored series for free."""
+    try:
+        data = json.loads((base / "matrix.json").read_text())
+        ids = data.get("ids", [])
+    except (OSError, ValueError):
+        return {"cand": [], "champ": [], "panel": [], "refs": {}}
+    pos = {cid: i for i, cid in enumerate(ids)}
+    gen_index = {h.get("challenger"): i for i, h in enumerate(history)}
+    per_gen = gen_pair_buckets(grouped, gen_index, pos, len(history))
+    challengers = [h.get("challenger") for h in history]
+    st = _causal_cache.get("state")
+    if (st is not None
+            and len(challengers) >= len(st["challengers"])
+            and challengers[:len(st["challengers"])] == st["challengers"]
+            and len(ids) >= len(st["ids"])
+            and ids[:len(st["ids"])] == st["ids"]
+            and len(per_gen) >= st["ngen"]
+            and all(per_gen[i] == st["buckets"][i]
+                    for i in range(st["ngen"]))):
+        theta = st["theta"] + [1.0] * (len(ids) - len(st["ids"]))
+        new, totals, theta = _refits_from(ids, per_gen, st["totals"],
+                                          theta, st["ngen"])
+        refits = st["refits"] + new
+        ngen = len(per_gen)
+    else:
+        refits, totals, theta = _refits_from(ids, per_gen, {},
+                                             [1.0] * len(ids), 0)
+        ngen = len(per_gen)
+    _causal_cache["state"] = {"challengers": challengers, "ids": ids,
+                                "buckets": per_gen, "totals": totals,
+                                "theta": theta, "refits": refits,
+                                "ngen": ngen}
+    return causal_duel(history, ids, refits)
+
+
 def build_board(base: Path, history: list[dict],
                 grouped: list[dict]) -> dict:
     """All seven curves, aligned to history order (x = challenger ids)."""
     try:
-        ratings = _bt_cached(base)
+        duel = _causal_cached(base, history, grouped)
     except (OSError, ValueError, KeyError, TypeError):
-        ratings = {}
-    panel = panel_ids(history)
-    have = [ratings[p] for p in panel if p in ratings]
-    zero = sum(have) / len(have) if have else 0.0
-    elos = {cid: (r - zero) * _BT_ELO_SCALE for cid, r in ratings.items()}
+        duel = {"cand": [], "champ": [], "panel": [], "refs": {}}
     kc = knock_conversion(history)
     np_idx = nplayer_start(history, grouped)
     return {
         "ids": [h.get("challenger", "") or "" for h in history],
-        "elo": {**elo_duel(history, elos), "panel": panel,
-                "turn_note": turn_mismatch(history)},
+        "elo": {**duel, "turn_note": turn_mismatch(history)},
         "knock": kc,
         "decisive": decisiveness(history, grouped),
         "margin": margin_band(history),
@@ -1592,8 +1776,9 @@ function plotStrip(id,tenure,turnover,nplayer,labels,desc){
 }
 function renderBoard(){
   const B=S.board,ids=B.ids;
-  plotLines("ch-elo",[B.elo.cand,B.elo.champ],["#9EC5FE","#2456E0"],[1.5,2],ids,
-    "candidate vs defending-champion anchored Elo, "+ids.length+" generations");
+  const refIds=B.elo.panel||[];
+  plotLines("ch-elo",[...refIds.map(pid=>((B.elo.refs||{})[pid]||[])),B.elo.cand,B.elo.champ],[...refIds.map(()=>"#C9CFD6"),"#9EC5FE","#2456E0"],[...refIds.map(()=>1),1.5,2],ids,
+    "candidate vs defending-champion causal Elo, "+ids.length+" generations");
   const tn=(B.elo.turn_note||[]).map(r=>`${r.from}–${r.to}: train ${r.train_turns} vs eval ${r.eval_turns} turns`).join("; ");
   $("elo-turn").textContent=tn?`turn confound (${tn}) — mixed, not corrected`:
     "train+eval fit: turn counts match across eras";
@@ -1768,7 +1953,7 @@ def render_page() -> str:
 <div class="legend">seven training curves, one point per generation, oldest → newest · axes span the data range</div>
 <div class="charts">
   <div class="card chart-card"><div class="chart-head"><h3>Candidate vs champion Elo</h3></div>
-    <p class="chart-sub">Bradley-Terry over train+eval pairs (train games are valid engine games) · zero = panel (BC g000 + last 3 deposed) mean · light = candidate, dark = defending champ · crossovers read as throne changes · <span id="elo-turn"></span></p><canvas id="ch-elo"></canvas></div>
+    <p class="chart-sub">causal Bradley-Terry over train+eval pairs (valid engine games) · refit every 15 gens on games ≤ refit gen only (warm-started, step-held) · zero = g000 only · light = candidate, dark = defending champ · gray = last-3-deposed reference trajectories (panel picked from full history; values causal) · <span id="elo-turn"></span></p><canvas id="ch-elo"></canvas></div>
   <div class="card chart-card"><div class="chart-head"><h3>Knock marks + rates</h3></div>
     <p class="chart-sub">top lane: one tick per gen (blue = knock eff ≥ .50, gray = held, gap = no eval) · bottom: trailing 15-gen knock (blue) and conversion | knock (green) with Wilson z=1.0 bands</p><canvas id="ch-knock-marks" style="height:64px"></canvas><canvas id="ch-knock" style="margin-top:8px"></canvas></div>
   <div class="card chart-card"><div class="chart-head"><h3>Decisiveness train vs eval</h3></div>

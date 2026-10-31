@@ -132,3 +132,36 @@ mtimes still `2026-10-31 14:49/14:50`; `git status` in the live repo clean.
   renderBoard/renderGenerations executed against the synth snapshot):
   `F.H-T-B` parsed as `F.H - T - B` with bare `B` undefined — fixed to
   `F.H-F.T-F.B`. Harness rerun: BOARD RUNTIME OK.
+
+### R4 — causal Elo (quantized refits, g000 anchor)
+
+- `gen_pair_buckets` aggregates per-gen unordered pairs from the grouped
+  game log (train+eval; game log used because only it carries gen
+  attribution — record_result/log_game fire together per seat-pair, so
+  the multiset matches matrix.json except legacy double-logs, which the
+  matrix counts twice and grouping dedupes once; documented in code).
+- `causal_refits`: 113 refits (every 15 gens, aligned to knock windows),
+  each using pairs with gen <= refit gen, warm-started MM
+  (shared `_mm_run` core with the one-shot `bt_fit`, tol 3e-5, cap 100).
+  Plotted value at G is refits[G//15] (step-held). Zero = g000 only
+  (known at gen 0); panel members ride as faint reference trajectories
+  from the same refits (membership from full history is a display
+  choice; every value uses games <= G). Turn confound note unchanged.
+- Correctness proof: twin synthetic archives (35 vs 20 gens) agree
+  bitwise on shared gens; streaming-extend (snapshot, append, snapshot)
+  reuses stored refits bitwise. Early flat-zero Elo is real: the first
+  70 archive gens are near-all draws (matrix confirms 5-5/2-2), so the
+  old global fit's early -44.5 for g000 was pure late-field leak.
+- Cost (explicitly reported, design kept per the fallback clause): full
+  cold build ~7s for the refits (tol 3e-5; tol 0 costs ~10s, tol 1e-3
+  costs ~2s but leaves 13 Elo tracking error). Worst plotted-series
+  deviation vs the fully-converged reference: 0.41 Elo (p99 0.25,
+  median 0.0002). Full snapshot cold 9.1-9.3s / warm 0.39-0.65s on the
+  real archive (slow-marked perf test asserts < 60s / < 10s).
+- Streamable: `_causal_cached` keeps (challengers, ids, buckets, totals,
+  theta, refits); append-only training extends them — one cheap refit
+  per poll instead of 113. Any rewrite falls back to a full rebuild.
+  In-progress gen games join at its history append and move plotted Elo
+  at its window's refit, by design. New tests: step-held constancy,
+  truncated-window prefix property, g000 anchor, twin archives,
+  streaming extend, real-archive perf.
