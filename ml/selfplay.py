@@ -1,68 +1,81 @@
-"""One automated generation: train, evaluate, publish.
+"""Continuous league scheduler: perpetual round-robin, no generations.
 
-Thin orchestration over train.py and evaluate.py. run_generation has no
-side effects beyond the archive: file writes and git happen in publish,
-only when the scripted rule accepts. The rated bot file changes only
-on promotion.
+Four persistent learners (main, me, le-a, le-b) take equal turns. Each
+tick plays exactly ONE game for the scheduled learner: a PFSP opponent
+is sampled from frozen snapshots, the game is logged as the canonical
+record, the learner's rows accumulate into its micro-batch, and every
+8th own-game runs a PPO micro-batch update. Every 80th own-game freezes
+a permanent snapshot; main snapshots are measured against the frozen
+anchor ladder (no training). Exploiters are admitted on sustained >60%
+over their last 40, or reset to g000 after a 400-game drought.
+
+Invariants (league plan, verbatim):
+- One game trains exactly one learner; opponents are always frozen snapshots.
+- Anchor games carry no gradient (measurement only).
+- Same net, same PPO, all roles; only diet (opponents) and job differ.
 """
 
 from __future__ import annotations
 
 import copy
 import json
-import subprocess
+import random
 import sys
-import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "ml"))
 sys.path.insert(0, str(ROOT / "bots" / "alphaant"))
 
+import algorithm
 import archive
-import evaluate
+import measure
 import model
 import train
 
-BOT_WEIGHTS = ROOT / "bots" / "alphaant" / "weights.json"
+#: Live learners and their matrix/training ids. These ids are NOT
+#: manifest members: they accumulate the canonical record in the matrix
+#: (member_game_counts covers matrix-only ids) while snapshots -- the
+#: permanent, frozen population -- append as manifest rows.
+LEARNERS = ("main", "me", "le-a", "le-b")
+
+#: Micro-batch PPO every N own-games per learner.
+MICRO_BATCH = archive.MICRO_BATCH_SIZE
+
+#: Permanent snapshot every N own-games per learner (~1 old generation).
+SNAPSHOT_EVERY = 80
+
+#: Admission: last-40 window mean above this vs the role target.
+ADMISSION_RATE = 0.6
+
+#: Stall: this many own-games with no admission resets to g000.
+STALL_GAMES = 400
 
 
 def default_map_pool() -> list[str]:
-    """Every playable 2p grid under tools/maps, sorted, deterministic.
-
-    ~150 maps: upstream grids (maze/random_walk/cell_maze/tutorial)
-    plus the generated symmetric set. Fresh runs ignore this pool:
-    run_generation draws 80 no-args boards per generation instead.
-    Rotation in train/eval cycles
-    the pool; slot alternation keeps asymmetric layouts fair."""
+    """Every playable 2p grid under tools/maps, sorted, deterministic."""
     import mapgen
 
     return mapgen.default_pool()
 
 
 def split_pool(pool: list[str]) -> tuple[list[str], list[str]]:
-    """Train pool + held-out eval pool. Every 13th map is held (~11).
+    """Train pool + held-out pool. Every 13th map is held (~11).
 
-    Deterministic, disjoint, union == pool. Evals run on maps the
-    challenger never trained on, so eval W/D measures generalization
-    instead of memorization. Pools under 13 maps hold nothing out."""
+    Deterministic, disjoint, union == pool. Kept for the archived
+    generation rows and pool-health tooling; the scheduler plays one
+    pool (there is no separate exam to hold maps out for)."""
     held = pool[::13] if len(pool) >= 13 else []
-    excluded = set(held)
-    return [m for m in pool if m not in excluded], held
+    return [m for m in pool if m not in held], held
 
 
 def default_config() -> dict:
-    train_maps, held_maps = split_pool(default_map_pool())
+    maps = default_map_pool()
     return {
-        "maps": train_maps,
-        "held_maps": held_maps,
-        "fresh_maps": True,
-        "turns": 250,
+        "maps": maps,
         "turns": 250,
         "train_draw_penalty_every": 0,
         "water_stall_tax": False,
-        "train_games": 4,
-        "eval_games": 20,
         "temperature": 1.0,
         "lr": 1e-3,
         "epochs": 3,
@@ -75,12 +88,12 @@ def default_config() -> dict:
         "max_norm": 1.0,
         "minibatch": 64,
         "gamma": 0.97,
-        "promote_threshold": 0.5,
         "seed": 0,
-        "init_weights": None,
-        "eval_turns": None,
+        "ticks": -1,
+        "main_source": "g1732",
+        "g000": "g000",
+        "anchors": [],
         "archive": "ml/archive",
-        "commit": True,
     }
 
 
@@ -88,19 +101,17 @@ def parse_args(argv: list[str] | None = None) -> dict:
     import argparse
 
     defaults = default_config()
-    p = argparse.ArgumentParser(description="Run one automated generation.")
+    p = argparse.ArgumentParser(description="Run the continuous league.")
     p.add_argument("--maps", nargs="+", default=None)
     p.add_argument("--turns", type=int, default=defaults["turns"])
-    p.add_argument("--train-games", type=int, default=defaults["train_games"])
     p.add_argument("--train-draw-penalty-every", type=int,
-                     default=defaults["train_draw_penalty_every"],
-                     help="every Nth train game prices draws as losses "
-                     "(anti-turtle); 0 disables")
+                   default=defaults["train_draw_penalty_every"],
+                   help="every Nth train game prices draws as losses "
+                   "(anti-turtle); 0 disables")
     p.add_argument("--water-stall-tax", action=argparse.BooleanOptionalAction,
-                     default=defaults["water_stall_tax"],
-                     help="tax unproductive stays near water "
-                     "(anti-dwell shaping); default off = legacy")
-    p.add_argument("--eval-games", type=int, default=defaults["eval_games"])
+                   default=defaults["water_stall_tax"],
+                   help="tax unproductive stays near water "
+                   "(anti-dwell shaping); default off = legacy")
     p.add_argument("--temperature", type=float, default=defaults["temperature"])
     p.add_argument("--lr", type=float, default=defaults["lr"])
     p.add_argument("--epochs", type=int, default=defaults["epochs"])
@@ -110,38 +121,27 @@ def parse_args(argv: list[str] | None = None) -> dict:
     p.add_argument("--vf-coef", type=float, default=defaults["vf_coef"])
     p.add_argument("--entropy-beta", type=float, default=defaults["entropy_beta"])
     p.add_argument("--kl-anchor-beta", type=float, default=defaults["kl_anchor_beta"],
-                     help="KL penalty toward the supervised base (g000); "
-                     "0 disables the anchor")
+                   help="KL penalty toward the supervised base (g000); "
+                   "0 disables the anchor")
     p.add_argument("--max-norm", type=float, default=defaults["max_norm"])
     p.add_argument("--minibatch", type=int, default=defaults["minibatch"])
     p.add_argument("--gamma", type=float, default=defaults["gamma"])
-    p.add_argument("--promote-threshold", type=float,
-                   default=defaults["promote_threshold"])
     p.add_argument("--seed", type=int, default=defaults["seed"])
-    p.add_argument("--init-weights", default=defaults["init_weights"],
-                     help="JSON weights seeding the gen-0 champion "
-                     "(e.g. BC-from-pros); fresh archives only")
-    p.add_argument("--eval-turns", type=int, default=defaults["eval_turns"],
-                     help="exam game length (default: --turns); longer "
-                     "than training so wars have time to resolve")
+    p.add_argument("--ticks", type=int, default=defaults["ticks"],
+                   help="scheduler ticks to run; negative runs forever")
+    p.add_argument("--main-source", default=defaults["main_source"],
+                   help="checkpoint id the live main starts from")
+    p.add_argument("--g000", default=defaults["g000"],
+                   help="checkpoint id exploiters (re)start from")
+    p.add_argument("--anchors", nargs="*", default=defaults["anchors"],
+                   help="frozen anchor ids for the progress ladder")
     p.add_argument("--archive", default=defaults["archive"])
-    p.add_argument("--commit", action=argparse.BooleanOptionalAction,
-                   default=defaults["commit"])
     args = p.parse_args(argv)
-    if args.maps is None:
-        train_maps, held_maps = defaults["maps"], defaults["held_maps"]
-    else:
-        # Custom pool: re-split so evals stay on unseen maps.
-        train_maps, held_maps = split_pool(sorted(set(args.maps)))
     return {
-        "maps": train_maps,
-        "held_maps": held_maps,
-        "fresh_maps": args.maps is None,
+        "maps": args.maps if args.maps is not None else defaults["maps"],
         "turns": args.turns,
-        "train_games": args.train_games,
         "train_draw_penalty_every": args.train_draw_penalty_every,
         "water_stall_tax": args.water_stall_tax,
-        "eval_games": args.eval_games,
         "temperature": args.temperature,
         "lr": args.lr,
         "epochs": args.epochs,
@@ -154,12 +154,12 @@ def parse_args(argv: list[str] | None = None) -> dict:
         "max_norm": args.max_norm,
         "minibatch": args.minibatch,
         "gamma": args.gamma,
-        "promote_threshold": args.promote_threshold,
         "seed": args.seed,
-        "init_weights": args.init_weights,
-        "eval_turns": args.eval_turns,
+        "ticks": args.ticks,
+        "main_source": args.main_source,
+        "g000": args.g000,
+        "anchors": list(args.anchors),
         "archive": args.archive,
-        "commit": args.commit,
     }
 
 
@@ -170,232 +170,463 @@ def _random_weights(seed: int, arch: str) -> dict:
     return model.state_dict_to_lists(model.CNNPolicy(arch=arch))
 
 
-def _load_critic(base: Path) -> dict:
-    """Last generation's value-head weights, or {}.
-
-    The critic is training apparatus, not the agent: the actor always
-    restarts from the champion (honest league comparison; evals use
-    the policy only), but the baseline persists across generations
-    instead of re-learning from zeros every 3 epochs."""
-    try:
-        data = json.loads((base / "critic.json").read_text())
-    except (OSError, ValueError):
-        return {}
-    return data if isinstance(data, dict) else {}
-
-
 def append_history(base: Path, entry: dict) -> None:
-    """Append one generation summary; the dashboard reads this for curves."""
+    """One scheduler summary; the dashboard reads this for curves."""
     archive.append_jsonl(base / "history.jsonl", entry)
 
 
 def read_history(base: Path) -> list[dict]:
-    """Generation summaries; skips malformed lines like list_games."""
+    """Scheduler summaries; skips malformed lines like list_games."""
     return archive.read_jsonl(
         base / "history.jsonl",
         lambda row: isinstance(row, dict),
     )
 
 
-def publish(base: Path, report: dict, commit: bool) -> None:
-    """Champion pointer + rated weights + optional git commit."""
-    archive.set_champion(base, report["challenger"])
-    archive.atomic_write_json(BOT_WEIGHTS, report["challenger_weights"])
-    if commit:
-        subprocess.run(["git", "-C", str(ROOT), "add", str(BOT_WEIGHTS)], check=True)
-        subprocess.run(
-            ["git", "-C", str(ROOT), "commit", "-m",
-             f"ml: promote {report['challenger']} over {report['champion']} "
-             f"(win-rate {report['eval']['win_rate']:.2f}, "
-             f"nash {report['nash'].get(report['challenger'], 0.0):.2f})"],
-            check=True,
-        )
+def pair_records(base: Path) -> dict[tuple[str, str], list[int]]:
+    """Eval matrix as PFSP pair-records {(a, b): [wins_a, wins_b]}.
+
+    Laplace-free: unseen pairs rate 0.5 inside pfsp (never stored).
+    Both slot orders collapse into one directed key."""
+    data = json.loads((base / "matrix.json").read_text())
+    records: dict[tuple[str, str], list[int]] = {}
+    for key, wins in data.get("eval", {}).items():
+        if " vs " not in key:
+            continue
+        a, b = key.split(" vs ", 1)
+        try:
+            wa, wb = float(wins[0]), float(wins[1])
+        except (TypeError, IndexError, ValueError):
+            continue
+        if (a, b) in records:
+            records[(a, b)][0] += wa
+            records[(a, b)][1] += wb
+        elif (b, a) in records:
+            records[(b, a)][0] += wb
+            records[(b, a)][1] += wa
+        else:
+            records[(a, b)] = [wa, wb]
+    return records
 
 
-def _exploiter_line(gen_index: int) -> int:
-    """Which rival line owns this exploiter gen: always line A (0).
+def port_main_union(base: Path, tip_id: str) -> dict[str, float]:
+    """Port-only step: the live main's initial matrix row.
 
-    Spoiler folded (round-72 post-mortem): the k-th exploiter sits at
-    gen_index 3k+2 but the spoiler line is no longer scheduled — every
-    exploiter gen continues line A. Lines 1 and 2 stay in history but
-    are never scheduled (dead by neglect). Spoiler role/scales/founding
-    code stays dormant but intact for a future regime."""
-    return 0
+    Unions the main-chain pair-records (traced tip -> root via manifest
+    parents) under the live "main" id. Ancestors' rows are untouched;
+    the union dilutes as fresh games dominate and is never repeated.
+    Returns the added {"main vs X": total} map."""
+    members = {m["id"]: m for m in archive.members(base)
+               if isinstance(m.get("id"), str)}
+    chain = []
+    seen = set()
+    cur = tip_id
+    while cur is not None and cur not in seen and cur in members:
+        seen.add(cur)
+        chain.append(cur)
+        cur = members[cur].get("parent")
+    data = json.loads((base / "matrix.json").read_text())
+    added: dict[str, float] = {}
+    for member in chain:
+        for key, wins in data.get("eval", {}).items():
+            if " vs " not in key:
+                continue
+            a, b = key.split(" vs ", 1)
+            try:
+                wa, wb = float(wins[0]), float(wins[1])
+            except (TypeError, IndexError, ValueError):
+                continue
+            if a == member and b != "main" and b != member:
+                k = f"main vs {b}"
+                w = data["eval"].setdefault(k, [0.0, 0.0])
+                w[0] += wa
+                w[1] += wb
+                added[k] = added.get(k, 0.0) + wa + wb
+            elif b == member and a != "main" and a != member:
+                k = f"main vs {a}"
+                w = data["eval"].setdefault(k, [0.0, 0.0])
+                w[0] += wb
+                w[1] += wa
+                added[k] = added.get(k, 0.0) + wa + wb
+    archive.atomic_write_json(base / "matrix.json", data)
+    return added
 
 
-def _exploiter_base(base: Path, cfg: dict, gen_index: int,
-                    champ_w: dict, line: int = 0) -> dict:
-    """Exploiter starting weights, alternating by exploiter count.
+def learners_dir(base: Path) -> Path:
+    return base / "learners"
 
-    The k-th exploiter sits at gen_index 3k+2. Even k resets to the
-    supervised base (fresh eyes, competent hands — AlphaStar's
-    recipe); odd k clones the champion (current competence +
-    disruptive kill-heavy objectives). The main outgrew the fixed
-    BC base (target practice), so competent pressure must come
-    from the podium itself. Random init stays the fallback for
-    archives that started without founding weights.
 
-    Line B (the spoiler) always founds from RANDOM weights, never a
-    champ clone or even the supervised base: alien stock with nothing
-    to unlearn (naive attackers vs a turtling field), then it chains
-    within itself. Lines >= 1 all found this way; line 0 follows the
-    founding alternation below."""
-    if line >= 1:
-        return _random_weights(cfg["seed"] + gen_index, cfg.get("arch", "base"))
-    k = (gen_index - 2) // 3
-    if k % 2 == 1:
-        return copy.deepcopy(champ_w)
+def _live_paths(base: Path, learner: str) -> tuple[Path, Path]:
+    d = learners_dir(base) / learner
+    return d / "weights.json", d / "opt.json"
+
+
+def store_live(base: Path, learner: str, weights: dict,
+               opt_blob: dict | None) -> None:
+    """Persist live training weights + Adam (atomic, old-or-new)."""
+    wpath, opath = _live_paths(base, learner)
+    wpath.parent.mkdir(parents=True, exist_ok=True)
+    archive.atomic_write_json(wpath, weights)
+    if opt_blob is None:
+        try:
+            opath.unlink()
+        except OSError:
+            pass
+    else:
+        archive.atomic_write_json(opath, opt_blob)
+
+
+def load_live(base: Path, learner: str) -> tuple[dict, dict | None]:
+    """Live training weights + Adam (None when never banked)."""
+    wpath, opath = _live_paths(base, learner)
+    weights = json.loads(wpath.read_text())
     try:
-        return archive.load_checkpoint(base, "g000")
-    except (FileNotFoundError, ValueError, KeyError):
-        return _random_weights(cfg["seed"] + gen_index, cfg.get("arch", "base"))
+        blob = json.loads(opath.read_text())
+    except (OSError, ValueError):
+        return weights, None
+    return weights, blob if isinstance(blob, dict) else None
 
 
-def run_generation(cfg: dict, base: Path, commit: bool = True) -> dict:
+def learner_games(state: dict, learner: str) -> int:
+    """Own-games played by a learner under this league state."""
+    if learner == "main":
+        return state.get("main_games", 0)
+    return state.get("exploiters", {}).get(learner, {}).get("games", 0)
+
+
+def ensure_league(base: Path, cfg: dict) -> dict:
+    """Create league.json on first start; top up scheduler extras after.
+
+    Phase-2 init_league owns the base shape (main working id, exploiter
+    slots, anchors, admissions, scheduler position); the scheduler adds
+    its own counters (main own-games, per-learner micro-batch progress,
+    tick count, main snapshot lineage) without touching that shape."""
     import rewards
 
-    started = time.time()
-    archive.init(base)
     rewards.GAMMA = cfg.get("gamma", rewards.GAMMA)
-    champ_id = archive.get_champion(base)
-    if champ_id is None:
-        init = cfg.get("init_weights")
-        if init:
-            # Supervised start (e.g. BC-from-pros): generation zero begins
-            # from learned weights instead of random. Fresh archives only.
-            champ_w = json.loads(Path(init).read_text())
+    archive.init(base)
+    state = archive.load_league(base)
+    if state is None:
+        source = cfg.get("main_source", "g000")
+        state = archive.init_league(
+            base, source, list(cfg.get("anchors", [])))
+        port_main_union(base, source)
+        state.setdefault("main_games", 0)
+        state.setdefault("micro", {})
+        state.setdefault("tick", 0)
+        state.setdefault("main_snapshots", [source])
+        for exp in state.get("exploiters", {}).values():
+            exp.setdefault("reset_at", 0)
+        archive.save_league(base, state)
+    else:
+        changed = False
+        for key, default in (("main_games", 0), ("micro", {}),
+                             ("tick", 0)):
+            if key not in state:
+                state[key] = copy.deepcopy(default)
+                changed = True
+        if "main_snapshots" not in state:
+            state["main_snapshots"] = [state.get("main_id")]
+            changed = True
+        for exp in state.get("exploiters", {}).values():
+            if "reset_at" not in exp:
+                exp["reset_at"] = 0
+                changed = True
+        if changed:
+            archive.save_league(base, state)
+    return state
+
+
+def ensure_roles(base: Path, cfg: dict) -> None:
+    """Role init on scheduler start: create missing live weight files.
+
+    Main resumes from the existing weights + banked Adam at main_source;
+    exploiters start from g000 (padding to the current arch happens
+    inside algorithm.new_policy on load -- the tested path) with fresh
+    Adam. Existing live files are never clobbered: restarts resume."""
+    source = cfg.get("main_source", "g000")
+    g000 = cfg.get("g000", "g000")
+    try:
+        archive.load_checkpoint(base, source)
+    except (FileNotFoundError, ValueError, KeyError):
+        source = g000
+        cfg = dict(cfg, main_source=source)
+    ensure_league(base, cfg)
+    source_w = archive.load_checkpoint(base, source)
+    source_opt = archive.load_opt(base, source)
+    g000_w = archive.load_checkpoint(base, g000)
+    for learner in LEARNERS:
+        wpath, _ = _live_paths(base, learner)
+        if wpath.exists():
+            continue
+        if learner == "main":
+            store_live(base, learner, copy.deepcopy(source_w),
+                       copy.deepcopy(source_opt)
+                       if source_opt is not None else None)
         else:
-            champ_w = _random_weights(cfg["seed"], cfg.get("arch", "base"))
-        champ_id = archive.save_checkpoint(base, champ_w, "main", None)
-        archive.set_champion(base, champ_id)
+            store_live(base, learner, copy.deepcopy(g000_w), None)
+
+
+def load_live_all(cfg: dict, base: Path) -> dict:
+    """In-memory training state per learner: policy, Adam, micro-batch."""
+    live: dict = {"lr": cfg["lr"]}
+    for learner in LEARNERS:
+        weights, opt_blob = load_live(base, learner)
+        # new_policy pads narrow (g000-era) checkpoints to the current
+        # arch: identical outputs, lineage keeps training. Fresh Adam
+        # when nothing is banked (exploiter starts and resets).
+        policy = algorithm.new_policy(weights)
+        opt = algorithm.make_optimizer(policy, lr=cfg["lr"])
+        algorithm.load_opt_state(opt, opt_blob)
+        live[learner] = {"policy": policy, "opt": opt, "pending": []}
+    return live
+
+
+def reset_learner(base: Path, live: dict, learner: str, g000_w: dict) -> None:
+    """Stall/admission reset: g000 weights + fresh Adam, batch dropped."""
+    policy = algorithm.new_policy(copy.deepcopy(g000_w))
+    opt = algorithm.make_optimizer(policy, lr=live["lr"])
+    live[learner] = {"policy": policy, "opt": opt, "pending": []}
+    store_live(base, learner, copy.deepcopy(g000_w), None)
+
+
+def _window_rate(window: list[float]) -> float:
+    return sum(window) / len(window) if window else 0.0
+
+
+def _window_record(window: list[float]) -> str:
+    wins = sum(1 for o in window if o == 1.0)
+    draws = sum(1 for o in window if o == 0.5)
+    losses = len(window) - wins - draws
+    return f"{wins}W-{draws}D-{losses}L"
+
+
+def maybe_admit(base: Path, live: dict, state: dict, learner: str,
+                g000_w: dict) -> dict | None:
+    """Admission check: sustained >60% over the last 40 vs the target.
+
+    Freezes the current weights as an admitted pool member (the freeze
+    IS the record: no extra copy step), logs the admission, and resets
+    the learner to g000 with fresh Adam. Returns the entry or None."""
+    if learner == "main":
+        return None
+    exp = state["exploiters"][learner]
+    window = exp.get("window", [])
+    if len(window) < archive.WINDOW_SIZE:
+        return None
+    if _window_rate(window) > ADMISSION_RATE:
+        weights = algorithm.policy_weights(live[learner]["policy"])
+        sid = archive.save_league_snapshot(
+            base, weights, "admitted", exp.get("id"))
+        entry = archive.record_admission(
+            base, sid, learner, exp.get("games", 0),
+            _window_record(window))
+        # record_admission saves its own reload: refresh before mutating
+        # or the admission entry is clobbered by this stale copy.
+        state = archive.load_league(base)
+        exp = state["exploiters"][learner]
+        reset_learner(base, live, learner, g000_w)
+        exp["window"] = []
+        exp["id"] = None
+        exp["reset_at"] = exp.get("games", 0)
+        archive.save_league(base, state)
+        return entry
+    return None
+
+
+def maybe_stall_reset(base: Path, live: dict, state: dict, learner: str,
+                      g000_w: dict) -> bool:
+    """Stall rule: 400 own-games with no admission resets to g000."""
+    if learner == "main":
+        return False
+    exp = state["exploiters"][learner]
+    if exp.get("games", 0) - exp.get("reset_at", 0) >= STALL_GAMES:
+        reset_learner(base, live, learner, g000_w)
+        exp["window"] = []
+        exp["reset_at"] = exp.get("games", 0)
+        archive.save_league(base, state)
+        return True
+    return False
+
+
+def maybe_snapshot(cfg: dict, base: Path, live: dict, state: dict,
+                   learner: str) -> dict | None:
+    """Snapshot cadence: every 80th own-game freezes a permanent member.
+
+    Counted on cycle games (since the last reset) so a fresh reset never
+    snapshots on its first tick. Main snapshots chain via the league main
+    id and trigger the anchor ladder series (measurement only). Returns
+    {"id", "anchors"} or None.
+    """
+    if learner == "main":
+        games = state.get("main_games", 0)
     else:
-        champ_w = archive.load_checkpoint(base, champ_id)
-    gen_index = len(read_history(base))
-    if cfg.get("fresh_maps"):
-        # Every run begins with fresh boards: 80 no-args draws (60 train
-        # + 20 eval games, 1:1), 2p only (the 2-bot engine rejects hill
-        # digits >= num_players at parse time; non-2p draws are set aside
-        # in the gen dir for the >2p discussion). Drill reservation and
-        # offset cycling are meaningless on all-fresh pools, so train/eval
-        # index their slices directly (see _train_map_for/_eval_map_for).
-        sys.path.insert(0, str(ROOT / "tools" / "mapgen"))
-        import gen_mixed
-        map_seed = cfg["seed"] * 100003 + gen_index
-        map_dir = base / "maps" / f"gen{gen_index:04d}"
-        train_maps, eval_maps = gen_mixed.fresh_pool(
-            cfg["train_games"] * 2, cfg["eval_games"], map_dir,
-            seed=map_seed, jobs=cfg.get("workers", 8))
-        cfg = dict(cfg, maps=train_maps + eval_maps,
-                   eval_maps=eval_maps)
+        exp = state["exploiters"][learner]
+        games = exp.get("games", 0) - exp.get("reset_at", 0)
+    if games <= 0 or games % SNAPSHOT_EVERY != 0:
+        return None
+    role = train.ROLE_CONFIGS[learner]["snapshot_role"]
+    weights = algorithm.policy_weights(live[learner]["policy"])
+    parent = state.get("main_id") if learner == "main" else state["exploiters"][learner].get("id")
+    sid = archive.save_league_snapshot(base, weights, role, parent)
+    anchors = None
+    if learner == "main":
+        state["main_id"] = sid
+        snaps = state.setdefault("main_snapshots", [])
+        if sid not in snaps:
+            snaps.append(sid)
+        anchor_ws = {}
+        for aid in state.get("anchors", []):
+            try:
+                anchor_ws[aid] = archive.load_checkpoint(base, aid)
+            except (FileNotFoundError, ValueError, KeyError):
+                continue
+        if anchor_ws:
+            anchors = measure.measure_all(cfg, base, sid, sid, weights,
+                                          anchor_ws)
     else:
-        # Explicit --maps debug pools: cycle the pool for train, slice
-        # the head for eval (pools shorter than the exam repeat boards).
-        # Missing pool (mocked-train tests) means eval is mocked too.
-        pool = cfg.get("maps") or []
-        cfg = dict(cfg, eval_maps=[pool[i % len(pool)]
-                                   for i in range(cfg["eval_games"])]
-                   if pool else [])
-    exploiter = gen_index % 3 == 2
-    line = _exploiter_line(gen_index) if exploiter else None
-    if exploiter:
-        # Persistent rival: continue this LINE's last exploiter chain
-        # (weights + optimizer) instead of reseeding. Counter-styles
-        # need time to develop; a fresh reseed every third gen never
-        # gets past target practice. The first rival of a line seeds
-        # from the founding alternation (line A) or random weights
-        # (spoiler line: alien stock), then the chain owns it.
-        rival = archive.last_exploiter(base, line)
-        if rival is None:
-            start_w = _exploiter_base(base, cfg, gen_index, champ_w, line)
-            opt_in = None
-            parent = champ_id
+        state["exploiters"][learner]["id"] = sid
+    archive.save_league(base, state)
+    append_history(base, {"snapshot": sid, "learner": learner,
+                          "games": games,
+                          "anchors": anchors,
+                          "tick": state.get("tick", 0)})
+    return {"id": sid, "anchors": anchors}
+
+
+def run_tick(cfg: dict, base: Path, live: dict,
+             rng: random.Random | None = None) -> dict:
+    """One scheduler iteration: play, log, accumulate, maybe train.
+
+    Trains exactly one learner (the seat-0 side); the opponent is a
+    frozen snapshot that learns nothing. Returns a report dict."""
+    import rewards
+
+    rewards.GAMMA = cfg.get("gamma", rewards.GAMMA)
+    state = archive.load_league(base)
+    if state is None:
+        raise FileNotFoundError(f"no league.json under {base}")
+    tick = state.get("tick", 0)
+    if rng is None:
+        rng = random.Random(f"{cfg.get('seed', 0)}:{tick}")
+    learner = archive.current_learner(state)
+    lcfg = train.ROLE_CONFIGS[learner]
+    entry = live[learner]
+    g000_w = archive.load_checkpoint(base, cfg.get("g000", "g000"))
+
+    records = pair_records(base)
+    totals = archive.member_game_counts(base)
+    opp = train.select_opponent(base, learner, state, records, totals, rng)
+    opp_w = archive.load_checkpoint(base, opp)
+    live_w = algorithm.policy_weights(entry["policy"])
+    game_no = learner_games(state, learner)
+    map_path = rng.choice(cfg["maps"])
+    played = train._play_one(
+        (dict(cfg, game_kind="eval"), base, learner, [learner, opp],
+         [live_w, opp_w], game_no, lcfg["pricing"], map_path))
+    batch = algorithm.collect(entry["policy"], played["rows"],
+                              played["rets"])
+    entry["pending"].extend(batch)
+
+    micro = state.setdefault("micro", {}).get(learner, 0) + 1
+    state["micro"][learner] = micro
+    update_stats = None
+    if micro % MICRO_BATCH == 0:
+        update_stats = train.ppo_update(entry["policy"], entry["opt"],
+                                        entry["pending"], cfg)
+        entry["pending"] = []
+        store_live(base, learner,
+                   algorithm.policy_weights(entry["policy"]),
+                   algorithm.serialize_opt(entry["opt"]))
+    # Persist progress before the counter helpers below: they reload the
+    # league from disk and would drop unsaved in-memory progress.
+    archive.save_league(base, state)
+
+    my_score, opp_score = played["scores"][0], played["scores"][1]
+    outcome = archive.outcome_of(my_score, opp_score)
+    if learner == "main":
+        state["main_games"] = state.get("main_games", 0) + 1
+    else:
+        exp = state["exploiters"][learner]
+        if learner == "me":
+            # The bar is vs main: only main-snapshot games grow the
+            # window (fallback historicals train, they don't count).
+            if opp in state.get("main_snapshots", []):
+                archive.note_exploiter_game(base, learner, outcome,
+                                            target=state.get("main_id"))
+                state = archive.load_league(base)
+            else:
+                exp["games"] = exp.get("games", 0) + 1
         else:
-            start_w = archive.load_checkpoint(base, rival)
-            opt_in = archive.load_opt(base, rival)
-            parent = rival
-        role = "spoiler" if line >= 1 else "exploiter"
+            archive.note_exploiter_game(base, learner, outcome,
+                                        target="pool")
+            state = archive.load_league(base)
+    archive.save_league(base, state)
+
+    admitted = maybe_admit(base, live, state, learner, g000_w)
+    snapshot = None
+    stalled = False
+    if admitted is not None:
+        # maybe_admit reloads internally: refresh or the final save
+        # clobbers the admission entry and the reset.
+        state = archive.load_league(base)
     else:
-        # Continuous main: train from the main's own weights and
-        # optimizer state, never a champ copy. Snapshots chain
-        # (parent = last main); promotion moves only the champ pointer.
-        main_id = archive.get_main(base)
-        if main_id is None:  # one-time bootstrap on old archives.
-            main_id, main_w, opt_in, parent = champ_id, champ_w, None, champ_id
+        # A stall reset means dead weights: reset first so the cycle
+        # restarts and no snapshot freezes the dropped lineage.
+        stalled = maybe_stall_reset(base, live, state, learner, g000_w)
+        if stalled:
+            state = archive.load_league(base)
         else:
-            main_w = archive.load_checkpoint(base, main_id)
-            opt_in = archive.load_opt(base, main_id)
-            parent = main_id
-        start_w = main_w
-        role = "challenger"
-    critic = _load_critic(base)
-    if critic:
-        # warm-start the baseline only; actor keys stay champ (or fresh).
-        start_w = {**start_w,
-                   **{k: v for k, v in critic.items()
-                      if k in start_w and model.is_critic_key(k)}}
-    anchor_w = None
-    if cfg.get("kl_anchor_beta"):
-        try:
-            anchor_w = archive.load_checkpoint(base, "g000")
-        except (FileNotFoundError, ValueError, KeyError):
-            anchor_w = None
-    chal_id, chal_w, train_stats, opt_out = train.train_generation(
-        cfg, base, champ_id, start_w, role=role, parent=parent,
-        opt_state=opt_in, anchor=anchor_w, line=line,
-        # Scouts drift — that's their job. The anchor binds the main
-        # to the supervised manifold; on exploiters it homogenizes
-        # every origin back to BC (round-35 confound: champ-clones
-        # collapsed onto g000 mid-training and thrashed).
-        kl_anchor_beta=0.0 if role in ("exploiter", "spoiler") else cfg.get(
-            "kl_anchor_beta", 0.0))
-    if not exploiter:
-        archive.set_main(base, chal_id)
-        archive.save_opt(base, chal_id, opt_out)
-    else:
-        archive.save_opt(base, chal_id, opt_out)  # rival banks its own
-    ev = evaluate.evaluate(cfg, base, chal_id, chal_w, champ_id, champ_w)
-    archive.atomic_write_json(
-        base / "critic.json",
-        {k: v for k, v in chal_w.items() if model.is_critic_key(k)})
-    mix = archive.nash_mixture(base)
-    promoted = evaluate.should_promote(
-        ev["wins"], ev["draws"], ev["games"], cfg["promote_threshold"],
-    )
-    finished = time.time()
-    report = {
-        "champion": champ_id,
-        "challenger": chal_id,
-        "challenger_weights": chal_w,
-        "train": train_stats,
-        "eval": ev,
-        "nash": mix,
-        "promoted": promoted,
-        "exploiter": exploiter,
-        "started_at": started,
-        "finished_at": finished,
-        "duration_s": round(finished - started, 1),
-        "config": cfg,
-    }
-    archive.atomic_write_json(base / "last_report.json", report)
-    append_history(base, {k: v for k, v in report.items()
-                           if k != "challenger_weights"})
-    if promoted:
-        publish(base, report, commit)
+            # The admitted freeze is the permanent record for that tick;
+            # a fresh reset must not snapshot on the same tick.
+            snapshot = maybe_snapshot(cfg, base, live, state, learner)
+            # maybe_snapshot saves state itself for main/exploiters.
+            state = archive.load_league(base)
+
+    state["tick"] = tick + 1
+    archive.save_league(base, state)
+    next_learner = archive.advance_scheduler(base)
     archive.write_status(base, {
-        "phase": "done", "challenger": chal_id,
-        "champion": archive.get_champion(base),
-        "promoted": promoted,
-        "exploiter": exploiter,
+        "phase": "league", "learner": learner, "opponent": opp,
+        "tick": tick + 1, "next": next_learner,
+        "own_games": learner_games(state, learner),
+        "micro": state.get("micro", {}).get(learner, 0),
+        "admitted": admitted["id"] if admitted else None,
+        "snapshot": snapshot["id"] if snapshot else None,
+        "stalled": stalled,
     })
-    return report
+    return {
+        "learner": learner,
+        "opponent": opp,
+        "scores": played["scores"],
+        "outcome": outcome,
+        "micro": state.get("micro", {}).get(learner, 0),
+        "update": update_stats,
+        "admitted": admitted,
+        "snapshot": snapshot,
+        "stalled": stalled,
+        "tick": tick,
+    }
 
 
-def main(argv: list[str] | None = None) -> dict:
+def run_loop(cfg: dict, base: Path, ticks: int | None = None) -> list[dict]:
+    """Perpetual scheduler: ensure roles, then tick until ticks run out."""
+    ensure_roles(base, cfg)
+    live = load_live_all(cfg, base)
+    reports = []
+    n = cfg.get("ticks", -1) if ticks is None else ticks
+    tick = 0
+    while n is None or n < 0 or tick < n:
+        reports.append(run_tick(cfg, base, live))
+        tick += 1
+    return reports
+
+
+def main(argv: list[str] | None = None) -> list[dict]:
     cfg = parse_args(argv)
-    return run_generation(cfg, Path(cfg["archive"]), commit=cfg["commit"])
+    return run_loop(cfg, Path(cfg["archive"]), ticks=cfg["ticks"])
 
 
 if __name__ == "__main__":
-    report = main()
-    print(json.dumps({k: v for k, v in report.items()
-                      if k not in ("nash", "challenger_weights")}, indent=1))
+    reports = main()
+    print(json.dumps(reports[-1] if reports else {}, indent=1, default=str))
