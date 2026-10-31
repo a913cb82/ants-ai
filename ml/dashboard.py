@@ -1642,7 +1642,7 @@ def gen_row_html(g: dict) -> str:
         f"<span title=\"mean eval margin, challenger-minus-champion\">margin {margin_s}</span>"
         f"<div class=\"dots\" title=\"per-duel margins: green win, blue draw, red loss\">"
         f"{dot_strip(g.get('margins'))}</div></span></td>"
-        f"<td>{res}<div class=\"legend\" style=\"margin:4px 0 0\">{_esc(g.get('reason', ''))}</div>{expl}</td>"
+        f"<td class=\"res-cell\">{res}<div class=\"legend\" style=\"margin:4px 0 0\">{_esc(g.get('reason', ''))}</div>{expl}</td>"
         f"<td>{crown_h}</td>"
         f"<td class=\"num legend truncate\" title=\"{_esc(g.get('arch'))} · {_esc(g.get('turns'))} turns\">"
         f"{_esc(g.get('arch'))} · {g.get('turns')} turns · γ {g.get('gamma')}</td></tr>")
@@ -1742,7 +1742,7 @@ STYLES = """
 *{box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,Roboto,"Helvetica Neue",Arial,sans-serif;
   background:var(--bg); color:var(--ink); margin:0; padding:24px max(16px,4vw) 48px;}
-.wrap{max-width:1200px; margin:0 auto;}
+.wrap{max-width:1720px; margin:0 auto;}
 h1{font-size:20px; margin:0 0 4px;}
 .sub{color:var(--secondary); font-size:13px; margin:0 0 20px;}
 .section-title{font-size:14px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
@@ -1759,7 +1759,13 @@ h1{font-size:20px; margin:0 0 4px;}
 .progress{height:8px; background:var(--border); border-radius:4px; margin-top:10px; overflow:hidden;}
 .progress>div{height:100%; background:var(--accent); border-radius:4px; transition:width .4s, background .4s;}
 .status-line{font-size:14px; margin-top:2px;}
-.charts{display:grid; grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr)); gap:16px;}
+.charts{display:grid; grid-template-columns:repeat(3,1fr); gap:16px;}
+.chart-card.chart-wide{grid-column:1/-1;}
+.chart-card.chart-wide canvas{height:280px;}
+.tables-2col{display:grid; grid-template-columns:1.35fr 1fr; gap:16px; align-items:start;}
+.tables-2col.even{grid-template-columns:1fr 1fr;}
+.res-cell{min-width:180px;}
+.res-cell .badge{white-space:nowrap;}
 .chart-card h3{margin:0 0 2px; font-size:14px;}
 .chart-sub{font-size:12px; color:var(--muted); margin:0 0 8px;}
 .chart-head{display:flex; justify-content:space-between; align-items:baseline;}
@@ -1831,7 +1837,8 @@ caption{text-align:left; font-size:12px; color:var(--muted); padding:0 0 6px; ca
 .hero-side{flex:1 1 220px; min-width:200px;}
 .hero-champ{font-size:30px; font-weight:800; font-variant-numeric:tabular-nums; margin:2px 0 4px;
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-.hero-run{font-size:13px; color:var(--secondary);}
+.hero-run{font-size:13px; color:var(--secondary); line-height:1.6; margin:4px 0 2px;}
+#st-eta{margin:6px 0 0; line-height:1.6;}
 .hero .progress{margin-top:12px;}
 .strip{display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-top:16px;}
 .mini{background:var(--card); border:1px solid var(--border); border-radius:10px; padding:10px 16px;}
@@ -1843,7 +1850,7 @@ caption{text-align:left; font-size:12px; color:var(--muted); padding:0 0 6px; ca
 details.why{font-size:12.5px; color:var(--secondary); margin:-4px 0 12px;}
 details.why summary{cursor:pointer; color:var(--accent); font-size:12.5px; display:inline-block;}
 details.why p{margin:6px 0 0; max-width:90ch;}
-.dots{margin-top:4px; letter-spacing:2px; font-size:11px; line-height:1;}
+.dots{margin-top:4px; letter-spacing:1px; font-size:10px; line-height:1.8; max-width:126px;}
 .dot.w{color:var(--success);}
 .dot.d{color:var(--eval-ink);}
 .dot.l{color:var(--danger);}
@@ -1858,7 +1865,13 @@ tbody tr:hover{background:#EFF4FA;}
 .footer{margin-top:40px; padding-top:12px; border-top:1px solid var(--border);
   font-size:12px; color:var(--muted); display:flex; gap:8px; flex-wrap:wrap;}
 .footer .sep{opacity:.5;}
+@media (max-width:1150px){
+  .charts{grid-template-columns:1fr 1fr;}
+  .chart-card.chart-wide{grid-column:1/-1;}
+  .tables-2col,.tables-2col.even{grid-template-columns:1fr;}
+}
 @media (max-width:900px){
+  .charts{grid-template-columns:1fr;}
   .strip{grid-template-columns:repeat(2,1fr);}
   .stats{grid-template-columns:repeat(2,1fr);}
   .stats>.card:nth-child(3){grid-column:span 2;}
@@ -2375,7 +2388,7 @@ function genRow(g){
   `${g.eval_w}-${g.eval_d}-${losses} · ${(g.win_rate*100).toFixed(1)}% (draws count ½) · lower ${g.wilson_lower.toFixed(2)} · `+
   `<span title="mean eval margin, challenger-minus-champion">margin ${margin>=0?"+"+margin.toFixed(2):margin.toFixed(2)} pts</span>`+
   `<div class="dots" title="per-duel margins: green win, blue draw, red loss">${dotStrip(g.margins)}</div></span></td>`+
-  `<td>${g.promoted?'<span class="badge promoted">promoted ★</span>':'<span class="badge held">held</span>'}`+
+  `<td class="res-cell">${g.promoted?'<span class="badge promoted">promoted ★</span>':'<span class="badge held">held</span>'}`+
   `<div class="legend" style="margin:4px 0 0">${esc(g.reason)}</div>`+(g.exploiter?` <span class="badge draw">exploiter</span>`:'')+`</td>`+
   `<td>${crown}</td>`+
   `<td class="num legend truncate" title="${esc(g.arch)} · ${g.turns} turns">${esc(g.arch)} · ${g.turns} turns · γ ${g.gamma}</td></tr>`;
@@ -2697,7 +2710,7 @@ def render_page(snap: dict | None = None) -> str:
 <div class="legend">seven training curves, one point per generation, oldest → newest</div>
 <details class="why"><summary>what am I looking at?</summary><p>Each card plots one signal per generation, oldest on the left. <b>Return</b> is the mean engine score per training game. Thick lines are window medians over faint per-generation points; shaded bands are the spread. The PG ratio card is experimental — it has no literature backing, unlike the rest.</p></details>
 <div class="charts">
-  <div class="card chart-card"><div class="chart-head"><h3>Candidate vs champion Elo</h3><span class="delta flat" id="d-elo" style="display:none"></span></div>
+  <div class="card chart-card chart-wide"><div class="chart-head"><h3>Candidate vs champion Elo</h3><span class="delta flat" id="d-elo" style="display:none"></span></div>
     <p class="chart-sub">causal Bradley-Terry over train+eval pairs · refit every 15 gens · <span id="elo-turn"></span></p><canvas id="ch-elo"></canvas></div>
   <div class="card chart-card"><div class="chart-head"><h3>Knock marks + rates</h3><span class="delta flat" id="d-knock" style="display:none"></span></div>
     <p class="chart-sub">top: one tick per gen (blue knock ≥ .50, gray held) · bottom: 15-gen rates + Wilson bands</p><canvas id="ch-knock-marks" style="height:64px"></canvas><canvas id="ch-knock" style="margin-top:8px"></canvas></div>
@@ -2712,6 +2725,8 @@ def render_page(snap: dict | None = None) -> str:
   <div class="card chart-card"><div class="chart-head"><h3>Tenure / turnover + Nash entropy <span id="tenure-now"></span></h3></div>
     <p class="chart-sub">tenure = gens held (crowning gen = 0) · ◆ = new crown · shaded = N-player era</p><canvas id="ch-tenure"></canvas><canvas id="ch-entlane" style="margin-top:8px"></canvas></div>
 </div>
+<div class="tables-2col">
+<div>
 <div class="section-title">Generations</div>
 <div class="legend">challenger W-D-L vs the champion · green fill is win rate, ▲ is the promotion threshold</div>
 <details class="why"><summary>jargon guide</summary><p>Each row is one challenger against the reigning champion. <b>Promoted</b> means its Wilson lower-bound win rate cleared the threshold (default 0.50) — it takes the throne. <b>Held</b> means it waits. <b>Crown</b> marks throne-takers: complete beat the champ head-to-head AND the duel field, soft took the throne without both. An <b>exploiter</b> badge flags challengers trained to probe weaknesses.</p></details>
@@ -2723,6 +2738,8 @@ def render_page(snap: dict | None = None) -> str:
 <caption>Generations, newest first — the member filter above applies here too</caption>
 <tr><th scope="col">challenger</th><th scope="col" class="num">train return</th><th scope="col" class="num">train loss</th><th scope="col">eval vs champion</th><th scope="col">result</th><th scope="col">crown</th><th scope="col" class="num">config</th></tr>
 <tbody id="gen-body">{gen_rows}</tbody></table></div>
+</div>
+<div>
 <div class="section-title">Recent games</div>
 <div class="legend">train = practice · eval = promotion duels vs champion · scores are engine points</div>
 <details class="why"><summary>jargon guide</summary><p><b>Train</b> games are practice, including self-play. <b>Eval</b> games are promotion duels against the champion. The <b>result</b> badge reads from the filtered member's view when a filter is set, else the first-listed side. Games with 3+ seats list every seat with pair scores below.</p></details>
@@ -2743,6 +2760,9 @@ def render_page(snap: dict | None = None) -> str:
 <tr><th scope="col">gen</th><th scope="col">kind</th><th scope="col">matchup</th><th scope="col">result</th><th scope="col">replay</th></tr>
 <tbody id="games-body">{game_rows}</tbody></table></div>
 </div>
+</div>
+<div class="tables-2col even">
+<div>
 <div class="section-title">Population</div>
 <div class="legend">nash = mixture share in %, display only · W-D-L counts eval games</div>
 <details class="why"><summary>jargon guide</summary><p><b>Nash</b> is each checkpoint's share of the equilibrium mixture: it guides matchmaking, never ranking. <b>W-D-L</b> counts eval games only — one entry per game, where a win is the sole top score and a draw is a tied top. <b>Seed</b> is the founding-weights checkpoint everything descends from.</p></details>
@@ -2755,6 +2775,8 @@ def render_page(snap: dict | None = None) -> str:
 <caption>Population by Nash share, highest first</caption>
 <tr><th scope="col">id</th><th scope="col">role</th><th scope="col">parent</th><th scope="col">nash</th><th scope="col" class="num">W-D-L (eval)</th></tr>
 <tbody id="pop-body">{pop_rows}</tbody></table></div>
+</div>
+<div>
 <div class="section-title">Maps</div>
 <div class="legend">per board and seat count — games per phase · challenger record on eval</div>
 <details class="why"><summary>jargon guide</summary><p>Each row is one board at one seat count. The <b>challenger record</b> covers eval games only, read off fixed seats 0 and 1 — extra seats are shared weather. Rows labelled unlabelled ran before map logging existed.</p></details>
@@ -2762,6 +2784,8 @@ def render_page(snap: dict | None = None) -> str:
 <caption>Maps by games logged</caption>
 <tr><th scope="col">map</th><th scope="col" class="num">seats</th><th scope="col" class="num">train</th><th scope="col" class="num">eval</th><th scope="col" class="num">challenger W-D-L (eval)</th></tr>
 <tbody id="maps-body">{map_rows}</tbody></table></div>
+</div>
+</div>
 <div class="footer"><span>archive ml/archive</span><span class="sep">·</span><span>{footer_counts}</span><span class="sep">·</span><span>polls 5s active / 15s idle</span><span class="sep">·</span><span>AZDash</span></div>
 </div>
 <script>{SCRIPT}</script></body></html>
