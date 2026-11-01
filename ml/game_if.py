@@ -162,10 +162,18 @@ def play(
 
 
 def _run_once(cmd: list, root: Path, env: dict, timeout: int) -> None:
-    """One engine invocation; raises TimeoutError/RuntimeError."""
+    """One engine invocation; raises TimeoutError/RuntimeError.
+
+    Engine stdout (the turn-by-turn visualizer stream, hundreds of MB
+    on 250-turn 10-seat games) goes straight to DEVNULL: buffering it
+    with capture_output=True piles GBs in RAM under concurrency and
+    OOM-kills the trainer. Nothing reads stdout (replay and records
+    come from log_dir/side dirs); stderr stays piped so failures still
+    report their tail."""
     try:
         proc = subprocess.run(
-            cmd, cwd=root, capture_output=True, env=env, timeout=timeout
+            cmd, cwd=root, stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE, env=env, timeout=timeout,
         )
         proc.check_returncode()
     except subprocess.TimeoutExpired as exc:

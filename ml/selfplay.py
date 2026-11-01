@@ -15,6 +15,7 @@ stay logged.
 
 from __future__ import annotations
 
+import contextlib
 import copy
 import json
 import random
@@ -136,12 +137,34 @@ def _live_paths(base: Path) -> tuple[Path, Path]:
 
 
 def _pending_path(base: Path) -> Path:
+    """Bank directory: one file per tick, never a whole-list rewrite.
+
+    Re-saving the full pending list every tick is O(n^2) serialization:
+    at full-size 250-turn games the bank reaches hundreds of MB and each
+    tick spends minutes pickling it (plus a same-size transient that
+    OOM-killed a 14-game run). Shards cost O(game) each, once."""
+    return base / "live" / "pending"
+
+
+def _legacy_pending_path(base: Path) -> Path:
     return base / "live" / "pending.pt"
 
 
-def bank_pending(base: Path, items: list, arch: str, tick: int | None = None) -> None:
-    """Persist unapplied PPO rows (empty clears the bank)."""
-    path = _pending_path(base)
+def _shard_tick(path: Path) -> int:
+    return int(path.stem.replace("tick", "", 1))
+
+
+def _pending_shards(base: Path) -> list:
+    try:
+        shards = list(_pending_path(base).glob("tick*.pt"))
+    except OSError:
+        return []
+    return sorted(shards, key=_shard_tick)
+
+
+def bank_pending(base: Path, items: list, arch: str, tick: int) -> None:
+    """Bank one tick's PPO rows (empty clears that tick's shard)."""
+    path = _pending_path(base) / f"tick{tick}.pt"
     if not items:
         try:
             path.unlink()
@@ -151,9 +174,29 @@ def bank_pending(base: Path, items: list, arch: str, tick: int | None = None) ->
     algorithm.dump_pending(path, items, arch, tick)
 
 
+def _drop_banked(base: Path, entries: list) -> None:
+    """Delete the bank files a landed update consumed: legacy file for
+    a None entry, that tick's shard otherwise. Removes the directory
+    when nothing remains."""
+    for entry in entries:
+        with contextlib.suppress(OSError):
+            if entry is None:
+                _legacy_pending_path(base).unlink()
+            else:
+                (_pending_path(base) / f"tick{entry}.pt").unlink()
+    with contextlib.suppress(OSError):
+        _pending_path(base).rmdir()
+
+
 def load_pending(base: Path, arch: str) -> list:
-    """Banked rows for this arch, else [] (clean restart)."""
-    return algorithm.read_pending(_pending_path(base), arch)
+    """Banked rows: legacy file first, then shards in tick order.
+
+    Order across shards is tick-number, not completion, order; PPO
+    shuffles minibatches anyway, so training cannot tell."""
+    rows = algorithm.read_pending(_legacy_pending_path(base), arch)
+    for shard in _pending_shards(base):
+        rows.extend(algorithm.read_pending(shard, arch))
+    return rows
 
 
 def store_live(base: Path, weights: dict, opt_blob: dict | None) -> None:
@@ -179,6 +222,17 @@ def load_live(base: Path) -> tuple[dict, dict | None]:
     except (OSError, ValueError):
         return weights, None
     return weights, blob
+
+
+def _banked_manifest(base: Path) -> list:
+    """In-memory manifest of banked rows, oldest first: None for the
+    legacy file, tick ints for shards. Crash orphans simply reload (at
+    most one batch retrains, as before) and rejoin the manifest."""
+    manifest = []
+    if _legacy_pending_path(base).exists():
+        manifest.append(None)
+    manifest.extend(_shard_tick(s) for s in _pending_shards(base))
+    return manifest
 
 
 def _claim_tick(base: Path) -> int:
@@ -223,6 +277,7 @@ def ensure(base: Path, cfg: dict) -> dict:
         "policy": policy,
         "opt": opt,
         "pending": load_pending(base, cfg.get("arch", "base")),
+        "banked": _banked_manifest(base),
         "lr": cfg["lr"],
         "bg": None,  # background update slot; None until first boundary
     }
@@ -249,6 +304,8 @@ def _finish_tick(cfg: dict, base: Path, live: dict, result: dict) -> dict:
     played = result["played"]
     batch = algorithm.collect(live["policy"], played["rows"], played["rets"])
     live["pending"].extend(batch)
+    bank_pending(base, batch, cfg.get("arch", "base"), tick)
+    live["banked"].append(tick)
     state = archive.load_state(base)
     micro = state.get("micro", 0) + 1
     _bg_swap(cfg, base, live, block=False)  # land a finished update, if any
@@ -259,9 +316,8 @@ def _finish_tick(cfg: dict, base: Path, live: dict, result: dict) -> dict:
         # bottleneck the loop waits here instead of piling up stale games.
         _bg_swap(cfg, base, live, block=True)
         _bg_start(cfg, live, tick)
-    # Bank every tick: rows played mid-update must survive a crash too
-    # (resume retrains at most one frozen prefix, as before).
-    bank_pending(base, live["pending"], cfg.get("arch", "base"), tick)
+    # No whole-list bank here: the tick's shard is already written above,
+    # so a crash loses only in-flight games, as before, at O(game) cost.
     state["micro"] = micro
     state["tick"] = max(state.get("tick", 0), tick + 1)
     archive.save_state(base, state)
@@ -293,7 +349,9 @@ def _bg_start(cfg: dict, live: dict, tick: int) -> None:
     bg.update(
         n0=n0, tick=tick, started=time.perf_counter(),
         stats=None, seconds=None, busy=True, done=threading.Event(),
+        banked=list(live["banked"]),
     )
+    live["banked"] = []
 
     def _run() -> None:
         try:
@@ -345,7 +403,7 @@ def _bg_swap(cfg: dict, base: Path, live: dict, block: bool) -> bool:
         },
     )
     del live["pending"][: bg["n0"]]
-    bank_pending(base, live["pending"], cfg.get("arch", "base"), bg["tick"])
+    _drop_banked(base, bg["banked"])
     bg["busy"] = False
     return True
 

@@ -2035,3 +2035,39 @@ def test_ppo_update_reports_clipfrac_and_explained_var():
     stats = train.ppo_update(policy, opt, batch, cfg)
     assert all(0.0 <= c <= 1.0 for c in stats["clipfrac"])
     assert stats["explained_var"] <= 1.0
+
+
+def test_run_once_discards_engine_stdout_off_ram(tmp_path, monkeypatch):
+    import subprocess
+    import sys
+
+    import game_if
+
+    seen = {}
+    real = subprocess.run
+
+    def spy(cmd, **kw):
+        seen.update(kw)
+        assert kw.get("capture_output") is not True  # never buffer stdout in RAM
+        assert kw.get("stdout") == subprocess.DEVNULL
+        assert kw.get("stderr") == subprocess.PIPE
+        return real([sys.executable, "-c", "pass"], cwd=kw.get("cwd"), env=kw.get("env"))
+
+    monkeypatch.setattr(subprocess, "run", spy)
+    game_if._run_once([sys.executable, "-c", "print('x' * 100)"], tmp_path, {}, 60)
+
+
+def test_run_once_failure_reports_stderr_tail(tmp_path):
+    import sys
+
+    import game_if
+
+    try:
+        game_if._run_once(
+            [sys.executable, "-c", "import sys; sys.stderr.write('boom' * 100); sys.exit(3)"],
+            tmp_path, {}, 60,
+        )
+    except RuntimeError as e:
+        assert "boom" in str(e)
+    else:
+        raise AssertionError("failing engine must raise")

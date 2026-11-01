@@ -27,8 +27,9 @@ right way, PPO stays healthy.
    off the board.
 3. **Crash-ok.** `_claim_tick` hands out each tick under a lock, never
    reuses numbers. Every state is valid: game rows kept, `live/` points
-   at the last finished update, pending banks ≤ one micro-batch
-   early/late. There is no recovery and no repair — just rerun.
+   at the last finished update, the bank holds one shard per unapplied
+   tick (a rewrite-free append, never a whole-list re-save). There is
+   no recovery and no repair — just rerun.
 4. **Fresh starts.** Every net is drawn fresh (`CNNPolicy.reset_parameters`,
    CleanRL init); nothing resumes from g000 or any snapshot.
 5. **The one diet.** `rewards.scales()`: FOOD 1.0, KILL 1.0,

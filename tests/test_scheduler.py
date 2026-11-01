@@ -373,3 +373,32 @@ def test_second_batch_trains_on_pre_update_weights(tmp_path, monkeypatch):
     assert (
         _json.dumps(selfplay.load_live(base)[0], sort_keys=True) != first
     )  # both updates landed
+
+
+def test_bank_shards_per_tick_and_drop_consumed(tmp_path):
+    import torch
+
+    base = tmp_path / "archive"
+    items = lambda v: [(torch.zeros(2), 1, v, [True, False], 0.1)]
+    selfplay.bank_pending(base, items(0.5), "base", tick=3)
+    selfplay.bank_pending(base, items(1.5), "base", tick=7)
+    shards = sorted(p.name for p in selfplay._pending_path(base).glob("*.pt"))
+    assert shards == ["tick3.pt", "tick7.pt"]  # one file per tick, no whole-list rewrite
+    got = selfplay.load_pending(base, "base")
+    assert [it[2] for it in got] == [0.5, 1.5]  # completion order kept
+    selfplay._drop_banked(base, [3])
+    assert [p.name for p in selfplay._pending_path(base).glob("*.pt")] == ["tick7.pt"]
+    assert [it[2] for it in selfplay.load_pending(base, "base")] == [1.5]
+
+
+def test_load_pending_reads_legacy_bank_file(tmp_path):
+    import algorithm
+    import torch
+
+    base = tmp_path / "archive"
+    legacy = base / "live" / "pending.pt"
+    items = [(torch.zeros(2), 1, 0.5, [True, False], 0.1)]
+    algorithm.dump_pending(legacy, items, "base")
+    selfplay.bank_pending(base, items, "base", tick=9)
+    got = selfplay.load_pending(base, "base")
+    assert len(got) == 2  # legacy rows first, then shards
