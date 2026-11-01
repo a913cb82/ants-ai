@@ -287,9 +287,13 @@ def trace_report(game, seat, records):
 
     miss_rate counts records no replay ant explains. problems lists the
     ones that should be impossible: dest on water or live food (the
-    legal mask forbids both — a mask breach) or no stayed step at all
-    (ghost). Passable-stay misses are order-lost infra noise: counted,
-    never raised. Missing map data raises: the engine always logs it."""
+    legal mask forbids both — a mask breach), no stayed step at all
+    (ghost), or a lost order with no timeout to explain it (the engine
+    applies every order it receives; sends are flushed per ant, so a
+    cutoff strands decided-but-unsent orders and marks the seat
+    timeout). Timeout-explained loss is infra noise: counted, never
+    raised. Missing map data or status raises: the engine always logs
+    both."""
     if not records:
         return (0.0, [])  # nothing to audit: vacuous, not silent
     rd = game["replaydata"]
@@ -329,10 +333,22 @@ def trace_report(game, seat, records):
             f[0] == r and f[1] == c and f[2] <= t <= f[3] for f in foods
         )
         if on_water or on_food:
+            # Decided, not sent: the mask forbids both before any order
+            # exists, so a cutoff cannot explain it. Always a bug.
             problems.append(
                 f"t{t} {loc}->{dest}: order into "
                 f"{'water' if on_water else 'food'} (mask breach)"
             )
+            continue
+        status = game.get("status")
+        try:
+            timed_out = status[seat] == "timeout"
+        except (TypeError, IndexError):
+            raise ValueError("trace_report needs game.status")
+        if not timed_out:
+            # The engine applies every order it receives; without a
+            # cutoff to strand it, a lost order is a bug, not noise.
+            problems.append(f"t{t} {loc}->{dest}: order lost without timeout")
     total = len(records)
     return (missed / total if total else 0.0, problems)
 

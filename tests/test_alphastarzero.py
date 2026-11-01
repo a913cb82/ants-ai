@@ -2299,15 +2299,6 @@ def test_trace_report_flags_water_breach():
     assert miss == 1.0 and len(problems) == 1 and "water" in problems[0]
 
 
-def test_trace_report_counts_order_lost_not_a_problem():
-    import rewards
-
-    game = _trace_game()
-    recs = [{"turn": 3, "loc": [5, 5], "dest": [5, 4], "action": "w"}]
-    miss, problems = rewards.trace_report(game, 0, recs)
-    assert miss == 1.0 and problems == []
-
-
 def test_trace_report_clean_when_matched():
     import rewards
 
@@ -2338,3 +2329,33 @@ def test_trace_report_needs_map_data():
     with pytest.raises(ValueError):  # a miss with no grid to classify it
         rewards.trace_report(game, 0, recs)
     assert rewards.trace_report(game, 0, []) == (0.0, [])  # vacuous: clean
+
+
+def test_trace_report_counts_order_lost_when_timed_out():
+    import rewards
+
+    game = _trace_game()
+    game["status"] = ["timeout", "timeout"]
+    recs = [{"turn": 3, "loc": [5, 5], "dest": [5, 4], "action": "w"}]
+    miss, problems = rewards.trace_report(game, 0, recs)
+    assert miss == 1.0 and problems == []
+
+
+def test_trace_report_flags_order_lost_without_timeout():
+    import rewards
+
+    game = _trace_game()
+    game["status"] = ["survived", "survived"]
+    recs = [{"turn": 3, "loc": [5, 5], "dest": [5, 4], "action": "w"}]
+    miss, problems = rewards.trace_report(game, 0, recs)
+    assert miss == 1.0 and len(problems) == 1 and "without timeout" in problems[0]
+
+
+def test_trace_report_needs_status_for_lost():
+    import rewards
+
+    game = _trace_game()
+    game.pop("status")  # _game carries survived/survived; drop it
+    recs = [{"turn": 3, "loc": [5, 5], "dest": [5, 4], "action": "w"}]
+    with pytest.raises(ValueError):  # no status to explain the loss
+        rewards.trace_report(game, 0, recs)
