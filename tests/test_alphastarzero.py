@@ -10,7 +10,6 @@ from pathlib import Path
 
 import pytest
 
-
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "bots" / "alphaant"))
 sys.path.insert(0, str(ROOT / "ml"))
@@ -225,6 +224,15 @@ def _game(**kw):
     return base
 
 
+def _hill_game(score):
+    game = _game()
+    game["score"] = score
+    game["length"] = 10
+    # surviving enemy hill: approach credit without raze credit.
+    game["replaydata"]["hills"] = [[9, 9, 1, 999]]
+    return game
+
+
 def test_food_credit_goes_to_gatherer_dest():
     import rewards
 
@@ -286,16 +294,6 @@ def test_one_for_one_trade_nets_negative():
     ]
     rets = rewards.compute_returns(game, 0, records)
     assert rets[0] == rewards.KILL + rewards.DEATH + rewards.WIN
-
-
-def test_main_hill_price_rebalanced_rival_pinned(tmp_path):
-    import rewards
-
-    # The main's ledger was march-dominated (HA ~58/game vs outcome
-    # +-5): marching paid even when it killed you. The rival keeps
-    # the winner's price; only the main's price falls.
-    assert rewards.scales_for("challenger")["HILL_APPROACH"] == 0.25
-    assert rewards.scales_for("exploiter")["HILL_APPROACH"] == 0.5
 
 
 def test_hill_approach_pays_for_closing():
@@ -365,33 +363,6 @@ def test_hill_approach_targets_first_hill_only():
     rets = rewards.compute_returns(game, 0, records)
     # closes to second, opens to first: no approach, terminal only.
     assert rets[0] == rewards.WIN
-
-
-def test_exploiter_gets_triple_kill_scales():
-    import rewards
-
-    # Triple kill scales survive the gate (mechanism, not subsidy):
-    # on a win the rival's kill pays 3x the main's. Split out of the
-    # first-hill test, where the body sat without its own def.
-    game = _game(score=[4, 0])  # win
-    game["replaydata"]["ants"] = [[5, 5, 1, 3, 1, "--"]]
-    records = [
-        {"turn": 3, "loc": [5, 4], "dest": [5, 4], "action": "stay"},
-    ]
-    base = rewards.compute_returns(game, 0, records)
-    sharp = rewards.compute_returns(
-        game, 0, records, rewards.scales_for("exploiter"),
-        role="exploiter")
-    assert base[0] == rewards.KILL + rewards.WIN
-    assert sharp[0] == 3 * rewards.KILL + rewards.WIN
-
-
-def test_exploiter_scales_keep_outcome():
-    import rewards
-
-    assert rewards.scales_for("exploiter")["WIN"] == rewards.WIN
-    assert rewards.scales_for("exploiter")["LOSS"] == rewards.LOSS
-    assert rewards.scales_for("challenger")["KILL"] == rewards.KILL
 
 
 def test_hill_raze_credits_the_ant_on_the_hill():
@@ -490,9 +461,8 @@ def test_bot_records_turn_rows_when_env_set(tmp_path, monkeypatch):
 
 
 def test_bot_samples_with_temperature(tmp_path, monkeypatch):
-    import torch
-
     import AlphaAnt
+    import torch
 
     monkeypatch.setenv("AA_RECORD_DIR", str(tmp_path))
     monkeypatch.setenv("AA_TEMPERATURE", "3.0")
@@ -545,10 +515,9 @@ def test_bot_samples_with_temperature(tmp_path, monkeypatch):
 def test_bot_weights_path_override(tmp_path):
     import json
 
-    import torch
-
-    import model
     import AlphaAnt
+    import model
+    import torch
 
     torch.manual_seed(123)
     alt = tmp_path / "alt.json"
@@ -611,21 +580,21 @@ def test_dense_reward_discounts_back_along_ant_path():
 
 def _cnn_window(water_dests=(), radius=4):
     import torch
-
     from features import CHANNELS
 
     w = torch.zeros(_C, 2 * radius + 1, 2 * radius + 1)
     w[CHANNELS.index("own_ant")][radius][radius] = 1.0
     for action in water_dests:
-        dr, dc = {"n": (-1, 0), "e": (0, 1), "s": (1, 0), "w": (0, -1), "stay": (0, 0)}[action]
+        dr, dc = {"n": (-1, 0), "e": (0, 1), "s": (1, 0), "w": (0, -1), "stay": (0, 0)}[
+            action
+        ]
         w[CHANNELS.index("water")][radius + dr][radius + dc] = 1.0
     return w
 
 
 def test_cnn_forward_shape():
-    import torch
-
     import model
+    import torch
 
     policy = model.CNNPolicy()
     assert policy(torch.zeros(1, _C, _S, _S)).shape == (1, 5)
@@ -640,9 +609,8 @@ def _probs(policy, w):
 
 
 def test_forward_is_rotation_equivariant():
-    import torch
-
     import model
+    import torch
 
     torch.manual_seed(3)
     policy = model.CNNPolicy()
@@ -655,9 +623,8 @@ def test_forward_is_rotation_equivariant():
 
 
 def test_forward_is_flip_equivariant():
-    import torch
-
     import model
+    import torch
 
     torch.manual_seed(5)
     policy = model.CNNPolicy()
@@ -667,97 +634,29 @@ def test_forward_is_flip_equivariant():
     assert torch.allclose(base, got[:, list(model.UNFLIP)], atol=1e-5)
 
 
-def test_anchor_kl_zero_for_identical_policies():
-    import torch
-
-    import algorithm
-
-    torch.manual_seed(11)
-    pol = algorithm.new_policy({})
-    anchor = algorithm.new_policy(algorithm.policy_weights(pol))
-    opt = algorithm.make_optimizer(pol, lr=0.0)  # frozen: KL stays exact
-    recs = [{"window": torch.rand(_C, _S, _S), "action": "n",
-             "legal": [True] * 5} for _ in range(32)]
-    batch = algorithm.collect(pol, recs, [1.0] * 32)
-    stats = algorithm.train_epoch(pol, opt, batch, anchor=anchor,
-                                  kl_anchor_beta=0.1)
-    assert stats["kl_anchor"] == 0.0
-
-
-def test_anchor_pulls_policy_toward_it():
-    import torch
-
-    import algorithm
-    import model
-
-    torch.manual_seed(13)
-    pol = algorithm.new_policy({})
-    anchor = algorithm.new_policy({})
-    anchor.head.bias.data = torch.tensor([5.0, 0, 0, 0, 0])
-    anchor.eval()
-    probe = [torch.rand(_C, _S, _S) for _ in range(64)]
-
-    def agree(p):
-        p.eval()
-        with torch.no_grad():
-            n = 0
-            for w in probe:
-                if int(model.masked_logits(
-                        p, w, frozenset()).argmax()) == int(
-                        model.masked_logits(
-                        anchor, w, frozenset()).argmax()):
-                    n += 1
-            return n / len(probe)
-
-    def mass(p):
-        p.eval()
-        with torch.no_grad():
-            tot = 0.0
-            for w in probe:
-                m = torch.tensor([[True] * 5])
-                lp = model.masked_log_softmax(p, w.unsqueeze(0), m)
-                la = model.masked_log_softmax(anchor, w.unsqueeze(0), m)
-                tot += float(lp.exp()[0, int(la.argmax())])
-            return tot / len(probe)
-
-    before = agree(pol)
-    mass_before = mass(pol)
-    opt = algorithm.make_optimizer(pol)
-    recs = [{"window": torch.rand(_C, _S, _S), "action": "n",
-             "legal": [True] * 5} for _ in range(64)]
-    batch = algorithm.collect(pol, recs, [1.0] * 64)
-    algorithm.train_epoch(pol, opt, batch, vf_coef=0.0,
-                          entropy_beta=0.0, anchor=anchor,
-                          kl_anchor_beta=0.5)
-    assert agree(pol) >= before and mass(pol) > mass_before
-
-
 def test_truncated_wide_net_matches_narrow():
-    import torch
-
     import model
+    import torch
 
     torch.manual_seed(4)
     wide = model.CNNPolicy(channels=12)
     wide.eval()
     narrow = model.CNNPolicy(channels=7)
     narrow.load_state_dict(
-        model.pad_in_channels(dict(wide.state_dict()), narrow),
-        strict=True)
+        model.pad_in_channels(dict(wide.state_dict()), narrow), strict=True
+    )
     narrow.eval()
     with torch.no_grad():
         x7 = torch.rand(2, 7, 9, 9)
         x0 = torch.zeros(2, 5, 9, 9)
         assert torch.equal(narrow(x7), wide(torch.cat([x7, x0], dim=1)))
-        assert torch.equal(narrow.values(x7),
-                           wide.values(torch.cat([x7, x0], dim=1)))
+        assert torch.equal(narrow.values(x7), wide.values(torch.cat([x7, x0], dim=1)))
 
 
 def test_padded_old_weights_give_identical_outputs():
-    import torch
-
     import algorithm
     import model
+    import torch
 
     torch.manual_seed(23)
     old = model.CNNPolicy(channels=7)
@@ -769,15 +668,13 @@ def test_padded_old_weights_give_identical_outputs():
         w7 = torch.rand(3, 7, _S, _S)
         pad = torch.zeros(3, _C - 7, _S, _S)
         assert torch.equal(old(w7), new(torch.cat([w7, pad], dim=1)))
-        assert torch.equal(old.values(w7),
-                           new.values(torch.cat([w7, pad], dim=1)))
+        assert torch.equal(old.values(w7), new.values(torch.cat([w7, pad], dim=1)))
 
 
 def test_opt_state_drops_reshaped_params():
-    import torch
-
     import algorithm
     import model
+    import torch
 
     torch.manual_seed(31)
     old = model.CNNPolicy(channels=7)
@@ -799,20 +696,9 @@ def test_opt_state_drops_reshaped_params():
                     assert v.shape == p.shape
 
 
-def test_last_exploiter_returns_most_recent(tmp_path):
-    import archive
-
-    base = tmp_path / "archive"
-    assert archive.last_exploiter(base) is None
-    a = archive.save_checkpoint(base, {"w": [1.0]}, "exploiter", None)
-    archive.save_checkpoint(base, {"w": [2.0]}, "challenger", None)
-    b = archive.save_checkpoint(base, {"w": [3.0]}, "exploiter", a)
-    assert archive.last_exploiter(base) == b
-
 def test_values_are_rotation_invariant():
-    import torch
-
     import model
+    import torch
 
     torch.manual_seed(7)
     policy = model.CNNPolicy()
@@ -822,13 +708,13 @@ def test_values_are_rotation_invariant():
         base = policy.values(w)
         for k in (1, 2, 3):
             assert torch.allclose(
-                base, policy.values(torch.rot90(w, k, (2, 3))), atol=1e-5)
+                base, policy.values(torch.rot90(w, k, (2, 3))), atol=1e-5
+            )
 
 
 def test_cnn_radius_agnostic():
-    import torch
-
     import model
+    import torch
 
     policy = model.CNNPolicy()
     assert policy(torch.zeros(1, _C, 5, 5)).shape == (1, 5)
@@ -853,9 +739,8 @@ def test_cnn_probs_sum_to_one_and_mask_water():
 
 
 def test_cnn_sample_stays_legal_and_spreads():
-    import torch
-
     import model
+    import torch
 
     torch.manual_seed(7)
     policy = model.CNNPolicy()
@@ -867,9 +752,9 @@ def test_cnn_sample_stays_legal_and_spreads():
 
 def test_cnn_state_dict_json_roundtrip(tmp_path):
     import json
-    import torch
 
     import model
+    import torch
 
     policy = model.CNNPolicy()
     path = tmp_path / "w.json"
@@ -883,9 +768,8 @@ def test_cnn_state_dict_json_roundtrip(tmp_path):
 def test_weights_file_loads_into_cnn():
     import json
 
-    import torch
-
     import model
+    import torch
 
     wpath = ROOT / "bots" / "alphaant" / "weights.json"
     policy = model.CNNPolicy()
@@ -895,8 +779,8 @@ def test_weights_file_loads_into_cnn():
     # preserved exactly, lineage continues).
     policy.load_state_dict(
         model.pad_in_channels(
-            model.lists_to_state_dict(json.loads(wpath.read_text())),
-            policy),
+            model.lists_to_state_dict(json.loads(wpath.read_text())), policy
+        ),
         strict=False,
     )
     assert policy(torch.zeros(1, _C, _S, _S)).shape == (1, 5)
@@ -929,10 +813,9 @@ def _train_batch(returns=(1.0, 2.0, 3.0), logps=None):
 
 
 def test_ppo_raises_advantaged_logprob():
-    import torch
-
-    import model
     import algorithm
+    import model
+    import torch
 
     torch.manual_seed(0)
     policy = model.CNNPolicy()
@@ -944,16 +827,13 @@ def test_ppo_raises_advantaged_logprob():
 
 
 def test_ppo_value_head_starts_at_zero_and_learns():
-    import torch
-
-    import model
     import algorithm
+    import model
+    import torch
 
     torch.manual_seed(0)
     policy = model.CNNPolicy()
-    assert torch.equal(
-        policy.values(torch.zeros(2, _C, _S, _S)), torch.zeros(2)
-    )
+    assert torch.equal(policy.values(torch.zeros(2, _C, _S, _S)), torch.zeros(2))
     opt = algorithm.make_optimizer(policy, lr=1e-2)
     windows = torch.zeros(4, _C, _S, _S)
     for i in range(4):
@@ -967,10 +847,9 @@ def test_ppo_value_head_starts_at_zero_and_learns():
 
 
 def test_train_epoch_policy_noop_on_equal_returns():
-    import torch
-
-    import model
     import algorithm
+    import model
+    import torch
 
     torch.manual_seed(0)
     policy = model.CNNPolicy()
@@ -985,8 +864,8 @@ def test_train_epoch_policy_noop_on_equal_returns():
 
 
 def test_train_epoch_empty_batch_is_noop():
-    import model
     import algorithm
+    import model
 
     policy = model.CNNPolicy()
     opt = algorithm.make_optimizer(policy)
@@ -995,10 +874,9 @@ def test_train_epoch_empty_batch_is_noop():
 
 
 def test_train_epoch_ignores_masked_logits():
-    import torch
-
-    import model
     import algorithm
+    import model
+    import torch
 
     torch.manual_seed(0)
     policy = model.CNNPolicy()
@@ -1020,19 +898,9 @@ def test_train_epoch_ignores_masked_logits():
     assert bool((logp[:, 2:].exp() < 1e-6).all())
 
 
-def test_archive_save_load_roundtrip(tmp_path):
-    import archive
-
-    base = tmp_path / "archive"
-    cid = archive.save_checkpoint(base, {"w": [1.0]}, role="main", parent=None)
-    assert archive.load_checkpoint(base, cid) == {"w": [1.0]}
-    assert archive.members(base)[0]["id"] == cid
-
-
 def test_to_batch_converts_rows_and_returns():
-    import torch
-
     import algorithm
+    import torch
 
     records = [
         {"window": torch.zeros(_C, _S, _S).tolist(), "action": "e"},
@@ -1050,25 +918,6 @@ def test_to_batch_converts_rows_and_returns():
     assert batch[0][3] == [True] * 5
     assert batch[1][3] == [False, False, False, False, True]
 
-def test_wilson_lower_bounds():
-    import archive
-
-    assert archive.wilson_lower(0, 0) == 0.0
-    assert archive.wilson_lower(6, 6) > 0.7
-    assert archive.wilson_lower(3, 6) < 0.5
-
-
-def test_matrices_separate_train_and_eval(tmp_path):
-    import archive
-
-    base = tmp_path / "archive"
-    a = archive.save_checkpoint(base, {}, role="main", parent=None)
-    b = archive.save_checkpoint(base, {}, role="main", parent=None)
-    archive.record_result(base, a, b, 1, 0, kind="train")
-    assert b not in archive.win_rates(base, a)  # train registers no members
-    archive.record_result(base, a, b, 1, 0, kind="eval")
-    assert archive.win_rates(base, a)[b] < 0.5
-
 
 def test_kill_credit_excludes_zero_distance():
     import rewards
@@ -1085,10 +934,14 @@ def test_rotation_permutes_actions_and_masks():
     # n->w->s->e->n per CCW turn; stay fixed; mask follows the action.
     names = ["n", "e", "s", "w", "stay"]
     assert [names[algorithm.ROT_PERM[i]] for i in range(5)] == [
-        "w", "n", "e", "s", "stay"]
+        "w",
+        "n",
+        "e",
+        "s",
+        "stay",
+    ]
     mask = [True, False, True, False, True]
-    assert [[mask[i] for i in algorithm.ROT_MASK]] == [
-        [False, True, False, True, True]]
+    assert [[mask[i] for i in algorithm.ROT_MASK]] == [[False, True, False, True, True]]
     # four turns return every action.
     a = 0
     for _ in range(4):
@@ -1123,7 +976,6 @@ def test_rotate_item_turns_window_action_mask_together():
 
 
 def test_legal_mask_blocks_food_tiles():
-    import torch
 
     import model
 
@@ -1142,8 +994,10 @@ def test_game_if_mirror_plays_and_prices(tmp_path):
     out = game_if.play(
         ROOT,
         sys.executable,
-        [json.loads((ROOT / "bots" / "alphaant" / "weights.json").read_text()),
-         json.loads((ROOT / "bots" / "alphaant" / "weights.json").read_text())],
+        [
+            json.loads((ROOT / "bots" / "alphaant" / "weights.json").read_text()),
+            json.loads((ROOT / "bots" / "alphaant" / "weights.json").read_text()),
+        ],
         game_if.GameConfig(
             map="tools/maps/example/tutorial1.map",
             turns=10,
@@ -1170,8 +1024,7 @@ def test_cli_overrides():
     import selfplay
 
     cfg = selfplay.parse_args(
-        ["--ticks", "7", "--turns", "20",
-         "--maps", "tools/maps/example/tutorial1.map"]
+        ["--ticks", "7", "--turns", "20", "--maps", "tools/maps/example/tutorial1.map"]
     )
     assert cfg["ticks"] == 7
     assert cfg["turns"] == 20
@@ -1192,62 +1045,72 @@ def test_game_if_cleanup_keeps_replay_drops_sides(tmp_path):
     assert not (outdir / "side_a").exists()
     assert not (outdir / "side_b").exists()
 
+
 def test_games_index_roundtrip_and_filter(tmp_path):
     import archive
 
     base = tmp_path / "archive"
-    archive.log_game(base, "g001", "train", "g000", "g001", 3, 1, "games/g001/t0/logs/0.replay")
-    archive.log_game(base, "g001", "eval", "g001", "g002", 2, 2, "games/g001/e0/logs/0.replay")
+    archive.log_game(base, "main", "main", 3, 1, "games/g001/t0/logs/0.replay")
+    archive.log_game(base, "main", "main", 2, 2, "games/g001/e0/logs/0.replay")
     all_games = archive.list_games(base)
     assert len(all_games) == 2
-    mine = archive.list_games(base, member="g002")
-    assert len(mine) == 1 and mine[0]["kind"] == "eval"
-    assert mine[0]["replay"] == "games/g001/e0/logs/0.replay"
+    assert [r["replay"] for r in all_games] == [
+        "games/g001/e0/logs/0.replay",
+        "games/g001/t0/logs/0.replay",
+    ]
 
 
 def test_log_game_records_map_name(tmp_path):
     import archive
 
     base = tmp_path / "archive"
-    archive.log_game(base, "g001", "train", "g000", "g001", 3, 1,
-                     "games/g001/t0/logs/0.replay", map="rung2c_gap.map")
-    archive.log_game(base, "g001", "eval", "g001", "g002", 2, 2,
-                     "games/g001/e0/logs/0.replay")
+    archive.log_game(
+        base, "main", "main", 3, 1, "games/g001/t0/logs/0.replay", map="rung2c_gap.map"
+    )
+    archive.log_game(base, "main", "main", 2, 2, "games/g001/e0/logs/0.replay")
     rows = {r["replay"]: r for r in archive.list_games(base)}
     assert rows["games/g001/t0/logs/0.replay"]["map"] == "rung2c_gap.map"
     assert rows["games/g001/e0/logs/0.replay"]["map"] is None
 
 
-def test_history_append_and_read(tmp_path):
-    import selfplay
-
-    base = tmp_path / "archive"
-    selfplay.append_history(base, {"gen": 0, "promoted": True})
-    selfplay.append_history(base, {"gen": 1, "promoted": False})
-    hist = selfplay.read_history(base)
-    assert [h["gen"] for h in hist] == [0, 1]
-
-
 def test_snapshot_empty_and_populated(tmp_path):
     import archive
     import dashboard
-    import selfplay
 
     base = tmp_path / "archive"
     snap = dashboard.snapshot(base)
     assert snap["games"] == [] and snap["game_total"] == 0
-    assert {r["id"] for r in snap["standings"]} == \
-        {"main", "me", "le-a", "le-b"}
-    assert snap["alerts"] == [{"level": "ok", "msg": "all clear",
-                                  "tick": 0}]
-    a = archive.save_checkpoint(base, {}, role="main", parent=None)
-    b = archive.save_checkpoint(base, {}, role="challenger", parent=a)
-    archive.log_game(base, a, "eval", a, b, 3, 1, "games/g000/e0/logs/0.replay")
-    selfplay.append_history(base, {"train": {"losses": [0.5], "mean_return": 1.0}})
+    assert snap["behavior"] == [
+        {
+            "id": "main",
+            "food": None,
+            "kills": None,
+            "army_pct": None,
+            "length": None,
+            "n": 0,
+            "spark": {"food": [], "kills": [], "army": [], "length": []},
+        }
+    ]
+    assert snap["alerts"] == [{"level": "ok", "msg": "all clear", "tick": 0}]
+    archive.save_state(base, {"tick": 1, "next_tick": 1, "micro": 0})
+    archive.log_game(
+        base,
+        "main",
+        "main",
+        3,
+        1,
+        "games/g000/e0/logs/0.replay",
+        game="gid-0",
+        tick=0,
+        food=[2, 1],
+        kills=[1, 0],
+        army=[5, 4],
+        length=120,
+    )
     snap = dashboard.snapshot(base)
-    assert "history" not in snap  # legacy history retired
     assert snap["game_total"] == 1
     assert snap["games"][0]["replay"].endswith("0.replay")
+    assert snap["h0"]["games"] == 1
 
 
 def test_snapshot_games_carry_dual_time(tmp_path):
@@ -1255,24 +1118,25 @@ def test_snapshot_games_carry_dual_time(tmp_path):
     import dashboard
 
     base = tmp_path / "archive"
-    a = archive.save_checkpoint(base, {}, role="main", parent=None)
-    archive.log_game(base, a, "eval", a, "g9", 3, 1,
-                     "games/g0/logs/0.replay", game="g#0", tick=7)
-    archive.log_game(base, a, "eval", "g9", a, 0, 5,
-                     "games/g1/logs/0.replay", game="g#1", tick=9)
+    archive.log_game(
+        base, "main", "main", 3, 1, "games/g0/logs/0.replay", game="g#0", tick=7
+    )
+    archive.log_game(
+        base, "main", "main", 0, 5, "games/g1/logs/0.replay", game="g#1", tick=9
+    )
     snap = dashboard.snapshot(base)
     assert [g["tick"] for g in snap["games"]] == [9, 7]  # newest first
-    assert all(set(g) == {"tick", "learner", "seats",
-                           "scores", "stats", "length", "result",
-                           "replay"}
-               for g in snap["games"])
+    assert all(
+        set(g)
+        == {"tick", "learner", "seats", "scores", "stats", "length", "result", "replay"}
+        for g in snap["games"]
+    )
 
 
 def test_batch_norm_keeps_event_magnitude_over_noise():
-    import torch
-
     import algorithm
     import model
+    import torch
 
     policy = model.CNNPolicy()
     n = 64
@@ -1281,7 +1145,8 @@ def test_batch_norm_keeps_event_magnitude_over_noise():
     values = policy.values(windows)
     all_ret = torch.tensor(rets)
     adv = algorithm._advantages(
-        all_ret, values, all_ret.mean(), all_ret.std(unbiased=False))
+        all_ret, values, all_ret.mean(), all_ret.std(unbiased=False)
+    )
     noise, event = adv[:-1].abs().max().item(), abs(adv[-1].item())
     # one real event must outweigh the loudest noise row by an order
     # of magnitude; per-minibatch standardization would make them O(1).
@@ -1293,15 +1158,25 @@ def test_snapshot_h0_tracks_scheduler_state(tmp_path):
     import dashboard
 
     base = tmp_path / "archive"
-    archive.save_checkpoint(base, {}, role="main", parent=None)
-    archive.init_league(base, "live-main", ["g000"])
-    archive.note_micro_batch(base, 5)
-    archive.note_exploiter_game(base, "me", 1.0, target="live-main")
+    archive.save_state(base, {"tick": 5, "next_tick": 5, "micro": 3})
+    archive.log_update(
+        base,
+        {
+            "tick": 0,
+            "rows": 8,
+            "mean_return": 1.0,
+            "explained_var": 0.5,
+            "loss": 0.1,
+            "entropy": 0.9,
+            "kl": 0.01,
+            "clipfrac": 0.1,
+            "pg_loss": -0.2,
+            "v_loss": 0.3,
+        },
+    )
     snap = dashboard.snapshot(base)
     h0 = snap["h0"]
-    assert (h0["tick"], h0["learners"]) == (0, ["main"])
-    bar = next(b for b in snap["bars"] if b["id"] == "me")
-    assert bar["record_wdl"] == "1-0-0" and bar["eligible_in"] == 39
+    assert (h0["tick"], h0["micro"], h0["updates"]) == (5, 3, 1)
 
 
 def test_replay_page_guards_traversal(tmp_path):
@@ -1316,26 +1191,24 @@ def test_replay_page_guards_traversal(tmp_path):
     assert dashboard.replay_page(base, "missing.json") is None
 
 
-def test_status_roundtrip(tmp_path):
-    import archive
-
-    base = tmp_path / "archive"
-    assert archive.read_status(base) == {}
-    archive.write_status(base, {"phase": "train", "done": 2, "total": 8})
-    assert archive.read_status(base)["done"] == 2
-
-
 def test_snapshot_retires_status_and_members(tmp_path):
-    import archive
     import dashboard
 
     base = tmp_path / "archive"
-    archive.write_status(base, {"phase": "eval", "done": 3, "total": 20})
     snap = dashboard.snapshot(base)
     assert "status" not in snap and "members" not in snap
-    assert set(snap["h0"]) == {"tick", "learners",
-                                "games_per_h",
-                                "secs_since_game", "anchor_verdict"}
+    assert "standings" not in snap and "learner" not in snap["h0"]
+    assert set(snap["h0"]) == {
+        "tick",
+        "games",
+        "updates",
+        "micro",
+        "games_per_h",
+        "secs_since_game",
+        "last_result",
+        "last_length",
+        "decisive",
+    }
 
 
 def test_dashboard_http_api(tmp_path):
@@ -1347,8 +1220,7 @@ def test_dashboard_http_api(tmp_path):
     import dashboard
 
     base = tmp_path / "archive"
-    a = archive.save_checkpoint(base, {}, role="main", parent=None)
-    archive.init_league(base, a, [])
+    archive.save_state(base, {"tick": 0, "next_tick": 0, "micro": 0})
     srv = dashboard.make_handler(base)
     import http.server
 
@@ -1357,9 +1229,9 @@ def test_dashboard_http_api(tmp_path):
     try:
         root = f"http://127.0.0.1:{httpd.server_address[1]}"
         snap = json.load(urllib.request.urlopen(root + "/api/snapshot", timeout=5))
-        assert snap["h0"]["learners"] == ["main"] and snap["game_total"] == 0
+        assert snap["h0"]["tick"] == 0 and snap["game_total"] == 0
         assert "history" not in snap and "status" not in snap
-        archive.log_game(base, a, "eval", a, a, 1, 1, "games/g/e/logs/0.replay")
+        archive.log_game(base, "main", "main", 1, 1, "games/g/e/logs/0.replay")
         page = json.load(urllib.request.urlopen(root + "/api/games?limit=1", timeout=5))
         assert page["total"] == 1 and len(page["rows"]) == 1
         with urllib.request.urlopen(root + "/", timeout=5) as r:
@@ -1376,8 +1248,12 @@ def test_list_games_skips_malformed_rows(tmp_path):
     with open(base / "games.jsonl", "w") as f:
         f.write("{not json\n")
         f.write('{"gen":"g","kind":"eval","a":"x"}\n')  # missing keys
-        f.write('{"gen":"g","kind":"eval","a":"x","b":"y","score_a":null,"score_b":1,"replay":"r"}\n')
-        f.write('{"gen":"g","kind":"eval","a":"x","b":"y","score_a":2,"score_b":1,"replay":"r"}\n')
+        f.write(
+            '{"gen":"g","kind":"eval","a":"x","b":"y","score_a":null,"score_b":1,"replay":"r"}\n'
+        )
+        f.write(
+            '{"gen":"g","kind":"eval","a":"x","b":"y","score_a":2,"score_b":1,"replay":"r"}\n'
+        )
     rows = archive.list_games(base)
     assert len(rows) == 1 and rows[0]["score_a"] == 2
 
@@ -1387,34 +1263,17 @@ def test_snapshot_survives_poisoned_index(tmp_path):
     import dashboard
 
     base = tmp_path / "archive"
-    a = archive.save_checkpoint(base, {}, role="main", parent=None)
+    archive.init(base)
     with open(base / "games.jsonl", "w") as f:
-        f.write('{"gen":"x","kind":"eval","a":"g000"}\n')
+        f.write('{"a":"main","b":"main"}\n')
     snap = dashboard.snapshot(base)
     assert snap["game_total"] == 0
 
 
-def test_read_history_and_members_skip_bad_lines(tmp_path):
-    import archive
-    import selfplay
-
-    base = tmp_path / "archive"
-    archive.init(base)
-    with open(base / "manifest.jsonl", "w") as f:
-        f.write('{"id": "g000", "role": "main", "parent": null}\n')
-        f.write("{broken\n")
-        f.write('{"id": 42}\n')
-    with open(base / "history.jsonl", "w") as f:
-        f.write('{"gen": 0}\n{nope\n[1,2]\n')
-    assert [m["id"] for m in archive.members(base)] == ["g000"]
-    assert selfplay.read_history(base) == [{"gen": 0}]
-
-
 def test_collect_attaches_behavior_logps():
-    import torch
-
-    import model
     import algorithm
+    import model
+    import torch
 
     torch.manual_seed(0)
     policy = model.CNNPolicy()
@@ -1429,10 +1288,9 @@ def test_collect_attaches_behavior_logps():
 
 
 def test_new_policy_roundtrip_and_lr_default():
-    import torch
-
-    import model
     import algorithm
+    import model
+    import torch
 
     torch.manual_seed(0)
     policy = algorithm.new_policy()
@@ -1443,10 +1301,9 @@ def test_new_policy_roundtrip_and_lr_default():
 
 
 def test_train_epoch_no_nan_on_singleton_tail():
-    import torch
-
-    import model
     import algorithm
+    import model
+    import torch
 
     torch.manual_seed(0)
     policy = model.CNNPolicy()
@@ -1460,21 +1317,13 @@ def test_train_epoch_no_nan_on_singleton_tail():
         assert torch.isfinite(p).all()
 
 
-def test_outcome_of_mapping():
-    import archive
-
-    assert archive.outcome_of(3, 1) == 1.0
-    assert archive.outcome_of(1, 1) == 0.5
-    assert archive.outcome_of(0, 2) == 0.0
-
-
 def test_config_plumbs_gamma_and_workers():
     import selfplay
 
-    cfg = selfplay.parse_args(["--gamma", "0.99", "--workers", "3"])
-    assert cfg["gamma"] == 0.99 and cfg["workers"] == 3
+    cfg = selfplay.parse_args(["--gamma", "0.99", "--seed", "7"])
+    assert cfg["gamma"] == 0.99 and cfg["seed"] == 7
     assert selfplay.default_config()["gamma"] == 0.97
-    assert selfplay.default_config()["workers"] == 8
+    assert selfplay.default_config()["seed"] == 0
 
 
 def test_game_timeouts_raised_and_retry_flagged():
@@ -1486,9 +1335,8 @@ def test_game_timeouts_raised_and_retry_flagged():
 
 
 def test_snapshot_window_matches_direct():
-    import torch
-
     import features
+    import torch
 
     ants = FakeAnts()
     ants._mine = [(4, 4), (0, 0), (9, 9)]
@@ -1501,10 +1349,9 @@ def test_snapshot_window_matches_direct():
 
 
 def test_masked_logits_batch_matches_serial():
-    import torch
-
     import features
     import model
+    import torch
 
     torch.manual_seed(0)
     policy = model.CNNPolicy()
@@ -1525,10 +1372,9 @@ def test_masked_logits_batch_matches_serial():
 
 
 def test_batch_stay_fallback_when_nothing_legal():
-    import torch
-
     import features
     import model
+    import torch
 
     torch.manual_seed(0)
     policy = model.CNNPolicy()
@@ -1540,10 +1386,9 @@ def test_batch_stay_fallback_when_nothing_legal():
 
 
 def test_batch_act_shapes_and_greedy_agreement():
-    import torch
-
     import features
     import model
+    import torch
 
     torch.manual_seed(1)
     policy = model.CNNPolicy()
@@ -1558,19 +1403,10 @@ def test_batch_act_shapes_and_greedy_agreement():
     ]
     assert len(model.sample_batch(logits, 1.0)) == 2
 
-def test_main_pointer_roundtrip(tmp_path):
-    import archive
-
-    base = tmp_path / "archive"
-    assert archive.get_main(base) is None
-    archive.set_main(base, "g007")
-    assert archive.get_main(base) == "g007"
-
 
 def test_optimizer_state_roundtrip():
-    import torch
-
     import algorithm
+    import torch
 
     pol = algorithm.new_policy({})
     opt = algorithm.make_optimizer(pol)
@@ -1592,6 +1428,7 @@ def test_optimizer_state_roundtrip():
     k = next(iter(s1))
     assert torch.equal(s1[k]["exp_avg"], s2[k]["exp_avg"])
 
+
 def test_bot_env_is_single_threaded():
     import game_if
 
@@ -1608,16 +1445,13 @@ def _count_params(policy) -> int:
 
 
 def test_deep_arch_shapes_and_value_zero_init():
-    import torch
-
     import model
+    import torch
 
     torch.manual_seed(0)
     policy = model.CNNPolicy(arch="deep")
     assert policy(torch.zeros(2, _C, _S, _S)).shape == (2, 5)
-    assert torch.equal(
-        policy.values(torch.zeros(2, _C, _S, _S)), torch.zeros(2)
-    )
+    assert torch.equal(policy.values(torch.zeros(2, _C, _S, _S)), torch.zeros(2))
 
 
 def test_deep_arch_stays_in_param_budget():
@@ -1630,9 +1464,8 @@ def test_deep_arch_stays_in_param_budget():
 
 
 def test_deep_arch_sees_full_window_where_base_cannot():
-    import torch
-
     import model
+    import torch
 
     def separation(arch: str) -> float:
         policy = model.CNNPolicy(arch=arch)
@@ -1646,9 +1479,7 @@ def test_deep_arch_sees_full_window_where_base_cannot():
         south = torch.zeros(1, _C, _S, _S)
         south[0, 5, 8, 4] = 1.0  # food 4 south
         with torch.no_grad():
-            return (
-                (policy.trunk(north) - policy.trunk(south)).abs().sum().item()
-            )
+            return (policy.trunk(north) - policy.trunk(south)).abs().sum().item()
 
     # Ones-weights: deterministic. Base sees far food only as pooled
     # smear (weak N-vs-S separation); deep's full-window field keeps
@@ -1661,9 +1492,7 @@ def test_infer_arch_from_weights():
 
     assert model.infer_arch(model.state_dict_to_lists(model.CNNPolicy())) == "base"
     assert (
-        model.infer_arch(
-            model.state_dict_to_lists(model.CNNPolicy(arch="deep"))
-        )
+        model.infer_arch(model.state_dict_to_lists(model.CNNPolicy(arch="deep")))
         == "deep"
     )
 
@@ -1691,11 +1520,7 @@ def test_bot_loads_deep_weights(tmp_path):
     import model
 
     alt = tmp_path / "deep.json"
-    alt.write_text(
-        json.dumps(
-            model.state_dict_to_lists(model.CNNPolicy(arch="deep"))
-        )
-    )
+    alt.write_text(json.dumps(model.state_dict_to_lists(model.CNNPolicy(arch="deep"))))
     bot = AlphaAnt.AlphaAntBot(weights_path=str(alt))
     assert bot.policy.arch == "deep"
 
@@ -1752,24 +1577,9 @@ def test_mapgen_symmetric_and_connected():
                 assert swap[grid[r][c]] == grid[rows - 1 - r][cols - 1 - c]
         land = [[cell != "%" for cell in row] for row in grid]
         start = next(
-            (r, c)
-            for r in range(rows)
-            for c in range(cols)
-            if grid[r][c] == "A"
+            (r, c) for r in range(rows) for c in range(cols) if grid[r][c] == "A"
         )
         assert mapgen._connected(land, start)
-
-
-def test_pool_split_disjoint_and_deterministic():
-    import selfplay
-
-    full = selfplay.default_map_pool()
-    train, held = selfplay.split_pool(full)
-    assert len(train) + len(held) == len(full)
-    assert not set(train) & set(held)
-    assert sorted(train + held) == full
-    assert len(held) >= 8  # real held-out set, not a token
-    assert selfplay.split_pool(full) == (train, held)
 
 
 def test_custom_maps_used_directly_without_split():
@@ -1786,6 +1596,7 @@ def _tmp_2p_map(tmp_path, name="e.map"):
     p = tmp_path / name
     p.write_text("rows 16\ncols 24\nplayers 2\n" + "m " + "." * 24 + "\n")
     return str(p)
+
 
 def test_stage_side_names_main_file(tmp_path):
     import game_if
@@ -1813,86 +1624,35 @@ def test_play_stages_checkpoint_names(tmp_path, monkeypatch):
     monkeypatch.setattr(game_if, "_run_once", fake_run)
     w = {"a": [1.0]}
     out = game_if.play(
-        tmp_path, "python", [w, w],
+        tmp_path,
+        "python",
+        [w, w],
         game_if.GameConfig(map="m.map", turns=10),
-        tmp_path / "g0", names=["g004", "g000"],
+        tmp_path / "g0",
+        names=["g004", "g000"],
     )
     assert out["game"]["game_length"] == 10
     assert seen["bots"][0].endswith("side_0/g004.py")
     assert seen["bots"][1].endswith("side_1/g000.py")
 
-def test_drills_sweep_pool_round_robin(tmp_path):
-    import archive
-
-    base = tmp_path / "archive"
-    pool = [f"m{i}.map" for i in range(6)]
-    seen = []
-    for gen in range(3):
-        seen += archive.next_drill_maps(base, pool, 2, gen)
-    assert sorted(seen) == pool  # every board trains within the cycle
-    assert archive.next_drill_maps(base, pool, 2, 3) == pool[:2]
-
-
-def test_drills_prioritize_untrained_boards(tmp_path):
-    import archive
-
-    base = tmp_path / "archive"
-    pool = [f"m{i}.map" for i in range(6)]
-    archive.next_drill_maps(base, pool[:4], 4, 0)
-    # New boards join later: they train before any repeat.
-    assert archive.next_drill_maps(base, pool, 2, 1) == pool[4:]
-
 
 def test_pg_abs_bounds_pg_magnitude():
-    import torch
-
     import algorithm
+    import torch
 
     torch.manual_seed(41)
     pol = algorithm.new_policy({})
     opt = algorithm.make_optimizer(pol)
-    recs = [{"window": torch.rand(_C, _S, _S), "action": "n",
-             "legal": [True] * 5} for _ in range(64)]
+    recs = [
+        {"window": torch.rand(_C, _S, _S), "action": "n", "legal": [True] * 5}
+        for _ in range(64)
+    ]
     batch = algorithm.collect(pol, recs, [1.0] * 64)
     stats = algorithm.train_epoch(pol, opt, batch)
     assert stats["pg_abs"] >= abs(stats["pg_loss"])
 
-def test_last_exploiter_tracks_lines_separately(tmp_path):
-    import archive
-
-    base = tmp_path / "archive"
-    assert archive.last_exploiter(base, line=1) is None
-    a0 = archive.save_checkpoint(base, {"w": [1.0]}, "exploiter", None, line=0)
-    archive.save_checkpoint(base, {"w": [1.5]}, "exploiter", a0)
-    b1 = archive.save_checkpoint(base, {"w": [2.0]}, "exploiter", None, line=1)
-    a1 = archive.save_checkpoint(base, {"w": [3.0]}, "exploiter", a0, line=0)
-    # default line 0 keeps legacy behavior (entries without a line key count).
-    assert archive.last_exploiter(base) == a1
-    assert archive.last_exploiter(base, line=0) == a1
-    assert archive.last_exploiter(base, line=1) == b1
-
-
-def test_save_checkpoint_records_line_only_when_given(tmp_path):
-    import archive
-
-    base = tmp_path / "archive"
-    a = archive.save_checkpoint(base, {"w": [1.0]}, "challenger", None)
-    b = archive.save_checkpoint(base, {"w": [2.0]}, "exploiter", None, line=1)
-    rows = {r["id"]: r for r in archive.members(base)}
-    assert "line" not in rows[a]
-    assert rows[b]["line"] == 1
-
-def _hill_game(score):
-    game = _game()
-    game["score"] = score
-    game["length"] = 10
-    # surviving enemy hill: approach credit without raze credit.
-    game["replaydata"]["hills"] = [[9, 9, 1, 999]]
-    return game
-
 
 def test_gated_shaping_zeroes_march_on_loss():
-    import math
     import rewards
 
     game = _hill_game([0, 1])  # loss
@@ -1914,6 +1674,7 @@ def test_gated_shaping_zeroes_march_on_draw():
 
 def test_wins_pay_march_and_kills():
     import math
+
     import rewards
 
     game = _hill_game([1, 0])  # win
@@ -1923,7 +1684,7 @@ def test_wins_pay_march_and_kills():
     assert rets[0] == rewards.WIN + rewards.HILL_APPROACH * closed
 
 
-def test_main_kills_unpaid_on_loss_rival_kills_paid():
+def test_main_kills_unpaid_on_loss():
     import rewards
 
     game = _game()
@@ -1932,15 +1693,8 @@ def test_main_kills_unpaid_on_loss_rival_kills_paid():
     records = [
         {"turn": 3, "loc": [5, 4], "dest": [5, 4], "action": "stay"},
     ]
-    main = rewards.compute_returns(game, 0, records,
-                                   rewards.scales_for("challenger"),
-                                   role="challenger")
+    main = rewards.compute_returns(game, 0, records)
     assert main[0] == rewards.LOSS  # useless aggression unpaid
-    rival = rewards.compute_returns(game, 0, records,
-                                    rewards.scales_for("exploiter"),
-                                    role="exploiter")
-    # pressure is the rival's job: its kills pay even in defeat.
-    assert rival[0] == 3.0 + rewards.LOSS
 
 
 def test_death_still_hurts_on_loss():
@@ -1958,68 +1712,7 @@ def test_death_still_hurts_on_loss():
 
 # --- idea 3: draw-penalty training games (turtle tax) ---
 
-def test_spoiler_scales_exact_values():
-    import rewards
 
-    s = rewards.scales_for("spoiler")
-    assert s["FOOD"] == 0  # naive: nothing to unlearn about gathering
-    assert s["HILL_APPROACH"] == 0  # hungry, not marching
-    assert s["KILL"] == 3.0  # teeth kept
-    assert s["DEATH"] == -2.0
-    assert s["WIN"] == rewards.WIN
-    assert s["LOSS"] == rewards.LOSS
-    assert s["HILL_RAZE"] == rewards.HILL_RAZE
-    assert s["HILL_LOST"] == rewards.HILL_LOST
-
-def test_spoiler_gate_keeps_kills_zeroes_march():
-    import rewards
-
-    game = _game()
-    game["score"] = [0, 1]  # loss
-    game["replaydata"]["ants"] = [[5, 5, 1, 3, 1, "--"]]
-    records = [{"turn": 3, "loc": [5, 4], "dest": [5, 4], "action": "stay"}]
-    rets = rewards.compute_returns(game, 0, records,
-                                   rewards.scales_for("spoiler"),
-                                   role="spoiler")
-    # pressure is the job: kills pay even in defeat.
-    assert rets == [3.0 + rewards.LOSS]
-    march = _hill_game([0, 1])
-    mrecs = [{"turn": 1, "loc": [5, 5], "dest": [6, 6], "action": "s"}]
-    mrets = rewards.compute_returns(march, 0, mrecs,
-                                    rewards.scales_for("spoiler"),
-                                    role="spoiler")
-    assert mrets == [rewards.LOSS]  # HA moot (zero scale), gated anyway
-
-
-def test_drills_cycle_when_games_exceed_pool(tmp_path):
-    """n > len(pool) returns exactly n entries, round-robin (volfix)."""
-    import archive
-
-    base = tmp_path / "archive"
-    pool = [f"m{i}.map" for i in range(4)]
-    got = archive.next_drill_maps(base, pool, 10, 1)
-    assert len(got) == 10  # exactly train_games entries, not capped
-    assert sorted(got[:4]) == pool  # first sweep covers every board once
-    assert got[:4] == pool  # fresh archive: pool order (all ties)
-    assert got[4:8] == got[:4]  # repeats cycle in the same order
-    assert got[8:] == got[:2]
-    stamped = json.loads((base / "drills.json").read_text())
-    assert all(stamped[m] == 1 for m in pool)  # repeats don't corrupt
-
-
-def test_drills_cycle_respects_least_recent_first(tmp_path):
-    import archive
-
-    base = tmp_path / "archive"
-    pool = [f"m{i}.map" for i in range(4)]
-    archive.next_drill_maps(base, pool[:2], 2, 0)
-    got = archive.next_drill_maps(base, pool, 5, 1)
-    assert len(got) == 5
-    assert got[:4] == pool[2:] + pool[:2]  # untrained boards first
-    assert got[4] == pool[2]  # repeat follows the same order
-
-
-# --- round-72 post-mortem repair 1: spoiler fold (TDD) ---
 def test_map_player_count_reads_header(tmp_path):
     import game_if
 
@@ -2039,16 +1732,20 @@ def test_3p_game_end_to_end_fixed_seats(tmp_path):
     sys.path.insert(0, str(ROOT / "tools" / "mapgen"))
     import gen_mixed
 
-    train, _eval = gen_mixed.fresh_pool(1, 0, tmp_path / "maps", seed=99,
-                                        jobs=1)
+    train, _eval = gen_mixed.fresh_pool(1, 0, tmp_path / "maps", seed=99, jobs=1)
     maps3 = [m for m in train if game_if.map_player_count(m) == 3]
     assert maps3, "seed 99 must draw a 3p map"
     w = model.state_dict_to_lists(model.CNNPolicy())
     out = game_if.play(
-        ROOT, sys.executable, [w, w, w],
-        game_if.GameConfig(map=maps3[0], turns=2, temperature=0.0,
-                           player_seed=1, engine_seed=1),
-        tmp_path / "g3", names=["s", "c", "x"])
+        ROOT,
+        sys.executable,
+        [w, w, w],
+        game_if.GameConfig(
+            map=maps3[0], turns=2, temperature=0.0, player_seed=1, engine_seed=1
+        ),
+        tmp_path / "g3",
+        names=["s", "c", "x"],
+    )
     assert len(out["game"]["score"]) == 3
     assert len(out["records"]) == 3
     rows = out["records"][0]
@@ -2064,8 +1761,16 @@ def test_3p_game_end_to_end_fixed_seats(tmp_path):
 
 
 def _np_row(gen, kind, a, b, sa, sb, replay, game=None, map=None):
-    row = {"gen": gen, "kind": kind, "a": a, "b": b,
-           "score_a": sa, "score_b": sb, "replay": replay, "map": map}
+    row = {
+        "gen": gen,
+        "kind": kind,
+        "a": a,
+        "b": b,
+        "score_a": sa,
+        "score_b": sb,
+        "replay": replay,
+        "map": map,
+    }
     if game is not None:
         row["game"] = game
     return row
@@ -2084,8 +1789,15 @@ def test_log_game_carries_game_id(tmp_path):
     import archive
 
     base = tmp_path / "archive"
-    archive.log_game(base, "g001", "train", "g000", "g001", 3, 1,
-                     "games/g001/t0/logs/0.replay", game="games/g001/t0#abc")
+    archive.log_game(
+        base,
+        "main",
+        "main",
+        3,
+        1,
+        "games/g001/t0/logs/0.replay",
+        game="games/g001/t0#abc",
+    )
     rows = archive.list_games(base)
     assert len(rows) == 1 and rows[0]["game"] == "games/g001/t0#abc"
 
@@ -2094,8 +1806,7 @@ def test_log_game_game_optional_for_old_callers(tmp_path):
     import archive
 
     base = tmp_path / "archive"
-    archive.log_game(base, "g001", "train", "g000", "g001", 3, 1,
-                     "games/g001/t0/logs/0.replay")
+    archive.log_game(base, "main", "main", 3, 1, "games/g001/t0/logs/0.replay")
     rows = archive.list_games(base)
     assert len(rows) == 1 and not rows[0].get("game")
 
@@ -2114,10 +1825,18 @@ def test_group_4p_pairs_become_one_game(tmp_path):
     base = tmp_path / "archive"
     rep = "games/g9/t0/logs/0.replay"
     gid = "games/g9/t0#u1"
-    pairs = [("a", "b", 5, 0), ("a", "c", 5, 2), ("a", "d", 5, 0),
-             ("b", "c", 0, 2), ("b", "d", 0, 0), ("c", "d", 2, 0)]
-    _write_np_rows(base, [_np_row("g9", "train", a, b, sa, sb, rep, game=gid)
-                          for a, b, sa, sb in pairs])
+    pairs = [
+        ("a", "b", 5, 0),
+        ("a", "c", 5, 2),
+        ("a", "d", 5, 0),
+        ("b", "c", 0, 2),
+        ("b", "d", 0, 0),
+        ("c", "d", 2, 0),
+    ]
+    _write_np_rows(
+        base,
+        [_np_row("g9", "train", a, b, sa, sb, rep, game=gid) for a, b, sa, sb in pairs],
+    )
     import archive
 
     games = dashboard.group_games(archive.list_games(base))
@@ -2125,7 +1844,11 @@ def test_group_4p_pairs_become_one_game(tmp_path):
     g = games[0]
     assert g["n"] == 4
     assert [(s["id"], s["score"]) for s in g["seats"]] == [
-        ("a", 5), ("b", 0), ("c", 2), ("d", 0)]
+        ("a", 5),
+        ("b", 0),
+        ("c", 2),
+        ("d", 0),
+    ]
     assert len(g["pairs"]) == 6
 
 
@@ -2134,9 +1857,14 @@ def test_group_old_rows_without_game_key_fall_back_to_replay(tmp_path):
 
     base = tmp_path / "archive"
     rep = "games/g9/t0/logs/0.replay"
-    _write_np_rows(base, [_np_row("g9", "train", "a", "b", 5, 0, rep),
-                          _np_row("g9", "train", "a", "c", 5, 2, rep),
-                          _np_row("g9", "train", "b", "c", 0, 2, rep)])
+    _write_np_rows(
+        base,
+        [
+            _np_row("g9", "train", "a", "b", 5, 0, rep),
+            _np_row("g9", "train", "a", "c", 5, 2, rep),
+            _np_row("g9", "train", "b", "c", 0, 2, rep),
+        ],
+    )
     import archive
 
     games = dashboard.group_games(archive.list_games(base))
@@ -2148,8 +1876,13 @@ def test_group_dedupes_exact_duplicate_rows(tmp_path):
 
     base = tmp_path / "archive"
     rep = "games/g608/eval6/logs/0.replay"
-    _write_np_rows(base, [_np_row("g608", "eval", "g608", "g513", 3, 0, rep),
-                          _np_row("g608", "eval", "g608", "g513", 3, 0, rep)])
+    _write_np_rows(
+        base,
+        [
+            _np_row("g608", "eval", "g608", "g513", 3, 0, rep),
+            _np_row("g608", "eval", "g608", "g513", 3, 0, rep),
+        ],
+    )
     import archive
 
     games = dashboard.group_games(archive.list_games(base))
@@ -2161,8 +1894,13 @@ def test_group_splits_rerun_collision_into_two_games(tmp_path):
 
     base = tmp_path / "archive"
     rep = "games/g608/eval0/logs/0.replay"
-    _write_np_rows(base, [_np_row("g608", "eval", "g608", "g513", 0, 3, rep),
-                          _np_row("g608", "eval", "g608", "g513", 2, 2, rep)])
+    _write_np_rows(
+        base,
+        [
+            _np_row("g608", "eval", "g608", "g513", 0, 3, rep),
+            _np_row("g608", "eval", "g608", "g513", 2, 2, rep),
+        ],
+    )
     import archive
 
     games = dashboard.group_games(archive.list_games(base))
@@ -2176,17 +1914,23 @@ def test_group_dup_seat_game_stays_one_game(tmp_path):
 
     base = tmp_path / "archive"
     rep = "games/g1732/tick5/logs/0.replay"
-    _write_np_rows(base, [
-        _np_row("g1732", "train", "g1732", "g1690", 0, 2, rep),
-        _np_row("g1732", "train", "g1732", "g1690", 0, 3, rep),
-        _np_row("g1732", "train", "g1690", "g1690", 2, 3, rep),
-    ])
+    _write_np_rows(
+        base,
+        [
+            _np_row("g1732", "train", "g1732", "g1690", 0, 2, rep),
+            _np_row("g1732", "train", "g1732", "g1690", 0, 3, rep),
+            _np_row("g1732", "train", "g1690", "g1690", 2, 3, rep),
+        ],
+    )
     import archive
 
     games = dashboard.group_games(archive.list_games(base))
     assert len(games) == 1
     assert [(s["id"], s["score"]) for s in games[0]["seats"]] == [
-        ("g1732", 0), ("g1690", 2), ("g1690", 3)]
+        ("g1732", 0),
+        ("g1690", 2),
+        ("g1690", 3),
+    ]
 
 
 def test_group_dup_seat_4p_game_stays_one_game(tmp_path):
@@ -2195,13 +1939,16 @@ def test_group_dup_seat_4p_game_stays_one_game(tmp_path):
 
     base = tmp_path / "archive"
     rep = "games/g1732/tick20/logs/0.replay"
-    _write_np_rows(base, [
-        _np_row("g1732", "train", "g1732", "g1657", 5, 1, rep),
-        _np_row("g1732", "train", "g1732", "g1657", 5, 0, rep),
-        _np_row("g1732", "train", "g1690", "g1657", 0, 1, rep),
-        _np_row("g1732", "train", "g1690", "g1657", 0, 0, rep),
-        _np_row("g1732", "train", "g1657", "g1657", 1, 0, rep),
-    ])
+    _write_np_rows(
+        base,
+        [
+            _np_row("g1732", "train", "g1732", "g1657", 5, 1, rep),
+            _np_row("g1732", "train", "g1732", "g1657", 5, 0, rep),
+            _np_row("g1732", "train", "g1690", "g1657", 0, 1, rep),
+            _np_row("g1732", "train", "g1690", "g1657", 0, 0, rep),
+            _np_row("g1732", "train", "g1657", "g1657", 1, 0, rep),
+        ],
+    )
     import archive
 
     games = dashboard.group_games(archive.list_games(base))
@@ -2216,80 +1963,27 @@ def test_seat_results_win_draw_loss_and_margin(tmp_path):
 
     base = tmp_path / "archive"
     rep = "games/g9/t0/logs/0.replay"
-    _write_np_rows(base, [
-        _np_row("g9", "eval", "a", "b", 5, 5, rep, game="g#1"),
-        _np_row("g9", "eval", "a", "c", 5, 1, rep, game="g#1"),
-        _np_row("g9", "eval", "b", "c", 5, 1, rep, game="g#1"),
-    ])
+    _write_np_rows(
+        base,
+        [
+            _np_row("g9", "eval", "a", "b", 5, 5, rep, game="g#1"),
+            _np_row("g9", "eval", "a", "c", 5, 1, rep, game="g#1"),
+            _np_row("g9", "eval", "b", "c", 5, 1, rep, game="g#1"),
+        ],
+    )
     import archive
 
     g = dashboard.group_games(archive.list_games(base))[0]
     by_id = {s["id"]: s for s in g["seats"]}
-    assert (by_id["a"]["result"], by_id["b"]["result"],
-            by_id["c"]["result"]) == ("draw", "draw", "loss")
+    assert (by_id["a"]["result"], by_id["b"]["result"], by_id["c"]["result"]) == (
+        "draw",
+        "draw",
+        "loss",
+    )
     assert by_id["c"]["margin"] == 1 - 5
     assert by_id["a"]["pts"] == 0.5 and by_id["c"]["pts"] == 0.0
     assert dashboard.member_game_result(g, "c") == "loss"
     assert dashboard.member_game_result(g, "a") == "draw"
-
-
-def test_tally_counts_games_not_pairs(tmp_path):
-    import archive
-    import dashboard
-
-    base = tmp_path / "archive"
-    rep = "games/g9/e0/logs/0.replay"
-    gid = "games/g9/e0#u1"
-    pairs = [("a", "b", 5, 0), ("a", "c", 5, 2), ("a", "d", 5, 0),
-             ("b", "c", 0, 2), ("b", "d", 0, 0), ("c", "d", 2, 0)]
-    _write_np_rows(base, [_np_row("g9", "eval", a, b, sa, sb, rep, game=gid)
-                          for a, b, sa, sb in pairs])
-    games = dashboard.group_games(archive.list_games(base))
-    tally = dashboard.tally_eval(games)
-    assert tally["a"] == [1, 0, 0]
-    assert tally["b"] == [0, 0, 1]
-    assert tally["c"] == [0, 0, 1]
-    assert tally["d"] == [0, 0, 1]
-
-
-def _tmp_3p_map(tmp_path, name="m3.map"):
-    p = tmp_path / name
-    p.write_text("rows 16\ncols 24\nplayers 3\n" + "m " + "." * 24 + "\n")
-    return str(p)
-
-
-def test_snapshot_np_train_and_eval_count_games(tmp_path):
-    import archive
-    import dashboard
-
-    base = tmp_path / "archive"
-    a = archive.save_checkpoint(base, {}, role="main", parent=None)
-    archive.save_checkpoint(base, {}, role="challenger", parent=a)
-    # one 2p, one 3p, one 4p game in EACH phase = 6 games, 20 pair rows.
-    fields = {2: ["c", "m"], 3: ["c", "m", "x"], 4: ["c", "m", "x", "y"]}
-    scores = {2: [3, 1], 3: [3, 1, 0], 4: [3, 2, 1, 0]}
-    nrows = 0
-    for kind in ("train", "eval"):
-        for n in (2, 3, 4):
-            rep = f"games/g/{kind}{n}/logs/0.replay"
-            gid = f"games/g/{kind}{n}#u{n}"
-            f, s = fields[n], scores[n]
-            for x in range(n):
-                for y in range(x + 1, n):
-                    archive.log_game(base, "g", kind, f[x], f[y], s[x],
-                                     s[y], rep, game=gid)
-                    nrows += 1
-    assert nrows == 20
-    snap = dashboard.snapshot(base)
-    assert snap["game_total"] == 6
-    assert len(snap["games"]) == 6
-    g4 = next(g for g in snap["games"]
-              if len(g["seats"]) == 4
-              and g["replay"] == "games/g/eval4/logs/0.replay")
-    assert g4["seats"] == ["c", "m", "x", "y"]
-    assert g4["scores"] == [3, 2, 1, 0]
-    grouped = dashboard.group_games(archive.list_games(base))
-    assert sorted(g["n"] for g in grouped) == [2, 2, 3, 3, 4, 4]
 
 
 def test_api_games_groups_and_filters_by_any_seat(tmp_path):
@@ -2301,50 +1995,30 @@ def test_api_games_groups_and_filters_by_any_seat(tmp_path):
 
     base = tmp_path / "archive"
     rep = "games/g/e0/logs/0.replay"
-    _write_np_rows(base, [
-        _np_row("g", "eval", "c", "m", 3, 1, rep, game="g#1"),
-        _np_row("g", "eval", "c", "x", 3, 0, rep, game="g#1"),
-        _np_row("g", "eval", "m", "x", 1, 0, rep, game="g#1"),
-        _np_row("g", "train", "c", "m", 1, 1, "games/g/t0/logs/0.replay",
-                game="g#2"),
-    ])
+    _write_np_rows(
+        base,
+        [
+            _np_row("g", "eval", "c", "m", 3, 1, rep, game="g#1"),
+            _np_row("g", "eval", "c", "x", 3, 0, rep, game="g#1"),
+            _np_row("g", "eval", "m", "x", 1, 0, rep, game="g#1"),
+            _np_row(
+                "g", "train", "c", "m", 1, 1, "games/g/t0/logs/0.replay", game="g#2"
+            ),
+        ],
+    )
     srv = dashboard.make_handler(base)
     httpd = http.server.ThreadingHTTPServer(("127.0.0.1", 0), srv)
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     try:
         root = f"http://127.0.0.1:{httpd.server_address[1]}"
-        page = json.load(urllib.request.urlopen(root + "/api/games",
-                                                timeout=5))
+        page = json.load(urllib.request.urlopen(root + "/api/games", timeout=5))
         assert page["total"] == 2  # games, not the 4 pair rows
-        only = json.load(urllib.request.urlopen(
-            root + "/api/games?learner=g", timeout=5))
+        only = json.load(
+            urllib.request.urlopen(root + "/api/games?learner=g", timeout=5)
+        )
         assert only["total"] == 2  # both games trained by g
     finally:
         httpd.shutdown()
-
-
-def test_maps_summary_broken_out_by_player_count(tmp_path):
-    import dashboard
-
-    base = tmp_path / "archive"
-    _write_np_rows(base, [
-        _np_row("g", "eval", "c", "m", 3, 1, "games/g/e0/logs/0.replay",
-                game="g#1", map="open.map"),
-        _np_row("g", "train", "c", "m", 1, 0, "games/g/t0/logs/0.replay",
-                game="g#2", map="open.map"),
-        _np_row("g", "train", "c", "x", 1, 2, "games/g/t0/logs/0.replay",
-                game="g#2", map="open.map"),
-        _np_row("g", "train", "m", "x", 0, 2, "games/g/t0/logs/0.replay",
-                game="g#2", map="open.map"),
-    ])
-    import archive as _a
-
-    games = dashboard.group_games(_a.list_games(base))
-    maps = dashboard.summarize_maps(games)
-    by = {(m["map"], m["n"]): m for m in maps}
-    assert by[("open.map", 2)]["eval"] == 1
-    assert (by[("open.map", 2)]["cw"], by[("open.map", 2)]["cl"]) == (1, 0)
-    assert by[("open.map", 3)]["train"] == 1
 
 
 def test_train_play_one_tags_pairs_with_one_game_id(tmp_path, monkeypatch):
@@ -2353,14 +2027,12 @@ def test_train_play_one_tags_pairs_with_one_game_id(tmp_path, monkeypatch):
     import train
 
     base = tmp_path / "archive"
-    cfg = {"seed": 0, "turns": 5, "temperature": 0.0, "train_games": 1,
-           "tick": 7}
+    cfg = {"seed": 0, "turns": 5, "temperature": 0.0, "tick": 7}
     seen_cfg = {}
 
     def fake_play(*a, **k):
         seen_cfg.update(vars(a[3]))  # GameConfig carries both seeds
-        return _fake_game_out(["g007", "g001", "g002"], [1, 3, 0],
-                              a[4])
+        return _fake_game_out(["main", "main"], [1, 0], a[4])
 
     monkeypatch.setattr(game_if, "play", fake_play)
     import algorithm
@@ -2368,51 +2040,27 @@ def test_train_play_one_tags_pairs_with_one_game_id(tmp_path, monkeypatch):
 
     monkeypatch.setattr(algorithm, "compact_records", lambda rows: [])
     monkeypatch.setattr(rewards, "compute_returns", lambda *a, **k: [0.1])
-    monkeypatch.setattr(rewards, "scales_for", lambda role: {})
-    train._play_one((cfg, base, "g007", ["g007", "g001", "g002"],
-                     {}, "challenger", _tmp_3p_map(tmp_path)))
+    train._play_one(cfg, base, {}, _tmp_2p_map(tmp_path))
     assert (seen_cfg["player_seed"], seen_cfg["engine_seed"]) == (7, 1007)
     rows = archive.list_games(base)
-    assert len(rows) == 3  # 3p game logs 3 pair rows
+    assert len(rows) == 1  # mirror logs one game row
+    assert rows[0]["game"].startswith("games/main/tick7#")
+    assert rows[0]["tick"] == 7
     gids = {r.get("game") for r in rows}
     assert len(gids) == 1
     (gid,) = gids
-    assert gid.startswith("games/g007/tick7#")
+    assert gid.startswith("games/main/tick7#")
 
 
 def _fake_game_out(names, scores, outdir):
     (outdir / "logs").mkdir(parents=True, exist_ok=True)
     (outdir / "logs" / "0.replay").write_text(
-        json.dumps({"game_length": 10, "score": list(scores),
-                    "replaydata": {}}))
-    return {"game": {"game_length": 10, "score": list(scores),
-                     "replaydata": {}},
-            "records": [[] for _ in names]}
-
-def test_snapshot_2p_history_meaning_unchanged(tmp_path):
-    import archive
-    import dashboard
-
-    base = tmp_path / "archive"
-    a = archive.save_checkpoint(base, {}, role="main", parent=None)
-    b = archive.save_checkpoint(base, {}, role="challenger", parent=a)
-    archive.log_game(base, a, "eval", a, b, 3, 1,
-                     "games/g000/e0/logs/0.replay")
-    archive.record_result(base, a, b, 3, 1)
-    archive.log_game(base, a, "eval", b, a, 1, 1,
-                     "games/g000/e1/logs/0.replay")
-    archive.record_result(base, b, a, 1, 1)
-    snap = dashboard.snapshot(base)
-    assert snap["game_total"] == 2
-    assert len(snap["games"]) == 2
-    g0 = next(g for g in snap["games"]
-              if g["replay"] == "games/g000/e0/logs/0.replay")
-    assert (g0["seats"], g0["scores"]) == ([a, b], [3, 1])
-    assert g0["result"] == "win"  # learner (seat 0) takes it
-    pair = next(p for p in snap["pairs"]
-                if {p["a"], p["b"]} == {a, b})
-    assert pair["n"] == 2  # one win + one draw from a's side
-    assert pair["share"] == round(100 * (1 + 0.5 + 1) / (2 + 2))
+        json.dumps({"game_length": 10, "score": list(scores), "replaydata": {}})
+    )
+    return {
+        "game": {"game_length": 10, "score": list(scores), "replaydata": {}},
+        "records": [[] for _ in names],
+    }
 
 
 def test_cached_grouped_shares_one_grouping_per_poll(tmp_path):
@@ -2420,21 +2068,18 @@ def test_cached_grouped_shares_one_grouping_per_poll(tmp_path):
     import dashboard
 
     base = tmp_path / "archive"
-    archive.log_game(base, "g", "eval", "a", "b", 1, 0,
-                     "games/g/e0/logs/0.replay", game="g#1")
+    archive.log_game(base, "main", "main", 1, 0, "games/g/e0/logs/0.replay", game="g#1")
     first = dashboard.cached_grouped(base)
     assert dashboard.cached_grouped(base) is first  # no regroup on repoll
     assert len(first) == 1
-    archive.log_game(base, "g", "eval", "a", "b", 0, 1,
-                     "games/g/e1/logs/0.replay", game="g#2")
+    archive.log_game(base, "main", "main", 0, 1, "games/g/e1/logs/0.replay", game="g#2")
     second = dashboard.cached_grouped(base)
     assert len(second) == 2  # file change regroups
 
 
 def test_fresh_policy_head_is_small_scale():
-    import torch
-
     import model
+    import torch
 
     policy = model.CNNPolicy()
     std = float(policy.head.weight.std())
@@ -2443,38 +2088,61 @@ def test_fresh_policy_head_is_small_scale():
 
 
 def test_fresh_trunk_is_orthogonal_gain_sqrt2():
-    import torch
-
     import model
+    import torch
 
     policy = model.CNNPolicy()
     flat = policy.conv1.weight.reshape(policy.conv1.weight.shape[0], -1)
     gram = flat @ flat.T
     gain2 = 2.0
-    assert torch.allclose(torch.diag(gram),
-                          torch.full_like(torch.diag(gram), gain2),
-                          atol=0.2)
+    assert torch.allclose(
+        torch.diag(gram), torch.full_like(torch.diag(gram), gain2), atol=0.2
+    )
     off = gram - torch.diag(torch.diag(gram))
     assert off.abs().max() < 0.2
 
 
 def test_fresh_value_head_zero():
+    import model
     import torch
 
-    import model
-
     policy = model.CNNPolicy()
-    assert torch.equal(policy.value.weight,
-                       torch.zeros_like(policy.value.weight))
-    assert torch.equal(policy.value.bias,
-                       torch.zeros_like(policy.value.bias))
+    assert torch.equal(policy.value.weight, torch.zeros_like(policy.value.weight))
+    assert torch.equal(policy.value.bias, torch.zeros_like(policy.value.bias))
 
 
 def test_two_fresh_policies_differ():
+    import model
     import torch
 
-    import model
-
     a, b = model.CNNPolicy(), model.CNNPolicy()
-    assert any(not torch.equal(p, q)
-               for p, q in zip(a.parameters(), b.parameters()))
+    assert any(not torch.equal(p, q) for p, q in zip(a.parameters(), b.parameters()))
+
+
+def test_ppo_update_reports_clipfrac_and_explained_var():
+    import algorithm
+    import torch
+    import train
+
+    torch.manual_seed(0)
+    policy = algorithm.new_policy(None, "base")
+    opt = algorithm.make_optimizer(policy, lr=1e-3)
+    batch = algorithm.collect(
+        policy,
+        [
+            {"window": torch.zeros(_C, _S, _S).tolist(), "action": "stay"}
+            for _ in range(16)
+        ],
+        [float(i % 3 - 1) for i in range(16)],
+    )
+    cfg = {
+        "epochs": 1,
+        "clip": 0.2,
+        "vf_coef": 0.5,
+        "entropy_beta": 0.01,
+        "max_norm": 1.0,
+        "minibatch": 64,
+    }
+    stats = train.ppo_update(policy, opt, batch, cfg)
+    assert all(0.0 <= c <= 1.0 for c in stats["clipfrac"])
+    assert stats["explained_var"] <= 1.0

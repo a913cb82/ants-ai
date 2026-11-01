@@ -1,4 +1,5 @@
 """Sampling tests for the mixed-generator script (TDD: fails until implemented)."""
+
 import random
 import sys
 from pathlib import Path
@@ -49,11 +50,27 @@ def test_validate_rejects_bad_maps():
 
 def test_metadata_header_present_and_valid():
     import subprocess
+
     proc = subprocess.run(
-        [sys.executable, str(Path(__file__).resolve().parents[1]
-         / "tools" / "mapgen" / "gen_mixed.py"),
-         "--seed", "42", "--players", "2", "--generator", "symmetric"],
-        capture_output=True, text=True, timeout=180)
+        [
+            sys.executable,
+            str(
+                Path(__file__).resolve().parents[1]
+                / "tools"
+                / "mapgen"
+                / "gen_mixed.py"
+            ),
+            "--seed",
+            "42",
+            "--players",
+            "2",
+            "--generator",
+            "symmetric",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
     assert proc.returncode == 0, proc.stderr
     out = proc.stdout
     assert out.startswith("# generator: symmetric_mapgen.py\n")
@@ -63,14 +80,16 @@ def test_metadata_header_present_and_valid():
 
 
 def test_validate_rejects_degenerate_hill_twins():
-    import math
     text = Path("/tmp/mapgen-3p-24x32/random_a.map").read_text()
     ok, reason = gen_mixed.validate(text, 3)
     assert not ok and "apart" in reason, reason
     # ...but every current mixed-demo map passes the default gate.
     for f in Path("/tmp/mixed-demo").glob("*.map"):
-        n = int([l for l in f.read_text().splitlines()
-                 if l.startswith("players")][0].split()[1])
+        n = int(
+            [l for l in f.read_text().splitlines() if l.startswith("players")][
+                0
+            ].split()[1]
+        )
         ok, reason = gen_mixed.validate(f.read_text(), n)
         assert ok, (f.name, reason)
     # Threshold is honored: the 5.0 walk map fails a 6.0 gate.
@@ -84,30 +103,79 @@ def test_inprocess_matches_subprocess():
     The gate for deleting the subprocess path."""
     import subprocess
     import sys
+
     import gen_mixed
+
     root = Path(__file__).resolve().parents[1]
     cases = [
-        ("walk", None,
-         ["--no_players", "2", "--min_dimensions", "20",
-          "--max_dimensions", "40", "--min_hills", "1", "--max_hills", "1",
-          "--min_starting_distance", "9", "--symmetry", "rotational",
-          "--rotational_symmetry", "4"]),
-        ("symmetric", None,
-         ["--players", "2", "--rows", "16", "--cols", "24",
-          "--min_start_distance", "10"]),
-        ("cavemap", "amstan",
-         ["--players", "2", "--rows", "16", "--cols", "24",
-          "--hills", "1", "--symmetry", "rotational"]),
+        (
+            "walk",
+            None,
+            [
+                "--no_players",
+                "2",
+                "--min_dimensions",
+                "20",
+                "--max_dimensions",
+                "40",
+                "--min_hills",
+                "1",
+                "--max_hills",
+                "1",
+                "--min_starting_distance",
+                "9",
+                "--symmetry",
+                "rotational",
+                "--rotational_symmetry",
+                "4",
+            ],
+        ),
+        (
+            "symmetric",
+            None,
+            [
+                "--players",
+                "2",
+                "--rows",
+                "16",
+                "--cols",
+                "24",
+                "--min_start_distance",
+                "10",
+            ],
+        ),
+        (
+            "cavemap",
+            "amstan",
+            [
+                "--players",
+                "2",
+                "--rows",
+                "16",
+                "--cols",
+                "24",
+                "--hills",
+                "1",
+                "--symmetry",
+                "rotational",
+            ],
+        ),
     ]
     for gen, sub, flags in cases:
-        script = root / "tools" / "mapgen" / (sub or "") / (
-            "mapgen.py" if gen != "symmetric" else "symmetric_mapgen.py")
+        script = (
+            root
+            / "tools"
+            / "mapgen"
+            / (sub or "")
+            / ("mapgen.py" if gen != "symmetric" else "symmetric_mapgen.py")
+        )
         for seed in (5, 6):
             argv = [sys.executable, str(script), *flags, "--seed", str(seed)]
             cwd = str(root / "tools" / "mapgen" / sub) if sub else None
             rc, out, _ = gen_mixed._run_in_process(gen, argv, cwd)
-            proc = subprocess.run(argv, cwd=cwd, capture_output=True,
-                                  text=True, timeout=300)
+            proc = subprocess.run(
+                argv, cwd=cwd, capture_output=True, text=True, timeout=300
+            )
             assert rc == proc.returncode == 0, (gen, seed)
             assert out == proc.stdout, (gen, seed)
 
@@ -115,15 +183,28 @@ def test_inprocess_matches_subprocess():
 def test_batch_determinism_and_parallel_equivalence(tmp_path):
     import subprocess
     import sys
-    script = (Path(__file__).resolve().parents[1]
-              / "tools" / "mapgen" / "gen_mixed.py")
+
+    script = Path(__file__).resolve().parents[1] / "tools" / "mapgen" / "gen_mixed.py"
     a = tmp_path / "a"
     b = tmp_path / "b"
     for d, jobs in ((a, 1), (b, 4)):
         proc = subprocess.run(
-            [sys.executable, str(script), "--count", "6",
-             "--out-dir", str(d), "--seed", "777", "--jobs", str(jobs)],
-            capture_output=True, text=True, timeout=600)
+            [
+                sys.executable,
+                str(script),
+                "--count",
+                "6",
+                "--out-dir",
+                str(d),
+                "--seed",
+                "777",
+                "--jobs",
+                str(jobs),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=600,
+        )
         assert proc.returncode == 0, proc.stderr[-300:]
     fa = sorted(p.read_bytes() for p in a.glob("*.map"))
     fb = sorted(p.read_bytes() for p in b.glob("*.map"))
@@ -131,8 +212,7 @@ def test_batch_determinism_and_parallel_equivalence(tmp_path):
     for content in fa:
         text = content.decode()
         assert text.startswith("# generator: ")
-        n = int([l for l in text.splitlines()
-                 if l.startswith("players")][0].split()[1])
+        n = int([l for l in text.splitlines() if l.startswith("players")][0].split()[1])
         ok, reason = gen_mixed.validate(text, n)
         assert ok, reason
 
@@ -140,24 +220,28 @@ def test_batch_determinism_and_parallel_equivalence(tmp_path):
 def test_batch_requires_out_dir(tmp_path):
     import subprocess
     import sys
-    script = (Path(__file__).resolve().parents[1]
-              / "tools" / "mapgen" / "gen_mixed.py")
+
+    script = Path(__file__).resolve().parents[1] / "tools" / "mapgen" / "gen_mixed.py"
     proc = subprocess.run(
         [sys.executable, str(script), "--count", "3", "--seed", "1"],
-        capture_output=True, text=True, timeout=120)
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
     assert proc.returncode != 0
 
 
 def test_fresh_pool_draws_mixed_counts(tmp_path):
     import gen_mixed
+
     train_maps, eval_maps = gen_mixed.fresh_pool(
-        4, 2, tmp_path / "gen000", seed=31337, jobs=1)
+        4, 2, tmp_path / "gen000", seed=31337, jobs=1
+    )
     assert len(train_maps) == 4 and len(eval_maps) == 2
     seen_n = set()
     for p in train_maps + eval_maps:
         text = Path(p).read_text()
-        n = int([l for l in text.splitlines()
-                 if l.startswith("players")][0].split()[1])
+        n = int([l for l in text.splitlines() if l.startswith("players")][0].split()[1])
         seen_n.add(n)
         ok, reason = gen_mixed.validate(text, n)
         assert ok, (p, reason)
@@ -171,8 +255,14 @@ def test_fresh_pool_draws_mixed_counts(tmp_path):
 
 
 def test_end_to_end_each_generator():
-    for gen, n in (("symmetric", 2), ("cavemap", 3), ("walk", 2),
-                   ("symmetric", 4), ("cavemap", 2), ("walk", 3)):
+    for gen, n in (
+        ("symmetric", 2),
+        ("cavemap", 3),
+        ("walk", 2),
+        ("symmetric", 4),
+        ("cavemap", 2),
+        ("walk", 3),
+    ):
         text, _, _ = gen_mixed.generate_one(gen, n, random.Random(11))
         ok, reason = gen_mixed.validate(text, n)
         assert ok, (gen, n, reason)

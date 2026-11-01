@@ -107,8 +107,9 @@ def play(
     assert len(names) == len(weights)
     outdir = Path(outdir)
     log_dir = outdir / "logs"
-    sides = [stage_side(outdir, w, f"side_{i}", names[i])
-             for i, w in enumerate(weights)]
+    sides = [
+        stage_side(outdir, w, f"side_{i}", names[i]) for i, w in enumerate(weights)
+    ]
     env = _bot_env(cfg)
     cmd = [
         python,
@@ -145,10 +146,11 @@ def play(
         for i in range(len(sides)):
             shutil.rmtree(outdir / f"side_{i}", ignore_errors=True)
         shutil.rmtree(log_dir, ignore_errors=True)
-        sides = [stage_side(outdir, w, f"side_{i}", names[i])
-                 for i, w in enumerate(weights)]
+        sides = [
+            stage_side(outdir, w, f"side_{i}", names[i]) for i, w in enumerate(weights)
+        ]
         at = cmd.index("--engine_seed") + 1
-        cmd_retry = cmd[:at] + [str(cfg.engine_seed + 7919)] + cmd[at + 1:]
+        cmd_retry = cmd[:at] + [str(cfg.engine_seed + 7919)] + cmd[at + 1 :]
         try:
             _run_once(cmd_retry, root, env, cfg.timeout)
         finally:
@@ -169,9 +171,7 @@ def _run_once(cmd: list, root: Path, env: dict, timeout: int) -> None:
     except subprocess.TimeoutExpired as exc:
         raise TimeoutError(f"engine game timed out after {timeout}s") from exc
     except subprocess.CalledProcessError as exc:
-        raise RuntimeError(
-            f"engine failed: {exc.stderr.decode()[-2000:]}"
-        ) from exc
+        raise RuntimeError(f"engine failed: {exc.stderr.decode()[-2000:]}") from exc
 
 
 def _read_records(side: Path) -> list:

@@ -4,7 +4,6 @@ import math
 import random
 import sys
 
-
 # Direction deltas shared by the hot loops. Order matches
 # SymmetricMap.directions.values() (N, S, E, W); _WALK_DELTAS matches
 # SymmetricMap.cdirections order (N, E, S, W). Tuple lookup avoids a
@@ -72,8 +71,11 @@ class SymmetricMap:
     def print_map(self):
         # Single write; bytes are identical to the old per-row prints
         # ("rows %s\n", "m %s\n", ... with sep=" ", end="\n").
-        lines = ["rows " + str(self.rows), "cols " + str(self.cols),
-                 "players " + str(self.no_players)]
+        lines = [
+            "rows " + str(self.rows),
+            "cols " + str(self.cols),
+            "players " + str(self.no_players),
+        ]
         lines.extend("m " + "".join(row) for row in self.map_data)
         sys.stdout.write("\n".join(lines) + "\n")
 
@@ -172,8 +174,7 @@ class SymmetricMap:
         c0 = loc[1]
         rows = self.rows
         cols = self.cols
-        return [((r0 + dr) % rows, (c0 + dc) % cols)
-                for dr, dc in _NEIGHBOR_DELTAS]
+        return [((r0 + dr) % rows, (c0 + dc) % cols) for dr, dc in _NEIGHBOR_DELTAS]
 
     # returns the new location after translating it by (rtranslate, ctranslate)
     def get_translate_loc(self, loc):
@@ -292,9 +293,7 @@ class SymmetricMap:
 
                     # fill in isolated water
                     wchecks = [
-                        s
-                        for s in self.get_neighbors(c_loc)
-                        if data[s[0]][s[1]] == "%"
+                        s for s in self.get_neighbors(c_loc) if data[s[0]][s[1]] == "%"
                     ]
                     for check_sq in wchecks:
                         is_puddle = True

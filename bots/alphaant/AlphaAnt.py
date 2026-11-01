@@ -36,6 +36,7 @@ STALL_K = features.STALL_K
 
 WEIGHTS_PATH = Path(__file__).resolve().parent / "weights.json"
 
+
 # When set, every decision is appended as one JSON row per ant per turn
 # to $AA_RECORD_DIR/aa-<pid>.jsonl. Unset (rated play): zero overhead,
 # zero behavior change. The log dir must live outside the bot tree so
@@ -67,7 +68,7 @@ def find_cycles(intents: dict[tuple, tuple]) -> list[set]:
             path.append(cur)
             cur = intents[cur]
         if cur in pos:
-            group = set(path[pos[cur]:])
+            group = set(path[pos[cur] :])
             if len(group) > 1:
                 cycles.append(group)
         seen.update(path)
@@ -86,8 +87,7 @@ class AlphaAntBot:
         raw = json.loads(Path(weights_path or WEIGHTS_PATH).read_text())
         self.policy = model.CNNPolicy(arch=model.infer_arch(raw))
         self.policy.load_state_dict(
-            model.pad_in_channels(model.lists_to_state_dict(raw),
-                                  self.policy),
+            model.pad_in_channels(model.lists_to_state_dict(raw), self.policy),
             strict=False,  # pre-value-head champions lack the value keys
         )
         self.policy.eval()
@@ -156,8 +156,7 @@ class AlphaAntBot:
             staying = {
                 tuple(mine[j])
                 for j in range(n)
-                if moves[j] is None
-                or tuple(moves[j]["dest"]) == tuple(mine[j])
+                if moves[j] is None or tuple(moves[j]["dest"]) == tuple(mine[j])
             }
             revoked = False
             for i in range(n):
@@ -227,7 +226,9 @@ class AlphaAntBot:
         view = features.snapshot(ants, water=self._water)
         windows = [
             features.local_window(
-                ants, loc, view=view,
+                ants,
+                loc,
+                view=view,
                 stall=min(self._stall.get(tuple(loc), 0) / STALL_K, 1.0),
             )
             for loc in mine
@@ -261,24 +262,28 @@ class AlphaAntBot:
             else:
                 dest = ant_loc
             reserved.add(tuple(dest))
-            moves.append({
-                "action": action,
-                "dest": tuple(dest),
-                "intent": intent,
-                "blocked": blocked,
-                "legal": legal,
-            })
-            if recording:
-                rows.append({
-                    "turn": self._turn,
-                    "loc": list(ant_loc),
-                    "dest": list(dest),
+            moves.append(
+                {
                     "action": action,
+                    "dest": tuple(dest),
                     "intent": intent,
-                    "blocked": sorted(blocked),
-                    "window": windows[i].tolist(),
-                    "legal": legal.tolist(),
-                })
+                    "blocked": blocked,
+                    "legal": legal,
+                }
+            )
+            if recording:
+                rows.append(
+                    {
+                        "turn": self._turn,
+                        "loc": list(ant_loc),
+                        "dest": list(dest),
+                        "action": action,
+                        "intent": intent,
+                        "blocked": sorted(blocked),
+                        "window": windows[i].tolist(),
+                        "legal": legal.tolist(),
+                    }
+                )
             if ants.time_remaining() < 10:
                 # Time ran out: undecided ants leave no rows. Logging
                 # them as stays forged supervision they never chose

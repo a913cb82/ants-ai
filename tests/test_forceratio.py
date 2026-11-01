@@ -27,9 +27,18 @@ _MAXD = _R * math.sqrt(2)
 
 
 class FakeAnts2:
-    def __init__(self, rows=21, cols=21, own=(), enemy=(),
-                 own_hills=(), enemy_hills=(), food=(),
-                 viewradius2=77, attackradius2=5):
+    def __init__(
+        self,
+        rows=21,
+        cols=21,
+        own=(),
+        enemy=(),
+        own_hills=(),
+        enemy_hills=(),
+        food=(),
+        viewradius2=77,
+        attackradius2=5,
+    ):
         self.rows = rows
         self.cols = cols
         self.viewradius2 = viewradius2
@@ -142,14 +151,17 @@ def test_old_channels_unchanged():
 def _rot90_board(ants, foc):
     # Rotate every entity 90deg about foc: (dr,dc) -> (-dc,dr).
     fr, fc = foc
+
     def rot(p):
-        return ((fr - (p[1] - fc)) % ants.rows,
-                (fc + (p[0] - fr)) % ants.cols)
+        return ((fr - (p[1] - fc)) % ants.rows, (fc + (p[0] - fr)) % ants.cols)
+
     return FakeAnts2(
-        rows=ants.rows, cols=ants.cols,
+        rows=ants.rows,
+        cols=ants.cols,
         own=[rot(p) for p in ants._own],
         enemy=[rot(p) for p in ants._enemy],
-        viewradius2=ants.viewradius2, attackradius2=ants.attackradius2,
+        viewradius2=ants.viewradius2,
+        attackradius2=ants.attackradius2,
     )
 
 
@@ -169,9 +181,8 @@ def test_logits_d4_equivariant_with_new_channels():
     # the ant becomes north, so new[n] == old[e], i.e. columns
     # [1,2,3,0,4]. Tight tolerance proves the scalar channels rotate
     # trivially through the symmetrization.
-    import torch
-
     import model
+    import torch
 
     torch.manual_seed(0)
     policy = model.CNNPolicy()
@@ -184,9 +195,8 @@ def test_logits_d4_equivariant_with_new_channels():
 
 
 def test_old_7ch_weights_still_load():
-    import torch
-
     import model
+    import torch
 
     torch.manual_seed(1)
     old = model.CNNPolicy(channels=7)
@@ -204,9 +214,8 @@ def test_old_7ch_weights_still_load():
 
 
 def test_ablation_new_channels_carry_signal():
-    import torch
-
     import model
+    import torch
 
     torch.manual_seed(1)
     policy = model.CNNPolicy()

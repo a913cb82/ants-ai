@@ -30,9 +30,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "ml"))
 sys.path.insert(0, str(ROOT / "tools"))
 
-from mapgen import is_playable_2p  # noqa: E402
-
 from ants import Ants  # noqa: E402
+from mapgen import is_playable_2p  # noqa: E402
 
 MAPGEN = ROOT / "tools" / "mapgen"
 
@@ -89,13 +88,17 @@ def _run(classes, *args: str, timeout: int = 180) -> subprocess.CompletedProcess
 
 def _emit(classes, tmp_path: Path, name: str, *args: str) -> Path:
     proc = _run(classes, *args)
-    assert proc.returncode == 0, f"{' '.join(args)} exited {proc.returncode}:\n{proc.stderr}"
+    assert proc.returncode == 0, (
+        f"{' '.join(args)} exited {proc.returncode}:\n{proc.stderr}"
+    )
     assert proc.stdout.startswith(("players ", "rows ")), (
         f"{name} emitted no map header:\n{proc.stdout[:300]}\n{proc.stderr[:500]}"
     )
     path = tmp_path / name
     path.write_text(proc.stdout)
-    assert "scratch" not in str(ROOT / "ml" / "archive"), "guard: never touch the real archive"
+    assert "scratch" not in str(ROOT / "ml" / "archive"), (
+        "guard: never touch the real archive"
+    )
     return path
 
 
@@ -118,8 +121,18 @@ def test_mapgenerator_2p_small_playable(classes, tmp_path):
     """MapGenerator --players 2 small map: exit 0, playable + engine-valid."""
     out = str(tmp_path / "mg2.map")
     proc = _run(
-        classes, "MapGenerator",
-        "--players", "2", "--seed", "7", "--rows", "34", "--cols", "40", "--out", out,
+        classes,
+        "MapGenerator",
+        "--players",
+        "2",
+        "--seed",
+        "7",
+        "--rows",
+        "34",
+        "--cols",
+        "40",
+        "--out",
+        out,
     )
     assert proc.returncode == 0, f"MapGenerator failed:\n{proc.stderr}"
     path = Path(out)
@@ -129,7 +142,9 @@ def test_mapgenerator_2p_small_playable(classes, tmp_path):
 
 def test_mapgenerator_4p_engine_valid(classes, tmp_path):
     """MapGenerator --players 4: four distinct hills, engine loads."""
-    path = _emit(classes, tmp_path, "mg4.map", "MapGenerator", "--players", "4", "--seed", "7")
+    path = _emit(
+        classes, tmp_path, "mg4.map", "MapGenerator", "--players", "4", "--seed", "7"
+    )
     headers, grid = _parse(path.read_text())
     assert headers["players"] == 4
     flat = "".join(grid)

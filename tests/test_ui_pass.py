@@ -1,13 +1,11 @@
-"""Dashboard page contract: new snapshot keys, cards, replay links, poll.
+"""Dashboard page contract: pure-AZ snapshot keys, cards, replay links.
 
-New contract (build/dashboard2): snapshot keys are exactly
-{h0, anchors, standings, bars, pairs, behavior, games, game_total,
-alerts, mtime}. Legacy keys (board/members/pool/history/anchor_trend/
-league/admissions/maps/main/counts/status, train_return/train_loss/
-champ/cand/top20/newcomer/whisker) are gone. Page cards: sticky H0
-strip, anchor ladder canvas, standings+bars, attention queue,
-pair matrix + behavior table, recent games. Zero-JS first paint.
+Snapshot keys are exactly
+{h0, training, behavior, games, game_total, alerts, mtime}.
+Page cards: sticky H0 strip, training vitals, attention queue,
+behavior table, recent games. Zero-JS first paint.
 """
+
 import json
 import re
 import sys
@@ -18,33 +16,58 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "ml"))
 
-NEW_KEYS = {"h0", "anchors", "standings", "bars", "pairs", "behavior",
-            "games", "game_total", "alerts", "mtime"}
-LEGACY_KEYS = {"main", "members", "league", "admissions", "anchor_trend",
-               "pool", "intervals", "board", "history", "maps", "status",
-               "counts", "train_return", "train_loss", "champ", "cand",
-               "top20", "newcomer", "whisker", "conv", "decisive", "margin"}
+NEW_KEYS = {"h0", "training", "behavior", "games", "game_total", "alerts", "mtime"}
+LEGACY_KEYS = {
+    "anchors",
+    "standings",
+    "bars",
+    "pairs",
+    "learners",
+    "anchor_verdict",
+    "league",
+    "admissions",
+    "anchor_trend",
+    "pool",
+    "intervals",
+    "board",
+    "history",
+    "maps",
+    "status",
+    "counts",
+    "members",
+    "main",
+    "conv",
+    "margin",
+    "whisker",
+    "champ",
+    "cand",
+    "top20",
+    "newcomer",
+    "decisive",
+}
 
 
 def _league_base(base, games=4):
     import archive
 
     archive.init(base)
-    archive.save_checkpoint(base, {}, role="main", parent=None)
-    archive.init_league(base, "live-main", ["g000"])
-    st = archive.load_league(base)
-    for _slot, _exp in st.get("exploiters", {}).items():
-        _exp["id"] = _slot
-    archive.save_league(base, st)
+    archive.save_state(base, {"tick": games, "next_tick": games, "micro": 0})
     for i in range(games):
-        learner = "main" if i % 2 == 0 else "me"
-        archive.log_game(base, learner, "eval", learner, "g000",
-                         3 if i % 3 else 1, 1,
-                         f"games/g{i}/logs/0.replay", map="m",
-                         game=f"gid-{i}", tick=i,
-                         food=[2, 1], kills=[1, 0], army=[5, 4],
-                         length=120)
-        archive.record_result(base, learner, "g000", 3 if i % 3 else 1, 1)
+        archive.log_game(
+            base,
+            "main",
+            "main",
+            3 if i % 3 else 1,
+            1,
+            f"games/g{i}/logs/0.replay",
+            map="m",
+            game=f"gid-{i}",
+            tick=i,
+            food=[2, 1],
+            kills=[1, 0],
+            army=[5, 4],
+            length=120,
+        )
     return base
 
 
@@ -68,12 +91,19 @@ def test_snapshot_h0_shape(tmp_path):
 
     base = _league_base(tmp_path / "archive")
     h0 = dashboard.snapshot(base)["h0"]
-    assert set(h0) == {"tick", "learners",
-                       "games_per_h", "secs_since_game",
-                       "anchor_verdict"}
-    assert h0["tick"] == 0
-    assert h0["learners"] == ["main"]
-    assert h0["anchor_verdict"] in ("new-high", "flat", "down")
+    assert set(h0) == {
+        "tick",
+        "games",
+        "updates",
+        "micro",
+        "games_per_h",
+        "secs_since_game",
+        "last_result",
+        "last_length",
+        "decisive",
+    }
+    assert h0["tick"] == 4 and h0["games"] == 4
+    assert h0["updates"] == 0 and h0["micro"] == 0
 
 
 def test_first_paint_has_new_cards_and_named_replays(tmp_path):
@@ -82,16 +112,20 @@ def test_first_paint_has_new_cards_and_named_replays(tmp_path):
     base = _league_base(tmp_path / "archive")
     snap = dashboard.snapshot(base)
     page = dashboard.render_page(snap)
-    for cid in ("h0", "ch-ladder", "standings-body", "bars-body",
-                "alerts", "behavior-body", "games-body"):
+    for cid in ("h0", "training-body", "alerts", "behavior-body", "games-body"):
         assert cid in page, cid
-    # no legacy cards survive
-    for cid in ("ch-conv", "ch-dec", "ch-marg", "league-body",
-                "admit-body", "pool-summary", "pop-body", "hist-body",
-                "maps-body", "ch-elo", "ch-anchor"):
+    # no league cards survive
+    for cid in (
+        "ch-ladder",
+        "standings-body",
+        "bars-body",
+        "ch-pairs",
+        "ladder-fallback",
+        "pairs-fallback",
+        '<select id="learner"',
+    ):
         assert cid not in page, cid
-    # replay links name the bots (display == id) and open in a new tab
-    assert "main" in page and "g000" in page
+    # replay links open in a new tab
     assert 'target="_blank"' in page
     # server-rendered without JS: H0 numbers and a game row are inline
     assert "games/g0/logs/0.replay" in page
@@ -102,7 +136,7 @@ def test_first_paint_empty_archive_has_skeleton(tmp_path):
 
     page = dashboard.render_page(None)
     assert "loading" in page
-    assert "h0" in page and "ch-ladder" in page
+    assert "h0" in page and "training-body" in page
 
 
 def test_is_fresh_logic(tmp_path):
@@ -116,7 +150,7 @@ def test_is_fresh_logic(tmp_path):
     assert dashboard.is_fresh(base, "bogus") is False
 
 
-def test_http_since_shortcircuit_and_learner_empty(tmp_path):
+def test_http_since_shortcircuit_and_games_paging(tmp_path):
     import http.server
     import threading
     import urllib.request
@@ -129,21 +163,22 @@ def test_http_since_shortcircuit_and_learner_empty(tmp_path):
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     try:
         root = f"http://127.0.0.1:{httpd.server_address[1]}"
-        snap = json.load(urllib.request.urlopen(root + "/api/snapshot",
-                                                timeout=5))
+        snap = json.load(urllib.request.urlopen(root + "/api/snapshot", timeout=5))
         assert set(snap) == NEW_KEYS
-        tiny = json.load(urllib.request.urlopen(
-            root + f"/api/snapshot?since={snap['mtime']}", timeout=5))
+        tiny = json.load(
+            urllib.request.urlopen(
+                root + f"/api/snapshot?since={snap['mtime']}", timeout=5
+            )
+        )
         assert tiny == {"unchanged": True, "mtime": snap["mtime"]}
-        stale = json.load(urllib.request.urlopen(
-            root + "/api/snapshot?since=1", timeout=5))
-        assert stale["h0"]["learners"] == ["main"]
-        empty = json.load(urllib.request.urlopen(
-            root + "/api/games?learner=nobody-here", timeout=5))
-        assert empty == {"total": 0, "rows": []}
-        full = json.load(urllib.request.urlopen(
-            root + "/api/games?learner=main", timeout=5))
-        assert full["total"] == 2  # main trains 2 of the 4 games
+        stale = json.load(
+            urllib.request.urlopen(root + "/api/snapshot?since=1", timeout=5)
+        )
+        assert stale["h0"]["games"] == 4
+        full = json.load(
+            urllib.request.urlopen(root + "/api/games?limit=100&offset=0", timeout=5)
+        )
+        assert full["total"] == 4
         with urllib.request.urlopen(root + "/", timeout=5) as r:
             body = r.read().decode()
         assert 'id="h0"' in body  # server-rendered first paint
@@ -162,10 +197,9 @@ def test_replay_page_title_names_replay(tmp_path):
 
 
 def test_dashboard_script_parses_as_javascript(tmp_path):
-    """The page SCRIPT must parse: one syntax error kills every canvas
-    and live update (server twins keep first paint alive, masking it).
-    Skipped where node is unavailable."""
-    import re
+    """The page SCRIPT must parse: one syntax error kills every live
+    update (server twins keep first paint alive, masking it). Skipped
+    where node is unavailable."""
     import shutil
     import subprocess
 
@@ -178,6 +212,7 @@ def test_dashboard_script_parses_as_javascript(tmp_path):
     assert m, "SCRIPT block not found"
     js = tmp_path / "dash.js"
     js.write_text(m.group(1))
-    r = subprocess.run(["node", "--check", str(js)], capture_output=True,
-                       text=True, timeout=60)
+    r = subprocess.run(
+        ["node", "--check", str(js)], capture_output=True, text=True, timeout=60
+    )
     assert r.returncode == 0, r.stderr[-2000:]

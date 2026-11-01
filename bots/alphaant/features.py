@@ -8,9 +8,10 @@ state. No policy, no training.
 from __future__ import annotations
 
 import math
+from typing import TYPE_CHECKING
+
 import numpy as _np
 import torch
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ants import Ants
@@ -22,9 +23,18 @@ OFFSETS = {"n": (-1, 0), "e": (0, 1), "s": (1, 0), "w": (0, -1), "stay": (0, 0)}
 # Third-dimension (channel) order of local_window: water, friendly ant,
 # friendly hill, enemy ant, enemy hill, food, own-sight flag, local
 # force-ratio, distance-to-nearest-enemy, stall-memory.
-CHANNELS = ("water", "own_ant", "own_hill", "enemy_ant", "enemy_hill",
-            "food", "own_sight", "force_ratio", "enemy_dist",
-            "stall")
+CHANNELS = (
+    "water",
+    "own_ant",
+    "own_hill",
+    "enemy_ant",
+    "enemy_hill",
+    "food",
+    "own_sight",
+    "force_ratio",
+    "enemy_dist",
+    "stall",
+)
 
 WATER_CHANNEL = 0
 FOOD_CHANNEL = 5
@@ -55,8 +65,7 @@ def _offsets_for(radius: int, sight2: int) -> list[tuple[int, int, int, int, boo
     key = (radius, sight2)
     if key not in _sight_offsets:
         _sight_offsets[key] = [
-            (dr, dc, dr + radius, dc + radius,
-             dr * dr + dc * dc <= sight2)
+            (dr, dc, dr + radius, dc + radius, dr * dr + dc * dc <= sight2)
             for dr in range(-radius, radius + 1)
             for dc in range(-radius, radius + 1)
         ]
@@ -74,8 +83,16 @@ class View:
     mid-game, so the bot builds it once in do_setup)."""
 
     __slots__ = (
-        "rows", "cols", "sight2", "attack2", "own_ants", "own_hills",
-        "enemy_ants", "enemy_hills", "foods", "water",
+        "rows",
+        "cols",
+        "sight2",
+        "attack2",
+        "own_ants",
+        "own_hills",
+        "enemy_ants",
+        "enemy_hills",
+        "foods",
+        "water",
     )
 
     def __init__(self, ants, water=None):
@@ -94,6 +111,7 @@ class View:
 def snapshot(ants, water=None) -> View:
     """Read the whole board once; see View."""
     return View(ants, water)
+
 
 # Default view radius in tiles: 15x15 window. Corners (d2=98) sit
 # outside the sight circle (77), so they read 0=empty-unseen on the
@@ -135,8 +153,11 @@ def dest_of(ants: Ants, loc: tuple[int, int], action: str) -> tuple[int, int]:
 
 
 def local_window(
-    ants: Ants, loc: tuple[int, int], radius: int = DEFAULT_RADIUS,
-    view: View | None = None, stall: float = 0.0,
+    ants: Ants,
+    loc: tuple[int, int],
+    radius: int = DEFAULT_RADIUS,
+    view: View | None = None,
+    stall: float = 0.0,
 ) -> torch.Tensor:
     """Fully local, relative 1-hot state: (channels, height, width).
 
@@ -199,17 +220,20 @@ def local_window(
     fr_box = radius + fr_each
     ed_box = radius + int(math.ceil(max_d))
     friends = [
-        p for p in own_ants
+        p
+        for p in own_ants
         if abs(_tdelta(p[0], r0, rows)) <= fr_box
         and abs(_tdelta(p[1], c0, cols)) <= fr_box
     ]
     foes = [
-        p for p in enemy_ants
+        p
+        for p in enemy_ants
         if abs(_tdelta(p[0], r0, rows)) <= fr_box
         and abs(_tdelta(p[1], c0, cols)) <= fr_box
     ]
     near = [
-        p for p in enemy_ants
+        p
+        for p in enemy_ants
         if abs(_tdelta(p[0], r0, rows)) <= ed_box
         and abs(_tdelta(p[1], c0, cols)) <= ed_box
     ]
@@ -218,25 +242,27 @@ def local_window(
             grid[OWN_SIGHT_CHANNEL, i, j] = 1.0
         cell = ((r0 + dr) % rows, (c0 + dc) % cols)
         foes_n = sum(
-            1 for q in foes
+            1
+            for q in foes
             if (_tdelta(q[0], cell[0], rows), _tdelta(q[1], cell[1], cols)) in reach
         )
         friends_n = sum(
-            1 for q in friends
+            1
+            for q in friends
             if (_tdelta(q[0], cell[0], rows), _tdelta(q[1], cell[1], cols)) in reach
         )
         grid[FORCE_RATIO_CHANNEL, i, j] = foes_n - friends_n
         if near:
             best = min(
-                _tdelta(q[0], cell[0], rows) ** 2
-                + _tdelta(q[1], cell[1], cols) ** 2
+                _tdelta(q[0], cell[0], rows) ** 2 + _tdelta(q[1], cell[1], cols) ** 2
                 for q in near
             )
             grid[ENEMY_DIST_CHANNEL, i, j] = min(1.0, math.sqrt(best) / max_d)
         else:
             grid[ENEMY_DIST_CHANNEL, i, j] = 1.0
-        if in_circle and ((cell in water) if water is not None
-                           else (not ants.passable(cell))):
+        if in_circle and (
+            (cell in water) if water is not None else (not ants.passable(cell))
+        ):
             grid[0, i, j] = 1.0
             continue
         if cell in own_ants and in_circle:

@@ -147,7 +147,9 @@ def is_playable_2p(path: str) -> bool:
     if any(len(r) != cols for r in grid):
         return False
     flat = "".join(grid)
-    if set(flat) - set(".%*abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"):
+    if set(flat) - set(
+        ".%*abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    ):
         return False
     return any(c in "0A" for c in flat) and any(c in "1B" for c in flat)
 
@@ -156,9 +158,7 @@ def default_pool() -> list[str]:
     """Every playable 2p grid under tools/maps, sorted, deterministic."""
     import glob as _glob
 
-    return sorted(
-        f for f in _glob.glob("tools/maps/*/*.map") if is_playable_2p(f)
-    )
+    return sorted(f for f in _glob.glob("tools/maps/*/*.map") if is_playable_2p(f))
 
 
 if __name__ == "__main__":

@@ -165,9 +165,9 @@ def test_intent_blocked_move_carries_hysteresis(tmp_path, monkeypatch):
 
     def contest(x):
         # A(row0) wants e -> (5,6); B(row1) wants w -> (5,6): B blocked.
-        return torch.tensor(
-            [[0.0, 10.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 10.0, 0.0]]
-        )[: x.shape[0]]
+        return torch.tensor([[0.0, 10.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 10.0, 0.0]])[
+            : x.shape[0]
+        ]
 
     bot = _bot(tmp_path, monkeypatch, contest)
     stub = StubAnts([(5, 5), (5, 7)])
@@ -192,9 +192,8 @@ def test_intent_blocked_move_carries_hysteresis(tmp_path, monkeypatch):
 
 
 def test_d4_equivariance_with_nonzero_stall():
-    import torch
-
     import model
+    import torch
 
     torch.manual_seed(0)
     policy = model.CNNPolicy()
@@ -209,9 +208,8 @@ def test_d4_equivariance_with_nonzero_stall():
 
 def test_9ch_checkpoint_loads_zero_padded_with_identical_logits():
     """Cold start: old champ weights behave bit-identically on ch9=0."""
-    import torch
-
     import model
+    import torch
 
     torch.manual_seed(1)
     old = model.CNNPolicy(channels=9)
@@ -230,4 +228,3 @@ def test_9ch_checkpoint_loads_zero_padded_with_identical_logits():
         a = old(w9)
         b = new(w10)
     torch.testing.assert_close(b, a, atol=0.0, rtol=0.0)
-

@@ -37,9 +37,7 @@ ROT_PERM = (3, 0, 1, 2, 4)
 ROT_MASK = (1, 2, 3, 0, 4)
 
 
-def new_policy(
-    weights: dict | None = None, arch: str | None = None
-) -> model.CNNPolicy:
+def new_policy(weights: dict | None = None, arch: str | None = None) -> model.CNNPolicy:
     """Construct a policy, optionally from stored weight lists.
 
     The one place ml/ names the bot's network shape: train.py talks to
@@ -56,8 +54,7 @@ def new_policy(
         # pad_in_channels: pre-widening checkpoints lack the new input
         # channels (they load zero-padded: identical outputs, lineage
         # continues instead of resetting).
-        state = model.pad_in_channels(model.lists_to_state_dict(weights),
-                                      policy)
+        state = model.pad_in_channels(model.lists_to_state_dict(weights), policy)
         policy.load_state_dict(state, strict=False)
     return policy
 
@@ -86,7 +83,9 @@ def compact_records(records: list[dict]) -> list[dict]:
 
 
 def to_batch(
-    records: list[dict], returns: list[float], logps: list[float],
+    records: list[dict],
+    returns: list[float],
+    logps: list[float],
     honest: bool = True,
 ) -> list[BatchItem]:
     """Decision rows + priced returns + behavior log-probs -> learner batch.
@@ -105,19 +104,20 @@ def to_batch(
         mask = list(rec.get("legal", [True] * len(model.ACTIONS)))
         intent = rec.get("intent")
         blocked = rec.get("blocked") or []
-        if (honest and intent is not None and intent != action
-                and intent in blocked):
+        if honest and intent is not None and intent != action and intent in blocked:
             action = intent
             mask[model.ACTIONS.index(intent)] = True
-        items.append((
-            # as_tensor: zero-copy when compact_records already
-            # tensorized the window; bit-identical otherwise.
-            torch.as_tensor(rec["window"], dtype=torch.float32),
-            model.ACTIONS.index(action),
-            ret,
-            mask,
-            logp,
-        ))
+        items.append(
+            (
+                # as_tensor: zero-copy when compact_records already
+                # tensorized the window; bit-identical otherwise.
+                torch.as_tensor(rec["window"], dtype=torch.float32),
+                model.ACTIONS.index(action),
+                ret,
+                mask,
+                logp,
+            )
+        )
     return items
 
 
@@ -135,7 +135,9 @@ def _rotate_item(item: BatchItem, k: int) -> BatchItem:
 
 
 def collect(
-    policy: model.CNNPolicy, records: list[dict], returns: list[float],
+    policy: model.CNNPolicy,
+    records: list[dict],
+    returns: list[float],
     honest: bool = True,
 ) -> list[BatchItem]:
     """to_batch + behavior log-probs in one pass: the policy is frozen
@@ -155,8 +157,9 @@ def collect(
     ]
 
 
-def dump_pending(path: Path, items: list[BatchItem], arch: str,
-               tick: int | None = None) -> None:
+def dump_pending(
+    path: Path, items: list[BatchItem], arch: str, tick: int | None = None
+) -> None:
     """Bank unapplied PPO rows: restart resumes them instead of dropping.
 
     Atomic tmp+rename (old-or-new, never half-written); the arch tag
@@ -164,8 +167,7 @@ def dump_pending(path: Path, items: list[BatchItem], arch: str,
     shed only the interrupted tick's batch."""
     tmp = path.with_suffix(".tmp")
     tmp.parent.mkdir(parents=True, exist_ok=True)
-    torch.save({"arch": arch, "tick": tick, "items": list(items)},
-               tmp)
+    torch.save({"arch": arch, "tick": tick, "items": list(items)}, tmp)
     os.replace(tmp, path)
 
 
@@ -190,15 +192,13 @@ def read_pending(path: Path, arch: str) -> list[BatchItem]:
         return []
     items = blob.get("items")
     if not isinstance(items, list) or any(
-            not isinstance(it, (list, tuple)) or len(it) != 5
-            for it in items):
+        not isinstance(it, (list, tuple)) or len(it) != 5 for it in items
+    ):
         return []
     return [tuple(it) for it in items]
 
 
-def make_optimizer(
-    policy: model.CNNPolicy, lr: float = 1e-3
-) -> torch.optim.Optimizer:
+def make_optimizer(policy: model.CNNPolicy, lr: float = 1e-3) -> torch.optim.Optimizer:
     """Caller-owned Adam; momentum must survive across PPO epochs."""
     return torch.optim.Adam(policy.parameters(), lr=lr)
 
@@ -247,16 +247,18 @@ def load_opt_state(opt: torch.optim.Optimizer, blob: dict | None) -> None:
                 t = torch.tensor(v) if isinstance(v, list) else v
                 # Scalars (step counters) always fit; every buffer
                 # must match exactly or the whole param restarts fresh.
-                if (torch.is_tensor(t) and t.shape != torch.Size(())
-                        and tuple(t.shape) != want):
+                if (
+                    torch.is_tensor(t)
+                    and t.shape != torch.Size(())
+                    and tuple(t.shape) != want
+                ):
                     ok = False
                     break
                 item[k] = t
             if ok:
                 state[i] = item
         groups = []
-        for cur_g, saved_g in zip(cur["param_groups"],
-                                  blob.get("param_groups", [])):
+        for cur_g, saved_g in zip(cur["param_groups"], blob.get("param_groups", [])):
             g = dict(cur_g)  # live params kept; saved hypers win.
             g.update({k: v for k, v in saved_g.items() if k != "params"})
             groups.append(g)
@@ -300,8 +302,10 @@ def masked_log_probs(
 
 
 def _advantages(
-    returns: torch.Tensor, values: torch.Tensor,
-    bmean: torch.Tensor, bstd: torch.Tensor,
+    returns: torch.Tensor,
+    values: torch.Tensor,
+    bmean: torch.Tensor,
+    bstd: torch.Tensor,
 ) -> torch.Tensor:
     """Batch-scaled advantages: (standardized return) - value.
 
@@ -337,12 +341,11 @@ def frozen_advantages(
         vals = []
         for start in range(0, len(batch), _VALUE_CHUNK):
             windows = torch.stack(
-                [w for w, _a, _r, _m, _o
-                 in batch[start:start + _VALUE_CHUNK]]).to(device)
+                [w for w, _a, _r, _m, _o in batch[start : start + _VALUE_CHUNK]]
+            ).to(device)
             vals.append(policy.values(windows).detach().cpu())
         values = torch.cat(vals)
-    all_ret = torch.tensor(
-        [r for _w, _a, r, _m, _o in batch], dtype=torch.float32)
+    all_ret = torch.tensor([r for _w, _a, r, _m, _o in batch], dtype=torch.float32)
     bmean, bstd = all_ret.mean(), all_ret.std(unbiased=False)
     return _advantages(all_ret, values, bmean, bstd).detach(), bmean, bstd
 
@@ -356,8 +359,6 @@ def train_epoch(
     entropy_beta: float = 0.01,
     max_norm: float = 1.0,
     minibatch: int = 64,
-    anchor: model.CNNPolicy | None = None,
-    kl_anchor_beta: float = 0.0,
     advantages: torch.Tensor | None = None,
     bmean: torch.Tensor | None = None,
     bstd: torch.Tensor | None = None,
@@ -377,9 +378,16 @@ def train_epoch(
     recomputing from the current critic. None (default) recomputes
     exactly as before.
     """
-    stats = {"loss": 0.0, "mean_return": 0.0, "entropy": 0.0, "kl": 0.0,
-             "pg_loss": 0.0, "v_loss": 0.0, "steps": 0, "kl_anchor": 0.0,
-             "pg_abs": 0.0}
+    stats = {
+        "loss": 0.0,
+        "mean_return": 0.0,
+        "entropy": 0.0,
+        "kl": 0.0,
+        "pg_loss": 0.0,
+        "v_loss": 0.0,
+        "steps": 0,
+        "pg_abs": 0.0,
+    }
     if not batch:
         return stats
     stats["mean_return"] = sum(r for _w, _a, r, _m, _o in batch) / len(batch)
@@ -388,21 +396,21 @@ def train_epoch(
     # triple from frozen_advantages (one baseline per generation)
     # overrides the recompute: the critic still fits every minibatch,
     # but the policy gradient keeps the pre-update advantages.
-    all_ret = torch.tensor(
-        [r for _w, _a, r, _m, _o in batch], dtype=torch.float32)
+    all_ret = torch.tensor([r for _w, _a, r, _m, _o in batch], dtype=torch.float32)
     if advantages is None or bmean is None or bstd is None:
         bmean, bstd = all_ret.mean(), all_ret.std(unbiased=False)
         frozen = None
     else:
         frozen = torch.as_tensor(advantages).detach().flatten()
         assert len(frozen) == len(batch), (
-            f"frozen advantages {len(frozen)} != batch {len(batch)}")
+            f"frozen advantages {len(frozen)} != batch {len(batch)}"
+        )
     mb_size = min(minibatch, max(16, len(batch) // 4)) if batch else minibatch
     idx = torch.randperm(len(batch)).tolist()
-    n_loss = n_pg = n_v = n_ent = n_kl = n_anch = n_pga = 0.0
+    n_loss = n_pg = n_v = n_ent = n_kl = n_pga = n_clip = 0.0
     n_steps = 0
     for start in range(0, len(batch), mb_size):
-        mb_idx = idx[start:start + mb_size]
+        mb_idx = idx[start : start + mb_size]
         mb = [batch[i] for i in mb_idx]
         windows, masks, actions, returns, old = _tensors(policy, mb)
         logp = model.masked_log_softmax(policy, windows, masks)
@@ -418,37 +426,35 @@ def train_epoch(
             adv = frozen[mb_idx].to(returns.device)
         rz = (returns - bmean) / (bstd + 1e-8)  # value target (same scale)
         ratio = torch.exp(chosen - old)
-        pg_rows = -torch.min(ratio * adv,
-                             torch.clamp(ratio, 1 - clip, 1 + clip) * adv)
+        pg_rows = -torch.min(ratio * adv, torch.clamp(ratio, 1 - clip, 1 + clip) * adv)
         pg = pg_rows.mean()
         pg_abs = pg_rows.abs().mean()
         v = ((values - rz) ** 2).mean()
         loss = pg + vf_coef * v - entropy_beta * entropy.mean()
-        if anchor is not None and kl_anchor_beta:
-            with torch.no_grad():
-                alogp = model.masked_log_softmax(anchor, windows, masks)
-            kl_anchor = (logp.exp() * (logp - alogp)).sum(dim=1).mean()
-            loss = loss + kl_anchor_beta * kl_anchor
-        else:
-            kl_anchor = torch.zeros((), device=logp.device)
         opt.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(policy.parameters(), max_norm)
         opt.step()
         kl = ((ratio - 1) - (chosen - old)).mean()
+        clipfrac = ((ratio - 1).abs() > clip).float().mean()
         n_loss += float(loss.detach())
-        n_anch += float(kl_anchor.detach())
+        n_clip += float(clipfrac.detach())
         n_pga += float(pg_abs.detach())
         n_pg += float(pg.detach())
         n_v += float(v.detach())
         n_ent += float(entropy.mean().detach())
         n_kl += float(kl.detach())
         n_steps += 1
-    stats.update({
-        "loss": n_loss / n_steps, "pg_loss": n_pg / n_steps,
-        "v_loss": n_v / n_steps, "entropy": n_ent / n_steps,
-        "kl": n_kl / n_steps, "steps": n_steps,
-        "kl_anchor": n_anch / n_steps,
-        "pg_abs": n_pga / n_steps,
-    })
+    stats.update(
+        {
+            "loss": n_loss / n_steps,
+            "pg_loss": n_pg / n_steps,
+            "v_loss": n_v / n_steps,
+            "entropy": n_ent / n_steps,
+            "kl": n_kl / n_steps,
+            "steps": n_steps,
+            "clipfrac": n_clip / n_steps,
+            "pg_abs": n_pga / n_steps,
+        }
+    )
     return stats

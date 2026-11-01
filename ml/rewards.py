@@ -52,48 +52,27 @@ LOSS = -5.0
 DRAW = 0.0
 GAMMA = 0.97
 
-ROLE_OVERRIDES = {
-    # Exploiters train to kill, not to win efficiently: triple combat
-    # credit, halve gathering, shared hills and outcome. Main line
-    # untouched. Anything unknown gets base rewards.
-    # HA override pins the RIVAL's march price at the old 0.5 while
-    # the base (main) falls to 0.25 (round-46 ledger rebalance).
-    "exploiter": {"FOOD": 0.5, "KILL": 3.0, "DEATH": 3.0,
-                  "HILL_APPROACH": 0.5},
-    # Spoiler (line-B rival): naive, hungry, persistent. No food or
-    # march credit (nothing to unlearn about turtling), teeth kept,
-    # dying hurts at the base rate. Hills and outcome as base.
-    "spoiler": {"FOOD": 0, "KILL": 3.0, "DEATH": -2.0,
-                "HILL_APPROACH": 0},
-    # Challenger (round-92 revert): falsified experiment removed —
-    # returns to base scales (KILL 1.0, HA 0.25, gated as before).
-}
-
-
 # Payment follows purpose: dense credit is gated on winning. On a win
 # everything pays; on draw/loss the march subsidy (hill_approach)
-# pays nothing and the main's kills pay nothing (useless aggression
-# unpaid). The rival's kills always pay (pressure is its job -
-# winning aggression, not suicide). Dying always hurts and the
-# terminal outcome always lands: defeats must sting, wins must sing.
-GATED_BY_ROLE = {
-    "challenger": {"hill_approach", "kill"},
-    "exploiter": {"hill_approach"},
-    # Spoiler: gate the march (moot, zero scale) but NOT kills —
-    # pressure is the job, same as the exploiter.
-    "spoiler": {"hill_approach"},
-}
+# pays nothing and kills pay nothing (useless aggression unpaid).
+# Dying always hurts and the terminal outcome always lands: defeats
+# must sting, wins must sing.
+GATED = {"hill_approach", "kill"}
 
 
-def scales_for(role: str) -> dict:
-    """Full event scale table for a training role."""
-    base = {
-        "FOOD": FOOD, "KILL": KILL, "DEATH": DEATH,
-        "HILL_RAZE": HILL_RAZE, "HILL_LOST": HILL_LOST,
-        "WIN": WIN, "LOSS": LOSS, "HILL_APPROACH": HILL_APPROACH,
+def scales() -> dict:
+    """The one event scale table: base game rewards."""
+    return {
+        "FOOD": FOOD,
+        "KILL": KILL,
+        "DEATH": DEATH,
+        "HILL_RAZE": HILL_RAZE,
+        "HILL_LOST": HILL_LOST,
+        "WIN": WIN,
+        "LOSS": LOSS,
+        "HILL_APPROACH": HILL_APPROACH,
     }
-    base.update(ROLE_OVERRIDES.get(role, {}))
-    return base
+
 
 def trajectories(replaydata):
     """Replay every ant: {(owner, idx): [(turn, loc), ...]}.
@@ -135,9 +114,9 @@ def outcome(game, me):
 def record_identities(replaydata, records):
     """Join each decision record to its replay ant: [(owner, idx) | None].
 
-    A record (turn t, loc -> dest) belongs to the ant whose trajectory
-holds (t-1, loc) followed by (t, dest). Unmatched records (missing or
-ambiguous replay paths) get None and receive same-turn credit only.
+        A record (turn t, loc -> dest) belongs to the ant whose trajectory
+    holds (t-1, loc) followed by (t, dest). Unmatched records (missing or
+    ambiguous replay paths) get None and receive same-turn credit only.
     """
     trajs = trajectories(replaydata)
     prev_of = {}
@@ -146,7 +125,7 @@ ambiguous replay paths) get None and receive same-turn credit only.
             prev_of[(traj[i][0], traj[i - 1][1], traj[i][1])] = key
     out = []
     for rec in records:
-        cands = prev_of.get((rec["turn"], tuple(rec["loc"]), tuple(rec["dest"])), None)
+        cands = prev_of.get((rec["turn"], tuple(rec["loc"]), tuple(rec["dest"])))
         out.append(cands)
     # disambiguate tile swaps: the (prev, curr) pair is unique per ant per
     # turn under legal movement, so at most one ant matches.
@@ -191,11 +170,15 @@ def _awards(game, me, records, scales):
             continue
         r, c, _start, end, _owner = entry
         near = dests_at(
-            turns, dests, end,
+            turns,
+            dests,
+            end,
             lambda d: 0 < dist2(d, (r, c), rows, cols) <= spawn2,
         )
         if near:
-            awards.append((end, {i: scales["FOOD"] / len(near) for i in near}, "ant", "food"))
+            awards.append(
+                (end, {i: scales["FOOD"] / len(near) for i in near}, "ant", "food")
+            )
 
     # own deaths: penalize the ant that died on its death tile
     for entry in replaydata.get("ants", []):
@@ -207,7 +190,9 @@ def _awards(game, me, records, scales):
             loc = step(loc, order, rows, cols)
         hit = same_turn_dest(end, loc)
         if hit:
-            awards.append((end, {i: scales["DEATH"] / len(hit) for i in hit}, "ant", "death"))
+            awards.append(
+                (end, {i: scales["DEATH"] / len(hit) for i in hit}, "ant", "death")
+            )
 
     # kills: split credit among my ants within attack radius of the death.
     # Combat runs on nearby_ants, which excludes distance 0: a co-located
@@ -220,11 +205,15 @@ def _awards(game, me, records, scales):
         for order in orders:
             loc = step(loc, order, rows, cols)
         near = dests_at(
-            turns, dests, end,
+            turns,
+            dests,
+            end,
             lambda d: 0 < dist2(d, loc, rows, cols) <= attack2,
         )
         if near:
-            awards.append((end, {i: scales["KILL"] / len(near) for i in near}, "ant", "kill"))
+            awards.append(
+                (end, {i: scales["KILL"] / len(near) for i in near}, "ant", "kill")
+            )
 
     # hills: razed iff end_turn <= game length. A hill falls to the single
     # enemy ant standing ON it (do_raze_hills), so the raze credits the
@@ -255,8 +244,7 @@ def _awards(game, me, records, scales):
     # d_after == 0 would double-pay the arrival).
     import math
 
-    foes = [(r, c) for r, c, owner, _end in replaydata.get("hills", [])
-            if owner != me]
+    foes = [(r, c) for r, c, owner, _end in replaydata.get("hills", []) if owner != me]
     # First enemy hill only: a shared convention concentrating force.
     # Min-nearest splits attackers (each ant closes its own nearest =
     # solo races); one common target masses them for breakthroughs.
@@ -268,24 +256,27 @@ def _awards(game, me, records, scales):
             after = math.sqrt(dist2(dest, hill, rows, cols))
             closed = before - after
             if closed > 0 and after > 0:
-                awards.append((rec["turn"],
-                               {i: scales["HILL_APPROACH"] * closed},
-                               "ant", "hill_approach"))
+                awards.append(
+                    (
+                        rec["turn"],
+                        {i: scales["HILL_APPROACH"] * closed},
+                        "ant",
+                        "hill_approach",
+                    )
+                )
 
     return awards, outcome(game, me), length, turns, keys
 
 
-def compute_returns(game, me, records, scales=None, role="challenger"):
+def compute_returns(game, me, records, table=None):
     """Discounted return for each decision record.
 
     records: [{turn, loc, dest, action, ...}] logged by the bot for its
-    own ants. Returns a parallel list of floats. scales selects the
-    training role's event table (base game rewards by default); role
-    selects the outcome gate (payment follows purpose). The game record
-    itself is untouched — returns only."""
-    scales = scales or scales_for("challenger")
-    awards, end_value, length, turns, keys = _awards(
-        game, me, records, scales)
+    own ants. Returns a parallel list of floats. table selects the
+    event table (base game rewards by default). The game record itself
+    is untouched — returns only."""
+    table = table if table is not None else scales()
+    awards, end_value, length, turns, keys = _awards(game, me, records, table)
     by_kind: dict[str, list[float]] = {}
 
     # settle: same-turn credit plus GAMMA-discounted walk-back. "ant"
@@ -307,8 +298,7 @@ def compute_returns(game, me, records, scales=None, role="challenger"):
     # outcome gate: marching/killing that doesn't win pays nothing.
     # The subsidy for suicidal marching lives here; zeroing it on
     # draws and losses is what kills the Goodhart.
-    gated = GATED_BY_ROLE.get(role, {"hill_approach", "kill"}) \
-        if end_value <= 0 else set()
+    gated = GATED if end_value <= 0 else set()
     rets = [0.0] * len(records)
     for kind, arr in by_kind.items():
         if kind in gated:
@@ -323,7 +313,7 @@ def compute_returns(game, me, records, scales=None, role="challenger"):
     # batch-mean baseline a uniform draw batch is already
     # advantage-neutral, matching promotion's half-win treatment.
     if end_value:
-        terminal = scales["WIN"] if end_value > 0 else scales["LOSS"]
+        terminal = table["WIN"] if end_value > 0 else table["LOSS"]
         for i, _t in enumerate(turns):
             rets[i] += terminal
 

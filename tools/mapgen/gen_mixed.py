@@ -14,6 +14,7 @@ Each generator's validity rule (empirical, see MAPGEN*.md):
 
 Usage: gen_mixed.py [--players 2|3|4] [--seed S] [--generator NAME]
 """
+
 import argparse
 import random
 import sys
@@ -47,6 +48,7 @@ def _load_genmods():
     if _GENMODS:
         return
     import importlib.util
+
     plain = ("util", "terrain", "map", "symmetricmap", "cavemap")
     saved = {k: sys.modules[k] for k in plain if k in sys.modules}
 
@@ -58,12 +60,16 @@ def _load_genmods():
         return mod
 
     _GENMODS["walk"] = load("walk_mapgen", str(MAPGEN / "mapgen.py"))
-    _GENMODS["symmetric"] = load("symmetric_mapgen",
-                                   str(MAPGEN / "symmetric_mapgen.py"))
-    for key, name in (("util", "util.py"), ("terrain", "terrain.py"),
-                      ("map", "map.py"),
-                      ("symmetricmap", "symmetricmap.py"),
-                      ("cavemap", "cavemap.py")):
+    _GENMODS["symmetric"] = load(
+        "symmetric_mapgen", str(MAPGEN / "symmetric_mapgen.py")
+    )
+    for key, name in (
+        ("util", "util.py"),
+        ("terrain", "terrain.py"),
+        ("map", "map.py"),
+        ("symmetricmap", "symmetricmap.py"),
+        ("cavemap", "cavemap.py"),
+    ):
         load(key, str(AMSTAN / name))
     _GENMODS["cavemap"] = load("amstan_mapgen", str(AMSTAN / "mapgen.py"))
     for k in plain:
@@ -88,6 +94,7 @@ def _run_in_process(gen, argv, cwd=None):
     _load_genmods()
     import io
     from contextlib import redirect_stderr, redirect_stdout
+
     mod = _GENMODS[gen]
     out, err = io.StringIO(), io.StringIO()
     old_argv = sys.argv
@@ -126,7 +133,7 @@ def pick_dims(n, rng, snap=1):
         if abs(tiles - target) <= TOL * target and 0.5 <= cols / rows <= 2.0:
             return rows, cols
     # Fallback: nearest snapped grid to target at aspect 1.
-    side = max(snap, round((target ** 0.5) / snap) * snap)
+    side = max(snap, round((target**0.5) / snap) * snap)
     return side, side
 
 
@@ -134,10 +141,20 @@ def sample_symmetric(n, rng):
     rows, cols = pick_dims(n, rng, snap=n)
     lo = 5
     hi = max(lo + 1, min(rows, cols) // 2)
-    return [sys.executable, str(MAPGEN / "symmetric_mapgen.py"),
-            "--players", str(n), "--rows", str(rows), "--cols", str(cols),
-            "--min_start_distance", str(rng.randint(lo, hi)),
-            "--seed", str(rng.randrange(1 << 30))], None
+    return [
+        sys.executable,
+        str(MAPGEN / "symmetric_mapgen.py"),
+        "--players",
+        str(n),
+        "--rows",
+        str(rows),
+        "--cols",
+        str(cols),
+        "--min_start_distance",
+        str(rng.randint(lo, hi)),
+        "--seed",
+        str(rng.randrange(1 << 30)),
+    ], None
 
 
 def sample_cavemap(n, rng):
@@ -146,10 +163,22 @@ def sample_cavemap(n, rng):
         sym = "rotational"
     else:
         sym = "translational"
-    return [sys.executable, "mapgen.py",
-            "--players", str(n), "--rows", str(rows), "--cols", str(cols),
-            "--hills", "1", "--symmetry", sym,
-            "--seed", str(rng.randrange(1 << 30))], AMSTAN
+    return [
+        sys.executable,
+        "mapgen.py",
+        "--players",
+        str(n),
+        "--rows",
+        str(rows),
+        "--cols",
+        str(cols),
+        "--hills",
+        "1",
+        "--symmetry",
+        sym,
+        "--seed",
+        str(rng.randrange(1 << 30)),
+    ], AMSTAN
 
 
 def sample_walk(n, rng):
@@ -160,20 +189,38 @@ def sample_walk(n, rng):
     side = round((250 * n) ** 0.5)
     lo = max(10, side - 6)
     hi = side + 10
-    args = [sys.executable, str(MAPGEN / "mapgen.py"),
-            "--no_players", str(n),
-            "--min_dimensions", str(lo), "--max_dimensions", str(hi),
-            "--min_hills", "1", "--max_hills", "1",
-            "--min_starting_distance", str(rng.randint(25, 64)),
-            "--min_block_size", "1", "--max_block_size", "2",
-            "--seed", str(rng.randrange(1 << 30))]
+    args = [
+        sys.executable,
+        str(MAPGEN / "mapgen.py"),
+        "--no_players",
+        str(n),
+        "--min_dimensions",
+        str(lo),
+        "--max_dimensions",
+        str(hi),
+        "--min_hills",
+        "1",
+        "--max_hills",
+        "1",
+        "--min_starting_distance",
+        str(rng.randint(25, 64)),
+        "--min_block_size",
+        "1",
+        "--max_block_size",
+        "2",
+        "--seed",
+        str(rng.randrange(1 << 30)),
+    ]
     if n in (2, 4) and rng.random() < 0.5:
         args += ["--symmetry", "rotational", "--rotational_symmetry", str(n)]
     return args, None
 
 
-SAMPLERS = {"symmetric": sample_symmetric, "cavemap": sample_cavemap,
-            "walk": sample_walk}
+SAMPLERS = {
+    "symmetric": sample_symmetric,
+    "cavemap": sample_cavemap,
+    "walk": sample_walk,
+}
 
 
 def validate(text, n, min_hill_dist=4.0):
@@ -193,12 +240,16 @@ def validate(text, n, min_hill_dist=4.0):
         return False, "unparseable header"
     if players != n:
         return False, f"players {players} != {n}"
-    hills = [(r, c) for r, row in enumerate(
-        [l[2:] for l in lines if l.startswith("m ")])
-        for c, ch in enumerate(row) if ch.isdigit()]
+    hills = [
+        (r, c)
+        for r, row in enumerate([l[2:] for l in lines if l.startswith("m ")])
+        for c, ch in enumerate(row)
+        if ch.isdigit()
+    ]
     if len(hills) != n:
         return False, f"hills {len(hills)} != {n}"
     import math
+
     for i in range(len(hills)):
         for j in range(i + 1, len(hills)):
             dr = abs(hills[i][0] - hills[j][0]) % rows
@@ -242,15 +293,13 @@ def generate_one(gen, n, rng, min_hill_dist=4.0):
     invocation (with its --seed), workdir the cwd or None for repo root.
     Deterministic in rng: draws one subseed, everything else derives.
     """
-    return _generate_deterministic(gen, n, rng.randrange(1 << 30),
-                                   min_hill_dist)
+    return _generate_deterministic(gen, n, rng.randrange(1 << 30), min_hill_dist)
 
 
 def render(text, argv, cwd, seed_note):
     """Prepend the # metadata header (parser-safe by repo convention)."""
     script = Path(argv[1]).name
-    meta = [f"# generator: {script}",
-            f"# args: {' '.join(argv[2:])}"]
+    meta = [f"# generator: {script}", f"# args: {' '.join(argv[2:])}"]
     if cwd is not None:
         meta.append(f"# cwd: {cwd.relative_to(REPO)}")
     meta.append(f"# gen_mixed seed: {seed_note}")
@@ -264,8 +313,7 @@ def _batch_task(plan):
     propagates it, so a failed batch writes nothing: all-or-nothing).
     """
     i, gen, n, subseed, min_hill_dist, note = plan
-    text, argv, cwd = _generate_deterministic(gen, n, subseed,
-                                              min_hill_dist)
+    text, argv, cwd = _generate_deterministic(gen, n, subseed, min_hill_dist)
     dims = {}
     for line in text.splitlines():
         if line.startswith("rows ") or line.startswith("cols "):
@@ -293,13 +341,15 @@ def run_batch(count, out_dir, seed, gen_pin, n_pin, min_hill_dist, jobs):
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     _load_genmods()  # before any fork: workers inherit loaded modules
-    plans = [(i, gen, n, sub, min_hill_dist,
-              f"{seed} batch {i}/{count}")
-             for i, (gen, n, sub) in enumerate(plans)]
+    plans = [
+        (i, gen, n, sub, min_hill_dist, f"{seed} batch {i}/{count}")
+        for i, (gen, n, sub) in enumerate(plans)
+    ]
     if jobs == 1:
         results = [_batch_task(p) for p in plans]
     else:
         import multiprocessing
+
         ctx = multiprocessing.get_context("fork")
         with ctx.Pool(processes=max(1, jobs)) as pool:
             results = pool.map(_batch_task, plans)
@@ -309,8 +359,7 @@ def run_batch(count, out_dir, seed, gen_pin, n_pin, min_hill_dist, jobs):
     return [name for name, _ in results]
 
 
-def fresh_pool(n_train_games, n_eval_games, out_dir, seed, min_hill_dist=4.0,
-             jobs=8):
+def fresh_pool(n_train_games, n_eval_games, out_dir, seed, min_hill_dist=4.0, jobs=8):
     """Draw exactly n_train_games+n_eval_games maps, any player count.
 
     No-args draws (random type, random 2-4 players): the user decides
@@ -327,12 +376,14 @@ def fresh_pool(n_train_games, n_eval_games, out_dir, seed, min_hill_dist=4.0,
         gen = rng.choice(GENS)
         n = rng.choice([2, 3, 4])
         batch.append((i, gen, n, rng.randrange(1 << 30)))
-    plans = [(i, g, n, s, min_hill_dist, f"{seed} fresh draw {i}")
-             for i, g, n, s in batch]
+    plans = [
+        (i, g, n, s, min_hill_dist, f"{seed} fresh draw {i}") for i, g, n, s in batch
+    ]
     if jobs == 1:
         results = [_batch_task(p) for p in plans]
     else:
         import multiprocessing
+
         ctx = multiprocessing.get_context("fork")
         with ctx.Pool(processes=max(1, jobs)) as pool:
             results = pool.map(_batch_task, plans)
@@ -348,28 +399,52 @@ def main(argv=None):
     p.add_argument("--players", type=int, choices=(2, 3, 4), default=None)
     p.add_argument("--seed", type=int, default=None)
     p.add_argument("--generator", choices=GENS, default=None)
-    p.add_argument("--min-hill-dist", type=float, default=4.0,
-                     help="minimum pairwise toroidal hill distance")
-    p.add_argument("--count", type=int, default=1,
-                     help="maps per invocation; >1 writes files to --out-dir")
-    p.add_argument("--out-dir", default=None,
-                     help="required with --count > 1")
-    p.add_argument("--jobs", type=int, default=8,
-                     help="batch workers (execution order cannot affect output)")
+    p.add_argument(
+        "--min-hill-dist",
+        type=float,
+        default=4.0,
+        help="minimum pairwise toroidal hill distance",
+    )
+    p.add_argument(
+        "--count",
+        type=int,
+        default=1,
+        help="maps per invocation; >1 writes files to --out-dir",
+    )
+    p.add_argument("--out-dir", default=None, help="required with --count > 1")
+    p.add_argument(
+        "--jobs",
+        type=int,
+        default=8,
+        help="batch workers (execution order cannot affect output)",
+    )
     args = p.parse_args(argv)
     if args.count > 1:
         if args.out_dir is None:
             p.error("--count > 1 requires --out-dir")
-        run_batch(args.count, args.out_dir, args.seed, args.generator,
-                  args.players, args.min_hill_dist, args.jobs)
+        run_batch(
+            args.count,
+            args.out_dir,
+            args.seed,
+            args.generator,
+            args.players,
+            args.min_hill_dist,
+            args.jobs,
+        )
         return 0
     rng = random.Random(args.seed)
     n = args.players or rng.choice([2, 3, 4])
     gen = args.generator or rng.choice(GENS)
     text, argv, cwd = generate_one(gen, n, rng, args.min_hill_dist)
-    sys.stdout.write(render(text, argv, cwd,
-                            f"{args.seed} (players {n}, type {gen},"
-                            f" min-hill-dist {args.min_hill_dist})"))
+    sys.stdout.write(
+        render(
+            text,
+            argv,
+            cwd,
+            f"{args.seed} (players {n}, type {gen},"
+            f" min-hill-dist {args.min_hill_dist})",
+        )
+    )
     rows = next(l for l in text.splitlines() if l.startswith("rows"))
     cols = next(l for l in text.splitlines() if l.startswith("cols"))
     print(f"{gen} {rows} {cols} players {n} hills 1", file=sys.stderr)

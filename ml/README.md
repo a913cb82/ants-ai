@@ -1,9 +1,10 @@
 # AlphaAnt: self-play loop
 
-> **Superseded (league migration):** the generation/challenger/champion
-> loop below is retired. The live system is the continuous AlphaStar-style
-> league: see `ml/runs/plan-league.md` (mechanism) and `ml/runs/LEAGUE.md`
-> (doctrine). This file stays as the design history of the old regime.
+> **Superseded (pure AZ):** the league below is retired — wiped
+> 2026-11-01 (only the latest main's weights kept). The live system
+> is one-policy mirror self-play: see `ml/runs/LEAGUE.md` (doctrine)
+> and `ml/runs/LOOP.md` (pause/resume). `plan-league.md` stays as the
+> design history of the league regime.
 
 Train an Ants bot the AlphaZero way: mirror self-play, policy-gradient
 updates, scripted promotion. No external opponents, no human judgment.

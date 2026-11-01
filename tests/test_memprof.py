@@ -31,8 +31,9 @@ def _disk_rows(n=16, seed=0):
     rows = []
     for i in range(n):
         w = (torch.rand(_C, _S, _S, generator=rng) > 0.5).float()
-        rows.append({"turn": i, "action": "n", "window": w.tolist(),
-                     "legal": [True] * 5})
+        rows.append(
+            {"turn": i, "action": "n", "window": w.tolist(), "legal": [True] * 5}
+        )
     return rows
 
 
@@ -43,6 +44,7 @@ def _has_py_window(rows):
         if isinstance(o, list):
             return any(_py(x) for x in o)
         return False
+
     return any(_py(r["window"]) for r in rows)
 
 
@@ -64,8 +66,7 @@ def test_compact_batch_byte_identical_to_list_path():
     torch.manual_seed(7)
     a = algorithm.collect(policy, copy.deepcopy(_disk_rows()), rets)
     torch.manual_seed(7)
-    b = algorithm.collect(policy, algorithm.compact_records(_disk_rows()),
-                          rets)
+    b = algorithm.collect(policy, algorithm.compact_records(_disk_rows()), rets)
     assert len(a) == len(b) == 16
     for (wa, aa, ra, ma, oa), (wb, ab, rb, mb, ob) in zip(a, b):
         assert torch.equal(wa, wb)
@@ -75,9 +76,13 @@ def test_compact_batch_byte_identical_to_list_path():
 def test_frozen_advantages_chunked_matches_full():
     """Chunked values-forward is bit-identical (order + contents)."""
     import algorithm as A
+
     policy = algorithm.new_policy({})
-    batch = algorithm.collect(policy, algorithm.compact_records(_disk_rows(24)),
-                              [float(i % 3 - 1) for i in range(24)])
+    batch = algorithm.collect(
+        policy,
+        algorithm.compact_records(_disk_rows(24)),
+        [float(i % 3 - 1) for i in range(24)],
+    )
     full, bm, bs = A.frozen_advantages(policy, batch)
     old = A._VALUE_CHUNK
     try:
@@ -91,17 +96,22 @@ def test_frozen_advantages_chunked_matches_full():
 
 def test_same_seed_same_update():
     """Same seed -> same PPO step on the compacted path (determinism)."""
+
     def _run():
         torch.manual_seed(11)
         policy = algorithm.new_policy({})
         opt = algorithm.make_optimizer(policy, lr=1e-3)
         batch = algorithm.collect(
-            policy, algorithm.compact_records(_disk_rows()),
-            [float(i % 3 - 1) for i in range(16)])
+            policy,
+            algorithm.compact_records(_disk_rows()),
+            [float(i % 3 - 1) for i in range(16)],
+        )
         adv, bmean, bstd = algorithm.frozen_advantages(policy, batch)
-        algorithm.train_epoch(policy, opt, batch, advantages=adv,
-                              bmean=bmean, bstd=bstd)
+        algorithm.train_epoch(
+            policy, opt, batch, advantages=adv, bmean=bmean, bstd=bstd
+        )
         return algorithm.policy_weights(policy)
+
     w1, w2 = _run(), _run()
     assert w1.keys() == w2.keys()
     for k in w1:

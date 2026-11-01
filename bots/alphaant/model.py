@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import torch
-
 import features
+import torch
 from features import ACTIONS
 
 # Dihedral action permutations (mirror ml/algorithm.py ROT_PERM, which
@@ -50,9 +49,7 @@ class CNNPolicy(torch.nn.Module):
     Fully ant-local: no global inputs, no memory, no communication.
     """
 
-    def __init__(
-        self, channels: int | None = None, arch: str = "base"
-    ) -> None:
+    def __init__(self, channels: int | None = None, arch: str = "base") -> None:
         super().__init__()
         assert arch in ("base", "deep"), arch
         self.arch = arch
@@ -92,7 +89,7 @@ class CNNPolicy(torch.nn.Module):
         reuse g000 verbatim."""
         for child in self.children():
             if isinstance(child, torch.nn.Conv2d):
-                torch.nn.init.orthogonal_(child.weight, 2 ** 0.5)
+                torch.nn.init.orthogonal_(child.weight, 2**0.5)
                 torch.nn.init.zeros_(child.bias)
         torch.nn.init.orthogonal_(self.head.weight, 0.01)
         torch.nn.init.zeros_(self.head.bias)
@@ -189,8 +186,9 @@ def infer_arch(weights: dict) -> str:
 _action_index: dict[int, tuple[torch.Tensor, torch.Tensor]] = {}
 
 
-def pad_in_channels(state: dict[str, torch.Tensor],
-                    policy: CNNPolicy) -> dict[str, torch.Tensor]:
+def pad_in_channels(
+    state: dict[str, torch.Tensor], policy: CNNPolicy
+) -> dict[str, torch.Tensor]:
     """Zero-pad narrow input channels so old checkpoints keep working.
 
     Widening the window adds input channels (own_sight); archived
@@ -203,22 +201,23 @@ def pad_in_channels(state: dict[str, torch.Tensor],
     own_shapes = dict(policy.named_parameters())
     own_shapes.update(dict(policy.named_buffers()))
     for key, ref in own_shapes.items():
-        if (key in state and state[key].shape != ref.shape
-                and len(ref.shape) == 4
-                and state[key].shape[0] == ref.shape[0]
-                and state[key].shape[2:] == ref.shape[2:]):
+        if (
+            key in state
+            and state[key].shape != ref.shape
+            and len(ref.shape) == 4
+            and state[key].shape[0] == ref.shape[0]
+            and state[key].shape[2:] == ref.shape[2:]
+        ):
             missing = ref.shape[1] - state[key].shape[1]
             if missing > 0:
                 pad = torch.zeros(ref.shape[0], missing, *ref.shape[2:])
                 state[key] = torch.cat([state[key], pad], dim=1)
             else:
-                state[key] = state[key][:, :ref.shape[1]].contiguous()
+                state[key] = state[key][:, : ref.shape[1]].contiguous()
     return state
 
 
-def legal_mask(
-    window: torch.Tensor, blocked: frozenset = frozenset()
-) -> torch.Tensor:
+def legal_mask(window: torch.Tensor, blocked: frozenset = frozenset()) -> torch.Tensor:
     """True for enterable destinations.
 
     Dest offsets read straight off the window: the ant is the center.
@@ -268,18 +267,12 @@ def masked_logits_batch(
         for k, action in enumerate(ACTIONS):
             dr, dc = features.OFFSETS[action]
             clear[:, k] = (
-                windows[:, features.WATER_CHANNEL, radius + dr, radius + dc]
-                <= 0
-            ) & (
-                windows[:, features.FOOD_CHANNEL, radius + dr, radius + dc]
-                <= 0
-            )
+                windows[:, features.WATER_CHANNEL, radius + dr, radius + dc] <= 0
+            ) & (windows[:, features.FOOD_CHANNEL, radius + dr, radius + dc] <= 0)
         for i, names in enumerate(blocked):
             for name in names:
                 clear[i, ACTIONS.index(name)] = False
-        return torch.where(
-            _with_stay(clear), logits, torch.tensor(-1e9)
-        )
+        return torch.where(_with_stay(clear), logits, torch.tensor(-1e9))
 
 
 def act_greedy_batch(logits: torch.Tensor) -> list:
@@ -290,9 +283,7 @@ def act_greedy_batch(logits: torch.Tensor) -> list:
 def sample_batch(logits: torch.Tensor, temperature: float) -> list:
     """One multinomial call for B rows; same distribution as sample."""
     probs = torch.softmax(logits / temperature, dim=1)
-    return [
-        ACTIONS[int(i)] for i in torch.multinomial(probs, 1).flatten().tolist()
-    ]
+    return [ACTIONS[int(i)] for i in torch.multinomial(probs, 1).flatten().tolist()]
 
 
 def mask_logits(
@@ -359,9 +350,7 @@ def _probs_tensor(
     temperature: float,
     blocked: frozenset = frozenset(),
 ) -> torch.Tensor:
-    return torch.softmax(
-        masked_logits(policy, window, blocked) / temperature, dim=0
-    )
+    return torch.softmax(masked_logits(policy, window, blocked) / temperature, dim=0)
 
 
 def act_probs(
@@ -386,7 +375,9 @@ def sample(
     temperature: float,
     blocked: frozenset = frozenset(),
 ) -> str:
-    return ACTIONS[int(torch.multinomial(_probs_tensor(policy, window, temperature, blocked), 1))]
+    return ACTIONS[
+        int(torch.multinomial(_probs_tensor(policy, window, temperature, blocked), 1))
+    ]
 
 
 def state_dict_to_lists(policy: CNNPolicy) -> dict:

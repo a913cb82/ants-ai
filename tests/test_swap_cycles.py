@@ -12,13 +12,10 @@ byte-identical to the HEAD (pre-swap) bot when no cycle exists.
 """
 
 import importlib.util
-import json
 import subprocess
 import sys
-import sysconfig
 from pathlib import Path
 
-import pytest
 import torch
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -91,13 +88,16 @@ def _head_bot(path):
     """Load the HEAD (pre-swap) AlphaAnt.py under a distinct module name."""
     src = subprocess.run(
         ["git", "-C", str(ROOT), "show", "HEAD:bots/alphaant/AlphaAnt.py"],
-        capture_output=True, text=True, check=True,
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout
     path.write_text(src)
     import shutil
 
-    shutil.copy(ROOT / "bots" / "alphaant" / "weights.json",
-                path.parent / "weights.json")
+    shutil.copy(
+        ROOT / "bots" / "alphaant" / "weights.json", path.parent / "weights.json"
+    )
     spec = importlib.util.spec_from_file_location("AlphaAntHEAD", path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
@@ -107,7 +107,6 @@ def _head_bot(path):
 def test_head_to_head_swap_executes_both_moves(tmp_path, monkeypatch):
     """A->B, B->A: both orders must issue (old code blocked the mover
     into the vacated origin)."""
-    import AlphaAnt
 
     ants = StubAnts([(4, 4), (4, 5)])
     logits = torch.tensor([_want("e"), _want("w")])
@@ -123,7 +122,6 @@ def test_head_to_head_swap_executes_both_moves(tmp_path, monkeypatch):
 def test_rotation_cycle_executes(tmp_path, monkeypatch):
     """2x2 rotation: each destination is vacated simultaneously, so all
     four moves execute (old code blocked three of them)."""
-    import AlphaAnt
 
     ants = StubAnts([(4, 4), (4, 5), (5, 5), (5, 4)])
     logits = torch.tensor([_want("e"), _want("s"), _want("w"), _want("n")])
@@ -149,8 +147,7 @@ def test_cycle_finder_detects_two_three_and_four_cycles():
     three = {(0, 0): (0, 1), (0, 1): (0, 2), (0, 2): (0, 0)}
     assert AlphaAnt.find_cycles(three) == [{(0, 0), (0, 1), (0, 2)}]
     four = {(4, 4): (4, 5), (4, 5): (5, 5), (5, 5): (5, 4), (5, 4): (4, 4)}
-    assert AlphaAnt.find_cycles(four) == [
-        {(4, 4), (4, 5), (5, 5), (5, 4)}]
+    assert AlphaAnt.find_cycles(four) == [{(4, 4), (4, 5), (5, 5), (5, 4)}]
     # Chain into a free square is not a cycle; stays are not cycles.
     chain = {(4, 4): (4, 5), (4, 5): (4, 6)}
     assert AlphaAnt.find_cycles(chain) == []
@@ -161,7 +158,6 @@ def test_cycle_finder_detects_two_three_and_four_cycles():
 def test_non_cycle_conflict_byte_identical_to_head(tmp_path, monkeypatch):
     """Same-target conflict, no cycle: orders must match the HEAD bot
     exactly (first-claimant-wins preserved)."""
-    import AlphaAnt
 
     ants = StubAnts([(4, 4), (4, 6)])
     # ant1 takes (4,5); ant2 wants w=(4,5, taken), falls back to n.
@@ -186,7 +182,6 @@ def test_non_cycle_conflict_byte_identical_to_head(tmp_path, monkeypatch):
 def test_mover_into_vacated_non_cycle_square_executes(tmp_path, monkeypatch):
     """Chain A->B-origin with B leaving elsewhere: the mover is no
     longer blocked by the vacated origin (mechanism 1)."""
-    import AlphaAnt
 
     ants = StubAnts([(4, 4), (4, 5)])
     # ant1 vacates east; ant0 follows into (4,5).
@@ -203,7 +198,6 @@ def test_mover_into_vacated_non_cycle_square_executes(tmp_path, monkeypatch):
 def test_mover_into_staying_ant_square_still_blocked(tmp_path, monkeypatch):
     """A stayer's square is never claimable: the mover falls back and
     no two ants share a destination (engine kills collisions)."""
-    import AlphaAnt
 
     ants = StubAnts([(4, 4), (4, 5)])
     # ant1 stays; ant0 wants e=(4,5, occupied at end) -> falls back.

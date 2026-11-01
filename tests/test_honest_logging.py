@@ -15,7 +15,6 @@ import json
 import sys
 from pathlib import Path
 
-import pytest
 import torch
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -91,10 +90,12 @@ def test_row_logs_intent_blocked_and_taken_action(tmp_path, monkeypatch):
     """Synthetic blocked position: ant2 wants w into ant1's new square."""
     ants = StubAnts([(4, 4), (4, 6)])
     # ant1: e=10 takes (4,5). ant2: wants w=(4,5, taken), falls back to n.
-    logits = torch.tensor([
-        [0.0, 10.0, 0.0, 0.0, 0.0],  # n e s w stay
-        [5.0, 0.0, 0.0, 10.0, 0.0],
-    ])
+    logits = torch.tensor(
+        [
+            [0.0, 10.0, 0.0, 0.0, 0.0],  # n e s w stay
+            [5.0, 0.0, 0.0, 10.0, 0.0],
+        ]
+    )
     bot = _bot(tmp_path, monkeypatch, logits)
     bot.do_setup(ants)
     bot.do_turn(ants)
@@ -169,8 +170,14 @@ def test_honest_path_byte_identical_without_blocking():
     Legacy rows without intent keys are also untouched by honest=True."""
     recs = [
         _rec("e", "e", [], [True] * 5),
-        {"turn": 2, "loc": [1, 1], "dest": [1, 2], "action": "s",
-         "window": torch.zeros(_C, 5, 5), "legal": [True] * 5},
+        {
+            "turn": 2,
+            "loc": [1, 1],
+            "dest": [1, 2],
+            "action": "s",
+            "window": torch.zeros(_C, 5, 5),
+            "legal": [True] * 5,
+        },
     ]
     rets, logps = [0.3, 0.7], [-0.1, -0.2]
     _items_equal(
@@ -189,13 +196,10 @@ def test_blocked_loss_differs_only_on_blocked_rows():
     blocked = _rec("n", "w", ["w"], [True, True, True, False, True])
 
     torch.manual_seed(0)
-    mixed_old = algorithm.collect(policy, [free, blocked], [1.0, -0.5],
-                                  honest=False)
+    mixed_old = algorithm.collect(policy, [free, blocked], [1.0, -0.5], honest=False)
     torch.manual_seed(0)
-    mixed_new = algorithm.collect(policy, [free, blocked], [1.0, -0.5],
-                                  honest=True)
-    assert [a for _, a, _, _, _ in mixed_old] != [
-        a for _, a, _, _, _ in mixed_new]
+    mixed_new = algorithm.collect(policy, [free, blocked], [1.0, -0.5], honest=True)
+    assert [a for _, a, _, _, _ in mixed_old] != [a for _, a, _, _, _ in mixed_new]
 
     def _epoch(batch):
         pol = algorithm.new_policy(algorithm.policy_weights(policy))
@@ -207,18 +211,18 @@ def test_blocked_loss_differs_only_on_blocked_rows():
     old_stats, old_w = _epoch(mixed_old)
     new_stats, new_w = _epoch(mixed_new)
     # Same scalar means can hide different directions: the updates differ.
-    assert any(not torch.equal(torch.tensor(old_w[k]), torch.tensor(new_w[k]))
-               for k in old_w)
+    assert any(
+        not torch.equal(torch.tensor(old_w[k]), torch.tensor(new_w[k])) for k in old_w
+    )
 
     torch.manual_seed(0)
-    free_old = algorithm.collect(policy, [free, free], [1.0, -0.5],
-                                 honest=False)
+    free_old = algorithm.collect(policy, [free, free], [1.0, -0.5], honest=False)
     torch.manual_seed(0)
-    free_new = algorithm.collect(policy, [free, free], [1.0, -0.5],
-                                 honest=True)
+    free_new = algorithm.collect(policy, [free, free], [1.0, -0.5], honest=True)
     assert _epoch(free_old)[0] == _epoch(free_new)[0]
     _, free_old_w = _epoch(free_old)
     _, free_new_w = _epoch(free_new)
-    assert all(torch.equal(torch.tensor(free_old_w[k]),
-                           torch.tensor(free_new_w[k]))
-               for k in free_old_w)
+    assert all(
+        torch.equal(torch.tensor(free_old_w[k]), torch.tensor(free_new_w[k]))
+        for k in free_old_w
+    )

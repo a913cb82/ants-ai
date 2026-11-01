@@ -28,8 +28,10 @@ _S = 2 * features.DEFAULT_RADIUS + 1
 
 def _batch(n=32, seed=0):
     torch.manual_seed(seed)
-    recs = [{"window": torch.rand(_C, _S, _S), "action": "n",
-             "legal": [True] * 5} for _ in range(n)]
+    recs = [
+        {"window": torch.rand(_C, _S, _S), "action": "n", "legal": [True] * 5}
+        for _ in range(n)
+    ]
     pol = algorithm.new_policy({})
     return algorithm.collect(pol, recs, [float(i % 3) for i in range(n)])
 
@@ -43,8 +45,7 @@ def test_frozen_advantages_match_preupdate_values():
         windows = torch.stack([w for w, _a, _r, _m, _o in batch])
         values = pol.values(windows)
     rets = torch.tensor([r for _w, _a, r, _m, _o in batch])
-    expect = algorithm._advantages(rets, values, rets.mean(),
-                                   rets.std(unbiased=False))
+    expect = algorithm._advantages(rets, values, rets.mean(), rets.std(unbiased=False))
     assert torch.equal(adv, expect)
     assert float(bmean) == pytest.approx(rets.mean().item())
     assert float(bstd) == pytest.approx(rets.std(unbiased=False).item())
@@ -60,8 +61,9 @@ def test_train_epoch_reuses_frozen_advantages_without_recompute(monkeypatch):
         raise AssertionError("advantage recompute: frozen adv must be reused")
 
     monkeypatch.setattr(algorithm, "_advantages", _boom)
-    stats = algorithm.train_epoch(pol, opt, batch, advantages=adv,
-                                  bmean=bmean, bstd=bstd)
+    stats = algorithm.train_epoch(
+        pol, opt, batch, advantages=adv, bmean=bmean, bstd=bstd
+    )
     assert stats["steps"] > 0
 
 
@@ -78,22 +80,29 @@ def test_frozen_pg_rows_survive_critic_drift():
     drifted = copy.deepcopy(pol)
     with torch.no_grad():
         drifted.value.bias.fill_(5.0)  # critic fit hard; actor untouched
-    assert torch.equal(
-        drifted.value.bias, torch.full_like(drifted.value.bias, 5.0))
+    assert torch.equal(drifted.value.bias, torch.full_like(drifted.value.bias, 5.0))
 
     def one_epoch(policy, seed, lr=1e-3):
         torch.manual_seed(seed)
         opt = algorithm.make_optimizer(policy, lr=lr)
         # max_norm=inf: global clipping would couple critic grads into
         # actor steps; disabled here to isolate the pg term itself.
-        algorithm.train_epoch(policy, opt, batch, advantages=adv,
-                              bmean=bmean, bstd=bstd, minibatch=8,
-                              max_norm=float("inf"))
+        algorithm.train_epoch(
+            policy,
+            opt,
+            batch,
+            advantages=adv,
+            bmean=bmean,
+            bstd=bstd,
+            minibatch=8,
+            max_norm=float("inf"),
+        )
 
     one_epoch(pol, 123)
     one_epoch(drifted, 123)
-    for (n0, p0), (n1, p1) in zip(pol.named_parameters(),
-                                  drifted.named_parameters(), strict=True):
+    for (n0, p0), (n1, p1) in zip(
+        pol.named_parameters(), drifted.named_parameters(), strict=True
+    ):
         assert n0 == n1
         if not model.is_critic_key(n0):
             assert torch.equal(p0, p1), f"actor param {n0} moved"
@@ -104,15 +113,11 @@ def test_frozen_pg_rows_survive_critic_drift():
     with torch.no_grad():
         b.value.bias.fill_(5.0)
     torch.manual_seed(123)
-    algorithm.train_epoch(a, algorithm.make_optimizer(a), batch,
-                          minibatch=8)
+    algorithm.train_epoch(a, algorithm.make_optimizer(a), batch, minibatch=8)
     torch.manual_seed(123)
-    algorithm.train_epoch(b, algorithm.make_optimizer(b), batch,
-                          minibatch=8)
-    actors = [(n, p) for n, p in a.named_parameters()
-              if not model.is_critic_key(n)]
-    moved = [n for n, p in actors
-             if not torch.equal(p, dict(b.named_parameters())[n])]
+    algorithm.train_epoch(b, algorithm.make_optimizer(b), batch, minibatch=8)
+    actors = [(n, p) for n, p in a.named_parameters() if not model.is_critic_key(n)]
+    moved = [n for n, p in actors if not torch.equal(p, dict(b.named_parameters())[n])]
     assert moved, "control: recompute should feel critic drift"
 
 
@@ -126,14 +131,21 @@ def test_micro_batch_update_freezes_advantages_once(tmp_path, monkeypatch):
     real_epoch = algorithm.train_epoch
 
     def spy(policy, opt, batch, **kw):
-        calls.append(kw.get("advantages").clone()
-                     if kw.get("advantages") is not None else None)
+        calls.append(
+            kw.get("advantages").clone() if kw.get("advantages") is not None else None
+        )
         return real_epoch(policy, opt, batch, **kw)
 
     monkeypatch.setattr(algorithm, "train_epoch", spy)
-    cfg = {"lr": 1e-3, "epochs": 3,
-           "clip": 0.2, "vf_coef": 0.5, "entropy_beta": 0.01,
-           "max_norm": 1.0, "minibatch": 32}
+    cfg = {
+        "lr": 1e-3,
+        "epochs": 3,
+        "clip": 0.2,
+        "vf_coef": 0.5,
+        "entropy_beta": 0.01,
+        "max_norm": 1.0,
+        "minibatch": 32,
+    }
     stats = train.ppo_update(pol, opt, batch, cfg)
     assert stats["rows"] == len(batch)
     assert len(calls) == 3

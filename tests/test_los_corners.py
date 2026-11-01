@@ -9,7 +9,6 @@ L226-235 fills are gated on in_circle: corners read 0=empty-unseen,
 ch6 stays the mask.
 """
 
-import math
 import sys
 from pathlib import Path
 
@@ -23,9 +22,18 @@ _S = 2 * _R + 1
 
 
 class FakeAnts:
-    def __init__(self, rows=31, cols=31, own=(), enemy=(),
-                 own_hills=(), enemy_hills=(), food=(),
-                 viewradius2=77, attackradius2=5):
+    def __init__(
+        self,
+        rows=31,
+        cols=31,
+        own=(),
+        enemy=(),
+        own_hills=(),
+        enemy_hills=(),
+        food=(),
+        viewradius2=77,
+        attackradius2=5,
+    ):
         self.rows = rows
         self.cols = cols
         self.viewradius2 = viewradius2
@@ -116,14 +124,16 @@ def _rot90_board(ants, foc):
     fr, fc = foc
 
     def rot(p):
-        return (((fr - (p[1] - fc)) % ants.rows,
-                 (fc + (p[0] - fr)) % ants.cols))
+        return ((fr - (p[1] - fc)) % ants.rows, (fc + (p[0] - fr)) % ants.cols)
+
     return FakeAnts(
-        rows=ants.rows, cols=ants.cols,
+        rows=ants.rows,
+        cols=ants.cols,
         own=[rot(p) for p in ants._own],
         enemy=[rot(p) for p in ants._enemy],
         food=[rot(p) for p in ants._food],
-        viewradius2=ants.viewradius2, attackradius2=ants.attackradius2,
+        viewradius2=ants.viewradius2,
+        attackradius2=ants.attackradius2,
     )
 
 

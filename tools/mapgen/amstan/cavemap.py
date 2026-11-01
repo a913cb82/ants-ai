@@ -56,8 +56,7 @@ class Cavemap(SymmetricMap):
         # is paid once instead of on every smoothing iteration.
         vector = self.symmetry_vector
         twins = [
-            [tuple((p.x, p.y) for p in vector(Point(x, y)))
-             for x in range(width)]
+            [tuple((p.x, p.y) for p in vector(Point(x, y))) for x in range(width)]
             for y in range(height)
         ]
         terrain = self.terrain
