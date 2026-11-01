@@ -130,7 +130,7 @@ def _play_one(args) -> dict:
 
 
 def select_opponent(base: Path, learner: str, state: dict,
-                    records: pfsp.Records, totals: pfsp.Totals,
+                    records: pfsp.Records,
                     rng: random.Random,
                     sample_id: str | None = None) -> str:
     """PFSP opponent for one learner tick (pure sampling, no I/O beyond
@@ -158,11 +158,11 @@ def select_opponent(base: Path, learner: str, state: dict,
     policy = ROLE_CONFIGS[learner]["policy"]
     live = sample_id if sample_id is not None else learner
     if policy == "main":
-        return pfsp.main_sample(live, candidates, records, totals, rng)
+        return pfsp.main_sample(live, candidates, records, rng)
     if policy == "me":
         return pfsp.me_sample(live, state["main_id"], candidates,
-                              records, totals, rng)
-    return pfsp.le_sample(live, candidates, records, totals, rng)
+                              records, rng)
+    return pfsp.le_sample(live, candidates, records, rng)
 
 
 def ppo_update(policy, opt, batch: list, cfg: dict, anchor=None,

@@ -171,7 +171,7 @@ def test_pool_health_share_newcomers_and_roles(tmp_path):
     assert top["top_n"] == 20
     assert top["share"] == 1.0  # 3 seated ids, all inside the top 20
     assert top["covered"] == top["total"]
-    assert "g000" in pool["newcomers"]  # 8 games logged, <10: boosted
+    assert "g000" in pool["newcomers"]  # 8 games logged, <10: new face
     assert pool["newcomer_count"] == len(pool["newcomers"])
     page = dashboard.render_page(snap)
     assert "newcomer queue" in page

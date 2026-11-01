@@ -505,8 +505,7 @@ def run_tick(cfg: dict, base: Path, live: dict,
     seat_id = learner
 
     records = pair_records(base)
-    totals = archive.member_game_counts(base)
-    opp = train.select_opponent(base, learner, state, records, totals,
+    opp = train.select_opponent(base, learner, state, records,
                                 rng, sample_id=seat_id)
     opp_w = archive.load_checkpoint(base, opp)
     live_w = algorithm.policy_weights(entry["policy"])

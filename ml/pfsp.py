@@ -5,44 +5,48 @@ ml/*, no archive/disk/network access. All samplers take explicit records
 arguments plus a caller-owned random.Random, and return one opponent id,
 deterministic given a seeded rng.
 
-Weighting functions take a win fraction p (unseen pairs rate 0.5):
-linear p, squared p^2, variance p(1-p) (peaks at even = learning-rich),
-linear_capped min(p, 0.5) (no single-nemesis obsession).
+Uncertainty is Bayesian UCB: each pair carries a Beta(w+1, l+1)
+posterior under a uniform prior, scored as mean + UCB_C * std. The UCB
+feeds the monotone branches (squared, linear_capped), where optimism
+points at discovery; the even-seeking variance branches use the
+posterior mean (best estimate of evenness -- optimism would push
+strangers away from 0.5 and anti-explore). No game-count special cases
+anywhere.
+
+Weighting functions take a score p (UCB for monotone branches,
+posterior mean for the even-seeking branch):
+linear p, squared p^2 (seeks counters/nemeses), variance p(1-p)
+(peaks at even = learning-rich), linear_capped min(p, 0.5)
+(no single-nemesis obsession). The cap binds optimism above 0.5: for LE
+that strong a pull still only ties the best known victims, and the
+first games resolve it.
 
 Role policies (mini-AlphaStar league sampling):
-- main: with probability 0.5 squared-weighted by opponent-win-fraction vs
+- main: with probability 0.5 squared-weighted by opponent UCB vs
   me (seeks counters), else variance-weighted.
-- ME: locked onto main while my win-rate vs main > 0.1, else
-  variance-weighted over easier historicals by own win fraction (main is
+- ME: locked onto main while my posterior-mean win-rate vs main > 0.1
+  (threshold on the mean, not the UCB -- a bar, not a search), else
+  variance-weighted over historicals by own posterior mean (main is
   excluded from the fallback pool while other candidates exist).
-- LE: linear_capped over all historicals by own win fraction (seeks
-  victims/holes without single-opponent domination).
-
-Newcomer boost: members with <10 total games get x5 weight in all
-samplers (self-limiting; ancient well-evaluated weaklings get ~zero by
-weighting alone).
-"""
+- LE: linear_capped over all historicals by own UCB (seeks
+  victims/holes without single-opponent domination)."""
 
 from __future__ import annotations
 
+import math
 import random
 
-# Fraction assigned to pairs with no recorded games.
-UNSEEN_WIN_FRACTION = 0.5
+# Prior mean: uniform Beta(1,1) -- strangers rate even.
+PRIOR_MEAN = 0.5
 # Main policy: probability of the squared (counter-seeking) branch.
 MAIN_SQUARED_PROB = 0.5
 # ME policy: stays on main while its win-rate vs main is above this.
 ME_STICK_THRESHOLD = 0.1
-# Newcomer boost: members below this many total games get NEWCOMER_BOOST.
-NEWCOMER_GAMES = 10
-NEWCOMER_BOOST = 5.0
+# UCB exploration strength: score = posterior mean + UCB_C * std.
+UCB_C = 1.0
 
 # Records map (id_a, id_b) -> [wins_a, wins_b].
 Records = dict[tuple[str, str], list[int]]
-# Per-member total games map id -> games.
-Totals = dict[str, int]
-
-
 def linear(p: float) -> float:
     """Weight proportional to the win fraction."""
     return p
@@ -65,25 +69,34 @@ def linear_capped(p: float) -> float:
 
 
 def win_fraction(a: str, b: str, records: Records) -> float:
-    """Win fraction of a vs b. Unseen pairs (or scoreless entries) rate 0.5.
-    Record keys are read in either order."""
+    """Posterior mean of a vs b under a uniform Beta(1,1) prior.
+    (wins_a + 1) / (total + 2): unseen/scoreless pairs rate 0.5
+    (the prior mean, no special case). Record keys read either order."""
     if (a, b) in records:
         wins_a, wins_b = records[(a, b)]
     elif (b, a) in records:
         wins_b, wins_a = records[(b, a)]
     else:
-        return UNSEEN_WIN_FRACTION
-    total = wins_a + wins_b
-    if total <= 0:
-        return UNSEEN_WIN_FRACTION
-    return wins_a / total
+        return PRIOR_MEAN
+    return (wins_a + 1) / (wins_a + wins_b + 2)
 
 
-def boosted(weight: float, opp: str, total_games: Totals) -> float:
-    """Apply the newcomer boost: x5 while the opponent has <10 total games."""
-    if total_games.get(opp, 0) < NEWCOMER_GAMES:
-        return weight * NEWCOMER_BOOST
-    return weight
+def ucb(a: str, b: str, records: Records, c: float = UCB_C) -> float:
+    """Bayesian UCB score of a vs b: posterior mean + c * posterior std.
+    Beta(wins_a + 1, wins_b + 1) under the uniform prior, clipped to
+    [0, 1]. Unseen pairs score highest (maximum uncertainty); the bonus
+    decays as games accumulate. Feeds the weighting functions below."""
+    if (a, b) in records:
+        wins_a, wins_b = records[(a, b)]
+    elif (b, a) in records:
+        wins_b, wins_a = records[(b, a)]
+    else:
+        wins_a, wins_b = 0, 0
+    alpha, beta = wins_a + 1, wins_b + 1
+    total = alpha + beta
+    mean = alpha / total
+    var = alpha * beta / (total * total * (total + 1))
+    return min(1.0, mean + c * math.sqrt(var))
 
 
 def _weighted_pick(
@@ -116,22 +129,16 @@ def main_sample(
     learner_id: str,
     candidates: list[str],
     records: Records,
-    total_games: Totals,
     rng: random.Random,
 ) -> str:
     """Main-learner opponent: 50% squared-weighted by opponent win fraction
     vs me (seeks counters), else variance-weighted (even = learning-rich)."""
     pool = _lobby(learner_id, candidates)
     if rng.random() < MAIN_SQUARED_PROB:
-        weights = [
-            boosted(squared(win_fraction(c, learner_id, records)), c, total_games)
-            for c in pool
-        ]
+        weights = [squared(ucb(c, learner_id, records)) for c in pool]
     else:
-        weights = [
-            boosted(variance(win_fraction(c, learner_id, records)), c, total_games)
-            for c in pool
-        ]
+        weights = [variance(win_fraction(c, learner_id, records))
+                   for c in pool]
     return _weighted_pick(pool, weights, rng)
 
 
@@ -140,22 +147,20 @@ def me_sample(
     main_id: str,
     candidates: list[str],
     records: Records,
-    total_games: Totals,
     rng: random.Random,
 ) -> str:
-    """ME opponent: main while my win-rate vs main > 0.1, else
-    variance-weighted over historicals by own win fraction (seeks easier,
-    learning-rich games). A fresh ME with no main games rates 0.5 and
-    therefore starts on main."""
+    """ME opponent: main while my posterior-mean win-rate vs main > 0.1,
+    else variance-weighted over historicals by own posterior mean
+    (best estimate of evenness; newcomers tie known-even at fair
+    share until their first games resolve them). A fresh ME with no
+    main games rates the prior mean 0.5 and therefore starts on main."""
     if win_fraction(learner_id, main_id, records) > ME_STICK_THRESHOLD:
         return main_id
     pool = [c for c in candidates if c not in (learner_id, main_id)]
     if not pool:
         return main_id
-    weights = [
-        boosted(variance(win_fraction(learner_id, c, records)), c, total_games)
-        for c in pool
-    ]
+    weights = [variance(win_fraction(learner_id, c, records))
+               for c in pool]
     return _weighted_pick(pool, weights, rng)
 
 
@@ -163,14 +168,12 @@ def le_sample(
     learner_id: str,
     candidates: list[str],
     records: Records,
-    total_games: Totals,
     rng: random.Random,
 ) -> str:
-    """LE opponent: linear_capped over all historicals by own win fraction
-    (seeks victims/holes; the cap prevents single-opponent domination)."""
+    """LE opponent: linear_capped over all historicals by own UCB
+    (seeks victims/holes; the cap prevents single-opponent domination
+    and binds optimism above 0.5 -- newcomers tie the best known
+    victims until their first games resolve them)."""
     pool = _lobby(learner_id, candidates)
-    weights = [
-        boosted(linear_capped(win_fraction(learner_id, c, records)), c, total_games)
-        for c in pool
-    ]
+    weights = [linear_capped(ucb(learner_id, c, records)) for c in pool]
     return _weighted_pick(pool, weights, rng)

@@ -8,11 +8,16 @@ Plan: ml/runs/plan-league.md. Migration: plan §Initialization.
 
 1. **Roles + shares.** 1 main + 1 ME (`me`) + 2 LE (`le-a`, `le-b`).
    Deterministic round-robin main→me→le-a→le-b (equal shares by construction).
-2. **PFSP only.** Main: 50% squared-weighted historicals (seeks counters),
-   else variance-weighted; newcomer boost ×5 while <10 games. ME: locked onto
-   current main while win-rate > 0.1, else variance-weighted easier
-   historicals. LE: linear_capped over all historicals (seeks any hole).
-   Exploiters weight by own win fraction (seek victims).
+2. **PFSP only.** Opponent scores are Bayesian UCB (Beta posterior
+   mean + 1 std; strangers explored first, bonus decays with games).
+   Main: 50% squared-weighted UCB (seeks counters), else
+   variance-weighted posterior mean (even = learning-rich). ME: locked
+   onto current main while posterior-mean win-rate > 0.1, else
+   variance-weighted mean over historicals. LE: linear_capped UCB over
+   all historicals (seeks any hole). Exploiters weight by own score
+   (seek victims). No unseen default, no newcomer boost (both replaced
+   2026-11-02: optimism where the objective is monotone, mean where it
+   peaks at even).
 3. **Cadence.** Micro-batch PPO every 8 own-games per learner; the main
    snapshots every 80 own-games (mainN). Exploiters enter the pool ONLY
    by admission (meN/le-aN/le-bN) -- no routine exploiter snapshots.

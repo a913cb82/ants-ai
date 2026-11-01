@@ -263,9 +263,9 @@ def test_select_opponent_excludes_live_ids(tmp_path, monkeypatch):
                               "le-a": {"id": "lea-1"},
                               "le-b": {"id": "leb-1"}}}
     rng = random.Random(0)
-    train.select_opponent(base, "main", state, {}, {}, rng)
-    train.select_opponent(base, "me", state, {}, {}, rng)
-    train.select_opponent(base, "le-a", state, {}, {}, rng)
+    train.select_opponent(base, "main", state, {}, rng)
+    train.select_opponent(base, "me", state, {}, rng)
+    train.select_opponent(base, "le-a", state, {}, rng)
     assert set(seen) == {"main", "me", "le"}
     for cands in seen.values():
         assert "main" not in cands
