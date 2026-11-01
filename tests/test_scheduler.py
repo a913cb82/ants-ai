@@ -335,3 +335,32 @@ def test_reset_learner_drops_banked_batch(tmp_path, monkeypatch):
                            archive.load_checkpoint(base, "g000"))
     assert live["me"]["pending"] == []
     assert not selfplay._pending_path(base, "me").exists()
+
+
+def test_shutdown_flag_stops_loop_between_ticks(tmp_path, monkeypatch):
+    base, _, _, _ = _league_base(tmp_path)
+    cfg = _cfg(tmp_path, ticks=100)
+    calls = []
+
+    def fake_tick(cfg, base, live):
+        calls.append(1)
+        if len(calls) == 3:
+            selfplay._SHUTDOWN = True
+        return {}
+
+    monkeypatch.setattr(selfplay, "run_tick", fake_tick)
+    try:
+        reports = selfplay.run_loop(cfg, base)
+    finally:
+        selfplay._SHUTDOWN = False
+    assert len(reports) == 3  # current tick finished, then stopped
+
+
+def test_shutdown_flag_preset_runs_zero_ticks(tmp_path):
+    base, _, _, _ = _league_base(tmp_path)
+    cfg = _cfg(tmp_path, ticks=100)
+    selfplay._SHUTDOWN = True
+    try:
+        assert selfplay.run_loop(cfg, base) == []
+    finally:
+        selfplay._SHUTDOWN = False

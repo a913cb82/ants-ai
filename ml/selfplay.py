@@ -20,6 +20,7 @@ from __future__ import annotations
 import copy
 import json
 import random
+import signal
 import sys
 from pathlib import Path
 
@@ -609,6 +610,18 @@ def run_tick(cfg: dict, base: Path, live: dict,
     }
 
 
+_SHUTDOWN = False
+
+
+def _request_shutdown(signum, frame) -> None:
+    """SIGINT/SIGTERM: finish the current tick, then stop cleanly.
+
+    Between ticks all progress is on disk (league, banked batches,
+    weights on update edges), so stopping there loses nothing."""
+    global _SHUTDOWN
+    _SHUTDOWN = True
+
+
 def run_loop(cfg: dict, base: Path, ticks: int | None = None) -> list[dict]:
     """Perpetual scheduler: ensure roles, then tick until ticks run out."""
     ensure_roles(base, cfg)
@@ -616,9 +629,15 @@ def run_loop(cfg: dict, base: Path, ticks: int | None = None) -> list[dict]:
     reports = []
     n = cfg.get("ticks", -1) if ticks is None else ticks
     tick = 0
-    while n is None or n < 0 or tick < n:
-        reports.append(run_tick(cfg, base, live))
-        tick += 1
+    old_int = signal.signal(signal.SIGINT, _request_shutdown)
+    old_term = signal.signal(signal.SIGTERM, _request_shutdown)
+    try:
+        while (n is None or n < 0 or tick < n) and not _SHUTDOWN:
+            reports.append(run_tick(cfg, base, live))
+            tick += 1
+    finally:
+        signal.signal(signal.SIGINT, old_int)
+        signal.signal(signal.SIGTERM, old_term)
     return reports
 
 
