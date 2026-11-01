@@ -672,49 +672,37 @@ def behavior_rows_html(rows: list | None, h0_tick) -> str:
     return "".join(out)
 
 
-def _stat_text(food, kills, army_pct) -> str:
-    """`8.0f · 23.0k · 33%`, unknowns read as dashes."""
-    f = "—" if food is None else f"{food:.1f}f"
-    k = "—" if kills is None else f"{kills:.1f}k"
-    a = "—" if army_pct is None else f"{army_pct}%"
-    return f"{f} · {k} · {a}"
-
-
-def game_replay_label(g: dict) -> str:
-    """`c 3 (8.0f · 23.0k · 33%) · m 1 (…)`: seat ids with scores and
-    per-seat behavior, winner bold upstream."""
-    seats = g.get("seats", []) or []
-    scores = g.get("scores", []) or []
-    stats = g.get("stats", []) or []
-    bits = []
-    for i, sid in enumerate(seats):
-        sc = scores[i] if i < len(scores) else "?"
-        st = stats[i] if i < len(stats) else {}
-        bit = (
-            f"{_esc(sid)} {_esc(sc)} "
-            f"({_stat_text(st.get('food'), st.get('kills'), st.get('army_pct'))})"
-        )
-        if g.get("result") == "win" and i == 0:
-            bits.append(f"<b>{bit}</b>")
-        else:
-            bits.append(bit)
-    return " · ".join(bits)
+def _seat_list(stats: list, key: str, fmt) -> str:
+    """Comma-separated per-seat facts: `44,59`, unknown seats read —."""
+    return ",".join(
+        "—" if (v := s.get(key)) is None else fmt(v) for s in stats
+    )
 
 
 def game_row_html(g: dict) -> str:
-    """Twin of JS gameRow: tick · learner · matchup(+behavior) · map ·
-    len · result · replay."""
+    """Twin of JS gameRow: tick · learner · players · map · food ·
+    kills · army · len · result(scores) · replay."""
     res = g.get("result") or "draw"
-    names = " vs ".join(_esc(s) for s in g.get("seats", []) or [])
+    seats = g.get("seats") or []
+    names = " vs ".join(_esc(s) for s in seats)
+    scores = g.get("scores") or []
+    scoreline = "-".join(str(s) for s in scores)
+    stats = g.get("stats") or []
+    food = _seat_list(stats, "food", lambda v: f"{v:.0f}")
+    kills = _seat_list(stats, "kills", lambda v: f"{v:.0f}")
+    army = _seat_list(stats, "army_pct", lambda v: f"{v}%")
     length = g.get("length")
     game_map = g.get("map")
     return (
         f'<tr><td class="num">{fmt_tick(g.get("tick"))}</td>'
         f"<td>{_dot()}{_esc(g.get('learner'))}</td>"
-        f"<td>{game_replay_label(g)}</td>"
+        f'<td class="num">{len(seats)}</td>'
         f'<td class="truncate">{_esc(game_map) if game_map else "—"}</td>'
+        f"<td>{food or '—'}</td>"
+        f"<td>{kills or '—'}</td>"
+        f"<td>{army or '—'}</td>"
         f'<td class="num">{length if isinstance(length, (int, float)) else "—"}</td>'
-        f'<td><span class="badge {res}">{res}</span></td>'
+        f'<td><span class="badge {res}">{res}</span> {_esc(scoreline)}</td>'
         f'<td class="replay"><a href="/replay?f={_esc(g.get("replay"))}" '
         f'target="_blank" rel="noopener" '
         f'title="{names} — opens in a new tab">'
@@ -896,19 +884,21 @@ function renderBehavior(){
 }
 /* Canvas frame: shared geometry, gridlines, HiDPI. Direct end labels —
    no legends for ≤4 series (and none above either: labels ride the lines). */
-function statText(food,kills,army){const f=(food==null?"—":Number(food).toFixed(1)+"f");const k=(kills==null?"—":Number(kills).toFixed(1)+"k");const a=(army==null?"—":army+"%");return f+" · "+k+" · "+a;}
+function seatList(stats,key,fmt){return (stats||[]).map(st=>{const v=st?st[key]:null;return (v==null||v===undefined)?"—":fmt(v);}).join(",");}
 function gameRow(g){
   const res=g.result||"draw";
-  const names=(g.seats||[]).join(" vs ");
-  const bits=(g.seats||[]).map((sid,i)=>{
-    const sc=(g.scores||[])[i]??"?";
-    const st=(g.stats||[])[i]||{};
-    const cell=esc(sid)+" "+esc(sc)+" ("+statText(st.food,st.kills,st.army_pct)+")";
-    return (res==="win"&&i===0)?"<b>"+cell+"</b>":cell;
-  }).join(" · ");
+  const seats=g.seats||[];
+  const names=seats.join(" vs ");
+  const scoreline=(g.scores||[]).join("-");
+  const stats=g.stats||[];
+  const food=seatList(stats,"food",v=>Math.round(v));
+  const kills=seatList(stats,"kills",v=>Math.round(v));
+  const army=seatList(stats,"army_pct",v=>v+"%");
+  const len=(g.length==null?"—":g.length);
   const map=(g.map==null?"—":esc(g.map));
-  return "<tr><td class=num>"+fmtTick(g.tick)+"</td><td>"+dot()+esc(g.learner)+"</td><td>"+bits+
-    '</td><td class="truncate">'+map+'</td><td class="num">'+len+'</td><td><span class="badge '+res+'">'+res+"</span></td>"+
+  return "<tr><td class=num>"+fmtTick(g.tick)+"</td><td>"+dot()+esc(g.learner)+"</td>"+
+    '<td class="num">'+seats.length+'</td><td class="truncate">'+map+'</td><td>'+(food||"—")+'</td><td>'+(kills||"—")+'</td><td>'+(army||"—")+'</td>'+
+    '<td class="num">'+len+'</td><td><span class="badge '+res+'">'+res+"</span> "+esc(scoreline)+"</td>"+
     '<td class="replay"><a href="/replay?f='+encodeURIComponent(g.replay)+'" target="_blank" rel="noopener" title="'+esc(names)+' — opens in a new tab">replay<span aria-hidden="true"> ↗</span></a></td></tr>';
 }
 async function renderGames(my){
@@ -927,8 +917,8 @@ async function renderGames(my){
   lastGames=h;
   keepScroll($("games-scroll"),()=>{
     $("games-body").innerHTML=data.rows.map(gameRow).join("")||(data.total
-      ?'<tr><td colspan="7" class="empty">no games on this page — use the pager above</td></tr>'
-      :'<tr><td colspan="7" class="empty">no games logged yet — they appear here as each game finishes</td></tr>');
+      ?'<tr><td colspan="10" class="empty">no games on this page — use the pager above</td></tr>'
+      :'<tr><td colspan="10" class="empty">no games logged yet — they appear here as each game finishes</td></tr>');
   });
   const pages=Math.max(1,Math.ceil(data.total/100));
   const page=Math.min(Math.floor(gamesOffset/100)+1,pages);
@@ -1044,7 +1034,7 @@ def render_page(snap: dict | None = None) -> str:
         alerts = alerts_html(snap.get("alerts"))
         behavior = behavior_rows_html(snap.get("behavior"), tick)
         games = "".join(game_row_html(g) for g in snap.get("games", [])) or (
-            f'<tr><td colspan="7" class="empty">{EMPTY_GAMES}</td></tr>'
+            f'<tr><td colspan="10" class="empty">{EMPTY_GAMES}</td></tr>'
         )
         total = snap.get("game_total", len(snap.get("games", [])))
         game_count = (
@@ -1088,7 +1078,7 @@ def render_page(snap: dict | None = None) -> str:
 </div>
 <div class="tcell span12">
 <div class="section-title">Recent games</div>
-<div class="legend">tick is the game number · all seats run the same net · map mixes 2-10 players · per-seat food/kills/army% + game length</div>
+<div class="legend">tick is the game number · all seats run the same net · result carries per-seat scores · food/kills/army list every seat · map mixes 2-10 players</div>
 <div class="card" id="games-card">
 <div class="toolbar">
 <label class="live-toggle"><input type="checkbox" id="live-toggle" checked> <span id="live-label">live</span></label>
@@ -1097,7 +1087,7 @@ def render_page(snap: dict | None = None) -> str:
 </div>
 <div class="table-scroll table-tall" id="games-scroll"><table>
 <caption style="display:none">Recent games, newest first</caption>
-<tr><th scope="col">game</th><th scope="col">learner</th><th scope="col">matchup</th><th scope="col">map</th><th scope="col" class="num">len</th><th scope="col">result</th><th scope="col">replay</th></tr>
+<tr><th scope="col">game</th><th scope="col">learner</th><th scope="col" class="num">players</th><th scope="col">map</th><th scope="col">food</th><th scope="col">kills</th><th scope="col">army</th><th scope="col" class="num">len</th><th scope="col">result</th><th scope="col">replay</th></tr>
 <tbody id="games-body">{games}</tbody></table></div>
 </div>
 </div>

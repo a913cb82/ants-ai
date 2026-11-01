@@ -284,7 +284,11 @@ def test_panel_row_shows_behavior():
     assert g["stats"][0]["food"] == 8.0
     html = dashboard.game_row_html(g)
     assert "12" not in html  # placeholder guard: real numbers below
-    assert "8.0f" in html and "23.0k" in html and "33%" in html
+    assert ">5-3<" in html or ">5-3 " in html or "5-3</" in html  # scores in result
+    assert "<td>2</td>" in html.replace(' class="num"', "")  # players, not matchup
+    assert "8,26" in html and "23,7" in html  # per-seat food/kills columns
+    assert "33%,67%" in html  # per-seat army shares
+    assert "8.0f" not in html and "main 5 (" not in html  # old matchup retired
     assert "<td>150</td>" in html.replace(' class="num"', "")
 
 
@@ -375,3 +379,24 @@ def test_build_game_carries_map():
     assert "cell_maze_p03_26.map" in html  # 2p/3p/4p mix reads off the table
     assert dashboard.build_game({"seats": ["main", "main"],
                                  "scores": [1, 1]}).get("map") is None
+
+
+def test_game_row_three_seats_lists_every_seat():
+    import dashboard
+
+    row = {"seats": ["main", "main", "main"], "scores": [5, 3, 1],
+           "food": [8, 26, 0], "kills": [23, 7, 0], "army": [2, 4, 6],
+           "length": 150, "tick": 9, "map": "cell_maze_p03_26.map"}
+    html = dashboard.game_row_html(dashboard.build_game(row))
+    assert "5-3-1" in html
+    assert "8,26,0" in html and "23,7,0" in html
+    assert ">3<" in html
+
+
+def test_game_row_unknown_behavior_reads_dashes():
+    import dashboard
+
+    g = dashboard.build_game({"seats": ["main", "main"], "scores": [1, 1]})
+    html = dashboard.game_row_html(g)
+    assert html.count("—") >= 3  # food, kills, army all unknown
+    assert "1-1" in html and "draw" in html
