@@ -15,6 +15,7 @@ Magnitudes are starting points, not tuned values.
 
 from __future__ import annotations
 
+import math
 import sys
 from pathlib import Path
 
@@ -223,26 +224,32 @@ def _awards(game, me, records, scales):
                 (end, {i: scales["KILL"] / len(near) for i in near}, "ant", "kill")
             )
 
-    # hills: razed iff end_turn <= game length. A hill falls to the single
-    # enemy ant standing ON it (do_raze_hills), so the raze credits the
-    # ant on the tile; a lost hill is a team failure, split across the
-    # team's ants that turn.
+    # hills: razed iff end_turn <= game length. Every ant on the board
+    # shares the event, weighted by proximity: 1/(1+d) on toroidal
+    # Euclidean distance, normalized so shares sum to the amount.
+    # The razer on the tile (d=0) earns the most; far ants earn a
+    # trickle, never zero. Nearby defenders eat most of a lost hill's
+    # blame. Scope is per-ant: each share walks back along its own path.
     for entry in replaydata.get("hills", []):
         r, c, owner, end = entry
         if end > length:
             continue
         amount = scales["HILL_RAZE"] if owner != me else scales["HILL_LOST"]
-        razers = dests_at(turns, dests, end, lambda d: d == (r, c))
-        if razers:
+        mine = dests_at(turns, dests, end)
+        if mine:
+            weights = [
+                1.0 / (1.0 + math.sqrt(dist2(dests[i], (r, c), rows, cols)))
+                for i in mine
+            ]
+            total = sum(weights)
             awards.append(
-                (end, {i: amount / len(razers) for i in razers}, "ant", "hill")
-            )
-        else:
-            mine = dests_at(turns, dests, end)
-            if mine:
-                awards.append(
-                    (end, {i: amount / len(mine) for i in mine}, "team", "hill")
+                (
+                    end,
+                    {i: amount * w / total for i, w in zip(mine, weights)},
+                    "ant",
+                    "hill",
                 )
+            )
 
     # hill approach: same-turn pay for closing distance to the nearest
     # enemy hill (toroidal tiles). Marching toward hills must pay NOW:
@@ -250,8 +257,6 @@ def _awards(game, me, records, scales):
     # Opening distance or standing still pays nothing; reaching the
     # hill tile itself is the raze's credit, not approach's (skipped:
     # d_after == 0 would double-pay the arrival).
-    import math
-
     foes = [(r, c) for r, c, owner, _end in replaydata.get("hills", []) if owner != me]
     # First enemy hill only: a shared convention concentrating force.
     # Min-nearest splits attackers (each ant closes its own nearest =

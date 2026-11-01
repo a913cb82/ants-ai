@@ -365,7 +365,21 @@ def test_hill_approach_targets_first_hill_only():
     assert rets[0] == rewards.WIN
 
 
-def test_hill_raze_credits_the_ant_on_the_hill():
+def test_hill_raze_scales_by_distance():
+    import rewards
+
+    game = _game()
+    game["replaydata"]["hills"] = [[5, 5, 1, 4]]  # enemy hill razed turn 4
+    records = [
+        {"turn": 4, "loc": [5, 4], "dest": [5, 5], "action": "s"},  # d=0
+        {"turn": 4, "loc": [5, 7], "dest": [5, 8], "action": "s"},  # d=3
+    ]
+    rets = rewards.compute_returns(game, 0, records)
+    # 1/(1+d) weights 1.0 vs 0.25: shares 8.0 and 2.0, total conserved.
+    assert rets == [8.0, 2.0]
+
+
+def test_hill_raze_reaches_far_ants():
     import rewards
 
     game = _game()
@@ -375,17 +389,32 @@ def test_hill_raze_credits_the_ant_on_the_hill():
         {"turn": 4, "loc": [2, 2], "dest": [2, 2], "action": "stay"},
     ]
     rets = rewards.compute_returns(game, 0, records)
-    assert rets == [rewards.HILL_RAZE, 0.0]
+    assert rets[0] > rets[1] > 0.0  # nearer earns more, far still paid
+    assert sum(rets) == rewards.HILL_RAZE
 
 
-def test_hill_loss_splits_across_team():
+def test_hill_loss_scales_by_distance():
     import rewards
 
     game = _game()
-    game["replaydata"]["hills"] = [[1, 1, 0, 4]]  # own hill lost turn 4
+    game["replaydata"]["hills"] = [[5, 5, 0, 4]]  # own hill lost turn 4
     records = [
-        {"turn": 4, "loc": [5, 5], "dest": [5, 5], "action": "stay"},
-        {"turn": 4, "loc": [2, 2], "dest": [2, 2], "action": "stay"},
+        {"turn": 4, "loc": [5, 7], "dest": [5, 8], "action": "stay"},  # d=3
+        {"turn": 4, "loc": [5, 4], "dest": [5, 5], "action": "stay"},  # d=0
+    ]
+    rets = rewards.compute_returns(game, 0, records)
+    # nearer defender eats more blame: -2.0 vs -8.0, total conserved.
+    assert rets == [-2.0, -8.0]
+
+
+def test_hill_equidistant_ants_split_evenly():
+    import rewards
+
+    game = _game()
+    game["replaydata"]["hills"] = [[5, 5, 0, 4]]  # own hill lost turn 4
+    records = [
+        {"turn": 4, "loc": [5, 5], "dest": [5, 6], "action": "s"},  # d=1
+        {"turn": 4, "loc": [5, 5], "dest": [6, 5], "action": "s"},  # d=1
     ]
     rets = rewards.compute_returns(game, 0, records)
     assert rets == [rewards.HILL_LOST / 2, rewards.HILL_LOST / 2]
