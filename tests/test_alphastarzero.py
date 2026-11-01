@@ -375,9 +375,9 @@ def test_hill_raze_scales_by_distance():
         {"turn": 4, "loc": [5, 7], "dest": [5, 8], "action": "s"},  # d=3
     ]
     rets = rewards.compute_returns(game, 0, records)
-    # distance-only: on the tile earns the full +10, d=3 earns 10*exp(-0.5).
+    # distance-only: on the tile earns the full +10, d=3 earns ~8.13.
     assert rets[0] == rewards.HILL_RAZE
-    assert rets[1] == pytest.approx(rewards.HILL_RAZE * 0.60653, abs=1e-3)
+    assert rets[1] == pytest.approx(rewards.HILL_RAZE * 0.81283, abs=1e-3)
 
 
 def test_hill_raze_fades_by_twenty_tiles():
@@ -393,8 +393,8 @@ def test_hill_raze_fades_by_twenty_tiles():
     ]
     rets = rewards.compute_returns(game, 0, records)
     assert rets[0] == rewards.HILL_RAZE
-    assert rets[1] == pytest.approx(rewards.HILL_RAZE * 0.00384, abs=1e-3)
-    assert rets[2] == pytest.approx(0.0, abs=1e-3)  # basically nothing
+    assert rets[1] == pytest.approx(rewards.HILL_RAZE / 10)  # 10 out: +-1
+    assert rets[2] < rewards.HILL_RAZE / 100  # tail fading to nothing
 
 
 def test_hill_raze_reaches_far_ants():
@@ -424,7 +424,7 @@ def test_hill_loss_scales_by_distance():
     # at d=3. (No ant is inside combat range of a lost hill — else the
     # razer would be dead — so blame starts just outside kill distance.)
     assert rets[1] == rewards.HILL_LOST
-    assert rets[0] == pytest.approx(rewards.HILL_LOST * 0.60653, abs=1e-3)
+    assert rets[0] == pytest.approx(rewards.HILL_LOST * 0.81283, abs=1e-3)
 
 
 def test_hill_equidistant_ants_split_evenly():
@@ -439,8 +439,8 @@ def test_hill_equidistant_ants_split_evenly():
     rets = rewards.compute_returns(game, 0, records)
     # headcount-agnostic: same distance earns the same each, no halving.
     assert rets == [
-        pytest.approx(rewards.HILL_LOST * 0.94596, abs=1e-3),
-        pytest.approx(rewards.HILL_LOST * 0.94596, abs=1e-3),
+        pytest.approx(rewards.HILL_LOST * 0.97724, abs=1e-3),
+        pytest.approx(rewards.HILL_LOST * 0.97724, abs=1e-3),
     ]
 
 

@@ -226,10 +226,11 @@ def _awards(game, me, records, scales):
             )
 
     # hills: razed iff end_turn <= game length. Each ant earns its own
-    # distance-scaled share: amount * exp(-d2/18) on toroidal squared
-    # distance (sigma=3: full on the tile, ~0.25 at 5 tiles, ~0.004 at
-    # 10, ~0 at 20). No normalization: credit depends on distance only,
-    # never on headcount. Scope is per-ant: each share walks back along
+    # distance-scaled share: amount * exp(-d2*ln10/100) on toroidal
+    # squared distance — calibrated so 10 tiles out pays exactly a
+    # tenth (full on the tile, ~0.56 at 5, ~0.006 at 15, ~0.0001 at
+    # 20). No normalization: credit depends on distance only, never on
+    # headcount. Scope is per-ant: each share walks back along
     # its own path. Unlike food/kill/death splits, hill shares do NOT
     # conserve a total — each ant is paid for where IT stood.
     for entry in replaydata.get("hills", []):
@@ -243,7 +244,7 @@ def _awards(game, me, records, scales):
                 (
                     end,
                     {
-                        i: amount * math.exp(-dist2(dests[i], (r, c), rows, cols) / 18.0)
+                        i: amount * math.exp(-dist2(dests[i], (r, c), rows, cols) * math.log(10) / 100.0)
                         for i in mine
                     },
                     "ant",
