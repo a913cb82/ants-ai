@@ -9,8 +9,11 @@ strip, anchor ladder canvas, standings+bars, attention queue,
 pair matrix + behavior table, recent games. Zero-JS first paint.
 """
 import json
+import re
 import sys
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "ml"))
@@ -156,3 +159,25 @@ def test_replay_page_title_names_replay(tmp_path):
     (base / "games" / "0.replay").write_text("{}")
     page = dashboard.replay_page(base, "games/0.replay")
     assert "<title>" in page and "0.replay" in page.split("</title>")[0]
+
+
+def test_dashboard_script_parses_as_javascript(tmp_path):
+    """The page SCRIPT must parse: one syntax error kills every canvas
+    and live update (server twins keep first paint alive, masking it).
+    Skipped where node is unavailable."""
+    import re
+    import shutil
+    import subprocess
+
+    if shutil.which("node") is None:
+        pytest.skip("node unavailable")
+    import dashboard
+
+    src = Path(dashboard.__file__).read_text()
+    m = re.search(r'^SCRIPT = """\n(.*?)^""",?\s*$', src, re.S | re.M)
+    assert m, "SCRIPT block not found"
+    js = tmp_path / "dash.js"
+    js.write_text(m.group(1))
+    r = subprocess.run(["node", "--check", str(js)], capture_output=True,
+                       text=True, timeout=60)
+    assert r.returncode == 0, r.stderr[-2000:]

@@ -2093,7 +2093,7 @@ function renderStandings(){
   $("standings-body").innerHTML=S.standings.map(r=>
     "<tr"+staleCls(r.last_tick,S.h0.tick)+"><td>"+dot(r.id)+esc(r.id)+"</td><td>"+esc(r.class)+
     '</td><td class="num">'+fmtElo(r.elo)+spark(r.spark||[])+'</td><td class="num">'+r.w+"-"+r.d+"-"+r.l+
-    '</td><td class="num">'+esc(r.n)+'</td><td class="num">'+esc(r.micro)+"/8</td><td class="num">"+fmtTick(r.last_tick)+"</td></tr>"
+    '</td><td class="num">'+esc(r.n)+'</td><td class="num">'+esc(r.micro)+'/8</td><td class="num">'+fmtTick(r.last_tick)+'</td></tr>'
   ).join("");
 }
 function renderAlerts(){
