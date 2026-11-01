@@ -82,6 +82,23 @@ RECORD_ENV = "AA_RECORD_DIR"
 TEMPERATURE_ENV = "AA_TEMPERATURE"
 
 
+def refresh_water(ants: Ants) -> set:
+    """Visible-water set from the live vision map.
+
+    The bot-side map starts all-land and only ever gains water marks
+    (vision lines add them, nothing clears them, water never changes),
+    so this is the accumulated water knowledge: correct fog of war.
+    Caching it once in do_setup froze an empty set — setup runs before
+    any vision — blinding the water channel and the legal mask all game.
+    Rebuild it every turn instead; ~12k set lookups, milliseconds."""
+    return {
+        (r, c)
+        for r in range(ants.rows)
+        for c in range(ants.cols)
+        if not ants.passable((r, c))
+    }
+
+
 class AlphaAntBot:
     def __init__(self, weights_path: str | Path | None = None) -> None:
         raw = json.loads(Path(weights_path or WEIGHTS_PATH).read_text())
@@ -109,14 +126,8 @@ class AlphaAntBot:
         )
 
     def do_setup(self, ants: Ants) -> None:
-        # Water never changes mid-game: cache the impassable set once so
-        # per-turn encoding is pure set lookups, zero engine calls.
-        self._water = {
-            (r, c)
-            for r in range(ants.rows)
-            for c in range(ants.cols)
-            if not ants.passable((r, c))
-        }
+        # Honest empty: no vision yet. do_turn refreshes every turn.
+        self._water = refresh_water(ants)
 
     def _choose(self, logits_i, window_i, blocked):
         """Masked action pick for one ant; returns (action, legal)."""
@@ -217,6 +228,9 @@ class AlphaAntBot:
 
     def do_turn(self, ants: Ants) -> None:
         self._turn += 1
+        # Water knowledge grows as vision does; the snapshot below must
+        # see this turn's map, not setup's empty one.
+        self._water = refresh_water(ants)
         mine = ants.my_ants()
         if not mine:
             return

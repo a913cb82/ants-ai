@@ -2214,3 +2214,38 @@ def test_second_place_terminal_graduated_not_snapped():
     records = [{"turn": 3, "loc": [1, 1], "dest": [1, 1], "action": "stay"}]
     assert rewards.compute_returns(game, 2, records)[0] == pytest.approx(5 - 10 / 3)
     assert rewards.compute_returns(game, 1, records)[0] == pytest.approx(-(5 - 10 / 3))
+
+
+def test_refresh_water_grows_with_vision():
+    import importlib.util
+
+    # Explicit path: test_mapgen_java puts tools/ on sys.path, where a
+    # generic `import ants` resolves to the ENGINE ants, not the bot's.
+    spec = importlib.util.spec_from_file_location(
+        "bot_side_ants", ROOT / "bots" / "alphaant" / "ants.py"
+    )
+    bot_ants = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(bot_ants)
+    import AlphaAnt
+
+    a = bot_ants.Ants()
+    a.setup("rows 10\ncols 10\n")
+    assert AlphaAnt.refresh_water(a) == set()  # no vision yet: honest empty
+    a.update("w 5 5\nf 2 2\na 1 1 0\n")
+    assert AlphaAnt.refresh_water(a) == {(5, 5)}  # food stays passable
+
+
+def test_window_water_channel_masks_the_move():
+    import model
+    from types import SimpleNamespace
+
+    loc = (5, 5)
+    view = SimpleNamespace(
+        rows=10, cols=10, sight2=77, attack2=5, own_ants={loc},
+        own_hills=set(), enemy_ants=set(), enemy_hills=set(),
+        foods=set(), water={(5, 4)},
+    )
+    w = features.local_window(None, loc, radius=2, view=view)
+    assert w[features.WATER_CHANNEL, 2, 1] == 1.0  # west cell marked
+    assert float(w[features.WATER_CHANNEL].sum()) == 1.0
+    assert model.legal_mask(w, frozenset()).tolist() == [True, True, True, False, True]
