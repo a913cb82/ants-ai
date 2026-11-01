@@ -1,10 +1,10 @@
-"""League dashboard contracts (phase 4 of ml/runs/plan-league.md).
+"""League dashboard contracts (build/dashboard2): new snapshot shape.
 
-Pins the backend the rework stands on, all on a synthetic league.json:
-interval bucketing (game order // K, K from league.json snapshot_every),
-anchor panel, anchor-trend + admissions rendering, pool-health math,
-scheduler-state strip, member role + sampling share. No training code,
-no live archive.
+Backend logging (tick/food/kills/army/length on games.jsonl rows, tick
+on anchor rows) plus the board facts the page reads: H0, anchors,
+standings, bars, pairs, behavior, games, alerts. Pure-math tests that
+survived the rework (interval bucketing, anchor panel, window records)
+are unchanged; everything pinning retired keys is rewritten.
 """
 import sys
 from pathlib import Path
@@ -25,12 +25,13 @@ def _game(a, sa, b, sb, kind="eval", gen="main"):
     }
 
 
-def _league_base(base, k=4, anchors=("g000", "g009"), games=8):
+def _league_base(base, k=4, anchors=("g000", "g009"), games=8,
+                 behavior=True):
     """Synthetic league archive: league.json + logged learner games."""
     import archive
 
     archive.init(base)
-    g000 = archive.save_checkpoint(base, {}, role="main", parent=None)
+    archive.save_checkpoint(base, {}, role="main", parent=None)
     archive.init_league(base, "live-main", list(anchors))
     st = archive.load_league(base)
     st["snapshot_every"] = k
@@ -40,15 +41,35 @@ def _league_base(base, k=4, anchors=("g000", "g009"), games=8):
     archive.save_league(base, st)
     for i in range(games):
         learner = "main" if i % 2 == 0 else "me"
+        kw = {} if not behavior else {
+            "tick": i, "food": [2, 1], "kills": [1, 0],
+            "army": [5, 4], "length": 120}
         archive.log_game(base, learner, "eval", learner, "g000",
                          3 if i % 3 else 1, 1,
                          f"games/g{i}/logs/0.replay", map="m",
-                         game=f"gid-{i}")
+                         game=f"gid-{i}", **kw)
         archive.record_result(base, learner, "g000", 3 if i % 3 else 1, 1)
     return base
 
 
-# --- interval bucketing contract ---
+def _replaydata():
+    """One synthetic 2-seat game: seat 0 gathers 2, kills 1, keeps 1
+    alive; seat 1 gathers 1, kills 1, keeps 1 alive; length 10."""
+    return {
+        "map": {"rows": 8, "cols": 8},
+        "food": [[1, 1, 5, 10, 0], [2, 2, 6, 12, 0], [3, 3, 7, 14, 1],
+                 [4, 4, 8, 20]],
+        "ants": [
+            [0, 0, 0, 11, 0, "nnnnnnnnnn"],  # seat 0 survives
+            [1, 1, 0, 6, 0, "eeeeee"],  # seat 0 dies on turn 6
+            [2, 2, 0, 8, 1, "wwwwwwww"],  # seat 1 dies on turn 8
+            [3, 3, 1, 11, 1, "nnnnnnnnn"],  # seat 1 survives (9 moves)
+        ],
+        "hills": [[0, 0, 0, 11], [7, 7, 1, 11]],
+    }
+
+
+# --- interval bucketing contract (unchanged) ---
 
 def test_buckets_key_on_game_order_over_k():
     import dashboard
@@ -87,7 +108,7 @@ def test_interval_size_prefers_league_json():
     assert dashboard.interval_size(base) == 17
 
 
-# --- anchor panel contract ---
+# --- anchor panel contract (unchanged) ---
 
 def test_league_panel_is_anchors_from_league_json(tmp_path):
     import dashboard
@@ -109,16 +130,59 @@ def test_tracked_members_are_main_live_slots_plus_anchors(tmp_path):
     import dashboard
 
     base = _league_base(tmp_path / "a", anchors=["g000", "g009"])
-    import archive
-
-    state = archive.load_league(base)
-    # Fresh league.json has bare slot ids: main + slots + anchors.
     grouped = dashboard.cached_grouped(base)
     assert dashboard.tracked_members(base, grouped) == \
         ["main", "me", "le-a", "le-b", "g000", "g009"]
 
 
-# --- anchor-trend card ---
+# --- backend: behavior fields on game rows ---
+
+def test_log_game_carries_tick_and_behavior(tmp_path):
+    import archive
+
+    base = tmp_path / "a"
+    archive.log_game(base, "main", "eval", "main", "g000", 3, 1,
+                     "games/g0/logs/0.replay", game="gid-0", tick=41,
+                     food=[2, 1], kills=[1, 0], army=[5, 4], length=120)
+    (row,) = archive.list_games(base)
+    assert row["tick"] == 41
+    assert row["food"] == [2, 1] and row["kills"] == [1, 0]
+    assert row["army"] == [5, 4] and row["length"] == 120
+
+
+def test_log_game_old_callers_keep_working(tmp_path):
+    import archive
+
+    base = tmp_path / "a"
+    archive.log_game(base, "g001", "eval", "g000", "g001", 3, 1,
+                     "games/g/logs/0.replay")
+    (row,) = archive.list_games(base)
+    assert row.get("tick") is None and row.get("food") is None
+
+
+def test_anchor_rows_carry_tick(tmp_path):
+    import archive
+
+    base = tmp_path / "a"
+    archive.init(base)
+    row = archive.record_anchor(base, "s1", "m", "g000", 2, 0, 0, tick=7)
+    assert row["tick"] == 7
+    assert archive.list_anchors(base)[0]["tick"] == 7
+    legacy = archive.record_anchor(base, "s1", "m", "g000", 2, 0, 0)
+    assert legacy.get("tick") is None
+
+
+def test_behavior_extraction_from_replay():
+    import archive
+
+    got = archive.behavior_from_replay(_replaydata(), n=2, length=10)
+    assert got == {"food": [2, 1], "kills": [1, 1], "army": [1, 1],
+                   "length": 10}
+    assert archive.behavior_from_replay(None) is None
+    assert archive.behavior_from_replay({}) is None
+
+
+# --- anchors card: ladder per snapshot (new shape) ---
 
 def test_anchor_trend_main_vs_ladder_per_snapshot(tmp_path):
     import archive
@@ -128,85 +192,54 @@ def test_anchor_trend_main_vs_ladder_per_snapshot(tmp_path):
     state = archive.load_league(base)
     state["main_snapshots"] = ["s1", "s2"]
     archive.save_league(base, state)
-    archive.record_anchor(base, "s1", "live-main", "g000", 2, 0, 0)
-    archive.record_anchor(base, "s2", "live-main", "g000", 1, 0, 1)
-    archive.record_anchor(base, "s2", "live-main", "g009", 0, 2, 0)
+    archive.record_anchor(base, "s1", "live-main", "g000", 2, 0, 0, tick=1)
+    archive.record_anchor(base, "s2", "live-main", "g000", 1, 0, 1, tick=2)
+    archive.record_anchor(base, "s2", "live-main", "g009", 0, 2, 0, tick=2)
     trend = dashboard.anchor_trend(base, archive.load_league(base))
     assert trend["snapshots"] == ["s1", "s2"]
-    assert trend["anchors"] == ["g000", "g009"]
     assert trend["series"]["g000"] == [1.0, 0.75]
     assert trend["series"]["g009"] == [None, 0.0]  # unmeasured: gap
 
 
-# --- admissions card ---
+# --- standings: 4 live rows ---
 
-def test_admissions_log_flows_to_snapshot_and_page(tmp_path):
-    import archive
-    import dashboard
-
-    base = _league_base(tmp_path / "a")
-    archive.record_admission(base, "adm-x", "me", 240, "25-10-5")
-    archive.record_admission(base, "adm-y", "le", 320, "24-8-8")
-    snap = dashboard.snapshot(base)
-    assert [a["id"] for a in snap["admissions"]] == ["adm-x", "adm-y"]
-    assert snap["admissions"][0] == {"id": "adm-x", "role": "me",
-                                     "at_game": 240, "record": "25-10-5"}
-    page = dashboard.render_page(snap)
-    assert "adm-x" in page and "adm-y" in page
-    assert "25-10-5" in page
-
-
-# --- pool-health card ---
-
-def test_pool_health_share_newcomers_and_roles(tmp_path):
+def test_standings_four_live_rows(tmp_path):
     import dashboard
 
     base = _league_base(tmp_path / "a", games=8)
     snap = dashboard.snapshot(base)
-    pool = snap["pool"]
-    assert pool["total"] == len(snap["members"])
-    assert pool["by_role"]["main"] == 1  # g000; roles flow through
-    top = pool["top20"]
-    assert top["top_n"] == 20
-    assert top["share"] == 1.0  # 3 seated ids, all inside the top 20
-    assert top["covered"] == top["total"]
-    assert "g000" in pool["newcomers"]  # 8 games logged, <10: new face
-    assert pool["newcomer_count"] == len(pool["newcomers"])
-    page = dashboard.render_page(snap)
-    assert "newcomer queue" in page
+    rows = {r["id"]: r for r in snap["standings"]}
+    assert set(rows) == {"main", "me", "le-a", "le-b"}
+    assert rows["main"]["class"] == "main"
+    assert rows["me"]["class"] == "me"
+    assert rows["le-a"]["class"] == "le"
+    for r in rows.values():
+        assert set(r) == {"id", "class", "elo", "w", "d", "l", "n",
+                          "last_tick"}
+    assert rows["main"]["n"] == 4 and rows["me"]["n"] == 4
+    assert rows["le-a"]["n"] == 0  # never played: unknown, not zero-elo lie
+    assert rows["le-a"]["elo"] is None
+    assert isinstance(rows["main"]["elo"], int)
+    assert rows["main"]["last_tick"] == 6  # newest main game
 
 
-def test_sampling_share_concentration_math():
-    import dashboard
+# --- bars: distance-to-bar per live exploiter ---
 
-    games = [_game("hot", 3, f"o{i}", 1) for i in range(8)]
-    games += [_game("cold", 1, "o8", 0)]
-    share = dashboard.sampling_share(games, top_n=1)
-    assert share["share"] == 8 / 18  # hot's appearances over all seats
-
-
-# --- scheduler-state strip ---
-
-def test_scheduler_strip_current_learner_and_records(tmp_path):
+def test_bars_window_rate_and_eligible_in(tmp_path):
     import archive
     import dashboard
 
-    base = _league_base(tmp_path / "a")
-    archive.note_micro_batch(base, 3)
-    archive.note_exploiter_game(base, "me", 1.0, target="live-main",
-                               member_id="m1")
-    archive.note_exploiter_game(base, "me", 0.5, target="live-main")
+    base = _league_base(tmp_path / "a", games=0)
+    for o in [1.0] * 10 + [0.5] * 4 + [0.0] * 6:
+        archive.note_exploiter_game(base, "me", o, target="live-main")
     snap = dashboard.snapshot(base)
-    strip = snap["league"]
-    assert strip["learner"] == "main"  # scheduler_pos 0
-    assert strip["main_id"] == "live-main"
-    assert strip["progress"] == 3
-    assert strip["micro_size"] == 8
-    me = strip["exploiters"]["me"]
-    assert me["id"] == "m1" and me["games"] == 2
-    assert me["record"] == "1-1-0" and me["rate"] == 0.75
-    page = dashboard.render_page(snap)
-    assert "1-1-0" in page  # live exploiter record in the strip
+    bar = next(b for b in snap["bars"] if b["id"] == "me")
+    assert bar["target"] == "live-main"
+    assert bar["record_wdl"] == "10-4-6"
+    assert bar["rate"] == (10 + 0.5 * 4) / 20
+    assert bar["eligible_in"] == 20  # 40-window minus 20 games
+    le = next(b for b in snap["bars"] if b["id"] == "le-a")
+    assert le["eligible_in"] == 40 and le["rate"] is None
 
 
 def test_window_record_counts_wdl():
@@ -216,40 +249,104 @@ def test_window_record_counts_wdl():
     assert dashboard.window_record([]) == ("0-0-0", None)
 
 
-# --- member table: role + sampling share, no Nash ---
+# --- behavior card: per snapshot id + live slots ---
 
-def test_member_table_role_and_share_no_nash(tmp_path):
+def test_behavior_aggregates_rows(tmp_path):
     import dashboard
 
     base = _league_base(tmp_path / "a", games=8)
-    snap = dashboard.snapshot(base)
-    assert snap["members"], "population must render"
-    for m in snap["members"]:
-        assert "role" in m and "share" in m
-        assert "nash" not in m
-    g000 = next(m for m in snap["members"] if m["id"] == "g000")
-    assert g000["role"] == "main"
-    assert g000["share"] == 0.5  # every game seats g000: 8/16 seats
-    page = dashboard.render_page(snap)
-    assert ">share</th>" in page and ">nash</th>" not in page
+    rows = {r["id"]: r for r in dashboard.snapshot(base)["behavior"]}
+    assert {"main", "me", "le-a", "le-b"} <= set(rows)
+    main = rows["main"]
+    assert main["food"] == 2.0 and main["kills"] == 1.0
+    assert main["army_pct"] == 56  # 5/9 seats alive, 0dp
+    assert main["length"] == 120 and main["n"] == 4
+    assert rows["le-a"]["food"] is None  # unplayed: null, not zero
 
 
-# --- history rows: snapshots + legacy gens ---
-
-def test_history_rows_unify_snapshot_and_gen(tmp_path):
+def test_behavior_unknown_when_no_stats(tmp_path):
     import dashboard
-    import selfplay
 
-    base = _league_base(tmp_path / "a")
-    selfplay.append_history(base, {"challenger": "g001", "champion": "g000",
-                                   "train": {"losses": [0.5],
-                                             "mean_return": 1.0},
-                                   "eval": {"wins": 3, "draws": 0, "games": 6,
-                                            "win_rate": 0.5, "margins": [1],
-                                            "mean_margin": 1.0}})
-    selfplay.append_history(base, {"snapshot": "s7", "learner": "me",
-                                   "games": 40, "tick": 9, "anchors": None})
-    rows = dashboard.history_rows(dashboard.cached_history(base), base)
-    assert [r["kind"] for r in rows] == ["snapshot", "gen"]  # newest first
-    assert rows[0]["id"] == "s7" and rows[0]["learner"] == "me"
-    assert rows[1]["id"] == "g001" and rows[1]["train_return"] == 1.0
+    base = _league_base(tmp_path / "a", games=2, behavior=False)
+    rows = {r["id"]: r for r in dashboard.snapshot(base)["behavior"]}
+    assert rows["main"]["food"] is None
+
+
+# --- pairs: Laplace share + last tick ---
+
+def test_pairs_share_and_last_tick(tmp_path):
+    import dashboard
+
+    base = _league_base(tmp_path / "a", games=8)
+    pairs = dashboard.snapshot(base)["pairs"]
+    # canonical order follows matrix ids ([main, g000, me]): g000 sorts first.
+    assert {(p["a"], p["b"]) for p in pairs} == {("main", "g000"),
+                                                ("g000", "me")}
+    # main games: i=0 draw, i=2 win, i=4 win, i=6 draw → 2W-2D-0L.
+    # Laplace share: (2 + 0.5*2 + 1) / (4 + 2) = 4/6 → 67%.
+    mg = next(p for p in pairs if p["a"] == "main")
+    assert mg["n"] == 4
+    assert mg["share"] == 67  # Laplace-smoothed, 0dp
+    assert mg["last_tick"] == 6
+
+
+# --- games: newest first with dual time ---
+
+def test_games_newest_first_with_dual_time(tmp_path):
+    import dashboard
+
+    base = _league_base(tmp_path / "a", games=4)
+    snap = dashboard.snapshot(base)
+    assert snap["game_total"] == 4
+    gs = snap["games"]
+    assert [g["game_n"] for g in gs] == [3, 2, 1, 0]
+    assert [g["tick"] for g in gs] == [3, 2, 1, 0]
+    assert all(set(g) == {"game_n", "tick", "learner", "seats", "scores",
+                          "result", "replay"} for g in gs)
+    assert gs[0]["learner"] == "me" and gs[0]["seats"] == ["me", "g000"]
+    assert gs[0]["result"] in ("win", "draw", "loss")
+    page = dashboard.render_page(snap)
+    assert "g3 · t3" in page  # dual time everywhere
+
+
+# --- alerts rules ---
+
+def test_alerts_all_clear_single_line(tmp_path):
+    import dashboard
+
+    base = _league_base(tmp_path / "a", games=4)
+    snap = dashboard.snapshot(base)
+    assert snap["alerts"] == [{"level": "ok", "msg": "all clear",
+                               "tick": snap["h0"]["tick"]}]
+
+
+def test_alerts_drought_and_timeouts(tmp_path):
+    import archive
+    import dashboard
+
+    base = _league_base(tmp_path / "a", games=0)
+    for _ in range(121):
+        archive.note_exploiter_game(base, "me", 0.0, target="live-main")
+    for i in range(3):
+        archive.log_game(base, "main", "eval", "main", "g000", 0, 0,
+                         f"games/z{i}/logs/0.replay", game=f"z-{i}",
+                         tick=100 + i, length=0)
+    snap = dashboard.snapshot(base)
+    msgs = [a["msg"] for a in snap["alerts"]]
+    assert any("drought" in m and "me" in m for m in msgs)
+    assert any("timeout" in m for m in msgs)
+    assert len(snap["alerts"]) <= 5
+
+
+def test_alerts_anchor_drop(tmp_path):
+    import archive
+    import dashboard
+
+    base = _league_base(tmp_path / "a", games=0, anchors=["g000"])
+    state = archive.load_league(base)
+    state["main_snapshots"] = ["s1", "s2"]
+    archive.save_league(base, state)
+    archive.record_anchor(base, "s1", "m", "g000", 2, 0, 0, tick=1)
+    archive.record_anchor(base, "s2", "m", "g000", 0, 2, 0, tick=2)
+    snap = dashboard.snapshot(base)
+    assert any("g000" in a["msg"] for a in snap["alerts"])

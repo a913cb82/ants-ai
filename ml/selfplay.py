@@ -450,7 +450,8 @@ def maybe_snapshot(cfg: dict, base: Path, live: dict, state: dict,
             continue
     if anchor_ws:
         anchors = measure.measure_all(cfg, base, sid, sid, weights,
-                                      anchor_ws)
+                                      anchor_ws,
+                                      tick=state.get("tick", 0))
     archive.save_league(base, state)
     append_history(base, {"snapshot": sid, "learner": learner,
                           "games": games,
@@ -500,8 +501,9 @@ def run_tick(cfg: dict, base: Path, live: dict,
     game_no = learner_games(state, learner)
     map_path = rng.choice(cfg["maps"])
     played = train._play_one(
-        (dict(cfg, game_kind="eval"), base, seat_id, [seat_id, opp],
-         [live_w, opp_w], game_no, lcfg["pricing"], map_path))
+        (dict(cfg, game_kind="eval", tick=tick), base, seat_id,
+         [seat_id, opp], [live_w, opp_w], game_no, lcfg["pricing"],
+         map_path))
     batch = algorithm.collect(entry["policy"], played["rows"],
                               played["rets"])
     entry["pending"].extend(batch)
@@ -541,6 +543,8 @@ def run_tick(cfg: dict, base: Path, live: dict,
         state = archive.load_league(base)
         archive.note_reset(base, learner, seat_id, game_no, tick)
         state = archive.load_league(base)
+    # Behavior stats ride the played game dict into log_game inside
+    # _play_one (parsed once per game); the tick rides this cfg copy.
     else:
         # No stall rule: a drought simply keeps training under the same
         # bare id with a rolling window. The admitted freeze is the

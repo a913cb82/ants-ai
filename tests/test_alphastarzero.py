@@ -1235,31 +1235,37 @@ def test_snapshot_empty_and_populated(tmp_path):
 
     base = tmp_path / "archive"
     snap = dashboard.snapshot(base)
-    assert snap["main"] is None and snap["members"] == [] and snap["games"] == []
+    assert snap["games"] == [] and snap["game_total"] == 0
+    assert {r["id"] for r in snap["standings"]} == \
+        {"main", "me", "le-a", "le-b"}
+    assert snap["alerts"] == [{"level": "ok", "msg": "all clear",
+                                  "tick": 0}]
     a = archive.save_checkpoint(base, {}, role="main", parent=None)
     b = archive.save_checkpoint(base, {}, role="challenger", parent=a)
     archive.log_game(base, a, "eval", a, b, 3, 1, "games/g000/e0/logs/0.replay")
     selfplay.append_history(base, {"train": {"losses": [0.5], "mean_return": 1.0}})
     snap = dashboard.snapshot(base)
-    assert snap["main"] is None  # no league.json: no main yet
-    assert snap["members"][0]["wins"] == 1.0
+    assert "history" not in snap  # legacy history retired
+    assert snap["game_total"] == 1
     assert snap["games"][0]["replay"].endswith("0.replay")
 
 
-def test_snapshot_keeps_legacy_gen_margins(tmp_path):
+def test_snapshot_games_carry_dual_time(tmp_path):
+    import archive
     import dashboard
-    import selfplay
 
     base = tmp_path / "archive"
-    selfplay.append_history(base, {
-        "challenger": "c1", "champion": "m", "promoted": False,
-        "train": {"losses": [0.5], "mean_return": 0.1},
-        "eval": {"wins": 0, "draws": 2, "games": 2, "win_rate": 0.5,
-                 "margins": [0, 0], "mean_margin": 0.0},
-        "config": {},
-    })
+    a = archive.save_checkpoint(base, {}, role="main", parent=None)
+    archive.log_game(base, a, "eval", a, "g9", 3, 1,
+                     "games/g0/logs/0.replay", game="g#0", tick=7)
+    archive.log_game(base, a, "eval", "g9", a, 0, 5,
+                     "games/g1/logs/0.replay", game="g#1", tick=9)
     snap = dashboard.snapshot(base)
-    assert snap["history"][0]["margins"] == [0, 0]  # dots still fed
+    assert [(g["game_n"], g["tick"]) for g in snap["games"]] == \
+        [(1, 9), (0, 7)]  # newest first, chronological ordinals
+    assert all(set(g) == {"game_n", "tick", "learner", "seats",
+                           "scores", "result", "replay"}
+               for g in snap["games"])
 
 
 def test_batch_norm_keeps_event_magnitude_over_noise():
@@ -1282,26 +1288,21 @@ def test_batch_norm_keeps_event_magnitude_over_noise():
     assert event > 10 * noise
 
 
-def test_snapshot_carries_run_timing_and_plan(tmp_path):
+def test_snapshot_h0_tracks_scheduler_state(tmp_path):
+    import archive
     import dashboard
-    import selfplay
 
     base = tmp_path / "archive"
-    for i, dur in enumerate([40.0, 44.0]):
-        selfplay.append_history(base, {
-            "challenger": f"c{i}", "champion": "m", "promoted": False,
-            "started_at": 1000.0 * i, "finished_at": 1000.0 * i + dur,
-            "duration_s": dur,
-            "train": {"losses": [0.5], "mean_return": 0.1},
-            "eval": {"wins": 0, "draws": 2, "games": 2, "win_rate": 0.5,
-                     "margins": [0, 0], "mean_margin": 0.0},
-            "config": {},
-        })
-    (base / "run_plan.json").write_text('{"target_gens": 10}')
+    archive.save_checkpoint(base, {}, role="main", parent=None)
+    archive.init_league(base, "live-main", ["g000"])
+    archive.note_micro_batch(base, 5)
+    archive.note_exploiter_game(base, "me", 1.0, target="live-main")
     snap = dashboard.snapshot(base)
-    assert snap["history"][0]["duration_s"] == 44.0  # newest first
-    assert snap["history"][0]["finished_at"] == 1044.0
-    assert snap["history"][0]["kind"] == "gen"  # league history rows
+    h0 = snap["h0"]
+    assert (h0["tick"], h0["learner"]) == (0, "main")
+    assert (h0["micro_n"], h0["micro_size"]) == (0, 8)
+    bar = next(b for b in snap["bars"] if b["id"] == "me")
+    assert bar["record_wdl"] == "1-0-0" and bar["eligible_in"] == 39
 
 
 def test_replay_page_guards_traversal(tmp_path):
@@ -1325,14 +1326,17 @@ def test_status_roundtrip(tmp_path):
     assert archive.read_status(base)["done"] == 2
 
 
-def test_snapshot_carries_live_status(tmp_path):
+def test_snapshot_retires_status_and_members(tmp_path):
     import archive
     import dashboard
 
     base = tmp_path / "archive"
-    assert dashboard.snapshot(base)["status"] == {}
     archive.write_status(base, {"phase": "eval", "done": 3, "total": 20})
-    assert dashboard.snapshot(base)["status"]["phase"] == "eval"
+    snap = dashboard.snapshot(base)
+    assert "status" not in snap and "members" not in snap
+    assert set(snap["h0"]) == {"tick", "game_n", "learner",
+                                "micro_n", "micro_size", "games_per_h",
+                                "secs_since_game", "anchor_verdict"}
 
 
 def test_dashboard_http_api(tmp_path):
@@ -1354,8 +1358,8 @@ def test_dashboard_http_api(tmp_path):
     try:
         root = f"http://127.0.0.1:{httpd.server_address[1]}"
         snap = json.load(urllib.request.urlopen(root + "/api/snapshot", timeout=5))
-        assert snap["main"] == a and snap["game_total"] == 0
-        assert "history" in snap and "status" in snap
+        assert snap["h0"]["learner"] == "main" and snap["game_total"] == 0
+        assert "history" not in snap and "status" not in snap
         archive.log_game(base, a, "eval", a, a, 1, 1, "games/g/e/logs/0.replay")
         page = json.load(urllib.request.urlopen(root + "/api/games?limit=1", timeout=5))
         assert page["total"] == 1 and len(page["rows"]) == 1
@@ -2278,13 +2282,15 @@ def test_snapshot_np_train_and_eval_count_games(tmp_path):
                     nrows += 1
     assert nrows == 20
     snap = dashboard.snapshot(base)
-    assert snap["counts"]["games"] == 6 and snap["game_total"] == 6
+    assert snap["game_total"] == 6
     assert len(snap["games"]) == 6
-    assert sorted(g["n"] for g in snap["games"]) == [2, 2, 3, 3, 4, 4]
     g4 = next(g for g in snap["games"]
-              if g["n"] == 4 and g["kind"] == "eval")
-    assert [s["id"] for s in g4["seats"]] == ["c", "m", "x", "y"]
-    assert [s["rank"] for s in g4["seats"]] == [0, 1, 2, 3]
+              if len(g["seats"]) == 4
+              and g["replay"] == "games/g/eval4/logs/0.replay")
+    assert g4["seats"] == ["c", "m", "x", "y"]
+    assert g4["scores"] == [3, 2, 1, 0]
+    grouped = dashboard.group_games(archive.list_games(base))
+    assert sorted(g["n"] for g in grouped) == [2, 2, 3, 3, 4, 4]
 
 
 def test_api_games_groups_and_filters_by_any_seat(tmp_path):
@@ -2386,21 +2392,21 @@ def test_snapshot_2p_history_meaning_unchanged(tmp_path):
     b = archive.save_checkpoint(base, {}, role="challenger", parent=a)
     archive.log_game(base, a, "eval", a, b, 3, 1,
                      "games/g000/e0/logs/0.replay")
+    archive.record_result(base, a, b, 3, 1)
     archive.log_game(base, a, "eval", b, a, 1, 1,
                      "games/g000/e1/logs/0.replay")
+    archive.record_result(base, b, a, 1, 1)
     snap = dashboard.snapshot(base)
-    assert snap["counts"]["games"] == 2 and snap["game_total"] == 2
+    assert snap["game_total"] == 2
     assert len(snap["games"]) == 2
     g0 = next(g for g in snap["games"]
               if g["replay"] == "games/g000/e0/logs/0.replay")
-    assert g0["n"] == 2
-    assert [(s["id"], s["score"]) for s in g0["seats"]] == [(a, 3), (b, 1)]
-    assert len(g0["pairs"]) == 1
-    by_id = {m["id"]: m for m in snap["members"]}
-    assert (by_id[a]["wins"], by_id[a]["draws"],
-            by_id[a]["losses"]) == (1, 1, 0)
-    assert (by_id[b]["wins"], by_id[b]["draws"],
-            by_id[b]["losses"]) == (0, 1, 1)
+    assert (g0["seats"], g0["scores"]) == ([a, b], [3, 1])
+    assert g0["result"] == "win"  # learner (seat 0) takes it
+    pair = next(p for p in snap["pairs"]
+                if {p["a"], p["b"]} == {a, b})
+    assert pair["n"] == 2  # one win + one draw from a's side
+    assert pair["share"] == round(100 * (1 + 0.5 + 1) / (2 + 2))
 
 
 def test_cached_grouped_shares_one_grouping_per_poll(tmp_path):

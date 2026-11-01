@@ -238,22 +238,87 @@ def next_drill_maps(base: Path, pool: list, n: int, gen_num: int) -> list:
     return chosen
 
 
+def behavior_from_replay(replaydata, n: int = 2, length=None) -> dict | None:
+    """Per-seat behavior stats from one game dict (parsed once per game).
+
+    food[s]: food entries gathered by seat s (replaydata food owner).
+    kills[s]: enemy ants dead before game end for seat s (ants die only
+    by combat; killed = end - spawn == len(orders), the trajectories
+    convention from rewards). army[s]: ants of seat s alive at game end.
+    length: the played game length, passed in (game["length"]). Returns
+    None when the replay carries no ant/food facts (unknown, not zero)."""
+    if not isinstance(replaydata, dict):
+        return None
+    ants = replaydata.get("ants") or []
+    foods = replaydata.get("food") or []
+    if not ants and not foods:
+        return None
+    top = n
+    for entry in list(ants) + list(foods):
+        if (isinstance(entry, (list, tuple)) and len(entry) >= 5
+                and isinstance(entry[4], int)):
+            top = max(top, entry[4] + 1)
+    food = [0] * top
+    kills = [0] * top
+    army = [0] * top
+    for entry in foods:
+        if (isinstance(entry, (list, tuple)) and len(entry) >= 5
+                and isinstance(entry[4], int) and 0 <= entry[4] < top):
+            food[entry[4]] += 1
+    for entry in ants:
+        if not (isinstance(entry, (list, tuple)) and len(entry) >= 6):
+            continue
+        _r, _c, spawn, end, owner, orders = entry[:6]
+        if not (isinstance(owner, int) and 0 <= owner < top):
+            continue
+        try:
+            killed = (end - spawn) == len(orders)
+        except TypeError:
+            continue
+        if killed:
+            for s in range(top):
+                if s != owner:
+                    kills[s] += 1
+        else:
+            army[owner] += 1
+    return {"food": food, "kills": kills, "army": army,
+            "length": length}
+
+
 def log_game(
     base: Path, gen: str, kind: str, a: str, b: str,
     score_a: float, score_b: float, replay: str, map: str | None = None,
-    game: str | None = None,
+    game: str | None = None, tick: int | None = None,
+    food=None, kills=None, army=None, length=None, t=None,
 ) -> None:
     """Append one game to the dashboard index (replay path archive-relative).
 
     One row is logged per seat-pair, so an N-player game yields N*(N-1)/2
     rows sharing one `game` id ("<outdir>#<token>", one play, one id).
-    Rows logged before the id existed carry None and group by replay path."""
+    Rows logged before the id existed carry None and group by replay path.
+    tick/food/kills/army/length are the scheduler's per-game behavior
+    facts (aligned to the (a, b) seats); t is the wall-clock stamp. All
+    five default to None and are omitted then, so old callers keep
+    working and the board renders a dash for unknown."""
     init(base)
-    append_jsonl(_paths(base)["dir"] / "games.jsonl", {
+    row = {
         "gen": gen, "kind": kind, "a": a, "b": b,
         "score_a": score_a, "score_b": score_b, "replay": replay,
         "map": map, "game": game,
-    })
+    }
+    if tick is not None:
+        row["tick"] = tick
+    if food is not None:
+        row["food"] = list(food)
+    if kills is not None:
+        row["kills"] = list(kills)
+    if army is not None:
+        row["army"] = list(army)
+    if length is not None:
+        row["length"] = length
+    if t is not None:
+        row["t"] = t
+    append_jsonl(_paths(base)["dir"] / "games.jsonl", row)
 
 
 def write_status(base: Path, status: dict) -> None:
@@ -571,12 +636,16 @@ def _anchor_row(row: object) -> bool:
 
 
 def record_anchor(base: Path, snapshot_id: str, main_id: str, anchor_id: str,
-                  wins: int, losses: int, draws: int) -> dict:
+                  wins: int, losses: int, draws: int,
+                  tick: int | None = None) -> dict:
     """Append one anchor measurement row (anchor games carry no gradient).
-    Returns the row."""
+    tick stamps the scheduler tick (omitted when unknown, so old callers
+    keep working). Returns the row."""
     row = {"snapshot_id": snapshot_id, "main_id": main_id,
            "anchor_id": anchor_id, "wins": wins,
            "losses": losses, "draws": draws}
+    if tick is not None:
+        row["tick"] = tick
     append_jsonl(_anchor_path(base), row)
     return row
 

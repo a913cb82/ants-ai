@@ -298,24 +298,32 @@ def _mini_league(base, n_games=12, k=4, learners=("main", "me"),
     return base
 
 
-def test_snapshot_board_present_and_interval_shaped(tmp_path):
+def test_snapshot_contract_new_keys_only(tmp_path):
     import dashboard
 
     base = _mini_league(tmp_path / "archive")
     snap = dashboard.snapshot(base)
-    board = snap["board"]
-    for key in ("k", "labels", "elo", "conv", "decisive", "margin"):
-        assert key in board, key
-    assert board["k"] == 4
-    assert len(board["labels"]) == 3  # 12 games, K=4
-    elo = board["elo"]
-    assert elo["tracked"][:2] == ["main", "me"]
-    assert set(elo["series"]) == set(elo["tracked"])
-    assert all(len(v) == 3 for v in elo["series"].values())
-    assert snap["main"] == "live-main"  # league working id, not a champion
-    assert all("nash" not in m for m in snap["members"])  # Nash retired
-    assert snap["members"][0]["role"] in ("main", "challenger")
-    assert "share" in snap["members"][0]
+    assert set(snap) == {"h0", "anchors", "standings", "bars",
+                            "pairs", "behavior", "games", "game_total",
+                            "alerts", "mtime"}
+    for legacy in ("board", "members", "pool", "history",
+                     "anchor_trend", "league", "admissions", "maps",
+                     "main", "status", "counts"):
+        assert legacy not in snap, legacy
+    # 12 games, K=4: standings Elo still runs over 3 intervals.
+    rows = {r["id"]: r for r in snap["standings"]}
+    assert set(rows) == {"main", "me", "le-a", "le-b"}
+    assert isinstance(rows["main"]["elo"], int)
+    h0 = snap["h0"]
+    assert (h0["tick"], h0["game_n"], h0["learner"]) == (0, 12, "main")
+    assert (h0["micro_n"], h0["micro_size"]) == (0, 8)
+    assert h0["games_per_h"] is None  # no wall-clock stamps logged
+    assert h0["secs_since_game"] is not None and h0["secs_since_game"] >= 0
+    assert h0["anchor_verdict"] == "flat"  # no anchor rows yet
+    assert snap["game_total"] == 12 and len(snap["games"]) == 12
+    assert snap["pairs"]  # Laplace shares over the logged pairs
+    assert snap["alerts"] == [{"level": "ok", "msg": "all clear",
+                                 "tick": 0}]
 
 
 def test_snapshot_memo_reuses_and_invalidates(tmp_path):
@@ -335,12 +343,17 @@ def test_running_elo_streaming_extend_matches_rebuild(tmp_path):
     import dashboard
 
     base = _mini_league(tmp_path / "archive", n_games=8, k=4)
-    s1 = dashboard.snapshot(base)["board"]["elo"]
+    dashboard._interval_elo_cache.pop("state", None)
+    g1 = dashboard.cached_grouped(base)
+    s1 = dashboard._interval_elo_cached(base, g1, 4,
+                                         ["main", "me"])["series"]
     _mini_league(base, n_games=4, k=4, start=100)  # same dir, more games
     # league.json rewrite resets snapshot_every identically; games append.
-    s2 = dashboard.snapshot(base)["board"]["elo"]
-    assert s2["series"]["main"][:2] == s1["series"]["main"]
-    assert len(s2["series"]["main"]) == 3
+    g2 = dashboard.cached_grouped(base)
+    s2 = dashboard._interval_elo_cached(base, g2, 4,
+                                         ["main", "me"])["series"]
+    assert s2["main"][:2] == s1["main"]  # prefix Elo never moves
+    assert len(s2["main"]) == 3
 
 
 @pytest.mark.slow
@@ -359,8 +372,7 @@ def test_running_board_perf_real_archive():
     t0 = time.time()
     snap = dashboard.snapshot(base)
     cold = time.time() - t0
-    n_interval = snap["intervals"]["n"]
-    assert n_interval > 100
+    assert snap["game_total"] > 100
     t0 = time.time()
     dashboard.snapshot(base)
     warm = time.time() - t0
@@ -382,7 +394,7 @@ def test_concurrent_snapshots_never_race(tmp_path):
     dashboard._interval_elo_cache.clear()
     dashboard._snapshot_cache.clear()
     with ThreadPoolExecutor(max_workers=4) as ex:
-        boards = list(ex.map(lambda _: dashboard.snapshot(base)["board"],
+        boards = list(ex.map(lambda _: dashboard.snapshot(base)["standings"],
                              range(4)))
     first = json.dumps(boards[0], sort_keys=True)
     assert all(json.dumps(b, sort_keys=True) == first for b in boards)

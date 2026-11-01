@@ -111,7 +111,8 @@ def cached_history(base: Path) -> list[dict]:
     )
 
 
-SNAPSHOT_FILES = ("games.jsonl", "history.jsonl", "matrix.json")
+SNAPSHOT_FILES = ("games.jsonl", "matrix.json", "manifest.jsonl",
+                  "league.json", "anchor.jsonl")
 
 
 def archive_mtime(base: Path) -> int:
@@ -410,7 +411,8 @@ def partition_group(normed: list[tuple]) -> list[list[tuple]]:
 
 
 def build_game(gen: str, kind: str, map: str | None, replay: str,
-               items: list[tuple[tuple, dict]]) -> dict | None:
+               items: list[tuple[tuple, dict]],
+               tick: int | None = None) -> dict | None:
     """One visual game from a consistent block: every seat with score,
     rank, margin vs field-best, effective points and outcome; the pair
     rows as detail. None when the block cannot be one game."""
@@ -447,6 +449,7 @@ def build_game(gen: str, kind: str, map: str | None, replay: str,
         "pairs": [{"a": r["a"], "b": r["b"],
                     "score_a": r["score_a"], "score_b": r["score_b"]}
                    for _, r in items],
+        "tick": tick,
     }
 
 
@@ -470,9 +473,13 @@ def group_games(rows: list[dict]) -> list[dict]:
         for r in oldest:
             raws.setdefault(_norm_row(r), r)
         m0 = meta[key]
+        ticks = [r.get("tick") for r in oldest
+                 if isinstance(r.get("tick"), (int, float))]
+        tick = max(ticks) if ticks else None
         for block in partition_group([_norm_row(r) for r in oldest]):
             g = build_game(m0["gen"], m0["kind"], m0.get("map"),
-                           m0["replay"], [(n, raws[n]) for n in block])
+                           m0["replay"], [(n, raws[n]) for n in block],
+                           tick=tick)
             if g is not None:
                 games.append(g)
     return games
@@ -956,7 +963,7 @@ def anchor_trend(base: Path, state: dict | None) -> dict:
     draws} accumulate per (snapshot, anchor); the share is
     (wins + draws/2) / total, one point per main snapshot in snapshot
     order (state main_snapshots, else first-seen order). Anchor games
-    carry no gradient, so this curve moves only when the main does."""
+    carry no gradient, so this ladder moves only when the main does."""
     anchors = list((state or {}).get("anchors", []) or [])
     acc: dict[tuple, list] = {}
     order: list[str] = []
@@ -979,7 +986,7 @@ def anchor_trend(base: Path, state: dict | None) -> dict:
             t = w + lo + d
             line.append((w + 0.5 * d) / t if t else None)
         series[a] = line
-    return {"snapshots": snaps, "anchors": anchors, "series": series}
+    return {"snapshots": snaps, "series": series}
 
 
 def participation(grouped: list[dict]) -> dict[str, int]:
@@ -1143,9 +1150,8 @@ def _snapshot_key(base: Path) -> tuple:
     """Memo key covering every file snapshot() reads: mtime+size per
     file, so any writer (scheduler, trainer, status) invalidates."""
     parts = []
-    for name in ("games.jsonl", "history.jsonl", "matrix.json",
-                 "manifest.jsonl", "league.json", "anchor.jsonl",
-                 "champion.json", "status.json"):
+    for name in ("games.jsonl", "matrix.json", "manifest.jsonl",
+                 "league.json", "anchor.jsonl"):
         try:
             st = (base / name).stat()
             parts.append((name, st.st_mtime_ns, st.st_size))
@@ -1164,47 +1170,371 @@ def snapshot(base: Path) -> dict:
                   lambda: _build_snapshot(base))
 
 
+# ---------------------------------------------------------------- NEW CONTRACT
+# build/dashboard2: h0, anchors, standings, bars, pairs, behavior,
+# games, alerts, mtime. Derived from games.jsonl rows (tick + behavior
+# facts), the eval matrix (existing bucket + running-Elo math, untouched),
+# league.json (scheduler state + admission windows), the manifest
+# (snapshot ids) and anchor.jsonl (the ladder). Unknowns read as None
+# and render as a dash, never as zero.
+
+#: Live slots: the four permanent lineages (frozen achievements live
+#: under family ids, never here).
+LIVE_SLOTS = ("main", "me", "le-a", "le-b")
+SLOT_CLASS = {"main": "main", "me": "me", "le-a": "le",
+              "le-b": "le"}
+
+#: A row older than this many ticks vs h0.tick reads grayed out.
+STALE_TICKS = 200
+#: No game for this long: the scheduler is stuck.
+ALERT_IDLE_S = 15 * 60
+#: Exploiter games since its last admission past this multiple of the
+#: window: an admission drought.
+ALERT_DROUGHT_X = 3
+#: Snapshot-to-snapshot anchor share drop, in percentage points.
+ALERT_ANCHOR_PP = 10.0
+#: Recent games scanned for length-0 timeouts.
+ALERT_TIMEOUT_N = 20
+
+
+def behavior_ids(base: Path) -> list[str]:
+    """Board row ids: live slots plus frozen snapshot/admission ids.
+
+    Manifest order (snapshots first), live slots pinned first."""
+    ids = list(LIVE_SLOTS)
+    for m in archive.members(base):
+        cid = m.get("id")
+        if (isinstance(cid, str) and cid not in ids
+                and m.get("role") in archive.LEAGUE_ROLES):
+            ids.append(cid)
+    return ids
+
+
+def _wall_now() -> float:
+    import time as _time
+    return _time.time()
+
+
+def rate_window(base: Path) -> tuple[int | None, float | None]:
+    """(games in the last hour, seconds since the last game).
+
+    From the wall-clock stamps the scheduler logs per game; the game
+    index mtime is the recency fallback when rows predate stamps.
+    None when nothing is logged yet."""
+    stamps = sorted(r["t"] for r in cached_games(base)
+                    if isinstance(r.get("t"), (int, float)))
+    if stamps:
+        now = _wall_now()
+        return (sum(1 for t in stamps if t > now - 3600),
+                max(0.0, now - stamps[-1]))
+    try:
+        return (None, max(0.0, _wall_now()
+                           - (base / "games.jsonl").stat().st_mtime))
+    except OSError:
+        return (None, None)
+
+
+def anchor_verdict(trend: dict) -> str:
+    """Water-mark read of the ladder: new-high when the latest snapshot
+    averages above every prior one, down when it slips below the
+    previous snapshot, else flat."""
+    snaps = trend.get("snapshots", []) or []
+    series = trend.get("series", {}) or {}
+    avgs = []
+    for i in range(len(snaps)):
+        vals = [line[i] for line in series.values()
+                if i < len(line) and isinstance(line[i], (int, float))]
+        avgs.append(sum(vals) / len(vals) if vals else None)
+    known = [a for a in avgs if a is not None]
+    if len(known) < 2:
+        return "flat"
+    if known[-1] > max(known[:-1]):
+        return "new-high"
+    if known[-1] < known[-2]:
+        return "down"
+    return "flat"
+
+
+def h0_panel(base: Path, state: dict | None, grouped: list[dict],
+             trend: dict) -> dict:
+    """Sticky strip facts: tick · game# · learner · micro · rate ·
+    recency · anchor verdict."""
+    state = state or {}
+    order = list(archive.SCHEDULER_ORDER)
+    learner = order[state.get("scheduler_pos", 0) % len(order)]
+    micro = (state.get("micro", {}) or {}).get(learner, 0)
+    micro_size = state.get("micro_batch_size",
+                           archive.MICRO_BATCH_SIZE) or 8
+    games_per_h, secs = rate_window(base)
+    return {
+        "tick": state.get("tick", 0),
+        "game_n": len(grouped),
+        "learner": learner,
+        "micro_n": micro % micro_size,
+        "micro_size": micro_size,
+        "games_per_h": games_per_h,
+        "secs_since_game": secs,
+        "anchor_verdict": anchor_verdict(trend),
+    }
+
+
+def standings_panel(base: Path, grouped: list[dict], K: int) -> list[dict]:
+    """Four live rows: running-Elo math (untouched) plus W-D-L and the
+    last tick each slot played. Unplayed slots read null, never zero."""
+    tally = tally_eval(grouped)
+    try:
+        elo = _interval_elo_cached(
+            base, grouped, K, list(LIVE_SLOTS))["series"]
+    except (OSError, ValueError, KeyError, TypeError):
+        elo = {s: [] for s in LIVE_SLOTS}
+    last: dict[str, float] = {}
+    for g in grouped:
+        tick = g.get("tick")
+        if not isinstance(tick, (int, float)):
+            continue
+        for s in g.get("seats", []) or []:
+            sid = s.get("id")
+            if isinstance(sid, str) and sid in LIVE_SLOTS:
+                last[sid] = max(last.get(sid, tick), tick)
+    rows = []
+    for sid in LIVE_SLOTS:
+        w, d, lo = tally.get(sid, [0, 0, 0])
+        vals = [v for v in (elo.get(sid) or [])
+                if isinstance(v, (int, float))]
+        rows.append({
+            "id": sid, "class": SLOT_CLASS[sid],
+            "elo": int(round(vals[-1])) if vals else None,
+            "w": w, "d": d, "l": lo, "n": w + d + lo,
+            "last_tick": last.get(sid),
+        })
+    return rows
+
+
+def bars_panel(state: dict | None) -> list[dict]:
+    """Distance-to-bar per live exploiter: window W-D-L vs its target
+    from league.json, plus games to eligibility (window fill)."""
+    out = []
+    for name, exp in ((state or {}).get("exploiters", {}) or {}).items():
+        window = [x for x in (exp or {}).get("window", []) or []
+                  if isinstance(x, (int, float))]
+        w = sum(1 for x in window if x == 1.0)
+        d = sum(1 for x in window if x == 0.5)
+        n = len(window)
+        out.append({
+            "id": name,
+            "target": (exp or {}).get("target"),
+            "rate": round((w + 0.5 * d) / n, 4) if n else None,
+            "record_wdl": f"{w}-{d}-{n - w - d}",
+            "eligible_in": max(0, archive.WINDOW_SIZE - n),
+        })
+    return out
+
+
+def pairs_panel(base: Path, grouped: list[dict]) -> list[dict]:
+    """Unordered pairs: existing bucket math, Laplace share, last tick.
+
+    One interval over the whole log reuses interval_pair_buckets
+    exactly (train+eval together, strays skipped); the share smooths
+    unseen pairs to 0.5 like the Elo pass."""
+    try:
+        data = json.loads((base / "matrix.json").read_text())
+        ids = data.get("ids", [])
+    except (OSError, ValueError):
+        return []
+    pos = {cid: i for i, cid in enumerate(ids)}
+    per = interval_pair_buckets(grouped, max(1, len(grouped)), pos)
+    buck = per[0] if per else {}
+    last: dict[tuple, float] = {}
+    for g in grouped:
+        tick = g.get("tick")
+        for p in g.get("pairs", []) or []:
+            a, b = p.get("a"), p.get("b")
+            if a not in pos or b not in pos:
+                continue
+            i, j = pos[a], pos[b]
+            if i == j:
+                continue
+            key = (i, j) if i < j else (j, i)
+            if isinstance(tick, (int, float)):
+                last[key] = max(last.get(key, tick), tick)
+    out = []
+    for (i, j), (w, lo) in buck.items():
+        total = w + lo
+        out.append({
+            "a": ids[i], "b": ids[j],
+            "share": int(round(100 * (w + 1) / (total + 2))),
+            "n": int(total),
+            "last_tick": last.get((i, j)),
+        })
+    out.sort(key=lambda r: (-r["n"], r["a"], r["b"]))
+    return out
+
+
+def behavior_panel(base: Path) -> list[dict]:
+    """Per snapshot id + live slots: mean food/kills/army share/length
+    over logged behavior rows. Null when unplayed or unstamped."""
+    acc: dict[str, dict] = {}
+    for cid in behavior_ids(base):
+        acc[cid] = {"food": [], "kills": [], "army": [],
+                    "length": [], "n": 0}
+    for r in cached_games(base):
+        food, kills, army = r.get("food"), r.get("kills"), r.get("army")
+        if not (isinstance(food, list) and isinstance(kills, list)
+                and isinstance(army, list)):
+            continue
+        if len(food) < 2 or len(kills) < 2 or len(army) < 2:
+            continue
+        try:
+            f = (float(food[0]), float(food[1]))
+            k = (float(kills[0]), float(kills[1]))
+            a = (float(army[0]), float(army[1]))
+        except (TypeError, ValueError):
+            continue
+        length = r.get("length")
+        length = length if isinstance(length, (int, float)) else None
+        sides = ((r.get("a"), f[0], k[0], a[0]),
+                 (r.get("b"), f[1], k[1], a[1]))
+        for cid, fi, ki, ai in sides:
+            cell = acc.get(cid)
+            if cell is None:
+                continue
+            cell["food"].append(fi)
+            cell["kills"].append(ki)
+            if a[0] + a[1] > 0:
+                cell["army"].append(100 * ai / (a[0] + a[1]))
+            if length is not None:
+                cell["length"].append(length)
+            cell["n"] += 1
+    out = []
+    for cid, cell in acc.items():
+        n = cell["n"]
+
+        def _mean(vals):
+            return sum(vals) / len(vals) if vals else None
+        out.append({
+            "id": cid,
+            "food": round(_mean(cell["food"]), 1)
+            if cell["food"] else None,
+            "kills": round(_mean(cell["kills"]), 1)
+            if cell["kills"] else None,
+            "army_pct": int(round(_mean(cell["army"])))
+            if cell["army"] else None,
+            "length": int(round(_mean(cell["length"])))
+            if cell["length"] else None,
+            "n": n,
+        })
+    return out
+
+
+def games_panel(grouped: list[dict],
+                limit: int = 100) -> tuple[list[dict], int]:
+    """Recent games newest-first: dual ordinal+tick, learner-side result."""
+    total = len(grouped)
+    out = []
+    for idx, g in enumerate(grouped[:limit]):
+        seats = g.get("seats", []) or []
+        ref = seats[0].get("id") if seats else None
+        out.append({
+            "game_n": total - 1 - idx,
+            "tick": g.get("tick"),
+            "learner": g.get("gen"),
+            "seats": [s.get("id") for s in seats],
+            "scores": [s.get("score") for s in seats],
+            "result": member_game_result(g, ref) if ref else None,
+            "replay": g.get("replay"),
+        })
+    return out, total
+
+
+def _fmt_idle(secs: float) -> str:
+    s = int(round(secs))
+    if s < 60:
+        return f"{s}s"
+    return f"{s // 60}m {s % 60:02d}s"
+
+
+def alerts_panel(base: Path, state: dict | None, trend: dict,
+                 h0: dict) -> list[dict]:
+    """Attention queue, max 5: stuck scheduler, admission drought,
+    anchor drops, length-0 timeouts; else one all-clear line."""
+    state = state or {}
+    tick = h0.get("tick", 0)
+    out = []
+    secs = h0.get("secs_since_game")
+    if isinstance(secs, (int, float)) and secs > ALERT_IDLE_S:
+        out.append({"level": "alert",
+                    "msg": f"no game for {_fmt_idle(secs)}",
+                    "tick": tick})
+    last_at: dict[str, int] = {}
+    for a in state.get("admissions", []) or []:
+        if not isinstance(a, dict) or not isinstance(a.get("role"), str):
+            continue
+        try:
+            at = int(a.get("at_game", 0))
+        except (TypeError, ValueError):
+            continue
+        last_at[a["role"]] = max(last_at.get(a["role"], 0), at)
+    for name, exp in (state.get("exploiters", {}) or {}).items():
+        games = (exp or {}).get("games", 0)
+        since = games - last_at.get(name, 0)
+        if since > ALERT_DROUGHT_X * archive.WINDOW_SIZE:
+            out.append({
+                "level": "alert",
+                "msg": (f"admission drought {name}: {since} games "
+                        f"since last admission "
+                        f"(>3×{archive.WINDOW_SIZE})"),
+                "tick": tick})
+    for aid, line in (trend.get("series", {}) or {}).items():
+        pts = [v for v in line if isinstance(v, (int, float))]
+        if len(pts) >= 2 and pts[-2] - pts[-1] > ALERT_ANCHOR_PP / 100:
+            drop = (pts[-2] - pts[-1]) * 100
+            out.append({
+                "level": "alert",
+                "msg": (f"{aid} down {drop:.0f}pp "
+                        f"snapshot-to-snapshot"),
+                "tick": tick})
+    seen: list = []
+    timeouts = 0
+    for r in cached_games(base):
+        key = r.get("game") or r.get("replay")
+        if key in seen:
+            continue
+        seen.append(key)
+        if len(seen) > ALERT_TIMEOUT_N:
+            break
+        if r.get("length") == 0:
+            timeouts += 1
+    if timeouts:
+        out.append({
+            "level": "alert",
+            "msg": (f"{timeouts} timeout" +
+                    ("s" if timeouts > 1 else "") +
+                    " (length 0) in recent games"),
+            "tick": tick})
+    if not out:
+        return [{"level": "ok", "msg": "all clear", "tick": tick}]
+    return out[:5]
+
+
 def _build_snapshot(base: Path) -> dict:
     archive.init(base)
     state = league_state(base)
-    main = (state or {}).get("main_id")
-    history = cached_history(base)
     grouped = cached_grouped(base)
-    tally = tally_eval(grouped)
-    part = participation(grouped)
-    total_seats = sum(part.values())
-    members = []
-    for m in archive.members(base):
-        cid = m["id"]
-        w, d, l = tally.get(cid, [0, 0, 0])
-        appearance = part.get(cid, 0)
-        members.append({
-            "id": cid, "role": m["role"], "parent": m["parent"],
-            "share": (round(appearance / total_seats, 4)
-                        if total_seats else None),
-            "wins": w, "draws": d, "losses": l,
-        })
-    rows = history_rows(history, base)
     K = interval_size(base)
-    games_total = len(grouped)
-    n_interval = (games_total + K - 1) // K if K > 0 else 0
+    trend = anchor_trend(base, state)
+    h0 = h0_panel(base, state, grouped, trend)
+    games, total = games_panel(grouped)
     return {
-        "main": main,
+        "h0": h0,
+        "anchors": trend,
+        "standings": standings_panel(base, grouped, K),
+        "bars": bars_panel(state),
+        "pairs": pairs_panel(base, grouped),
+        "behavior": behavior_panel(base),
+        "games": games,
+        "game_total": total,
+        "alerts": alerts_panel(base, state, trend, h0),
         "mtime": archive_mtime(base),
-        "members": members,
-        "league": scheduler_strip(state),
-        "admissions": (state or {}).get("admissions", []) or [],
-        "anchor_trend": anchor_trend(base, state),
-        "pool": pool_health(base, grouped, members),
-        "intervals": {"k": K, "n": n_interval},
-        "board": build_board(base, history, grouped),
-        "history": rows,
-        "games": grouped[:50],
-        "game_total": games_total,
-        "maps": summarize_maps(grouped),
-        "status": archive.read_status(base),
-        "counts": {"rows": len(rows), "games": games_total,
-                   "members": len(members)},
     }
 
 
@@ -1282,9 +1612,9 @@ def make_handler(base: Path):
                     q = parse_qs(parsed.query)
                     member = q.get("member", [None])[0]
                     try:
-                        limit = max(0, min(int(q.get("limit", ["50"])[0]), 200))
+                        limit = max(0, min(int(q.get("limit", ["100"])[0]), 200))
                     except ValueError:
-                        limit = 50
+                        limit = 100
                     try:
                         offset = max(int(q.get("offset", ["0"])[0]), 0)
                     except ValueError:
@@ -1322,457 +1652,317 @@ def make_handler(base: Path):
 
 
 # ------------------------------------------------------- SERVER RENDER
-# First-paint helpers (P0-1): render_page(snapshot) inlines the hero,
-# strip and first table pages into the raw HTML so the first paint is
-# content, not a fetch spinner. The JS poll takes over from the same
-# JSON afterwards; row markup here mirrors the JS renderers below
-# (any visual change needs both sides — search for the twin name).
+# First-paint helpers: render_page(snapshot) inlines the H0 strip and
+# every table card into the raw HTML, so the first paint is content
+# with zero JS. Canvas cards (ladder, pairs) carry a text fallback with
+# the same numbers. The JS poll takes over from the same JSON; row
+# markup here mirrors the JS renderers (any visual change needs both
+# sides — search for the twin name).
 
-EMPTY_GAMES = "no games logged yet — they appear here as each game finishes"
-MAP_UNLABELLED = "unlabelled (pre-map logging)"
+PAGE_SIZE = 100  # games pager page (matches /api/games default)
+
+EMPTY_GAMES = "no games logged yet \u2014 they appear here as each game finishes"
+
+SLOT_COLORS = {"main": "#1d4ed8", "me": "#b45309", "le-a": "#047857",
+               "le-b": "#65a30d"}
+FROZEN_COLOR = "#6b7280"
 
 
 def _esc(x) -> str:
     return html.escape("" if x is None else str(x), quote=True)
 
 
-def fmt_dur(s) -> str:
-    """Tagged durations (P1-5): `220 s`, past 60s `3m 40s`."""
-    try:
-        s = float(s)
-    except (TypeError, ValueError):
+def slot_color(cid) -> str:
+    """Slot ink: main blue, me amber, le greens, everything else gray."""
+    return SLOT_COLORS.get(cid, FROZEN_COLOR)
+
+
+def fmt_age(secs) -> str:
+    """Recency: `12s ago`, past 60s `3m 04s ago`, unknown `—`."""
+    if not isinstance(secs, (int, float)):
         return "—"
+    s = max(0, int(round(secs)))
     if s < 60:
-        return f"{int(round(s))} s"
-    m = int(s // 60)
-    return f"{m}m {int(round(s - 60 * m)):02d}s"
+        return f"{s}s ago"
+    return f"{s // 60}m {s % 60:02d}s ago"
 
 
-def fmt_time(ts) -> str:
-    """`HH:MM` today, `MMM d, HH:MM` older; full ISO goes in `title` (P0-6)."""
-    if not isinstance(ts, (int, float)):
+def fmt_rate(games_per_h) -> str:
+    if not isinstance(games_per_h, (int, float)):
         return "—"
-    import datetime as _dt
-    d = _dt.datetime.fromtimestamp(ts)
-    hm = d.strftime("%H:%M")
-    if d.date() == _dt.date.today():
-        return hm
-    return d.strftime("%b %d, %H:%M")
+    return f"{games_per_h:.0f}/h"
 
 
-def iso_time(ts) -> str:
-    if not isinstance(ts, (int, float)):
-        return ""
-    import datetime as _dt
-    return _dt.datetime.fromtimestamp(ts).astimezone().isoformat(timespec="minutes")
+def fmt_elo(elo) -> str:
+    return str(int(elo)) if isinstance(elo, (int, float)) else "—"
 
 
-def dot_strip(margins, cap: int = 20) -> str:
-    """Per-generation W/D/L dots (P2-4): close or blowout at a glance.
-    Downsampled to `cap` cells; each dot titles its signed margin in pts."""
-    ms = [m for m in (margins or []) if isinstance(m, (int, float))]
-    if not ms:
-        return '<span class="legend">no duels</span>'
-    step = max(1, (len(ms) + cap - 1) // cap)
-    cells = []
-    for m in ms[::step][:cap]:
-        cls = "w" if m > 0 else ("d" if m == 0 else "l")
-        word = "win" if m > 0 else ("draw" if m == 0 else "loss")
-        cells.append(
-            f'<span class="dot {cls}" title="{word} {m:+g} pts">●</span>')
-    return "".join(cells)
+def fmt_share100(share) -> str:
+    """A 0-100 share to 0dp, unknown to a dash."""
+    return f"{share:.0f}%" if isinstance(share, (int, float)) else "—"
 
 
-def replay_label(gen, replay) -> str:
-    """`gen g1732 · eval0 →`: the tab reads where the link goes (P1-6)."""
-    parts = [p for p in str(replay or "").split("/") if p]
-    short = parts[-3] if len(parts) >= 3 else \
-        (parts[-1].replace(".replay", "") if parts else "?")
-    return f"gen {gen} · {short} →"
+def fmt_tick(t) -> str:
+    return f"t{t}" if isinstance(t, (int, float)) else "t—"
 
 
-def hero_league_text(league: dict | None, intervals: dict) -> str:
-    """Hero sub-line for the continuous league: tick + interval shape."""
-    if not league:
-        return "no scheduler state yet — start the league loop"
-    k = (intervals or {}).get("k", "?")
-    n = (intervals or {}).get("n", "?")
-    return (f"tick {league.get('tick', 0)} · {n} × {k}-game intervals · "
-            f"current learner {league.get('learner', '?')}")
+def dual(g, t) -> str:
+    """Dual time, everywhere: g1234 · t5678, dashes for unknowns."""
+    gg = f"g{g}" if isinstance(g, (int, float)) else "g—"
+    return f"{gg} · {fmt_tick(t)}"
 
 
-def map_label(m) -> str:
-    """Nulls are legacy pre-map-logging rows, not a logging bug (P0-7)."""
-    return m if m else MAP_UNLABELLED
+def is_stale(row_tick, h0_tick) -> bool:
+    """A row older than 200 ticks vs the H0 tick reads grayed out."""
+    return (isinstance(row_tick, (int, float))
+            and isinstance(h0_tick, (int, float))
+            and h0_tick - row_tick > STALE_TICKS)
 
 
-def status_html(st: dict, main, nrows: int) -> tuple[str, int]:
-    """Status line + progress %, twin of the JS renderHeader branch."""
-    st = st or {}
-    phase = st.get("phase")
-    if phase == "league":
-        return (f"tick {st.get('tick', '?')}: <b>{_esc(st.get('learner', ''))}</b> "
-                f"vs {_esc(st.get('opponent', ''))} · "
-                f"own-games {st.get('own_games', '?')} · "
-                f"micro {st.get('micro', '?')}" +
-                (f" · admitted <b>{_esc(st['admitted'])}</b>"
-                 if st.get("admitted") else "") +
-                (f" · snapshot <b>{_esc(st['snapshot'])}</b>"
-                 if st.get("snapshot") else ""),
-                0)
-    if phase == "anchor":
-        done, total = max(0, int(st.get("done", 0) or 0)), \
-            max(1, int(st.get("total", 0) or 1))
-        return (f"measuring <b>{_esc(st.get('snapshot', ''))}</b> vs anchor "
-                f"<b>{_esc(st.get('anchor', ''))}</b> · "
-                f"game {done}/{st.get('total', 0)}", 100 * done // total)
-    if phase == "train":
-        done, total = max(0, int(st.get("done", 0) or 0)), \
-            max(1, int(st.get("total", 0) or 1))
-        ret = st.get("last_mean_return", 0.0)
-        try:
-            ret_s = f"{float(ret):.2f}"
-        except (TypeError, ValueError):
-            ret_s = "—"
-        return (f"training <b>{_esc(st.get('challenger', ''))}</b> · "
-                f"game {done}/{st.get('total', 0)} · "
-                f"last mean return <b>{ret_s}</b>", 100 * done // total)
-    if nrows:
-        return (f"idle · live main {_esc(main or '—')}", 0)
-    return ("waiting for the first games…", 0)
+def _dot(cid) -> str:
+    return (f'<span aria-hidden="true" style="color:{slot_color(cid)}">'
+            f"●</span> ")
 
 
-def _num(x) -> float:
-    """Coerce snapshot numbers for first-paint formatting; junk reads as 0."""
-    return x if isinstance(x, (int, float)) else 0.0
-
-
-def hist_row_html(g: dict) -> str:
-    """Twin of JS histRow: league snapshot rows and legacy gen rows.
-
-    Snapshot: id · learner · tick · own-games · anchor W-D-L. Legacy:
-    id · train return/loss · eval W-D-L + margin dots. No verdicts, no
-    crowns: the throne UI is retired."""
-    when = ""
-    if g.get("finished_at"):
-        when = (f'<div class="legend" title="{iso_time(g["finished_at"])} '
-                f'· {fmt_dur(g.get("duration_s"))}">'
-                f'{fmt_time(g["finished_at"])} · {fmt_dur(g.get("duration_s"))}</div>')
-    if g.get("kind") == "snapshot":
-        anchor = _esc(g.get("anchors") or "—")
-        return (
-            f"<tr><td class=\"truncate\" title=\"{_esc(g.get('id'))}\">"
-            f"{_esc(g.get('id'))}</td>"
-            f"<td><span class=\"pill train\">{_esc(g.get('learner'))}</span></td>"
-            f"<td class=\"num\">{_esc(g.get('tick'))}</td>"
-            f"<td class=\"num\">{_esc(g.get('games'))}</td>"
-            f"<td class=\"num\">{anchor}</td></tr>")
-    pct = 100 * _num(g.get("win_rate"))
-    losses_n = max(0, int(_num(g.get("eval_games"))) - int(_num(g.get("eval_w")))
-                   - int(_num(g.get("eval_d"))))
-    wdl = f"{int(_num(g.get('eval_w')))}-{int(_num(g.get('eval_d')))}-{losses_n}"
-    rate = f"{_num(g.get('win_rate')) * 100:.1f}%"
-    mean_m = _num(g.get("mean_margin", 0.0))
-    margin_s = f"{float(mean_m):+.2f} pts"
+def h0_strip_html(h0: dict | None) -> str:
+    """Twin of JS renderH0."""
+    if h0 is None:
+        return '<span class="stat-label">loading…</span>'
+    verdict = h0.get("anchor_verdict", "flat")
     return (
-        f"<tr><td class=\"truncate\" title=\"{_esc(g.get('id'))}\">{_esc(g.get('id'))}{when}</td>"
-        f"<td class=\"num\">{_num(g.get('train_return', 0.0)):.2f}</td>"
-        f"<td class=\"num\">{_num(g.get('train_loss', 0.0)):.3f}</td>"
-        f"<td><span class=\"rate-wrap rate-text\" "
-        f"title=\"legacy eval W-D-L · draws count ½\">"
-        f"<span class=\"rate-bar\"><div style=\"width:{pct:.0f}%\"></div></span>"
-        f"{wdl} · {rate} (draws count ½) · "
-        f"<span title=\"mean eval margin\">margin {margin_s}</span>"
-        f"<div class=\"dots\" title=\"per-duel margins: green win, blue draw, red loss\">"
-        f"{dot_strip(g.get('margins'))}</div></span></td></tr>")
+        f"<span><b>tick</b> {_esc(h0.get('tick', 0))}</span>"
+        f"<span><b>game</b> {_esc(h0.get('game_n', 0))}</span>"
+        f"<span>{_dot(h0.get('learner'))}<b>{_esc(h0.get('learner'))}</b>"
+        "</span>"
+        f"<span><b>micro</b> {_esc(h0.get('micro_n'))}"
+        f"/{_esc(h0.get('micro_size'))}</span>"
+        f"<span><b>rate</b> {fmt_rate(h0.get('games_per_h'))}</span>"
+        f"<span><b>last game</b> {fmt_age(h0.get('secs_since_game'))}</span>"
+        f'<span class="verdict {verdict}"><b>{_esc(verdict)}</b></span>')
 
 
-def game_row_html(x: dict, member: str = "") -> str:
-    """Twin of JS gameRow: gen · kind · matchup · result · replay."""
-    seats = x.get("seats") or []
-    ref = next((s for s in seats if s.get("id") == member), None) \
-        if member else None
-    ref = ref or (seats[0] if seats else {"id": "?", "result": "draw"})
-    res = ref.get("result", "draw")
-    if len(seats) <= 2:
-        s0 = seats[0] if len(seats) > 0 else {"id": "?", "score": "?", "result": "draw"}
-        s1 = seats[1] if len(seats) > 1 else {"id": "?", "score": "?", "result": "draw"}
-        w0 = '<span class="winner">' + _esc(s0.get("id")) + '</span>' \
-            if s0.get("result") == "win" else _esc(s0.get("id"))
-        w1 = '<span class="winner">' + _esc(s1.get("id")) + '</span>' \
-            if s1.get("result") == "win" else _esc(s1.get("id"))
-        match = (f'<td class="matchup" title="engine score">'
-                 f'{w0} {s0.get("score", "?")} – {s1.get("score", "?")} {w1}</td>')
-    else:
-        line = " · ".join(
-            (('<span class="winner">' + _esc(s.get("id")) + " " +
-              _esc(s.get("score")) + '</span>')
-             if s.get("result") == "win"
-             else _esc(s.get("id")) + " " + _esc(s.get("score")))
-            for s in seats)
-        pairs = " · ".join(
-            f"{_esc(p.get('a'))} {p.get('score_a')}–{p.get('score_b')} {_esc(p.get('b'))}"
-            for p in (x.get("pairs") or []))
-        match = (f'<td class="matchup" title="engine scores, all {len(seats)} seats">'
-                 f'{line}<div class="pairs">{pairs}</div></td>')
-    names = " vs ".join(_esc(s.get("id")) for s in seats)
-    label = replay_label(x.get("gen"), x.get("replay"))
-    return (
-        f"<tr><td>{_esc(x.get('gen'))}</td>"
-        f"<td><span class=\"pill {_esc(x.get('kind'))}\">{_esc(x.get('kind'))}</span></td>"
-        f"{match}<td><span class=\"badge {res}\">{res}</span></td>"
-        f"<td class=\"replay\"><a href=\"/replay?f={_esc(x.get('replay'))}\" "
-        f"target=\"_blank\" rel=\"noopener\" "
-        f"title=\"{names}, gen {_esc(x.get('gen'))} — opens in a new tab\">"
-        f"{_esc(label)}<span aria-hidden=\"true\"> ↗</span></a></td></tr>")
+def ladder_fallback_html(trend: dict | None) -> str:
+    """Twin of JS ladderFallback: latest share per anchor, in text."""
+    if not trend or not trend.get("snapshots"):
+        return '<div class="empty">no snapshots yet</div>'
+    snaps = trend["snapshots"]
+    series = trend.get("series", {}) or {}
+    bits = []
+    for aid, line in series.items():
+        vals = [v for v in line if isinstance(v, (int, float))]
+        bits.append(f"{aid} {vals[-1] * 100:.0f}%" if vals else f"{aid} —")
+    return (f'<div class="fallback">latest of {len(snaps)} snapshots: '
+            f"{_esc(' · '.join(bits) if bits else 'no anchors')}</div>")
 
 
-def pop_row_html(m: dict, main) -> str:
-    """Twin of JS popRow: id · role · parent · sampling share · W-D-L."""
-    role = "seed" if m.get("role") == "main" else _esc(m.get("role"))
-    star = ' <span class="champ-star">★</span>' if m.get("id") == main else ""
-    share = m.get("share")
-    pct = float(share) * 100 if isinstance(share, (int, float)) else 0.0
-    bar = f"max({pct:.1f}%,{1 if pct > 0 else 0}px)"  # sub-1% still paints
-    seed_note = ' <span class="legend">founding weights</span>' \
-        if m.get("role") == "main" else ""
-    share_s = f"{pct:.1f}%" if share is not None else "—"
-    return (
-        f"<tr><td class=\"truncate\" title=\"{_esc(m.get('id'))}\">{_esc(m.get('id'))}{star}</td>"
-        f"<td>{role}{seed_note}</td><td class=\"truncate\" title=\"{_esc(m.get('parent'))}\">"
-        f"{_esc(m.get('parent') or '—')}</td>"
-        f"<td><span class=\"share-wrap\"><span class=\"share-bar\">"
-        f"<div style=\"width:{bar}\"></div></span>{share_s}</span></td>"
-        f"<td class=\"num\">{m.get('wins', 0)}-{m.get('draws', 0)}-{m.get('losses', 0)}</td></tr>")
-
-
-def map_row_html(m: dict) -> str:
-    """Twin of JS mapRow."""
-    return (
-        f"<tr><td class=\"truncate\" title=\"{_esc(m.get('map') or MAP_UNLABELLED)}\">"
-        f"{_esc(map_label(m.get('map')))}</td><td class=\"num\">{m.get('n', 0)}</td>"
-        f"<td class=\"num\">{m.get('train', 0)}</td><td class=\"num\">{m.get('eval', 0)}</td>"
-        f"<td class=\"num\">{m.get('cw', 0)}-{m.get('cd', 0)}-{m.get('cl', 0)}</td></tr>")
-
-
-def league_strip_html(league: dict | None) -> str:
-    """Scheduler strip first-paint rows: learner · micro · exploiters."""
-    if not league:
-        return ('<tr><td colspan="4" class="empty">no scheduler state yet — '
-                'start the league loop</td></tr>')
+def bars_rows_html(bars: list | None) -> str:
+    """Twin of JS barsRow: distance-to-bar per live exploiter."""
+    if not bars:
+        return ('<tr><td colspan="5" class="empty">no exploiters yet — '
+                "start the league loop</td></tr>")
     rows = []
-    size = league.get("micro_size", 8) or 8
-    for name, exp in (league.get("exploiters") or {}).items():
-        rate = exp.get("rate")
-        rate_s = f"{rate * 100:.0f}%" if isinstance(rate, (int, float)) else "—"
+    for b in bars:
+        rate = b.get("rate")
+        pct = rate * 100 if isinstance(rate, (int, float)) else 0.0
+        bar = f"max({pct:.1f}%,{1 if pct > 0 else 0}px)"
+        eli = b.get("eligible_in")
+        eli_s = f"{eli} to go" if isinstance(eli, (int, float)) and eli > 0 \
+            else "due"
         rows.append(
-            f"<tr><td>{_esc(name)}</td>"
-            f"<td class=\"truncate\" title=\"{_esc(exp.get('id'))}\">"
-            f"{_esc(exp.get('id') or '—')}</td>"
-            f"<td class=\"num\">{exp.get('games', 0)}</td>"
-            f"<td class=\"num\">{_esc(exp.get('record', '—'))} · {rate_s}</td></tr>")
-    per = league.get("per_learner", {}) or {}
-    micro_s = ", ".join(f"{k} {v % size}/{size}" for k, v in per.items())
-    head = (f"<tr><td><b>{_esc(league.get('learner', '?'))}</b></td>"
-            f"<td class=\"num\">tick {_esc(league.get('tick', 0))}</td>"
-            f"<td class=\"num\" colspan=\"2\">{_esc(micro_s or '—')}</td></tr>")
-    return head + "".join(rows)
+            f"<tr><td>{_dot(b.get('id'))}{_esc(b.get('id'))}</td>"
+            f"<td class=\"truncate\">{_esc(b.get('target') or '—')}</td>"
+            f"<td><span class=\"share-wrap\"><span class=\"share-bar\">"
+            f"<div style=\"width:{bar}\"></div></span>"
+            f"{fmt_share100(pct) if rate is not None else '—'}</span></td>"
+            f"<td class=\"num\">{_esc(b.get('record_wdl'))}</td>"
+            f"<td class=\"num\">{eli_s}</td></tr>")
+    return "".join(rows)
 
 
-def admissions_rows_html(admissions: list[dict]) -> str:
-    """Admissions log first-paint rows: id · role · at-game · record."""
-    if not admissions:
-        return ('<tr><td colspan="4" class="empty">no admissions yet — '
-                'exploiters are admitted past the bar</td></tr>')
+def standings_rows_html(rows: list | None, h0_tick) -> str:
+    """Twin of JS standingsRow."""
+    if not rows:
+        return ('<tr><td colspan="6" class="empty">no standings yet</td></tr>')
+    out = []
+    for r in rows:
+        stale = ' class="stale"' if is_stale(r.get("last_tick"),
+                                            h0_tick) else ""
+        wdl = f"{r.get('w', 0)}-{r.get('d', 0)}-{r.get('l', 0)}"
+        out.append(
+            f"<tr{stale}><td>{_dot(r.get('id'))}{_esc(r.get('id'))}</td>"
+            f"<td>{_esc(r.get('class'))}</td>"
+            f"<td class=\"num\">{fmt_elo(r.get('elo'))}</td>"
+            f"<td class=\"num\">{wdl}</td>"
+            f"<td class=\"num\">{_esc(r.get('n'))}</td>"
+            f"<td class=\"num\">{fmt_tick(r.get('last_tick'))}</td></tr>")
+    return "".join(out)
+
+
+def alerts_html(alerts: list | None) -> str:
+    """Twin of JS renderAlerts: red text lines, or one all-clear."""
+    if not alerts:
+        return '<div class="empty">loading…</div>'
     return "".join(
-        f"<tr><td class=\"truncate\" title=\"{_esc(a.get('id'))}\">"
-        f"{_esc(a.get('id'))}</td><td>{_esc(a.get('role'))}</td>"
-        f"<td class=\"num\">{_esc(a.get('at_game'))}</td>"
-        f"<td class=\"num\">{_esc(a.get('record'))}</td></tr>"
-        for a in admissions)
+        f"<div class=\"alert-{a.get('level', 'ok')}\">"
+        f"{_esc(a.get('msg'))} <span class=\"legend\">"
+        f"{fmt_tick(a.get('tick'))}</span></div>"
+        for a in alerts)
 
 
-def pool_html(pool: dict | None) -> tuple[str, str, str]:
-    """Pool-health first paint: (summary line, role line, newcomer line)."""
-    if not pool:
-        return ("—", "—", "no pool data yet")
-    top = pool.get("top20", {}) or {}
-    share = top.get("share")
-    share_s = f"{share * 100:.1f}%" if isinstance(share, (int, float)) else "—"
-    summary = (f"{pool.get('total', 0)} members · snapshots "
-               f"{pool.get('snapshot_counter', 0)} · top-20 share {share_s}")
-    roles = ", ".join(f"{k} {v}"
-                       for k, v in sorted((pool.get("by_role") or {}).items()))
-    newcs = pool.get("newcomers", []) or []
-    newcomers = (", ".join(newcs[:12]) + (f" +{len(newcs) - 12} more"
-                                            if len(newcs) > 12 else "")
-                 if newcs else "none — every member has 10+ games")
-    return (summary, roles or "—", newcomers)
+def pairs_fallback_html(pairs: list | None) -> str:
+    """Twin of JS pairsFallback: top pairs as text under the canvas."""
+    if not pairs:
+        return '<div class="empty">no pairs yet</div>'
+    top = pairs[:5]
+    bits = [f"{p['a']} vs {p['b']} · {fmt_share100(p.get('share'))} · "
+            f"n={p.get('n')} · {fmt_tick(p.get('last_tick'))}"
+            for p in top]
+    return f"<div class=\"fallback\">{_esc(' · '.join(bits))}</div>"
 
 
-def pop_first_page(members: list, main) -> list:
-    """First paint mirrors the default view: share desc, zero-share hidden."""
-    ranked = sorted(members, key=lambda m: -(m.get("share") or 0.0))
-    return [m for m in ranked if (m.get("share") or 0.0) > 0] or ranked[:100]
+def behavior_rows_html(rows: list | None, h0_tick) -> str:
+    """Twin of JS behaviorRow."""
+    if not rows:
+        return ('<tr><td colspan="6" class="empty">no behavior yet — '
+                "games log food/kills/army as they finish</td></tr>")
+    out = []
+    for r in rows:
+        # behavior rows carry means, not ticks: never stale by recency.
+        food = r.get("food")
+        kills = r.get("kills")
+        out.append(
+            f"<tr><td>{_dot(r.get('id'))}{_esc(r.get('id'))}</td>"
+            f"<td class=\"num\">"
+            f"{f'{food:.1f}' if isinstance(food, (int, float)) else '—'}</td>"
+            f"<td class=\"num\">"
+            f"{f'{kills:.1f}' if isinstance(kills, (int, float)) else '—'}</td>"
+            f"<td class=\"num\">{fmt_share100(r.get('army_pct'))}</td>"
+            f"<td class=\"num\">{_esc(r.get('length')) if r.get('length') is not None else '—'}</td>"
+            f"<td class=\"num\">{_esc(r.get('n'))}</td></tr>")
+    return "".join(out)
+
+
+def game_replay_label(g: dict) -> str:
+    """`c 3 · m 1`: seat ids with scores, winner bold upstream."""
+    seats = g.get("seats", []) or []
+    scores = g.get("scores", []) or []
+    bits = []
+    for i, sid in enumerate(seats):
+        sc = scores[i] if i < len(scores) else "?"
+        if g.get("result") == "win" and i == 0:
+            bits.append(f"<b>{_esc(sid)} {_esc(sc)}</b>")
+        else:
+            bits.append(f"{_esc(sid)} {_esc(sc)}")
+    return " · ".join(bits)
+
+
+def game_row_html(g: dict) -> str:
+    """Twin of JS gameRow: dual time · learner · matchup · replay."""
+    res = g.get("result") or "draw"
+    names = " vs ".join(_esc(s) for s in g.get("seats", []) or [])
+    return (
+        f"<tr><td class=\"num\">{dual(g.get('game_n'), g.get('tick'))}</td>"
+        f"<td>{_dot(g.get('learner'))}{_esc(g.get('learner'))}</td>"
+        f"<td>{game_replay_label(g)}</td>"
+        f"<td><span class=\"badge {res}\">{res}</span></td>"
+        f"<td class=\"replay\"><a href=\"/replay?f={_esc(g.get('replay'))}\" "
+        f"target=\"_blank\" rel=\"noopener\" "
+        f"title=\"{names} — opens in a new tab\">"
+        f"replay<span aria-hidden=\"true\"> ↗</span></a></td></tr>")
 
 
 # ---------------------------------------------------------------- PAGE
-
 
 STYLES = """
 :root{
   --bg:#F6F7F9; --card:#FFFFFF; --border:#E3E6EA; --border-strong:#C9CFD6;
   --ink:#16191D; --secondary:#5B6470; --muted:#67707B;
-  --accent:#2456E0; --success:#18794E; --danger:#C4322B; --warn:#8A5A00;
-  --eval-bg:#EAF0FE; --eval-ink:#2456E0; --train-bg:#EDEFF1; --train-ink:#5B6470;
+  --blue:#1d4ed8; --amber:#b45309; --green1:#047857; --green2:#65a30d;
+  --gray:#6b7280; --red:#b91c1c;
   --grid:#E9EDF1; --chart-text:#6B7480;
 }
 *{box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,Roboto,"Helvetica Neue",Arial,sans-serif;
-  background:var(--bg); color:var(--ink); margin:0; padding:24px max(16px,4vw) 48px;}
-.wrap{max-width:1720px; margin:0 auto;}
-h1{font-size:20px; margin:0 0 4px;}
+  background:var(--bg); color:var(--ink); margin:0; padding:0 0 48px; font-size:13px;}
+.wrap{max-width:1720px; margin:0 auto; padding:24px max(16px,4vw) 0;}
+h1{font-size:22px; margin:0 0 4px;}
 .sub{color:var(--secondary); font-size:13px; margin:0 0 20px;}
-.section-title{font-size:14px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
-  color:var(--secondary); margin:40px 0 12px;}
-.section-title:first-of-type{margin-top:28px;}
-.legend{font-size:12px; color:var(--muted); margin:-6px 0 12px;}
-.stats{display:grid; grid-template-columns:repeat(3,1fr); gap:16px;}
-.status-wide{grid-column:span 3;}
+.h0{position:sticky; top:0; z-index:10; background:var(--card); border-bottom:1px solid var(--border-strong);
+  padding:10px max(16px,4vw); display:flex; gap:18px; align-items:center; flex-wrap:wrap; font-size:13px;}
+.h0 .verdict.new-high{color:var(--green1);}
+.h0 .verdict.down{color:var(--red);}
+.h0 .verdict.flat{color:var(--gray);}
+.live-pill{font-size:11px; font-weight:700; padding:2px 10px; border-radius:20px; white-space:nowrap;}
+.live-pill.ok{color:var(--green1); background:#E6F4EC;}
+.live-pill.stale{color:var(--amber); background:#FBF3E2;}
+.live-pill.paused{color:var(--secondary); background:#EDEFF1;}
+.section-title{font-size:16px; font-weight:700; margin:32px 0 12px;}
+.legend{font-size:11px; color:var(--muted); margin:-6px 0 12px;}
 .card{background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px 20px;}
-.stat-label{font-size:12px; color:var(--secondary);}
-.stat-value{font-size:28px; font-weight:700; font-variant-numeric:tabular-nums; margin-top:2px;}
-.stat-value .champ-star{font-size:20px;}
-.champ-star{color:var(--warn); font-size:0.72em; vertical-align:1px;}
-.progress{height:8px; background:var(--border); border-radius:4px; margin-top:10px; overflow:hidden;}
-.progress>div{height:100%; background:var(--accent); border-radius:4px; transition:width .4s, background .4s;}
-.status-line{font-size:14px; margin-top:2px;}
-.charts{display:grid; grid-template-columns:repeat(3,1fr); gap:16px;}
-.chart-card.chart-wide{grid-column:1/-1;}
-.chart-card.chart-wide canvas{height:280px;}
-.tables-2col{display:grid; grid-template-columns:1.3fr 1fr; gap:16px; align-items:stretch;}
+.grid12{display:grid; grid-template-columns:repeat(12,1fr); gap:16px; align-items:stretch;}
+.span7{grid-column:span 7;} .span5{grid-column:span 5;} .span6{grid-column:span 6;} .span12{grid-column:span 12;}
 .tcell{display:flex; flex-direction:column; min-width:0;}
 .tcell>.card{flex:1 1 auto;}
-.tables-2col .toolbar{min-height:34px;}
-.res-cell{min-width:180px;}
-.res-cell .badge{white-space:nowrap;}
-.chart-card h3{margin:0 0 2px; font-size:14px;}
-.chart-sub{font-size:12px; color:var(--muted); margin:0 0 8px;}
-.chart-head{display:flex; justify-content:space-between; align-items:baseline;}
-.delta{font-size:12px; font-weight:700; padding:2px 8px; border-radius:20px;}
-.delta.up{color:var(--success); background:#E6F4EC;}
-.delta.down{color:var(--danger); background:#FBEAE8;}
-.delta.flat{color:var(--secondary); background:var(--train-bg);}
-canvas{width:100%; height:220px; display:block;}
-.cols{display:grid; grid-template-columns:1fr 1.4fr; gap:16px; align-items:start;}
-.table-scroll{overflow-x:auto;}
-.table-tall{max-height:480px; overflow-y:auto;}
-.table-tall thead th{position:sticky; top:0; z-index:1;}
-table{border-collapse:collapse; width:100%; font-size:13.5px; font-variant-numeric:tabular-nums;}
-th{background:#F1F3F5; text-align:left; font-size:12px; color:var(--secondary); font-weight:600;}
+canvas{width:100%; display:block;}
+#ch-ladder{height:280px;} #ch-pairs{height:300px;}
+.fallback{font-size:11px; color:var(--muted); margin-top:8px;}
+.alert-alert{color:var(--red); font-size:13px; padding:4px 0;}
+.alert-ok{font-size:13px; padding:4px 0;}
+.stale{opacity:.55;}
+table{border-collapse:collapse; width:100%; font-size:13px; font-variant-numeric:tabular-nums;}
+th{background:#F1F3F5; text-align:left; font-size:11px; color:var(--secondary); font-weight:600;}
 th,td{padding:9px 10px; border-bottom:1px solid var(--border);}
 tr:last-child td{border-bottom:none;}
 tbody tr:hover{background:#F8FAFC;}
 td.num, th.num{text-align:right;}
-.pill{display:inline-block; font-size:11px; font-weight:700; padding:2px 9px; border-radius:20px;}
-.pill.eval{background:var(--eval-bg); color:var(--eval-ink);}
-.pill.train{background:var(--train-bg); color:var(--train-ink);}
+td.truncate,.truncate{max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .badge{display:inline-block; font-size:11px; font-weight:700; padding:2px 9px; border-radius:20px;}
-.badge.win{color:var(--success); background:#E6F4EC;}
-.badge.loss{color:var(--danger); background:#FBEAE8;}
-/* Badge palette (P2-6 — the whole page draws from these six, nowhere else):
-   win green = ahead · loss red = behind · draw neutral-blue = tied first ·
-   held amber = waiting (status, badges AND bars) · train gray = practice ·
-   eval blue = promotion duels. Status is always text + color, never color alone. */
-.badge.draw{color:var(--eval-ink); background:var(--eval-bg);}
-.badge.promoted{color:var(--success); background:#E6F4EC;}
-.badge.held{color:var(--warn); background:#FBF3E2;}
+.badge.win{color:var(--green1); background:#E6F4EC;}
+.badge.loss{color:var(--red); background:#FBEAE8;}
+.badge.draw{color:var(--blue); background:#EAF0FE;}
 .share-wrap{display:flex; align-items:center; gap:8px;}
 .share-bar{flex:1; min-width:60px; height:6px; background:var(--border); border-radius:3px; overflow:hidden;}
-.share-bar>div{height:100%; background:var(--accent);}
-.rate-wrap{display:flex; align-items:center; gap:8px;}
-td.matchup, td.replay, .rate-text{white-space:nowrap;}
-.pairs{font-size:12px; color:var(--muted); margin-top:3px; white-space:normal;}
-.rate-bar{flex:1 1 70px; min-width:70px; height:6px; background:var(--border); border-radius:3px; position:relative; overflow:hidden;}
-.rate-bar>div{height:100%; background:var(--success);}
-.rate-bar{overflow:visible;}
-.rate-bar>div{border-radius:3px;}
-.rate-bar .marker{position:absolute;left:0;width:2px;background:var(--ink);top:-3px;bottom:-3px;box-shadow:0 0 0 1px #fff;z-index:1;}
+.share-bar>div{height:100%; background:var(--blue);}
+td.matchup, td.replay{white-space:nowrap;}
 .toolbar{display:flex; gap:10px; align-items:center; margin-bottom:10px; flex-wrap:wrap;}
 .toolbar label{font-size:13px; color:var(--secondary);}
-select,input[list]{font-size:13px; padding:6px 10px; border:1px solid var(--border-strong); border-radius:8px; background:#fff;}
-input[list]{min-width:140px;}
+input{font-size:13px; padding:6px 10px; border:1px solid var(--border-strong); border-radius:8px; background:#fff;}
+input#member{min-width:140px;}
 .clear-link{font-size:12px; white-space:nowrap;}
 .live-toggle{display:flex; align-items:center; gap:6px; font-size:13px; color:var(--secondary);}
 .pager{display:flex; gap:6px;}
-.updated{font-size:12px; color:var(--muted); margin-left:auto;}
 .pager button{font-size:12px; padding:5px 10px; border:1px solid var(--border-strong); border-radius:8px; background:#fff; cursor:pointer;}
 .pager button:disabled{opacity:.4; cursor:default;}
-#getting-started{margin-bottom:16px; font-size:14px;}
-#stats-row{margin-top:0;}
+.updated{font-size:11px; color:var(--muted); margin-left:auto;}
+.table-scroll{overflow-x:auto;}
+.table-tall{max-height:480px; overflow-y:auto;}
+.table-tall thead th{position:sticky; top:0; z-index:1;}
+.empty{padding:28px 20px; color:var(--secondary); font-size:13px;}
+a{color:var(--blue); text-decoration:none;}
+a:hover{text-decoration:underline;}
+a:focus-visible,input:focus-visible,button:focus-visible{outline:2px solid var(--blue); outline-offset:2px;}
 .skip{position:absolute; left:-9999px; top:0; background:var(--ink); color:#fff; padding:8px 14px; z-index:99; border-radius:0 0 8px 0;}
 .skip:focus{left:0; color:#fff;}
-#error{display:none; background:#FBEAE8; color:var(--danger); border:1px solid #F0C4C0;
-  border-radius:8px; padding:10px 14px; margin-bottom:16px; font-size:13px;}
-.empty{padding:28px 20px; color:var(--secondary); font-size:14px;}
-.empty code{background:#EFF1F4; padding:2px 6px; border-radius:4px; font-size:13px;}
-a{color:var(--accent); text-decoration:none;}
-a:hover{text-decoration:underline;}
-.winner{font-weight:700;}
-a:focus-visible,select:focus-visible,input:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
-caption{text-align:left; font-size:12px; color:var(--muted); padding:0 0 6px; caption-side:top;}
-.hero{display:flex; gap:20px; align-items:center; flex-wrap:wrap;}
-.hero-main{flex:2 1 320px; min-width:260px;}
-.hero-side{flex:1 1 220px; min-width:200px;}
-.hero-champ{font-size:30px; font-weight:800; font-variant-numeric:tabular-nums; margin:2px 0 4px;
-  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-.hero-run{font-size:13px; color:var(--secondary); line-height:1.6; margin:4px 0 2px;}
-.hero .progress{margin-top:12px;}
-.strip{display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-top:16px;}
-.mini{background:var(--card); border:1px solid var(--border); border-radius:10px; padding:10px 16px;}
-.mini .stat-value{font-size:22px;}
-.live-pill{font-size:12px; font-weight:700; padding:2px 10px; border-radius:20px; white-space:nowrap;}
-.live-pill.ok{color:var(--success); background:#E6F4EC;}
-.live-pill.stale{color:var(--warn); background:#FBF3E2;}
-.live-pill.paused{color:var(--secondary); background:var(--train-bg);}
-details.why{font-size:12.5px; color:var(--secondary); margin:-4px 0 12px;}
-details.why summary{cursor:pointer; color:var(--accent); font-size:12.5px; display:inline-block;}
-details.why p{margin:6px 0 0; max-width:90ch;}
-.dots{margin-top:4px; letter-spacing:1px; font-size:10px; line-height:1.8; max-width:126px;}
-.dot.w{color:var(--success);}
-.dot.d{color:var(--eval-ink);}
-.dot.l{color:var(--danger);}
-td.truncate,.truncate{max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-tbody tr:nth-child(even){background:#FAFBFC;}
-tbody tr:hover{background:#EFF4FA;}
+.footer{margin-top:40px; padding-top:12px; border-top:1px solid var(--border);
+  font-size:11px; color:var(--muted); display:flex; gap:8px; flex-wrap:wrap;}
+.footer .sep{opacity:.5;}
 .skel td{color:transparent !important;}
 .skel td span{display:block; height:12px; border-radius:6px;
   background:linear-gradient(90deg,var(--border) 25%,#F1F3F5 50%,var(--border) 75%);
   background-size:200% 100%; animation:shimmer 1.2s infinite;}
 @keyframes shimmer{to{background-position:-200% 0;}}
-.footer{margin-top:40px; padding-top:12px; border-top:1px solid var(--border);
-  font-size:12px; color:var(--muted); display:flex; gap:8px; flex-wrap:wrap;}
-.footer .sep{opacity:.5;}
-@media (max-width:1150px){
-  .charts{grid-template-columns:1fr 1fr;}
-  .chart-card.chart-wide{grid-column:1/-1;}
-  .tables-2col{grid-template-columns:1fr;}
-}
-@media (max-width:900px){
-  .charts{grid-template-columns:1fr;}
-  .strip{grid-template-columns:repeat(2,1fr);}
-  .stats{grid-template-columns:repeat(2,1fr);}
-  .stats>.card:nth-child(3){grid-column:span 2;}
-  .status-wide{grid-column:span 2;}
-  .cols{grid-template-columns:1fr;}
-  body{padding:16px 16px 40px;}
+@media (max-width:1100px){
+  .span7,.span5,.span6{grid-column:span 12;}
 }
 """
 
 SCRIPT = """
-let S=null, seq=0, lastHash="", lastGames="", live=true, lastTick=0;
+let S=null, seq=0, lastSnap="", lastGames="", live=true, lastTick=0;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const COLORS={main:"#1d4ed8",me:"#b45309","le-a":"#047857","le-b":"#65a30d"};
+const GRAY="#6b7280";
+const col=id=>COLORS[id]||GRAY;
 async function fetchJSON(url){
   let r;
   try{r=await fetch(url);}
@@ -1781,117 +1971,23 @@ async function fetchJSON(url){
     let detail="";
     try{const body=await r.json();if(body&&body.error)detail=": "+String(body.error).slice(0,140);}
     catch(e){}
-    const kind=r.status>=500?"dashboard error":"request failed";
-    throw new Error(kind+" HTTP "+r.status+detail+" on "+url);
+    throw new Error("request failed HTTP "+r.status+detail+" on "+url);
   }
   return r.json();
 }
-function ago(ts){const s=Math.max(0,Math.round((Date.now()-ts)/1000));
-  return s<2?"just now":s+"s ago";}
-function shortReplay(rel){const p=(rel||"").split("/").filter(Boolean);
-  return p.length>=3?p[p.length-3]:(p.pop()||"").replace(/\\.replay$/,"");}
-function seatBadge(result){
-  return {cls:result,label:result};
-}
-/* P0-6 timestamps: HH:MM today, MMM d + HH:MM older, ISO in title. */
-function fmtTime(ts){
-  if(ts===null||ts===undefined)return "—";
-  const d=new Date(ts*1000),now=new Date();
-  const hm=d.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
-  if(d.toDateString()===now.toDateString())return hm;
-  return d.toLocaleDateString([], {month:"short",day:"numeric"})+", "+hm;
-}
-function isoT(ts){
-  if(ts===null||ts===undefined)return "";
-  return new Date(ts*1000).toISOString();
-}
-/* P1-5 durations: always tagged — `220 s`, past 60s `3m 40s`. */
-function fmtDur(s){
+function fmtAge(s){
   if(s===null||s===undefined||!Number.isFinite(+s))return "—";
-  s=+s;
-  if(s<60)return Math.round(s)+" s";
-  const m=Math.floor(s/60);
-  return m+"m "+String(Math.round(s-m*60)).padStart(2,"0")+"s";
+  s=Math.max(0,Math.round(+s));
+  if(s<60)return s+"s ago";
+  return Math.floor(s/60)+"m "+String(s%60).padStart(2,"0")+"s ago";
 }
-function replayLabel(gen,rel){
-  return "gen "+gen+" · "+shortReplay(rel)+" →";
-}
-/* P2-4 dot strip: per-duel W/D/L dots, green/blue/red with pts titles. */
-function dotStrip(margins,cap){
-  cap=cap||20;
-  const ms=(margins||[]).filter(v=>Number.isFinite(v));
-  if(!ms.length)return '<span class="legend">no duels</span>';
-  const step=Math.max(1,Math.ceil(ms.length/cap));
-  let out="";
-  for(let i=0;i<ms.length&&out.split("●").length-1<cap;i+=step){
-    const m=ms[i],cls=m>0?"w":(m===0?"d":"l"),
-      word=m>0?"win":(m===0?"draw":"loss");
-    out+=`<span class="dot ${cls}" title="${word} ${m>0?"+"+m:m} pts">●</span>`;
-  }
-  return out;
-}
-/* P1-4 envelope downsampling: one min/max segment per pixel column, so
-   1690 overlapping points read as density instead of overplotted ink.
-   Nulls split runs; x stays mapped to generation index via N. */
-function envLine(F,arr,color,width,N){
-  N=N||arr.length;
-  const{ctx,X,Y,W,L,R}=F;
-  const cols=Math.max(40,Math.floor(W-L-R));
-  const per=N/cols;
-  ctx.strokeStyle=color;ctx.lineWidth=width;ctx.lineJoin="round";
-  ctx.globalAlpha=width<=1?0.55:1;
-  let started=false;
-  ctx.beginPath();
-  for(let c=0;c<cols;c++){
-    let mn=Infinity,mx=-Infinity,gi=-1;
-    const lo=Math.floor(c*per),hi=Math.min(N,Math.floor((c+1)*per)+1);
-    for(let i=lo;i<hi;i++){
-      const v=arr[i];
-      if(v===null||v===undefined||!Number.isFinite(v))continue;
-      if(v<mn)mn=v; if(v>mx)mx=v; gi=i;
-    }
-    if(gi<0){started=false;continue;}
-    const xx=N<2?(L+W-R)/2:X(gi);
-    if(mx-mn>1e-12){
-      ctx.moveTo(xx,Y(mx));ctx.lineTo(xx,Y(mn));
-      if(width>1){ctx.stroke();ctx.beginPath();started=false;}
-    }
-    const mid=(mn+mx)/2;
-    if(!started){ctx.moveTo(xx,Y(mid));started=true;}
-    else ctx.lineTo(xx,Y(mid));
-  }
-  ctx.stroke();ctx.globalAlpha=1;
-}
-/* P1-4 aria cap: `series, N points, min .., max .., last ..`. */
-function adesc(name,arr,ids){
-  const have=[];
-  arr.forEach((v,i)=>{if(v!==null&&Number.isFinite(v))have.push([v,i]);});
-  if(!have.length)return name+", no data yet";
-  let mn=have[0],mx=have[0];
-  have.forEach(p=>{if(p[0]<mn[0])mn=p; if(p[0]>mx[0])mx=p;});
-  const last=have[have.length-1];
-  const f=v=>(Math.round(v*100)/100);
-  return `${name}, ${arr.length} points, min ${f(mn[0])} at ${(ids||[])[mn[1]]||mn[1]}, `+
-    `max ${f(mx[0])} at ${(ids||[])[mx[1]]||mx[1]}, last ${f(last[0])}`;
-}
-/* P1-4 delta chip: last value vs median of the previous 10, with tooltip. */
-function deltaChip(id,arr){
-  const el=$(id);
-  if(!el)return;
-  const have=arr.filter(v=>v!==null&&Number.isFinite(v));
-  if(have.length<2){el.style.display="none";return;}
-  const last=have[have.length-1];
-  const prev=have.slice(-11,-1);
-  const s=[...prev].sort((a,b)=>a-b);
-  const med=s.length%2?s[s.length>>1]:(s[s.length/2-1]+s[s.length/2])/2;
-  const d=last-med;
-  const cls=Math.abs(d)<1e-9?"flat":(d>0?"up":"down");
-  const arrow=cls==="flat"?"→":(cls==="up"?"▲ +":"▼ ");
-  el.style.display="";
-  el.className="delta "+cls;
-  el.textContent=arrow+(Math.abs(d)<1e-9?"0":(Math.round(Math.abs(d)*100)/100));
-  el.title=`last ${Math.round(last*100)/100} vs median of previous ${prev.length} gens (${Math.round(med*100)/100})`;
-}
+function fmtRate(h){return (h===null||h===undefined||!Number.isFinite(+h))?"—":Math.round(h)+"/h";}
+function fmtElo(e){return (e===null||e===undefined)?"—":String(Math.round(e));}
+function fmtShare(s){return (s===null||s===undefined||!Number.isFinite(+s))?"—":Math.round(s)+"%";}
+function fmtTick(t){return (t===null||t===undefined)?"t—":"t"+t;}
+function dual(g,t){return (g===null||g===undefined?"g—":"g"+g)+" · "+fmtTick(t);}
+function dot(id){return '<span aria-hidden="true" style="color:'+col(id)+'">●</span> ';}
+function staleCls(t,h){return (Number.isFinite(t)&&Number.isFinite(h)&&h-t>200)?' class="stale"':"";}
 /* P0-3 guards: never clobber a table the reader is using; keep its scroll. */
 function tableBusy(id){
   const el=$(id);
@@ -1902,404 +1998,168 @@ function keepScroll(scroller,fn){
   fn();
   if(scroller)scroller.scrollTop=top;
 }
-/* Board charts: shared frame geometry, gridlines, min/max labels, headroom, HiDPI. */
-function renderHeader(){
-  $("st-champ").innerHTML=esc(S.main||"—")+(S.main?' <span class="champ-star">★</span>':"");
-  $("getting-started").style.display=S.counts.rows?"none":"block";
-  $("st-gen").textContent=S.counts.rows;
-  $("st-games").textContent=S.counts.games;
-  $("st-members").textContent=(S.members||[]).length;
-  $("st-maps").textContent=(S.maps||[]).length;
-  const L=S.league,iv=S.intervals||{};
-  if(L) $("st-run").textContent=`tick ${L.tick} · ${iv.n??"?"} × ${iv.k??"?"}-game intervals · current learner ${L.learner||"?"}`;
-  else $("st-run").textContent="no scheduler state yet";
-  const st=S.status||{},el=$("st-status"),bar=$("st-bar"),wrap=$("st-barwrap");
-  let pct=0;
-  bar.style.background="var(--accent)";
-  if(st.phase==="league"){
-    let extra="";
-    if(st.admitted)extra+=` · admitted <b>${esc(st.admitted)}</b>`;
-    if(st.snapshot)extra+=` · snapshot <b>${esc(st.snapshot)}</b>`;
-    el.innerHTML=`tick ${st.tick??"?"}: <b>${esc(st.learner||"")}</b> vs ${esc(st.opponent||"")} · own-games ${esc(st.own_games??"?")} · micro ${esc(st.micro??"?")}`+extra;
-  }else if(st.phase==="anchor"){
-    el.innerHTML=`measuring <b>${esc(st.snapshot||"")}</b> vs anchor <b>${esc(st.anchor||"")}</b> · game ${Math.max(0,+st.done||0)}/${Math.max(0,+st.total||0)}`;
-    pct=100*st.done/Math.max(1,st.total);
-  }else if(st.phase==="train"){
-    el.innerHTML=`training <b>${esc(st.challenger||"")}</b> · game ${Math.max(0,+st.done||0)}/${Math.max(0,+st.total||0)} · last mean return <b>${(+st.last_mean_return||0).toFixed(2)}</b>`;
-    pct=100*st.done/Math.max(1,st.total);
-  }else if(st.phase==="eval"){
-    el.innerHTML=`evaluating <b>${esc(st.challenger||"")}</b> · duel ${Math.max(0,+st.done||0)}/${Math.max(0,+st.total||0)} · <b>${Math.max(0,+st.wins||0)}W ${Math.max(0,+st.draws||0)}D</b> so far`;
-    pct=100*st.done/Math.max(1,st.total);
-  }else if(st.phase==="done"){
-    el.innerHTML=`last run finished: <b>${esc(st.challenger||"")}</b> `+
-      (st.promoted?'<span class="badge promoted">promoted ★</span>':'<span class="badge held">held</span>')+
-      ` · champion ${esc(st.champion||"")} · idle, waiting for the next run`;
-    pct=100;
-    // Held stays amber everywhere, including the bar (P2-6).
-    bar.style.background=st.promoted?"var(--success)":"var(--warn)";
-  }else{
-    el.innerHTML=S.counts.rows?`idle · live main ${esc(S.main||"—")}`:"waiting for the first games…";
-  }
-  bar.style.width=pct+"%";
-  wrap.setAttribute("aria-valuenow",Math.round(pct));
-  renderPill();
+function renderH0(){
+  const h=S.h0;
+  $("h0").innerHTML=
+    "<span><b>tick</b> "+esc(h.tick)+"</span>"+
+    "<span><b>game</b> "+esc(h.game_n)+"</span>"+
+    "<span>"+dot(h.learner)+"<b>"+esc(h.learner)+"</b></span>"+
+    "<span><b>micro</b> "+esc(h.micro_n)+"/"+esc(h.micro_size)+"</span>"+
+    "<span><b>rate</b> "+fmtRate(h.games_per_h)+"</span>"+
+    "<span><b>last game</b> "+fmtAge(h.secs_since_game)+"</span>"+
+    '<span class="verdict '+esc(h.anchor_verdict)+'"><b>'+esc(h.anchor_verdict)+"</b></span>";
 }
-function renderPill(){
-  // P1-7 status pill: text + color, never color alone.
-  const el=$("live-pill");
-  if(!el)return;
-  const ageS=Math.max(0,Math.round((Date.now()-lastTick)/1000));
-  if(!live){el.className="live-pill paused";el.textContent="○ paused";return;}
-  const interval=activePhase()?5:15;
-  if(ageS>2*interval){el.className="live-pill stale";el.textContent=`▲ stale ${ageS}s`;}
-  else{el.className="live-pill ok";el.textContent=`● live · refreshed ${ageS}s ago`;}
-  $("updated").textContent="updated "+ago(lastTick)+" · "+(live?"live":"paused");
+function renderBars(){
+  const h="b|"+JSON.stringify(S.bars);
+  if(h===renderBars._last)return;
+  renderBars._last=h;
+  $("bars-body").innerHTML=S.bars.map(b=>{
+    const pct=(typeof b.rate==="number")?b.rate*100:0;
+    const bar="max("+pct.toFixed(1)+"%, "+(pct>0?1:0)+"px)";
+    const eli=(typeof b.eligible_in==="number"&&b.eligible_in>0)?b.eligible_in+" to go":"due";
+    return "<tr><td>"+dot(b.id)+esc(b.id)+'</td><td class="truncate">'+esc(b.target||"—")+"</td>"+
+      '<td><span class="share-wrap"><span class="share-bar"><div style="width:'+bar+'"></div></span>'+
+      (typeof b.rate==="number"?fmtShare(pct):"—")+"</span></td>"+
+      '<td class="num">'+esc(b.record_wdl)+'</td><td class="num">'+eli+"</td></tr>";
+  }).join("")||'<tr><td colspan="5" class="empty">no exploiters yet</td></tr>';
 }
-function lineInto(F,arr,color,width){
-  // One series with null gaps: moveTo restarts the path after a gap.
-  const{ctx,X,Y}=F;
-  ctx.strokeStyle=color;ctx.lineWidth=width;ctx.lineJoin="round";
-  ctx.beginPath();
-  let started=false;
-  arr.forEach((v,i)=>{
-    if(v===null||!Number.isFinite(v)){started=false;return;}
-    if(!started){ctx.moveTo(X(i),Y(v));started=true;}
-    else ctx.lineTo(X(i),Y(v));
-  });
-  ctx.stroke();
+function renderStandings(){
+  const h="s|"+S.h0.tick+"|"+JSON.stringify(S.standings);
+  if(h===renderStandings._last)return;
+  renderStandings._last=h;
+  $("standings-body").innerHTML=S.standings.map(r=>
+    "<tr"+staleCls(r.last_tick,S.h0.tick)+"><td>"+dot(r.id)+esc(r.id)+"</td><td>"+esc(r.class)+
+    '</td><td class="num">'+fmtElo(r.elo)+'</td><td class="num">'+r.w+"-"+r.d+"-"+r.l+
+    '</td><td class="num">'+esc(r.n)+'</td><td class="num">'+fmtTick(r.last_tick)+"</td></tr>"
+  ).join("");
 }
-function frame(id,lists,labels,desc,opt){
-  // Shared geometry for the board charts: spans every series, draws the
-  // grid + zero line + end labels, returns mappers (null: nothing to draw).
-  // opt: {yt} y-axis title in the gutter, {ticks} [[genIdx,label]] extras
-  // marking champion changes between first and last (P1-4).
+function renderAlerts(){
+  const h="a|"+JSON.stringify(S.alerts);
+  if(h===renderAlerts._last)return;
+  renderAlerts._last=h;
+  $("alerts").innerHTML=S.alerts.map(a=>
+    '<div class="alert-'+esc(a.level)+'">'+esc(a.msg)+' <span class="legend">'+fmtTick(a.tick)+"</span></div>"
+  ).join("");
+}
+function renderBehavior(){
+  const h="bh|"+JSON.stringify(S.behavior);
+  if(h===renderBehavior._last)return;
+  renderBehavior._last=h;
+  $("behavior-body").innerHTML=S.behavior.map(r=>
+    "<tr><td>"+dot(r.id)+esc(r.id)+"</td>"+
+    '<td class="num">'+(typeof r.food==="number"?r.food.toFixed(1):"—")+"</td>"+
+    '<td class="num">'+(typeof r.kills==="number"?r.kills.toFixed(1):"—")+"</td>"+
+    '<td class="num">'+fmtShare(r.army_pct)+"</td>"+
+    '<td class="num">'+(r.length===null||r.length===undefined?"—":esc(r.length))+"</td>"+
+    '<td class="num">'+esc(r.n)+"</td></tr>"
+  ).join("");
+}
+/* Canvas frame: shared geometry, gridlines, HiDPI. Direct end labels —
+   no legends for ≤4 series (and none above either: labels ride the lines). */
+function frame(id){
   const cv=$(id),ctx=cv.getContext("2d");
-  const vals=[];
-  lists.forEach(a=>(a||[]).forEach(v=>{if(v!==null&&Number.isFinite(v))vals.push(v);}));
   const dpr=window.devicePixelRatio||1,W=cv.clientWidth,H=cv.clientHeight;
   cv.width=W*dpr;cv.height=H*dpr;ctx.scale(dpr,dpr);
   ctx.clearRect(0,0,W,H);
   cv.setAttribute("role","img");
-  if(!vals.length){ctx.fillStyle="#8A94A0";ctx.font="12px system-ui";
-    ctx.fillText("no data yet",12,20);return null;}
-  if(desc)cv.setAttribute("aria-label",desc);
-  let mn=Math.min(...vals),mx=Math.max(...vals);
-  if(mx-mn<1e-9){mn-=1;mx+=1;}
-  const pad=(mx-mn)*0.12;mn-=pad;mx+=pad;
-  const prec=(mx-mn)<0.5?3:2;
-  const L=48,R=8,T=8,B=20,iw=W-L-R,ih=H-T-B;
-  const n=Math.max(...lists.map(a=>(a||[]).length),1);
-  const X=i=>L+iw*(n<2?0.5:i/(n-1));
-  const Y=x=>T+ih*(1-(x-mn)/(mx-mn));
+  return{ctx,W,H};
+}
+function drawLadder(){
+  const F=frame("ch-ladder"),T=S.anchors,snaps=T.snapshots||[],series=T.series||{};
+  const ids=Object.keys(series);
+  if(!snaps.length||!ids.length){
+    F.ctx.fillStyle="#8A94A0";F.ctx.font="12px system-ui";F.ctx.fillText("no snapshots yet",12,20);return;
+  }
+  const L=44,R=84,Tp=10,B=22,{ctx,W,H}=F;
+  const X=i=>L+(W-L-R)*(snaps.length<2?0.5:i/(snaps.length-1));
+  const Y=v=>Tp+(H-Tp-B)*(1-v);
   ctx.strokeStyle="#E9EDF1";ctx.fillStyle="#6B7480";ctx.font="10px system-ui";ctx.lineWidth=1;
-  for(let k=0;k<=3;k++){const t=mn+(mx-mn)*k/3,y=Y(t);
+  for(let k=0;k<=4;k++){const v=k/4,y=Y(v);
     ctx.beginPath();ctx.moveTo(L,y);ctx.lineTo(W-R,y);ctx.stroke();
-    let s=t.toFixed(prec);if(s==="-0.000"||s==="-0.00")s=s.slice(1);
-    ctx.fillText(s,4,y+3);}
-  if(mn<0&&mx>0){ctx.save();ctx.setLineDash([4,3]);ctx.strokeStyle="#C9CFD6";
-    ctx.beginPath();ctx.moveTo(L,Y(0));ctx.lineTo(W-R,Y(0));ctx.stroke();ctx.restore();}
-  const x0=(labels&&labels[0])||"gen 0";
-  const x1=(labels&&labels[labels.length-1])||("gen "+(n-1));
-  ctx.fillText(x0,L,H-6);
-  const w1=ctx.measureText(x1).width;
-  ctx.fillText(x1,W-R-w1,H-6);
-  const ticks=(opt&&opt.ticks)||[];
-  let lastTx=-1e9;
-  ticks.forEach(t=>{
-    const tx=X(t[0]);
-    if(tx-lastTx<44||W-R-tx<ctx.measureText(t[1]).width+2)return;
-    lastTx=tx;
-    ctx.fillStyle="#8A94A0";
-    ctx.fillText(t[1],tx,H-6);
-    ctx.strokeStyle="#C9CFD6";ctx.setLineDash([2,3]);
-    ctx.beginPath();ctx.moveTo(tx,T);ctx.lineTo(tx,H-B);ctx.stroke();
-    ctx.setLineDash([]);ctx.fillStyle="#6B7480";
+    ctx.fillText(Math.round(v*100)+"%",6,y+3);}
+  ctx.fillStyle="#6B7480";
+  ctx.fillText(esc(snaps[0]),L,H-6);
+  if(snaps.length>1){const last=snaps[snaps.length-1];
+    ctx.fillText(esc(last),W-R-ctx.measureText(last).width,H-6);}
+  ids.forEach(aid=>{
+    const line=series[aid]||[];
+    ctx.strokeStyle="#16191D";ctx.lineWidth=2;ctx.beginPath();
+    let started=false,lastX=0,lastY=0;
+    line.forEach((v,i)=>{
+      if(v===null||v===undefined||!Number.isFinite(v)){started=false;return;}
+      const x=X(i),y=Y(v);
+      if(!started){ctx.moveTo(x,y);started=true;}
+      else ctx.lineTo(x,y);
+      lastX=x;lastY=y;});
+    ctx.stroke();
+    /* direct end label: the series name rides its last point. */
+    ctx.fillStyle="#16191D";ctx.font="11px system-ui";
+    ctx.fillText(aid,Math.min(lastX+5,W-R+4),lastY+3);
   });
-  if(opt&&opt.yt){
-    ctx.save();ctx.translate(10,T+ih/2);ctx.rotate(-Math.PI/2);
-    ctx.textAlign="center";ctx.fillStyle="#5B6470";
-    ctx.fillText(opt.yt,0,0);ctx.restore();
+  $("ladder-fallback").innerHTML=ladderFallback();
+}
+function ladderFallback(){
+  const T=S.anchors,snaps=T.snapshots||[],series=T.series||{};
+  if(!snaps.length)return '<div class="empty">no snapshots yet</div>';
+  const bits=Object.keys(series).map(aid=>{
+    const vals=(series[aid]||[]).filter(v=>Number.isFinite(v));
+    return aid+" "+(vals.length?Math.round(vals[vals.length-1]*100)+"%":"—");});
+  return '<div class="fallback">latest of '+snaps.length+" snapshots: "+esc(bits.join(" · "))+"</div>";
+}
+function drawPairs(){
+  const F=frame("ch-pairs"),{ctx,W,H}=F,pairs=S.pairs||[];
+  const order=S.behavior.map(r=>r.id);
+  let ids=order.filter(id=>pairs.some(p=>p.a===id||p.b===id));
+  pairs.forEach(p=>{[p.a,p.b].forEach(id=>{if(!ids.includes(id))ids.push(id);});});
+  ids=ids.slice(0,14);
+  if(!ids.length||!pairs.length){
+    ctx.fillStyle="#8A94A0";ctx.font="12px system-ui";ctx.fillText("no pairs yet",12,20);return;
   }
-  return{ctx,W,H,X,Y,L,R,T,B,n};
-}
-function plotLines(id,arrs,colors,widths,labels,desc,opt){
-  const F=frame(id,arrs,labels,desc,opt);
-  if(!F)return;
-  arrs.forEach((a,k)=>smoothLine(F,a,colors[k],widths[k]));
-}
-function smoothLine(F,arr,color,width){
-  // Exact path for short series, envelope for crowded ones (P1-4).
-  const cols=Math.max(40,Math.floor(F.W-F.L-F.R));
-  if((arr||[]).length<=cols)lineInto(F,arr,color,width);
-  else envLine(F,arr,color,width);
-}
-function band(F,lo,hi,fill){
-  // Fill between hi and lo, restarting at null gaps (shared by the
-  // margin IQR band and the knock rate panel).
-  const{ctx,X,Y}=F;
-  ctx.fillStyle=fill;
-  let run=[];
-  const flush=()=>{
-    if(run.length>1){ctx.beginPath();
-      run.forEach((i,k)=>k?ctx.lineTo(X(i),Y(hi[i])):ctx.moveTo(X(i),Y(hi[i])));
-      [...run].reverse().forEach(i=>ctx.lineTo(X(i),Y(lo[i])));
-      ctx.closePath();ctx.fill();}
-    else if(run.length===1){const i=run[0];
-      ctx.fillRect(X(i)-1,Y(hi[i]),2,Math.max(1,Y(lo[i])-Y(hi[i])));}
-    run=[];};
-  hi.forEach((h,i)=>{
-    if(h===null||!Number.isFinite(h)||lo[i]===null||!Number.isFinite(lo[i]))flush();
-    else run.push(i);});
-  flush();
-}
-function plotBand(id,med,q1,q3,color,fill,labels,desc,opt){
-  const F=frame(id,[med,q1,q3],labels,desc,opt);
-  if(!F)return;
-  band(F,q1,q3,fill);
-  smoothLine(F,med,color,2);
-}
-function plotBars(id,groups,colors,labels,desc,whisk,opt){
-  // groups: one array per bar series; whisk: matching [lo,hi] pairs.
-  const all=groups.slice();
-  if(whisk)whisk.forEach(w=>{if(w){all.push(w[0],w[1]);}});
-  const F=frame(id,all,labels,desc,opt);
-  if(!F)return;
-  const{ctx,X,Y,W,L,R}=F,n=F.n,g=groups.length;
-  const slot=n<2?20:Math.min(20,(W-L-R)/n);
-  const bw=Math.max(1,slot/(g+0.5));
-  groups.forEach((arr,s)=>{
-    ctx.fillStyle=colors[s];
-    arr.forEach((v,i)=>{
-      if(v===null||!Number.isFinite(v))return;
-      const cx=X(i)-slot/2+bw*(s+0.25),y0=Y(0),y1=Y(v);
-      ctx.fillRect(cx,Math.min(y0,y1),bw,Math.abs(y1-y0)||1);
-      if(whisk&&whisk[s]&&whisk[s][0][i]!==null&&whisk[s][1][i]!==null
-         &&Number.isFinite(whisk[s][0][i])){
-        ctx.strokeStyle="#16191D";ctx.lineWidth=1;
-        ctx.beginPath();ctx.moveTo(cx+bw/2,Y(whisk[s][1][i]));
-        ctx.lineTo(cx+bw/2,Y(whisk[s][0][i]));ctx.stroke();
-      }
-    });
+  const shareOf={};
+  pairs.forEach(p=>{shareOf[p.a+"|"+p.b]=p.share;shareOf[p.b+"|"+p.a]=100-p.share;});
+  const L=64,Tp=30,n=ids.length;
+  const cell=Math.min((W-L-8)/n,(H-Tp-8)/n);
+  ctx.font="10px system-ui";
+  ids.forEach((id,i)=>{
+    ctx.fillStyle=col(id);
+    ctx.fillText(id,L+cell*i+2,Tp-6);
+    ctx.fillText(id,4,Tp+cell*i+cell/2+3);
   });
+  ids.forEach((a,i)=>{ids.forEach((b,j)=>{
+    const x=L+cell*j,y=Tp+cell*i;
+    let s=shareOf[a+"|"+b];
+    if(a===b||s===undefined||!Number.isFinite(s)){ctx.fillStyle="#F1F3F5";ctx.fillRect(x+1,y+1,cell-2,cell-2);return;}
+    const t=Math.abs(s-50)/50;
+    ctx.fillStyle=s>=50?"rgba(29,78,216,"+(0.12+0.73*t).toFixed(2)+")":"rgba(22,25,29,"+(0.06+0.25*t).toFixed(2)+")";
+    ctx.fillRect(x+1,y+1,cell-2,cell-2);
+    if(cell>=26){ctx.fillStyle=s>=50?"#fff":"#16191D";ctx.textAlign="center";
+      ctx.fillText(Math.round(s)+"%",x+cell/2,y+cell/2+3);ctx.textAlign="left";}
+  });});
+  $("pairs-fallback").innerHTML=pairsFallback();
 }
-function plotDual(id,a,amed,b,bmed,labels,desc,opt){
-  // Left axis: a (ratio). Right axis: b (entropy), drawn in green.
-  const F=frame(id,[a,amed],labels,desc,opt);
-  if(!F)return;
-  const{ctx,X,W,R,H,T,B}=F;
-  const bv=[];
-  [b,bmed].forEach(x=>(x||[]).forEach(v=>{if(v!==null&&Number.isFinite(v))bv.push(v);}));
-  if(!bv.length){lineInto(F,a,"#E8A0A6",1);lineInto(F,amed,"#C4322B",2);return;}
-  let mn=Math.min(...bv),mx=Math.max(...bv);
-  if(mx-mn<1e-9){mn-=1;mx+=1;}
-  const pad=(mx-mn)*0.12;mn-=pad;mx+=pad;
-  const ih=H-T-B;
-  const Y2=x=>T+ih*(1-(x-mn)/(mx-mn));
-  ctx.save();ctx.fillStyle="#18794E";ctx.textAlign="right";
-  for(let k=0;k<=3;k++){const t=mn+(mx-mn)*k/3;
-    ctx.fillText(t.toFixed(2),W-2,Y2(t)+3);}
-  ctx.restore();
-  lineInto({ctx,X,Y:Y2},b,"#9EC5A6",1);
-  lineInto({ctx,X,Y:Y2},bmed,"#18794E",2);
-  smoothLine(F,a,"#E8A0A6",1);
-  smoothLine(F,amed,"#C4322B",2);
+function pairsFallback(){
+  const top=(S.pairs||[]).slice(0,5);
+  if(!top.length)return '<div class="empty">no pairs yet</div>';
+  return '<div class="fallback">'+esc(top.map(p=>p.a+" vs "+p.b+" · "+fmtShare(p.share)+" · n="+p.n+" · "+fmtTick(p.last_tick)).join(" · "))+"</div>";
 }
-function anchorPalette(n){
-  const base=["#2456E0","#18794E","#8A5A00","#C4322B","#6B4EFF","#0E7C86","#B23C8A","#5B6470"];
-  const out=[];
-  for(let i=0;i<n;i++)out.push(base[i%base.length]);
-  return out;
-}
-function renderBoard(){
-  const B=S.board,ids=B.labels||[];
-  const tracked=B.elo.tracked||[];
-  const series=tracked.map(m=>((B.elo.series||{})[m]||[]));
-  plotLines("ch-elo",series,anchorPalette(Math.max(1,tracked.length)),tracked.map(()=>2),ids,
-    adesc("per-learner causal Elo",series[0]||[],ids),{yt:"Elo"});
-  deltaChip("d-elo",series.length?series[0]:[]);
-  $("elo-note").textContent=`K=${B.k} from league.json · ${tracked.length} tracked`;
-  const AT=S.anchor_trend||{snapshots:[],anchors:[],series:{}};
-  const alabels=AT.snapshots||[];
-  const aseries=(AT.anchors||[]).map(a=>((AT.series||{})[a]||[]));
-  plotLines("ch-anchor",aseries,anchorPalette(Math.max(1,aseries.length)),aseries.map(()=>2),alabels,
-    adesc("anchor trend",aseries[0]||[],alabels),{yt:"share"});
-  plotBand("ch-conv",B.conv.conv,B.conv.clo,B.conv.chi,"#18794E","rgba(24,121,78,.16)",ids,
-    adesc("train conversion",B.conv.conv||[],ids),{yt:"share"});
-  deltaChip("d-conv",B.conv.conv||[]);
-  plotLines("ch-dec",[B.decisive.train,B.decisive.train_ma,B.decisive.eval,B.decisive.eval_ma],
-    ["#E8A0A6","#C4322B","#9EC5FE","#2456E0"],[1,2,1,2],ids,
-    adesc("decisiveness train vs eval",B.decisive.train||[],ids),{yt:"frac"});
-  deltaChip("d-dec",B.decisive.train_ma||[]);
-  plotBand("ch-marg",B.margin.med,B.margin.q1,B.margin.q3,"#2456E0","rgba(36,86,224,.15)",ids,
-    adesc("training-side margin median",B.margin.med||[],ids),{yt:"pts"});
-  deltaChip("d-marg",B.margin.med||[]);
-}
-function renderLeague(){
-  const L=S.league;
-  const size=(L&&L.micro_size)||8;
-  let rows;
-  if(!L)rows='<tr><td colspan="4" class="empty">no scheduler state yet — start the league loop</td></tr>';
-  else{
-    const per=L.per_learner||{};
-    const micro=Object.keys(per).map(k=>`${esc(k)} ${(per[k]%size+size)%size}/${size}`).join(", ")||"—";
-    rows=`<tr><td><b>${esc(L.learner||"?")}</b></td><td class="num">tick ${L.tick??0}</td><td class="num" colspan="2">${micro} · main ${esc(L.main_id||"—")}</td></tr>`;
-    for(const[name,exp]of Object.entries(L.exploiters||{})){
-      const rate=(typeof exp.rate==="number")?`${(exp.rate*100).toFixed(0)}%`:"—";
-      rows+=`<tr><td>${esc(name)}</td><td class="truncate" title="${esc(exp.id||"")}">${esc(exp.id||"—")}</td><td class="num">${exp.games??0}</td><td class="num">${esc(exp.record||"—")} · ${rate} vs ${esc(exp.target||"")}</td></tr>`;
-    }
-  }
-  if($("league-body").innerHTML!==rows)$("league-body").innerHTML=rows;
-  const admits=(S.admissions||[]).map(a=>`<tr><td class="truncate" title="${esc(a.id)}">${esc(a.id)}</td><td>${esc(a.role)}</td><td class="num">${a.at_game}</td><td class="num">${esc(a.record)}</td></tr>`).join("")||'<tr><td colspan="4" class="empty">no admissions yet — exploiters are admitted past the bar</td></tr>';
-  if($("admit-body").innerHTML!==admits)$("admit-body").innerHTML=admits;
-  const P=S.pool;
-  if(P){
-    const sh=(P.top20&&typeof P.top20.share==="number")?`${(P.top20.share*100).toFixed(1)}%`:"—";
-    $("pool-summary").textContent=`${P.total} members · snapshots ${P.snapshot_counter} · top-20 share ${sh}`;
-    $("pool-roles").textContent=Object.entries(P.by_role||{}).sort().map(([k,v])=>`${k} ${v}`).join(", ")||"—";
-    const nq=P.newcomers||[];
-    $("pool-new").textContent=nq.length?nq.slice(0,12).join(", ")+(nq.length>12?` +${nq.length-12} more`:""):"none — every member has 10+ games";
-  }
-}
-const PAGE=100;
-let histPage=0, popPage=0, lastHist="", lastPop="", lastMaps="";
-function histFiltered(){
-  // P1-3: the member input filters history too (id OR champion OR learner).
-  const m=$("member").value.trim();
-  return (S.history||[]).filter(g=>!m||g.id===m||g.champion===m||g.learner===m);
-}
-function histRow(g){
-  // Twin of Python hist_row_html — keep both sides in step.
-  const when=g.finished_at
-    ?`<div class="legend" title="${esc(isoT(g.finished_at))} · ${fmtDur(g.duration_s)}">${fmtTime(g.finished_at)} · ${fmtDur(g.duration_s)}</div>`:"";
-  if(g.kind==="snapshot")
-    return `<tr><td class="truncate" title="${esc(g.id)}">${esc(g.id)}</td>`+
-    `<td><span class="pill train">${esc(g.learner)}</span> tick ${esc(g.tick)}</td>`+
-    `<td class="num">${esc(g.games)} own-games</td>`+
-    `<td class="num">anchors ${esc(g.anchors||"—")}</td></tr>`;
-  const pct=g.eval_games?100*g.win_rate:0;
-  const losses=Math.max(0,g.eval_games-g.eval_w-g.eval_d);
-  const margin=(typeof g.mean_margin==="number")?g.mean_margin:0;
-  return `<tr><td class="truncate" title="${esc(g.id)}">${esc(g.id)}${when}</td>`+
-  `<td>vs ${esc(g.champion||"?")}</td>`+
-  `<td class="num">${(+g.train_return||0).toFixed(2)} · ${(+g.train_loss||0).toFixed(3)}</td>`+
-  `<td><span class="rate-wrap rate-text" title="legacy eval W-D-L · draws count ½"><span class="rate-bar"><div style="width:${pct.toFixed(0)}%"></div></span>`+
-  `${g.eval_w}-${g.eval_d}-${losses} · ${(g.win_rate*100).toFixed(1)}% · `+
-  `<span title="mean eval margin">margin ${margin>=0?"+"+margin.toFixed(2):margin.toFixed(2)} pts</span>`+
-  `<div class="dots" title="per-duel margins: green win, blue draw, red loss">${dotStrip(g.margins)}</div></span></td></tr>`;
-}
-function renderPopulation(){
-  if(tableBusy("pop-body"))return; // P0-3: reader busy, retry next poll
-  // Share desc, zero-share hidden by default, % at 1dp, ≥1px bars.
-  const hide=$("hide-zero")&&$("hide-zero").checked;
-  const ranked=[...(S.members||[])].sort((a,b)=>((b.share||0)-(a.share||0)));
-  const vis=hide?ranked.filter(m=>(m.share||0)>0):ranked;
-  const pages=Math.max(1,Math.ceil(vis.length/PAGE));
-  popPage=Math.min(popPage,pages-1);
-  const h=hide+"|"+popPage+"|"+JSON.stringify(vis.slice(popPage*PAGE,popPage*PAGE+PAGE));
-  if(h===lastPop)return; // unchanged: keep focus, selection, scroll
-  lastPop=h;
-  const rows=vis.slice(popPage*PAGE,popPage*PAGE+PAGE).map(m=>popRow(m)).join("");
-  keepScroll($("pop-scroll"),()=>{
-    $("pop-body").innerHTML=rows||'<tr><td colspan="5" class="empty">no checkpoints yet — start the league loop</td></tr>';
-  });
-  const page=Math.min(popPage+1,pages);
-  const shown=vis.slice(popPage*PAGE,popPage*PAGE+PAGE).length;
-  $("pop-count").textContent=`showing ${shown} of ${vis.length} · page ${page} of ${pages}`;
-  $("pop-prev").disabled=popPage<=0;
-  $("pop-next").disabled=popPage+1>=pages;
-}
-function popRow(m){
-  // Twin of Python pop_row_html.
-  const role=m.role==="main"?"seed":m.role;
-  const share=(typeof m.share==="number")?m.share:null;
-  const pct=share===null?0:share*100;
-  const bar=`max(${pct.toFixed(1)}%,${pct>0?1:0}px)`;
-  const disp=share===null?"—":`${pct.toFixed(1)}%`;
-  return `<tr><td class="truncate" title="${esc(m.id)}">${esc(m.id)}${m.id===S.main?' <span class="champ-star">★</span>':""}</td>`+
-  `<td>${esc(role)}${m.role==="main"?' <span class="legend">founding weights</span>':""}</td><td class="truncate" title="${esc(m.parent||"")}">${esc(m.parent||"—")}</td>`+
-  `<td><span class="share-wrap"><span class="share-bar"><div style="width:${bar}"></div></span>${disp}</span></td>`+
-  `<td class="num">${m.wins}-${m.draws}-${m.losses}</td></tr>`;
-}
-function renderHistory(){
-  if(tableBusy("hist-body"))return; // P0-3: reader busy, retry next poll
-  const vis=histFiltered();
-  const pages=Math.max(1,Math.ceil(vis.length/PAGE));
-  histPage=Math.min(histPage,pages-1);
-  const h=$("member").value+"|"+histPage+"|"+JSON.stringify(vis.slice(histPage*PAGE,histPage*PAGE+PAGE));
-  if(h===lastHist)return; // unchanged: keep focus, selection, scroll
-  lastHist=h;
-  const rows=vis.slice(histPage*PAGE,histPage*PAGE+PAGE).map(g=>histRow(g)).join("");
-  keepScroll($("hist-scroll"),()=>{
-    $("hist-body").innerHTML=rows||($("member").value
-      ?`<tr><td colspan="4" class="empty">no history for ${esc($("member").value)} yet — <a href="#" class="js-clear">clear filter</a></td></tr>`
-      :'<tr><td colspan="4" class="empty">no history yet — games appear here as the league ticks</td></tr>');
-  });
-  bindClear();
-  const page=Math.min(histPage+1,pages);
-  $("hist-count").textContent=`showing ${vis.slice(histPage*PAGE,histPage*PAGE+PAGE).length} of ${vis.length} · page ${page} of ${pages}`;
-  $("hist-prev").disabled=histPage<=0;
-  $("hist-next").disabled=histPage+1>=pages;
-}
-function memberIds(){return S.members.map(m=>m.id);}
-function renderMemberOptions(){
-  // P0-3: text input + datalist (native autocomplete, keyboard-friendly).
-  // The input keeps its own value/focus: only the option list refreshes.
-  const dl=$("member-list"),ids=memberIds();
-  const h=JSON.stringify(ids);
-  if(h===dl.dataset.ids)return;
-  dl.dataset.ids=h;
-  dl.innerHTML=ids.map(id=>`<option value="${esc(id)}">`).join("");
-  syncClear();
-}
-function syncClear(){
-  // The clear-filter link is always one click away (P0-4).
-  const has=!!$("member").value;
-  $("clear-filter").style.display=has?"":"none";
-}
-function bindClear(){
-  document.querySelectorAll(".js-clear").forEach(a=>{
-    if(a.dataset.bound)return;
-    a.dataset.bound="1";
-    a.addEventListener("click",e=>{e.preventDefault();clearMember();});
-  });
-}
-function clearMember(){
-  $("member").value="";
-  gamesOffset=0;histPage=0;
-  history.replaceState(null,"",location.pathname);
-  syncClear();renderHistory();renderGames(++seq);
-}
-function gameRow(x){
-  // Twin of Python game_row_html.
-  const m=$("member").value.trim();
-  const seats=x.seats||[];
-  const refS=seats.find(s=>s.id===m)||seats[0]||{id:"?",score:"?",result:"draw"};
-  const o=seatBadge(refS.result);
-  const label=replayLabel(x.gen,x.replay);
-  const names=seats.map(s=>s.id).join(" vs ");
-  let match;
-  if(seats.length<=2){
-    const s0=seats[0]||{id:"?",score:"?",result:"draw"};
-    const s1=seats[1]||{id:"?",score:"?",result:"draw"};
-    const w0=s0.result==="win",w1=s1.result==="win";
-    const w0h=(w0?'<span class="winner">':'')+esc(s0.id)+(w0?'</span>':'');
-    const w1h=(w1?'<span class="winner">':'')+esc(s1.id)+(w1?'</span>':'');
-    match=`<td class="matchup" title="engine score">${w0h} ${s0.score} – ${s1.score} ${w1h}</td>`;
-  }else{
-    const line=seats.map(s=>(s.result==="win"?'<span class="winner">':'')+esc(s.id)+" "+s.score+(s.result==="win"?'</span>':'')).join(" · ");
-    const pairs=(x.pairs||[]).map(p=>esc(p.a)+" "+p.score_a+"–"+p.score_b+" "+esc(p.b)).join(" · ");
-    match=`<td class="matchup" title="engine scores, all ${seats.length} seats">${line}<div class="pairs">${pairs}</div></td>`;
-  }
-  return `<tr><td>${esc(x.gen)}</td><td><span class="pill ${esc(x.kind)}">${esc(x.kind)}</span></td>`+
-  match+`<td><span class="badge ${o.cls}">${o.label}</span></td>`+
-  `<td class="replay"><a href="/replay?f=${encodeURIComponent(x.replay)}" target="_blank" rel="noopener" title="${esc(names)}, gen ${esc(x.gen)} — opens in a new tab">${esc(label)}<span aria-hidden="true"> ↗</span></a></td></tr>`;
+function gameRow(g){
+  const res=g.result||"draw";
+  const names=(g.seats||[]).join(" vs ");
+  const bits=(g.seats||[]).map((sid,i)=>{
+    const sc=(g.scores||[])[i]??"?";
+    const cell=esc(sid)+" "+esc(sc);
+    return (res==="win"&&i===0)?"<b>"+cell+"</b>":cell;
+  }).join(" · ");
+  return "<tr><td class=num>"+dual(g.game_n,g.tick)+"</td><td>"+dot(g.learner)+esc(g.learner)+"</td><td>"+bits+
+    '</td><td><span class="badge '+res+'">'+res+"</span></td>"+
+    '<td class="replay"><a href="/replay?f='+encodeURIComponent(g.replay)+'" target="_blank" rel="noopener" title="'+esc(names)+' — opens in a new tab">replay<span aria-hidden="true"> ↗</span></a></td></tr>';
 }
 async function renderGames(my){
   const m=$("member").value.trim();
   if(m)history.replaceState(null,"","#member="+encodeURIComponent(m));
-  else if(!location.search)history.replaceState(null,"",location.pathname);
+  else history.replaceState(null,"",location.pathname);
   syncClear();
-  if(tableBusy("games-body")) return true; // reader busy: retry next poll
+  if(tableBusy("games-body"))return true;
   const qparts=[];
   if(m)qparts.push("member="+encodeURIComponent(m));
   qparts.push("limit=100","offset="+gamesOffset);
@@ -2310,43 +2170,45 @@ async function renderGames(my){
     $("error").textContent="games feed failed ("+e.message+") — showing last good table. retrying…";
     return false;
   }
-  if(my!==seq||$("member").value.trim()!==m) return true; // a newer poll or filter won
+  if(my!==seq||$("member").value.trim()!==m)return true;
   const h=m+"|"+gamesOffset+"|"+JSON.stringify(data);
-  if(h===lastGames) return true; // unchanged: keep focus, selection, scroll
+  if(h===lastGames)return true;
   lastGames=h;
-  const rows=data.rows.map(x=>gameRow(x)).join("");
   keepScroll($("games-scroll"),()=>{
-    // One shared empty-state shape (P2-2); the filtered case escapes via
-    // the clear-filter link, not only by retyping (P0-4).
-    $("games-body").innerHTML=rows||(data.total?`<tr><td colspan="5" class="empty">no games on this page — use the pager above</td></tr>`:(m?`<tr><td colspan="5" class="empty">no games logged for ${esc(m)} yet — <a href="#" class="js-clear">clear filter</a></td></tr>`:'<tr><td colspan="5" class="empty">no games logged yet — they appear here as each game finishes</td></tr>'));
+    $("games-body").innerHTML=data.rows.map(g=>gameRow({
+      game_n:g.game_n,tick:g.tick,learner:g.gen,
+      seats:(g.seats||[]).map(s=>s.id),scores:(g.seats||[]).map(s=>s.score),
+      result:(g.seats&&g.seats.length&&(g.seats[0].result||"draw"))||"draw",
+      replay:g.replay})).join("")||(data.total
+      ?'<tr><td colspan="5" class="empty">no games on this page — use the pager above</td></tr>'
+      :(m?'<tr><td colspan="5" class="empty">no games logged for '+esc(m)+' yet — <a href="#" class="js-clear">clear filter</a></td></tr>'
+        :'<tr><td colspan="5" class="empty">no games logged yet — they appear here as each game finishes</td></tr>'));
   });
   bindClear();
   const pages=Math.max(1,Math.ceil(data.total/100));
-  const page=Math.floor(gamesOffset/100)+1;
-  $("games-count").textContent=`showing ${data.rows.length} of ${data.total} · page ${Math.min(page,pages)} of ${pages}`;
+  const page=Math.min(Math.floor(gamesOffset/100)+1,pages);
+  $("games-count").textContent="showing "+data.rows.length+" of "+data.total+" · page "+page+" of "+pages;
   $("pg-prev").disabled=gamesOffset<=0;
   $("pg-next").disabled=gamesOffset+100>=data.total;
   return true;
 }
-function renderMaps(){
-  if(tableBusy("maps-body"))return;
-  const h=JSON.stringify(S.maps||[]);
-  if(h===lastMaps)return;
-  lastMaps=h;
-  // Null maps are legacy pre-map-logging rows, pinned last server-side.
-  const rows=(S.maps||[]).map(m=>{
-    const label=m.map||"unlabelled (pre-map logging)";
-    return `<tr><td class="truncate" title="${esc(m.map||"unlabelled (pre-map logging)")}">${esc(label)}</td><td class="num">${m.n}</td>`+
-    `<td class="num">${m.train}</td><td class="num">${m.eval}</td>`+
-    `<td class="num">${m.cw}-${m.cd}-${m.cl}</td></tr>`;}).join("");
-  keepScroll($("maps-scroll"),()=>{
-    $("maps-body").innerHTML=rows||'<tr><td colspan="5" class="empty">no games logged yet — they appear here as each game finishes</td></tr>';
+function syncClear(){
+  $("clear-filter").style.display=$("member").value?"":"none";
+}
+function bindClear(){
+  document.querySelectorAll(".js-clear").forEach(a=>{
+    if(a.dataset.bound)return;
+    a.dataset.bound="1";
+    a.addEventListener("click",e=>{e.preventDefault();clearMember();});
   });
 }
+function clearMember(){
+  $("member").value="";
+  gamesOffset=0;
+  history.replaceState(null,"",location.pathname);
+  syncClear();renderGames(++seq);
+}
 function seedMember(){
-  // P0-4: `?member=` seeds the filter on load, then the URL is replaced
-  // with the canonical `#member=` form. Unknown ids stay in the input so
-  // the empty state + clear-filter link show (never a silent ignore).
   const q=new URLSearchParams(location.search).get("member");
   const hm=new URLSearchParams(location.hash.slice(1)).get("member");
   const want=(hm!==null&&hm!=="")?hm:q;
@@ -2355,186 +2217,158 @@ function seedMember(){
     return;
   }
   $("member").value=want;
-  gamesOffset=0;histPage=0;
+  gamesOffset=0;
   history.replaceState(null,"","#member="+encodeURIComponent(want));
-  syncClear();renderHistory();
+  syncClear();
+}
+function renderPill(){
+  const el=$("live-pill");
+  if(!el)return;
+  const ageS=Math.max(0,Math.round((Date.now()-lastTick)/1000));
+  if(!live){el.className="live-pill paused";el.textContent="○ paused";return;}
+  if(ageS>30){el.className="live-pill stale";el.textContent="▲ stale "+ageS+"s";}
+  else{el.className="live-pill ok";el.textContent="● live · "+ageS+"s";}
+  $("updated").textContent="updated "+ageS+"s ago · "+(live?"live":"paused");
 }
 async function load(){
-  if(!live) return;
+  if(!live)return;
   const my=++seq;
   try{
-    // P0-2: idle polls send ?since= and get a tiny {unchanged:true}.
     const url=(S&&S.mtime)?"/api/snapshot?since="+encodeURIComponent(S.mtime):"/api/snapshot";
     const snap=await fetchJSON(url);
-    if(my!==seq) return; // a newer poll won
+    if(my!==seq)return;
     lastTick=Date.now();
     $("error").style.display="none";
-    if(snap.unchanged&&S){renderHeader();}
-    else{
-      S=snap;
+    if(!(snap.unchanged&&S)){
+      S=snap.unchanged?S:snap;
       const h=JSON.stringify(snap);
-      if(h!==lastHash){lastHash=h;
-        renderHeader();renderBoard();renderLeague();renderPopulation();renderHistory();renderMemberOptions();renderMaps();}
-      else renderHeader();
-      if(!hashSeeded){hashSeeded=true;seedMember();}
+      if(h!==lastSnap){lastSnap=h;
+        renderH0();renderBars();renderStandings();renderAlerts();renderBehavior();
+        /* canvases repaint from the same snapshot; member options refresh. */
+        drawLadder();drawPairs();renderMemberOptions();}
+      else renderH0();
+      if(!load._seeded){load._seeded=true;seedMember();}
     }
     renderPill();
-    const ok=await renderGames(my);
-    if(!ok)$("updated").textContent="updated "+ago(lastTick)+" · games feed stale · live snapshot";
+    await renderGames(my);
   }catch(e){
     $("error").style.display="block";
-    $("error").textContent=lastTick?"connection lost ("+e.message+") — showing last good data from "+ago(lastTick)+". retrying…"
+    $("error").textContent=lastTick?"connection lost ("+e.message+") — showing last good data. retrying…"
       :"connection lost ("+e.message+") — no data yet. retrying…";
   }
 }
-function activePhase(){const p=S&&S.status&&S.status.phase;return p==="train"||p==="eval"||p==="league"||p==="anchor";}
-function tick(){renderPill();load().finally(()=>setTimeout(tick,live?(activePhase()?5000:15000):15000));}
-let gamesOffset=0,hashSeeded=false;
-$("member").addEventListener("input",()=>{gamesOffset=0;histPage=0;++seq;syncClear();renderHistory();renderGames(seq);});
-$("member").addEventListener("change",()=>{gamesOffset=0;histPage=0;++seq;syncClear();renderHistory();renderGames(seq);});
+function renderMemberOptions(){
+  const dl=$("member-list"),ids=(S.behavior||[]).map(r=>r.id);
+  const h=JSON.stringify(ids);
+  if(h===dl.dataset.ids)return;
+  dl.dataset.ids=h;
+  dl.innerHTML=ids.map(id=>'<option value="'+esc(id)+'">').join("");
+  syncClear();
+}
+let gamesOffset=0;
+$("member").addEventListener("input",()=>{gamesOffset=0;++seq;syncClear();renderGames(seq);});
+$("member").addEventListener("change",()=>{gamesOffset=0;++seq;syncClear();renderGames(seq);});
 $("clear-filter").addEventListener("click",e=>{e.preventDefault();clearMember();});
-$("hist-prev").addEventListener("click",()=>{histPage=Math.max(0,histPage-1);renderHistory();});
-$("hist-next").addEventListener("click",()=>{histPage+=1;renderHistory();});
-$("pop-prev").addEventListener("click",()=>{popPage=Math.max(0,popPage-1);renderPopulation();});
-$("pop-next").addEventListener("click",()=>{popPage+=1;renderPopulation();});
-$("hide-zero").addEventListener("change",()=>{popPage=0;lastPop="";renderPopulation();});
 $("pg-prev").addEventListener("click",()=>{gamesOffset=Math.max(0,gamesOffset-100);renderGames(++seq);});
 $("pg-next").addEventListener("click",()=>{gamesOffset+=100;renderGames(++seq);});
 $("live-toggle").addEventListener("change",e=>{live=e.target.checked;
-  if(!live)seq++; // invalidate in-flight polls
+  if(!live)seq++;
   $("live-label").textContent=live?"live":"paused";
   renderPill();load();});
 let resizeT=0;
-window.addEventListener("resize",()=>{clearTimeout(resizeT);resizeT=setTimeout(()=>{if(S)renderBoard();},150);});
+window.addEventListener("resize",()=>{clearTimeout(resizeT);resizeT=setTimeout(()=>{if(S){drawLadder();drawPairs();}},150);});
+function tick(){renderPill();load().finally(()=>setTimeout(tick,live?10000:10000));}
 load();
 tick();
 """
 
 
 def render_page(snap: dict | None = None) -> str:
-    """Full page. With a snapshot the hero, strip and first table pages
-    are server-rendered (P0-1 first paint); without one the shell carries
-    skeleton shimmer rows so layout doesn't jump."""
+    """Full page. With a snapshot the H0 strip and all table cards are
+    server-rendered (zero JS required to read); without one the shell
+    carries shimmer rows so layout doesn't jump."""
     if snap is None:
         skel3 = "".join(
-            '<tr class="skel">' + "<td><span></span></td>" * 4 + "</tr>" for _ in range(3))
-        hero_main, hero_run = "loading…", "tick —"
-        status_line, pct, bar_bg = "loading…", 0, "var(--accent)"
-        counts = ("0", "0", "0", "0")
-        league_rows = skel3
-        admit_rows = skel3
-        pool_summary, pool_roles, pool_new = "loading…", "loading…", "loading…"
-        hist_rows = skel3
-        hist_count = "loading…"
-        game_rows = skel3
+            '<tr class="skel">' + "<td><span></span></td>" * 5 + "</tr>"
+            for _ in range(3))
+        h0 = h0_strip_html(None)
+        ladder_fb = '<div class="empty">loading…</div>'
+        bars = skel3
+        standings = skel3
+        alerts = '<div class="empty">loading…</div>'
+        pairs_fb = '<div class="empty">loading…</div>'
+        behavior = skel3
+        games = skel3
         game_count = "loading…"
-        pop_rows = skel3
-        pop_count = "loading…"
-        map_rows = skel3
-        map_count = "loading…"
         footer_counts = "0 games"
     else:
-        main = snap.get("main")
-        star = ' <span class="champ-star">★</span>' if main else ""
-        hero_main = f"{_esc(main or '—')}{star}"
-        league = snap.get("league")
-        hero_run = _esc(hero_league_text(league, snap.get("intervals")))
-        status_line, pct = status_html(snap.get("status"), main,
-                                       snap.get("counts", {}).get("rows", 0))
-        st = snap.get("status", {}) or {}
-        bar_bg = "var(--accent)"
-        counts = (str(snap.get("counts", {}).get("rows", 0)),
-                  str(snap.get("counts", {}).get("games", 0)),
-                  str(len(snap.get("members", []))),
-                  str(len(snap.get("maps", []))))
-        league_rows = league_strip_html(league)
-        admit_rows = admissions_rows_html(snap.get("admissions", []))
-        pool_summary, pool_roles, pool_new = pool_html(snap.get("pool"))
-        rows = snap.get("history", [])
-        hist_rows = "".join(hist_row_html(g) for g in rows[:PAGE_SIZE]) or \
-            '<tr><td colspan="4" class="empty">no history yet — games appear here as the league ticks</td></tr>'
-        npages = max(1, (len(rows) + PAGE_SIZE - 1) // PAGE_SIZE)
-        hist_count = f"showing {min(len(rows), PAGE_SIZE)} of {len(rows)} · page 1 of {npages}"
-        games = snap.get("games", [])
-        game_rows = "".join(game_row_html(x) for x in games) or \
-            f'<tr><td colspan="5" class="empty">{EMPTY_GAMES}</td></tr>'
-        total = snap.get("game_total", len(games))
-        game_count = f"showing {len(games)} of {total} · page 1 of {max(1, (total + 99) // 100)}"
-        vis = pop_first_page(snap.get("members", []), main)
-        pop_rows = "".join(pop_row_html(m, main) for m in vis[:PAGE_SIZE]) or \
-            '<tr><td colspan="5" class="empty">no checkpoints yet — start the league loop</td></tr>'
-        ppp = max(1, (len(vis) + PAGE_SIZE - 1) // PAGE_SIZE)
-        pop_count = f"showing {min(len(vis), PAGE_SIZE)} of {len(vis)} · page 1 of {ppp}"
-        maps = snap.get("maps", [])
-        map_rows = "".join(map_row_html(m) for m in maps) or \
-            f'<tr><td colspan="5" class="empty">{EMPTY_GAMES}</td></tr>'
-        map_count = f"{len(maps)} boards"
-        footer_counts = f"{snap.get('game_total', 0)} games"
+        h0 = h0_strip_html(snap.get("h0"))
+        tick = (snap.get("h0") or {}).get("tick", 0)
+        ladder_fb = ladder_fallback_html(snap.get("anchors"))
+        bars = bars_rows_html(snap.get("bars"))
+        standings = standings_rows_html(snap.get("standings"), tick)
+        alerts = alerts_html(snap.get("alerts"))
+        pairs_fb = pairs_fallback_html(snap.get("pairs"))
+        behavior = behavior_rows_html(snap.get("behavior"), tick)
+        games = "".join(game_row_html(g) for g in snap.get("games", [])) or \
+            (f'<tr><td colspan="5" class="empty">{EMPTY_GAMES}</td></tr>')
+        total = snap.get("game_total", len(snap.get("games", [])))
+        game_count = (f"showing {len(snap.get('games', []))} of {total} · "
+                      f"page 1 of {max(1, (total + 99) // 100)}")
+        footer_counts = f"{total} games · tick {tick}"
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AlphaAnt training</title>
 <style>{STYLES}</style></head>
-<body><a class="skip" href="#games-card">skip to games</a><a class="skip" href="#hist-card">skip to history</a><div class="wrap">
+<body><a class="skip" href="#games-card">skip to games</a>
+<div class="h0" id="h0">{h0}
+<span class="live-pill ok" id="live-pill">● live</span>
+<span class="updated" id="updated" title="page refresh time"></span></div>
+<div class="wrap">
 <h1>AlphaAnt continuous league</h1>
-<p class="sub">four learners, equal shares · fixed anchor ladder · no generations, no throne</p>
-<div id="error" role="alert"></div>
-<div class="card" id="getting-started" style="display:none"><b>No games yet.</b> Start the league with:
-<code>.venv/bin/python ml/selfplay.py --ticks 100 --anchors g000</code>
-— games, curves and population appear here as it ticks.</div>
-<div class="card hero" id="hero">
-  <div class="hero-main"><div class="stat-label">Live main</div>
-    <div class="hero-champ" id="st-champ">{hero_main}</div>
-    <div class="hero-run" id="st-run">{hero_run}</div></div>
-  <div class="hero-side"><div class="stat-label">Status</div>
-    <div class="status-line" id="st-status">{status_line}</div>
-    <div class="progress" role="progressbar" aria-label="run progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{pct}" id="st-barwrap"><div id="st-bar" style="width:{pct}%;background:{bar_bg}"></div></div></div>
+<p class="sub">1 main + me + le-a + le-b · equal shares · frozen ladder · no generations</p>
+<div id="error" role="alert" style="display:none"></div>
+<div class="grid12">
+<div class="tcell span7">
+<div class="section-title">Anchor ladder</div>
+<div class="legend">main snapshot win share vs the frozen ladder, oldest → newest</div>
+<div class="card"><canvas id="ch-ladder"></canvas><div id="ladder-fallback">{ladder_fb}</div></div>
 </div>
-<div class="strip" id="stats-row">
-  <div class="mini"><div class="stat-label">History rows</div><div class="stat-value" id="st-gen">{counts[0]}</div></div>
-  <div class="mini"><div class="stat-label">Games</div><div class="stat-value" id="st-games">{counts[1]}</div></div>
-  <div class="mini"><div class="stat-label">Members</div><div class="stat-value" id="st-members">{counts[2]}</div></div>
-  <div class="mini"><div class="stat-label">Maps × seats</div><div class="stat-value" id="st-maps">{counts[3]}</div></div>
+<div class="tcell span5">
+<div class="section-title">Distance to bar</div>
+<div class="legend">live exploiter window vs its admission bar</div>
+<div class="card table-scroll"><table>
+<caption style="display:none">Distance to bar</caption>
+<tr><th scope="col">slot</th><th scope="col">target</th><th scope="col">rate</th><th scope="col" class="num">window</th><th scope="col" class="num">in</th></tr>
+<tbody id="bars-body">{bars}</tbody></table></div>
+<div class="section-title">Standings</div>
+<div class="legend">running Elo, integers · W-D-L over eval games · rows older than 200 ticks gray out</div>
+<div class="card table-scroll"><table>
+<caption style="display:none">Standings</caption>
+<tr><th scope="col">slot</th><th scope="col">class</th><th scope="col" class="num">elo</th><th scope="col" class="num">w-d-l</th><th scope="col" class="num">n</th><th scope="col" class="num">last</th></tr>
+<tbody id="standings-body">{standings}</tbody></table></div>
 </div>
-<div class="section-title">Scheduler</div>
-<div class="legend">current learner · micro-batch progress · live exploiter records vs their bar</div>
-<div class="card table-scroll" id="league-card"><table>
-<caption>Scheduler state, live</caption>
-<tr><th scope="col">learner</th><th scope="col">tick</th><th scope="col" class="num">own-games</th><th scope="col" class="num">last-40 record</th></tr>
-<tbody id="league-body">{league_rows}</tbody></table></div>
-<div class="section-title">Progress board</div>
-<div class="legend">one point per K-game interval, oldest → newest</div>
-<details class="why"><summary>what am I looking at?</summary><p>Each card plots one signal per K-game interval, oldest on the left. The anchor-trend card is the absolute progress curve: each main snapshot's win share against the frozen ladder. Thick lines are window medians over faint per-interval points; shaded bands are the spread. The PG ratio card is experimental — it has no literature backing, unlike the rest.</p></details>
-<div class="charts">
-  <div class="card chart-card chart-wide"><div class="chart-head"><h3>Per-learner Elo</h3><span class="delta flat" id="d-elo" style="display:none"></span></div>
-    <p class="chart-sub">running Bradley-Terry over train+eval pairs · one pass, interval 0 to I · g000 pinned at 0 · live main + exploiters + anchors · <span id="elo-note"></span></p><canvas id="ch-elo"></canvas></div>
-  <div class="card chart-card chart-wide"><div class="chart-head"><h3>Anchor trend — main vs ladder</h3></div>
-    <p class="chart-sub">main snapshot win share per frozen anchor · measurement only, no training · THE progress curve</p><canvas id="ch-anchor"></canvas></div>
-  <div class="card chart-card"><div class="chart-head"><h3>Train conversion</h3><span class="delta flat" id="d-conv" style="display:none"></span></div>
-    <p class="chart-sub">training-side win share per interval · trailing mean + Wilson bands</p><canvas id="ch-conv"></canvas></div>
-  <div class="card chart-card"><div class="chart-head"><h3>Decisiveness train vs eval</h3><span class="delta flat" id="d-dec" style="display:none"></span></div>
-    <p class="chart-sub">nonzero-margin fraction · faint raw, bold 15-interval average</p><canvas id="ch-dec"></canvas></div>
-  <div class="card chart-card"><div class="chart-head"><h3>Training-side margin median ± IQR</h3><span class="delta flat" id="d-marg" style="display:none"></span></div>
-    <p class="chart-sub">pooled trailing 15-interval window · seats[0]-minus-seats[1], pts</p><canvas id="ch-marg"></canvas></div>
+<div class="tcell span12">
+<div class="section-title">Attention queue</div>
+<div class="card" id="alerts">{alerts}</div>
 </div>
-<div class="tables-2col">
-<div class="tcell">
-<div class="section-title">History</div>
-<div class="legend">league snapshots (learner · tick · anchors) and legacy challenger rows, newest first</div>
-<details class="why"><summary>jargon guide</summary><p>Each row is one league snapshot (its learner, scheduler tick, own-games and anchor W-D-L) or, from before the league, one challenger with its train return/loss and eval W-D-L. There are no promotions, no crowns, no verdicts — snapshots are permanent.</p></details>
-<div class="toolbar">
-<span class="pager"><button id="hist-prev" type="button" aria-label="newer history page">← newer</button><button id="hist-next" type="button" aria-label="older history page">older →</button></span>
-<span class="legend" id="hist-count" style="margin:0">{hist_count}</span>
+<div class="tcell span6">
+<div class="section-title">Pair matrix</div>
+<div class="legend">row share vs column, Laplace-smoothed, 0dp · darker reads stronger</div>
+<div class="card"><canvas id="ch-pairs"></canvas><div id="pairs-fallback">{pairs_fb}</div></div>
 </div>
-<div class="card table-scroll table-tall" id="hist-scroll"><table id="hist-card">
-<caption>History, newest first — the member filter above applies here too</caption>
-<tr><th scope="col">id</th><th scope="col">vs / learner</th><th scope="col" class="num">training</th><th scope="col">eval / anchors</th></tr>
-<tbody id="hist-body">{hist_rows}</tbody></table></div>
+<div class="tcell span6">
+<div class="section-title">Behavior</div>
+<div class="legend">per-game means: food · kills · army share · length · games</div>
+<div class="card table-scroll"><table>
+<caption style="display:none">Behavior</caption>
+<tr><th scope="col">id</th><th scope="col" class="num">food</th><th scope="col" class="num">kills</th><th scope="col" class="num">army</th><th scope="col" class="num">len</th><th scope="col" class="num">n</th></tr>
+<tbody id="behavior-body">{behavior}</tbody></table></div>
 </div>
-<div class="tcell">
+<div class="tcell span12">
 <div class="section-title">Recent games</div>
-<div class="legend">train = practice · eval = league games (learner seats first) · scores are engine points</div>
-<details class="why"><summary>jargon guide</summary><p><b>Train</b> games are practice, including self-play. <b>Eval</b> games are league games; the learner always seats first, so the <b>result</b> badge reads from the training side unless a member filter is set. Games with 3+ seats list every seat with pair scores below.</p></details>
+<div class="legend">dual time g1234 · t5678 · learner seats first · replay names the bots</div>
 <div class="card" id="games-card">
 <div class="toolbar">
 <label for="member">member</label>
@@ -2542,66 +2376,20 @@ def render_page(snap: dict | None = None) -> str:
 <datalist id="member-list"></datalist>
 <a href="#" id="clear-filter" class="clear-link" style="display:none">clear filter</a>
 <label class="live-toggle"><input type="checkbox" id="live-toggle" checked> <span id="live-label">live</span></label>
-<span class="live-pill ok" id="live-pill">● live</span>
 <span class="pager"><button id="pg-prev" type="button" aria-label="newer games page">← newer</button><button id="pg-next" type="button" aria-label="older games page">older →</button></span>
 <span class="legend" id="games-count" style="margin:0">{game_count}</span>
-<span class="updated" id="updated" title="page refresh time — data may be older while the run is idle"></span>
 </div>
 <div class="table-scroll table-tall" id="games-scroll"><table>
-<caption>Recent games, newest first</caption>
-<tr><th scope="col">gen</th><th scope="col">kind</th><th scope="col">matchup</th><th scope="col">result</th><th scope="col">replay</th></tr>
-<tbody id="games-body">{game_rows}</tbody></table></div>
+<caption style="display:none">Recent games, newest first</caption>
+<tr><th scope="col">game</th><th scope="col">learner</th><th scope="col">matchup</th><th scope="col">result</th><th scope="col">replay</th></tr>
+<tbody id="games-body">{games}</tbody></table></div>
 </div>
 </div>
-<div class="tcell">
-<div class="section-title">Population</div>
-<div class="legend">share = realized sampling share (game seats) · W-D-L counts eval games</div>
-<details class="why"><summary>jargon guide</summary><p><b>Share</b> is each member's fraction of logged game seats: it shows where the scheduler actually spends games, never a ranking. <b>W-D-L</b> counts eval games only — one entry per game, where a win is the sole top score and a draw is a tied top. <b>Seed</b> is the founding-weights checkpoint everything descends from.</p></details>
-<div class="toolbar">
-<label class="live-toggle"><input type="checkbox" id="hide-zero" checked> hide zero-share</label>
-<span class="pager"><button id="pop-prev" type="button" aria-label="previous population page">← prev</button><button id="pop-next" type="button" aria-label="next population page">next →</button></span>
-<span class="legend" id="pop-count" style="margin:0">{pop_count}</span>
 </div>
-<div class="card table-scroll table-tall" id="pop-scroll"><table>
-<caption>Population by sampling share, highest first</caption>
-<tr><th scope="col">id</th><th scope="col">role</th><th scope="col">parent</th><th scope="col">share</th><th scope="col" class="num">W-D-L (eval)</th></tr>
-<tbody id="pop-body">{pop_rows}</tbody></table></div>
-</div>
-<div class="tcell">
-<div class="section-title">Admissions</div>
-<div class="legend">exploiters frozen into the pool past the bar, newest last</div>
-<div class="card table-scroll table-tall" id="admit-scroll"><table>
-<caption>Admissions log from league.json</caption>
-<tr><th scope="col">id</th><th scope="col">role</th><th scope="col" class="num">at game</th><th scope="col" class="num">record</th></tr>
-<tbody id="admit-body">{admit_rows}</tbody></table></div>
-</div>
-<div class="tcell">
-<div class="section-title">Pool health</div>
-<div class="legend" id="pool-summary">{pool_summary}</div>
-<div class="card" id="pool-card">
-<div class="legend" style="margin:0 0 8px">roles: <span id="pool-roles">{pool_roles}</span></div>
-<div style="font-size:13.5px">newcomer queue (&lt;10 games): <span id="pool-new">{pool_new}</span></div>
-</div>
-</div>
-<div class="tcell">
-<div class="section-title">Maps</div>
-<div class="legend">per board and seat count — games per phase · training-side record on eval</div>
-<details class="why"><summary>jargon guide</summary><p>Each row is one board at one seat count. The <b>record</b> covers eval games only, read off fixed seats 0 and 1 — extra seats are shared weather. Rows labelled unlabelled ran before map logging existed.</p></details>
-<div class="toolbar">
-<span class="legend" id="maps-count" style="margin:0">{map_count}</span>
-</div>
-<div class="card table-scroll table-tall" id="maps-scroll"><table>
-<caption>Maps by games logged</caption>
-<tr><th scope="col">map</th><th scope="col" class="num">seats</th><th scope="col" class="num">train</th><th scope="col" class="num">eval</th><th scope="col" class="num">training-side W-D-L (eval)</th></tr>
-<tbody id="maps-body">{map_rows}</tbody></table></div>
-</div>
-</div>
-<div class="footer"><span>archive ml/archive</span><span class="sep">·</span><span>{footer_counts}</span><span class="sep">·</span><span>polls 5s active / 15s idle</span><span class="sep">·</span><span>AZDash</span></div>
+<div class="footer"><span>archive ml/archive</span><span class="sep">·</span><span>{footer_counts}</span><span class="sep">·</span><span>polls every 10s, values replace in place</span></div>
 </div>
 <script>{SCRIPT}</script></body></html>
 """
-
-
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Serve the training dashboard.")
     p.add_argument("--port", type=int, default=8080)

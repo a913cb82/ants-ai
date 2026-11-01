@@ -160,12 +160,12 @@ def test_dashboard_handles_family_ids(tmp_path):
     state = archive.init_league(base, "main0", ["g000"])
     state["main_snapshots"] = ["main0"]
     archive.save_league(base, state)
-    # tracked/panel/anchor-trend/member table all key on opaque strings.
+    # tracked/panel/ladder/behavior all key on opaque strings.
     assert "main0" in [m["id"] for m in archive.members(base)]
     assert dashboard.league_panel(base) == ["g000"]
     snap = dashboard.snapshot(base)
-    ids = [m["id"] for m in snap["members"]]
+    ids = [m["id"] for m in snap["behavior"]]
     assert "main0" in ids and "me0" in ids
-    assert snap["anchor_trend"]["snapshots"] == ["main0"]
+    assert snap["anchors"]["snapshots"] == ["main0"]
     # g-allocator still ignores family ids when dashboard is watching.
     assert archive.save_checkpoint(base, {}, "main", None).startswith("g")

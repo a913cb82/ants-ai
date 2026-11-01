@@ -57,7 +57,8 @@ def play_anchor_game(cfg: dict, base: Path, snap_w: dict, anchor_w: dict,
 def measure_anchor(cfg: dict, base: Path, snapshot_id: str, main_id: str,
                    anchor_id: str, snap_w: dict, anchor_w: dict,
                    games: int = GAMES_PER_ANCHOR,
-                   rng: random.Random | None = None) -> dict:
+                   rng: random.Random | None = None,
+                   tick: int | None = None) -> dict:
     """One (snapshot, anchor) series: play, tally, record. No training."""
     if rng is None:
         rng = random.Random(f"{snapshot_id}:{anchor_id}")
@@ -78,13 +79,14 @@ def measure_anchor(cfg: dict, base: Path, snapshot_id: str, main_id: str,
             "last_game": f"anchors/game{g}",
         })
     return archive.record_anchor(base, snapshot_id, main_id, anchor_id,
-                                 wins, losses, draws)
+                                 wins, losses, draws, tick=tick)
 
 
 def measure_all(cfg: dict, base: Path, snapshot_id: str, main_id: str,
                 snap_w: dict, anchors: dict[str, dict],
                 games_per: int = GAMES_PER_ANCHOR,
-                rng: random.Random | None = None) -> list[dict]:
+                rng: random.Random | None = None,
+                tick: int | None = None) -> list[dict]:
     """Full ladder series for one main snapshot. Returns the rows."""
     if rng is None:
         rng = random.Random(snapshot_id)
@@ -92,5 +94,5 @@ def measure_all(cfg: dict, base: Path, snapshot_id: str, main_id: str,
     for anchor_id, anchor_w in anchors.items():
         rows.append(measure_anchor(cfg, base, snapshot_id, main_id,
                                    anchor_id, snap_w, anchor_w,
-                                   games=games_per, rng=rng))
+                                   games=games_per, rng=rng, tick=tick))
     return rows

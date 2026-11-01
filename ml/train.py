@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import random
 import sys
+import time
 import uuid
 from pathlib import Path
 
@@ -74,14 +75,34 @@ def _play_one(args) -> dict:
     scores = game["score"]
     gid = f"{rel}#{uuid.uuid4().hex[:12]}"  # one play, one id (pairs group back)
     kind = cfg.get("game_kind", "train")
+    # Behavior facts, parsed once per game from the played game dict:
+    # per-seat food/kills/army over owner indices, aligned to each pair.
+    behavior = None
+    if isinstance(game, dict):
+        try:
+            behavior = archive.behavior_from_replay(
+                game.get("replaydata"), n=len(field),
+                length=game.get("length", game.get("game_length")))
+        except Exception:
+            behavior = None
+    tick = cfg.get("tick")
+    now = time.time()
     for x in range(len(field)):
         for y in range(x + 1, len(field)):
             archive.record_result(base, field[x], field[y],
                                   scores[x], scores[y], kind=kind)
+            kw: dict = {"t": now}
+            if tick is not None:
+                kw["tick"] = tick
+            if behavior is not None:
+                kw["food"] = [behavior["food"][x], behavior["food"][y]]
+                kw["kills"] = [behavior["kills"][x], behavior["kills"][y]]
+                kw["army"] = [behavior["army"][x], behavior["army"][y]]
+                kw["length"] = behavior["length"]
             archive.log_game(base, chal_id, kind, field[x], field[y],
                              scores[x], scores[y],
                              rel + "/logs/0.replay", map=Path(map_path).name,
-                             game=gid)
+                             game=gid, **kw)
     n_games = cfg.get("train_games", 0) * 2
     archive.write_status(base, {
         "phase": "train", "challenger": chal_id,
@@ -89,7 +110,8 @@ def _play_one(args) -> dict:
         "last_mean_return": sum(rets) / len(rets) if rets else 0.0,
         "last_game": rel,
     })
-    return {"rows": rows, "rets": rets, "scores": list(scores)}
+    return {"rows": rows, "rets": rets, "scores": list(scores),
+            "game": game}
 
 
 def select_opponent(base: Path, learner: str, state: dict,
