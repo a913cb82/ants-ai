@@ -22,8 +22,8 @@ tuning choice — their compute split is unpublished).
 | Learner | Init | Opponent rule (PFSP, no Nash anywhere) | Objective | Reset |
 |---|---|---|---|---|
 | Main | g1732 weights + banked Adam (main.json head = freshest trained state) | 50% squared-weighted historical (seeks counters); else variance-weighted; newcomer boost ×5 while <10 games | none (trains forever) | NEVER |
-| ME | g000 weights (+pad to current arch, tested path) + fresh Adam | locked onto main while win-rate > 0.1, else variance-weighted easier historicals | sustained >60% over last 40 vs main → freeze copy in pool (relabel snapshot, no extra copy step) | to g000 on admission; also after 400 own-games with no admission (stall rule) |
-| LE-A/B | same g000 init (independent runs) | linear_capped over all historicals (seeks any hole) | sustained >60% over last 40 vs pool → freeze + reset | same stall rule |
+| ME | g000 weights (+pad to current arch, tested path) + fresh Adam | locked onto main while win-rate > 0.1, else variance-weighted easier historicals | sustained >60% over last 40 vs main → freeze copy in pool (relabel snapshot, no extra copy step)  | to g000 on admission only (no stall rule since 2026-11-02) |
+| LE-A/B | same g000 init (independent runs) | linear_capped over all historicals (seeks any hole)  | sustained >60% over last 40 vs pool → freeze + reset | to g000 on admission only (no stall rule since 2026-11-02) |
 
 Invariants (go in LEAGUE.md verbatim):
 - One game trains exactly one learner; opponents are always frozen snapshots.
@@ -86,7 +86,7 @@ on synthetic matrices; acceptance = role-appropriate distributions):
 
 - `ml/pfsp.py` NEW: 4 weighting fns + 3 role policies, pure, TDD red-first.
 - `ml/selfplay.py`: scheduler loop replaces run_generation; snapshot cadence;
-  admission + stall checks; anchor measurement calls.
+  admission checks; anchor measurement calls.
 - `ml/train.py`: PFSP selection; micro-batch updates; role configs.
 - `ml/evaluate.py`: DELETED → small `ml/measure.py` (anchor games only).
 - `ml/archive.py`: roles main/me/le/snapshot/anchor; admission log.
@@ -140,7 +140,8 @@ Dashboard rework (phase 4 implements; contracts fixed here):
 ## Phases (dependency order; 1–2 parallelizable; nothing live before phase 3)
 
 0. LOCK this plan (approve or amend the labeled choices: shares, K=80, N=8,
-   bars 60%/40, stall 400, anchor set, newcomer boost ×5/10 games).
+   bars 60%/40, anchor set, newcomer boost ×5/10 games;
+   stall 400 REMOVED 2026-11-02 (no AlphaStar counterpart).
 1. `ml/pfsp.py` + tests. Zero training impact. DONE (59ca5b4).
 2. Archive roles/admission log + tests. DONE (3479404).
 3. Scheduler + `measure.py`, delete `evaluate.py`; smoke on tiny pool. DONE (b7c162c).

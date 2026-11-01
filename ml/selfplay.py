@@ -48,9 +48,6 @@ SNAPSHOT_EVERY = 80
 #: Admission: last-40 window mean above this vs the role target.
 ADMISSION_RATE = 0.6
 
-#: Stall: this many own-games with no admission resets to g000.
-STALL_GAMES = 400
-
 
 def default_map_pool() -> list[str]:
     """Every playable 2p grid under tools/maps, sorted, deterministic."""
@@ -274,7 +271,7 @@ def ensure_league(base: Path, cfg: dict) -> dict:
         state.setdefault("tick", 0)
         state.setdefault("main_snapshots", [source])
         for exp in state.get("exploiters", {}).values():
-            exp.setdefault("reset_at", 0)
+            exp.pop("reset_at", None)
         archive.save_league(base, state)
     else:
         changed = False
@@ -287,8 +284,7 @@ def ensure_league(base: Path, cfg: dict) -> dict:
             state["main_snapshots"] = [state.get("main_id")]
             changed = True
         for exp in state.get("exploiters", {}).values():
-            if "reset_at" not in exp:
-                exp["reset_at"] = 0
+            if exp.pop("reset_at", None) is not None:
                 changed = True
         if changed:
             archive.save_league(base, state)
@@ -435,32 +431,9 @@ def maybe_admit(base: Path, live: dict, state: dict, learner: str,
         exp = state["exploiters"][learner]
         reset_learner(base, live, learner, g000_w)
         exp["window"] = []
-        exp["reset_at"] = exp.get("games", 0)
         archive.save_league(base, state)
         return entry
     return None
-
-
-def maybe_stall_reset(base: Path, live: dict, state: dict, learner: str,
-                      g000_w: dict) -> bool:
-    """Stall rule: 400 own-games with no admission resets IN PLACE.
-
-    Same bare slot id before and after (g000 weights + fresh Adam,
-    window cleared): the record persists across the reset, so a fresh
-    start inherits the failed era's level -- pessimistic direction,
-    self-corrects as fresh games dominate. Admission-resets always move
-    the lineage forward under a fresh family id, so peak-inheritance
-    (the optimistic direction) can never happen."""
-    if learner == "main":
-        return False
-    exp = state["exploiters"][learner]
-    if exp.get("games", 0) - exp.get("reset_at", 0) >= STALL_GAMES:
-        reset_learner(base, live, learner, g000_w)
-        exp["window"] = []
-        exp["reset_at"] = exp.get("games", 0)
-        archive.save_league(base, state)
-        return True
-    return False
 
 
 def maybe_snapshot(cfg: dict, base: Path, live: dict, state: dict,
@@ -583,7 +556,6 @@ def run_tick(cfg: dict, base: Path, live: dict,
 
     admitted = maybe_admit(base, live, state, learner, g000_w)
     snapshot = None
-    stalled = False
     if admitted is not None:
         # maybe_admit reloads internally: refresh or the final save
         # clobbers the admission entry and the reset.
@@ -591,20 +563,13 @@ def run_tick(cfg: dict, base: Path, live: dict,
         archive.note_reset(base, learner, seat_id, game_no, tick)
         state = archive.load_league(base)
     else:
-        # A stall reset means dead weights: reset first so the cycle
-        # restarts and no snapshot freezes the dropped lineage.
-        stalled = maybe_stall_reset(base, live, state, learner,
-                                    g000_w)
-        if stalled:
-            state = archive.load_league(base)
-            archive.note_reset(base, learner, seat_id, game_no, tick)
-            state = archive.load_league(base)
-        else:
-            # The admitted freeze is the permanent record for that tick;
-            # a fresh reset must not snapshot on the same tick.
-            snapshot = maybe_snapshot(cfg, base, live, state, learner)
-            # maybe_snapshot saves state itself for main/exploiters.
-            state = archive.load_league(base)
+        # No stall rule: a drought simply keeps training under the same
+        # bare id with a rolling window. The admitted freeze is the
+        # permanent record for that tick; a fresh reset must not
+        # snapshot on the same tick.
+        snapshot = maybe_snapshot(cfg, base, live, state, learner)
+        # maybe_snapshot saves state itself for main/exploiters.
+        state = archive.load_league(base)
 
     state["tick"] = tick + 1
     archive.save_league(base, state)
@@ -616,7 +581,6 @@ def run_tick(cfg: dict, base: Path, live: dict,
         "micro": state.get("micro", {}).get(learner, 0),
         "admitted": admitted["id"] if admitted else None,
         "snapshot": snapshot["id"] if snapshot else None,
-        "stalled": stalled,
     })
     return {
         "learner": learner,
@@ -627,7 +591,6 @@ def run_tick(cfg: dict, base: Path, live: dict,
         "update": update_stats,
         "admitted": admitted,
         "snapshot": snapshot,
-        "stalled": stalled,
         "tick": tick,
     }
 

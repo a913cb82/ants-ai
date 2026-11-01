@@ -61,7 +61,6 @@ def test_scheduler_constants_match_plan():
     assert selfplay.MICRO_BATCH == 8
     assert selfplay.SNAPSHOT_EVERY == 80
     assert selfplay.ADMISSION_RATE == 0.6
-    assert selfplay.STALL_GAMES == 400
     assert archive.current_learner({"scheduler_pos": 0}) == "main"
 
 
@@ -118,7 +117,7 @@ def test_admission_trigger_freezes_family_id(tmp_path, monkeypatch):
     state = archive.load_league(base)
     exp = state["exploiters"]["le-a"]
     assert exp["id"] == "le-a"  # bare slot from the start
-    exp.update({"games": 40, "window": [1.0] * 40, "reset_at": 0})
+    exp.update({"games": 40, "window": [1.0] * 40})
     archive.save_league(base, state)
     g000_w = archive.load_checkpoint(base, "g000")
     before = len(archive.members(base))
@@ -140,36 +139,33 @@ def test_admission_trigger_freezes_family_id(tmp_path, monkeypatch):
     assert not (base / "learners" / "le-a" / "opt.json").exists()
     state = archive.load_league(base)
     assert state["exploiters"]["le-a"]["window"] == []
-    assert state["exploiters"]["le-a"]["reset_at"] == 41
     assert state["exploiters"]["le-a"]["id"] == "le-a"  # stays bare
     assert state["admissions"][-1]["id"] == "le-a0"
     assert state["resets"][-1]["slot"] == "le-a"  # reset logged
 
 
-def test_stall_reset_after_drought(tmp_path, monkeypatch):
+def test_no_reset_after_drought(tmp_path, monkeypatch):
     base, cfg, live = _setup(tmp_path, monkeypatch, scores=(0, 5))
     state = archive.load_league(base)
     exp = state["exploiters"]["me"]
     assert exp["id"] == "me"  # bare slot from the start
-    exp.update({"games": 399, "window": [0.0] * 40, "reset_at": 0})
+    exp.update({"games": 399, "window": [0.0] * 40})
     archive.save_league(base, state)
-    g000_w = archive.load_checkpoint(base, "g000")
     before = len(archive.members(base))
     selfplay.run_tick(cfg, base, live)  # main
     rep = selfplay.run_tick(cfg, base, live)  # me's 400th own-game
     assert rep["learner"] == "me"
-    assert rep["stalled"] is True
     assert rep["admitted"] is None
-    # A stall mints nothing: same bare id, same row, cleared window.
+    assert "stalled" not in rep  # the stall rule is gone
+    # A drought mints nothing and clears nothing: same bare id, same
+    # row, rolling window, one more game trained.
     assert len(archive.members(base)) == before
-    assert json.loads(
-        (base / "learners" / "me" / "weights.json").read_text()) == g000_w
     state = archive.load_league(base)
-    assert state["exploiters"]["me"]["window"] == []
-    assert state["exploiters"]["me"]["reset_at"] == 400
+    assert state["exploiters"]["me"]["window"] == [0.0] * 40
+    assert state["exploiters"]["me"]["games"] == 400
     assert state["admissions"] == []
     assert state["exploiters"]["me"]["id"] == "me"  # id unchanged
-    assert state["resets"][-1]["slot"] == "me"  # reset logged
+    assert state.get("resets", []) == []  # nothing logged
 
 
 def test_role_init_main_resumes_exploiters_from_g000(tmp_path):

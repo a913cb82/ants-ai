@@ -102,28 +102,29 @@ def test_games_log_under_bare_slot_ids(tmp_path, monkeypatch):
         assert row["b"] in ("main", "me", "le-a", "le-b") or True
 
 
-def test_stall_reset_reuses_slot_id_and_logs_reset(tmp_path, monkeypatch):
+def test_no_reset_after_drought(tmp_path, monkeypatch):
     base, cfg, live = _setup(tmp_path, monkeypatch)
     state = archive.load_league(base)
     state["exploiters"]["me"].update(
-        {"games": 400, "window": [0.0] * 40, "reset_at": 0, "id": "me"})
+        {"games": 400, "window": [0.0] * 40, "id": "me"})
     archive.save_league(base, state)
     # advance to me's tick (main first).
     selfplay.run_tick(cfg, base, live)  # main
-    rep = selfplay.run_tick(cfg, base, live)  # me stalls
-    assert rep["learner"] == "me" and rep["stalled"] is True
+    rep = selfplay.run_tick(cfg, base, live)  # me's 401st: drought, no reset
+    assert rep["learner"] == "me" and rep["admitted"] is None
+    assert "stalled" not in rep  # the stall rule is gone: no such outcome
     state = archive.load_league(base)
     assert state["exploiters"]["me"]["id"] == "me"  # same id, no new row
-    assert state["exploiters"]["me"]["window"] == []
-    resets = state.get("resets", [])
-    assert len(resets) == 1 and resets[0]["slot"] == "me"
+    assert state["exploiters"]["me"]["games"] == 401  # keeps training
+    assert len(state["exploiters"]["me"]["window"]) == 40  # rolls, not cleared
+    assert state.get("resets", []) == []  # nothing logged
 
 
 def test_admission_freezes_family_id_live_stays_bare(tmp_path, monkeypatch):
     base, cfg, live = _setup(tmp_path, monkeypatch)
     state = archive.load_league(base)
     state["exploiters"]["me"].update(
-        {"games": 40, "window": [1.0] * 40, "reset_at": 0, "id": "me"})
+        {"games": 40, "window": [1.0] * 40, "id": "me"})
     archive.save_league(base, state)
     selfplay.run_tick(cfg, base, live)  # main
     rep = selfplay.run_tick(cfg, base, live)  # me admitted
@@ -144,7 +145,7 @@ def test_admission_names_continue_per_slot(tmp_path, monkeypatch):
     archive.record_admission(base, "me0", "me", 40, "40W-0D-0L")
     state = archive.load_league(base)
     state["exploiters"]["me"].update(
-        {"games": 80, "window": [1.0] * 40, "reset_at": 40, "id": "me"})
+        {"games": 80, "window": [1.0] * 40, "id": "me"})
     archive.save_league(base, state)
     selfplay.run_tick(cfg, base, live)  # main
     rep = selfplay.run_tick(cfg, base, live)  # me admitted again

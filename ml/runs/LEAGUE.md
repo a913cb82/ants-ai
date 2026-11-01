@@ -22,13 +22,14 @@ Plan: ml/runs/plan-league.md. Migration: plan §Initialization.
 5. **ME bar.** Sustained >60% over last 40 vs the current main → freeze copy
    (admitted), reset. Cheap errors by design.
 6. **LE bar.** Sustained >60% over last 40 vs pool → freeze copy, reset.
-7. **Reset = g000 + reset log.** Weights + fresh Adam, SAME bare slot id
-   (never a new id). A stall reset reuses the id (record persists,
-   pessimistic direction); an admission moves the lineage forward under
-   a fresh family id, so peak-inheritance never happens. Every reset
-   appends {slot, seat, game, tick} to league.json resets; the Elo pass
-   cuts the slot's theta to seed at each reset (no peak leaks across).
-   Stall: 400 own-games with no admission → reset.
+7. **Reset = admission only (no stall rule).** An admission freezes the
+   peak under a fresh family id and resets the slot to g000 weights +
+   fresh Adam under the SAME bare id, so peak-inheritance can never
+   happen. A drought simply keeps training under the same id with a
+   rolling window -- no timeout, no reset (removed 2026-11-02: no
+   AlphaStar counterpart). Every admission appends {slot, seat, game,
+   tick} to league.json resets; the Elo pass cuts the slot's theta to
+   seed at each reset (no peak leaks across).
 8. **Anchors.** g000 (floor) + past main snapshots; 2 games each per
    main snapshot; NO training on anchor games. The anchor trend is the
    progress curve. (Fresh league 2026-11-01: history wiped, ladder

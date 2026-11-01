@@ -451,7 +451,7 @@ SCHEDULER_ORDER = ("main", "me", "le-a", "le-b")
 #: Micro-batch PPO cadence: one update per N own-games per learner.
 MICRO_BATCH_SIZE = 8
 
-#: Admission/stall bookkeeping: last-N window vs the role target.
+#: Admission bookkeeping: last-N window vs the role target.
 WINDOW_SIZE = 40
 
 #: Default live-exploiter slots (ME + two independent LEs).
