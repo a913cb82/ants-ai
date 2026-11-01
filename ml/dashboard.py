@@ -1788,7 +1788,6 @@ def h0_strip_html(h0: dict | None) -> str:
                                    else ["—"])
     dots = "".join(f"{_dot(l)}{_esc(l)}" for l in who)
     return (
-        f"<span><b>tick</b> {_esc(h0.get('tick', 0))}</span>"
         f"<span><b>game</b> {_esc(h0.get('tick', 0))}</span>"
         f"<span>{dots}</span>"
         f"<span><b>rate</b> {fmt_rate(h0.get('games_per_h'))}</span>"
@@ -2067,7 +2066,6 @@ function renderH0(){
   const who=h.learners&&h.learners.length?h.learners:(h.learner?[h.learner]:["—"]);
   const dots=who.map(id=>dot(id)+esc(id)).join(" ");
   $("h0").innerHTML=
-    "<span><b>tick</b> "+esc(h.tick)+"</span>"+
     "<span><b>game</b> "+esc(h.tick)+"</span>"+
     "<span>"+dots+"</span>"+
     "<span><b>rate</b> "+fmtRate(h.games_per_h)+"</span>"+
