@@ -2136,3 +2136,28 @@ def test_play_one_caps_rows_per_game(tmp_path, monkeypatch):
 def test_play_one_keeps_small_games_whole(tmp_path, monkeypatch):
     out = _big_game(monkeypatch, tmp_path, n_rows=100)
     assert len(out["rows"]) == 200 and len(out["rets"]) == 200  # 2 seats x 100
+
+
+def test_outcome_linear_over_placements():
+    import rewards
+
+    assert rewards.outcome(_game(score=[7, 4, 2, 0]), 0) == rewards.WIN
+    assert rewards.outcome(_game(score=[7, 4, 2, 0]), 1) == pytest.approx(5 - 10 / 3)
+    assert rewards.outcome(_game(score=[7, 4, 2, 0]), 2) == pytest.approx(-(5 - 10 / 3))
+    assert rewards.outcome(_game(score=[7, 4, 2, 0]), 3) == rewards.LOSS
+    for me in (1, 2):  # tied middle shares the middle value
+        assert rewards.outcome(_game(score=[7, 4, 4, 0]), me) == 0.0
+    assert rewards.outcome(_game(score=[10, 10, 0, 0]), 0) == rewards.WIN
+    assert rewards.outcome(_game(score=[10, 10, 0, 0]), 2) == rewards.LOSS
+    assert rewards.outcome(_game(score=[3, 3, 3]), 1) == rewards.DRAW
+    assert rewards.outcome(_game(score=[5, 3]), 0) == rewards.WIN  # 2p unchanged
+    assert rewards.outcome(_game(score=[5, 3]), 1) == rewards.LOSS
+
+
+def test_second_place_terminal_graduated_not_snapped():
+    import rewards
+
+    game = _game(score=[0, 1, 2, 3])
+    records = [{"turn": 3, "loc": [1, 1], "dest": [1, 1], "action": "stay"}]
+    assert rewards.compute_returns(game, 2, records)[0] == pytest.approx(5 - 10 / 3)
+    assert rewards.compute_returns(game, 1, records)[0] == pytest.approx(-(5 - 10 / 3))

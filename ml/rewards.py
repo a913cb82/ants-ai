@@ -100,15 +100,24 @@ def _was_killed(entry):
     return end - spawn == len(orders)
 
 
-def outcome(game, me):
-    """Terminal signal from the engine score: win, loss, or draw."""
-    mine = game["score"][me]
-    best_other = max(s for i, s in enumerate(game["score"]) if i != me)
-    if mine > best_other:
-        return WIN
-    if mine < best_other:
-        return LOSS
-    return DRAW
+def outcome(game, me, table=None):
+    """Terminal signal from engine scores, linear over placements.
+
+    Dense-rank seats by score (ties share a rank), then interpolate
+    table WIN..LOSS across the distinct levels: sole-first always +5,
+    sole-last always -5, middles graduated (1,2,3,4 ->
+    +5,+1.67,-1.67,-5; 1,2,2,3 -> +5,0,0,-5; shared top shares full
+    win credit). All-tied is DRAW 0. 2p (and sole-first/sole-last at
+    any size) is byte-identical to winner-takes-all."""
+    top = table["WIN"] if table is not None else WIN
+    bottom = table["LOSS"] if table is not None else LOSS
+    scores = list(game["score"])
+    mine = scores[me]
+    levels = len(set(scores))
+    if levels == 1:
+        return DRAW
+    better = sum(1 for s in set(scores) if s > mine)
+    return top - (top - bottom) * better / (levels - 1)
 
 
 def record_identities(replaydata, records):
@@ -264,7 +273,7 @@ def _awards(game, me, records, scales):
                     )
                 )
 
-    return awards, outcome(game, me), length, turns, keys
+    return awards, outcome(game, me, scales), length, turns, keys
 
 
 def compute_returns(game, me, records, table=None):
@@ -296,7 +305,9 @@ def compute_returns(game, me, records, table=None):
 
     # outcome gate: marching/killing that doesn't win pays nothing.
     # The subsidy for suicidal marching lives here; zeroing it on
-    # draws and losses is what kills the Goodhart.
+    # draws and losses is what kills the Goodhart. Placement-positive
+    # seats (sole-first, upper middles) unlock kill/march pay;
+    # zero and negative seats don't.
     gated = GATED if end_value <= 0 else set()
     rets = [0.0] * len(records)
     for kind, arr in by_kind.items():
@@ -312,8 +323,7 @@ def compute_returns(game, me, records, table=None):
     # batch-mean baseline a uniform draw batch is already
     # advantage-neutral, matching promotion's half-win treatment.
     if end_value:
-        terminal = table["WIN"] if end_value > 0 else table["LOSS"]
         for i, _t in enumerate(turns):
-            rets[i] += terminal
+            rets[i] += end_value
 
     return rets
