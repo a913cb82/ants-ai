@@ -294,28 +294,6 @@ def test_main_history_filters_exploiter_rows():
     assert dashboard.main_history(hist) == [hist[0], hist[2]]
 
 
-def test_norm01_spans_min_max():
-    import dashboard
-
-    got = dashboard.norm01([0.004, 0.2, 3.891, None])
-    assert got[0] == 0.0 and got[2] == 1.0 and got[3] is None
-    assert abs(got[1] - 0.0504) < 1e-3  # (0.2-0.004)/(3.891-0.004)
-    assert dashboard.norm01([5.0, 5.0]) == [0.5, 0.5]  # constant: mid-lane
-    assert dashboard.norm01([None, None]) == [None, None]
-
-
-def test_merge_pairs_sums_overlap():
-    import dashboard
-
-    ev = {"a vs b": [3.0, 1.0]}
-    tr = {"a vs b": [1.0, 1.0], "b vs c": [2.0, 0.0]}
-    m = dashboard.merge_pairs(ev, tr)
-    assert m["a vs b"] == [4.0, 2.0]
-    assert m["b vs c"] == [2.0, 0.0]
-
-
-# --- snapshot board ---
-
 def _mini_league(base, n_games=12, k=4, learners=("main", "me"),
                 start=0):
     """Synthetic league archive: league.json + logged learner games.

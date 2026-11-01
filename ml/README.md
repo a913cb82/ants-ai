@@ -23,7 +23,7 @@ updates, scripted promotion. No external opponents, no human judgment.
 | `ml/rewards.py` | (game, records) → discounted returns | torch, engine |
 | `ml/algorithm.py` | REINFORCE step on masked log-probs | ants, replays |
 | `ml/archive.py` | population, payoff matrices, PFSP, Nash, Wilson | torch, engine |
-| `ml/train.py` / `ml/evaluate.py` | training loop / eval duels | promotion, files |
+| `ml/train.py` / `ml/measure.py` | training loop / anchor games | league, files |
 | `ml/selfplay.py` | wiring + scripted promotion | (thin) |
 
 Policy shape swaps touch exactly one file (`model.py`); algorithm
@@ -344,13 +344,6 @@ opponents by (1 - draw_rate) x f(win_rate) with fallback to
 lowest-draw-rate when all win-rates tie. Touches record_result,
 payoff_matrix, nash_mixture, win_rates + a migration; sizeable,
 so it waits until exploiters show whether fresh blood suffices.
-
-## Next: per-duel margins (designed, not built)
-
-evaluate.py keeps only mean_margin; per-duel margins are discarded.
-Logging the list (10 ints per gen) would show whether a +0.3 mean is
-one +3 game or three +1s — the difference between a fluke and a
-repeatable edge. Cheap; do it when margins start moving.
 
 ## Next: eval map rotation offset (bug, not built)
 

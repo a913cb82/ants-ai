@@ -142,29 +142,6 @@ def is_fresh(base: Path, since) -> bool:
 PAGE_SIZE = 100  # client-side table pages (P0-3): no new endpoints
 
 
-def page_slice(rows: list, page: int, per: int = PAGE_SIZE) -> list:
-    """One page of a client-paginated table. Pure so tests pin it; the
-    page mirrors this slicing in JS from the held snapshot."""
-    if page < 0:
-        page = 0
-    return rows[page * per:(page + 1) * per]
-
-
-def filter_history(rows: list[dict], member: str) -> list[dict]:
-    """Member-aware history filter: id OR champion OR learner match.
-    Empty member passes everything through."""
-    if not member:
-        return list(rows)
-    return [g for g in rows
-            if g.get("id") == member or g.get("champion") == member
-            or g.get("learner") == member]
-
-
-def filter_generations(gens: list[dict], member: str) -> list[dict]:
-    """Legacy alias of filter_history (kept for the member-filter UI)."""
-    return filter_history(gens, member)
-
-
 def _rnd(x, nd: int):
     """Round JSON numbers server-side (P0-2/P1-5); pass anything else
     through untouched."""
@@ -608,24 +585,6 @@ def roll_mean(vals: list, window: int) -> list:
     return out
 
 
-def merge_pairs(*dicts: dict) -> dict:
-    """Sum per-key [wins_a, wins_b] across matrices (train + eval).
-
-    Overlapping keys (same pair met in both phases) add: a win is a win
-    wherever it was scored. Malformed values are skipped, never zeroed."""
-    out: dict[str, list[float]] = {}
-    for d in dicts:
-        for key, w in (d or {}).items():
-            try:
-                w0, w1 = float(w[0]), float(w[1])
-            except (TypeError, ValueError, IndexError):
-                continue
-            acc = out.setdefault(key, [0.0, 0.0])
-            acc[0] += w0
-            acc[1] += w1
-    return out
-
-
 def tracked_members(base: Path, grouped: list[dict]) -> list[str]:
     """Elo trajectories to plot: main + live slots + anchors.
 
@@ -982,26 +941,6 @@ def value_slope(history: list[dict]) -> list:
     return out
 
 
-def norm01(vals: list) -> list:
-    """Min-max normalize non-None values to [0,1] for legibility lanes.
-
-    A near-constant series (mid-era Nash entropy: 0.14-0.26 against a
-    0.004-3.89 global span) would render as a dead-flat line on a
-    shared axis; normalized, its shape fills the lane. The card labels
-    the lane with the true min/max so the scale is never a lie.
-    Constant series sit mid-lane (0.5); all-None stays all-None."""
-    have = [v for v in vals if v is not None]
-    if not have:
-        return [None] * len(vals)
-    mn, mx = min(have), max(have)
-    if not mx > mn:
-        return [0.5 if v is not None else None for v in vals]
-    return [(v - mn) / (mx - mn) if v is not None else None for v in vals]
-
-
-_interval_elo_cache: dict = {}
-
-
 def _parent_map(base: Path) -> dict:
     """Member id -> parent id from the checkpoint manifest ({} if absent)."""
     try:
@@ -1010,6 +949,9 @@ def _parent_map(base: Path) -> dict:
     except (OSError, ValueError):
         return {}
     return {r["id"]: r.get("parent") for r in rows if "id" in r}
+
+
+_interval_elo_cache: dict = {}
 
 
 def _interval_elo_cached(base: Path, grouped: list[dict], K: int,
@@ -2049,7 +1991,6 @@ function keepScroll(scroller,fn){
   if(scroller)scroller.scrollTop=top;
 }
 /* Board charts: shared frame geometry, gridlines, min/max labels, headroom, HiDPI. */
-function clock(ts){const d=new Date(ts*1000);return d.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});}
 function renderHeader(){
   $("st-champ").innerHTML=esc(S.main||"—")+(S.main?' <span class="champ-star">★</span>':"");
   $("getting-started").style.display=S.counts.rows?"none":"block";

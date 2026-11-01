@@ -85,33 +85,6 @@ def test_is_fresh_logic(tmp_path):
     assert dashboard.is_fresh(base, "bogus") is False
 
 
-def test_page_slice_protocol():
-    import dashboard
-
-    rows = list(range(250))
-    assert dashboard.page_slice(rows, 0) == rows[:100]
-    assert dashboard.page_slice(rows, 2) == rows[200:]
-    assert dashboard.page_slice(rows, 9) == []
-    assert dashboard.page_slice([], 0) == []
-
-
-def test_filter_history_matches_id_champion_or_learner():
-    import dashboard
-
-    rows = [{"id": "g1", "champion": "m", "learner": "main"},
-            {"id": "g2", "champion": "g1", "learner": "me"},
-            {"id": "g9", "champion": "zz", "learner": "le-a"}]
-    assert [g["id"] for g in dashboard.filter_history(rows, "")] == \
-        ["g1", "g2", "g9"]
-    assert [g["id"] for g in dashboard.filter_history(rows, "g1")] == \
-        ["g1", "g2"]
-    assert [g["id"] for g in dashboard.filter_history(rows, "me")] == ["g2"]
-    assert dashboard.filter_history(rows, "nobody") == []
-    # legacy alias keeps the member-filter UI working.
-    assert dashboard.filter_generations(rows, "g1") == \
-        dashboard.filter_history(rows, "g1")
-
-
 def test_maps_summary_pins_unlabelled_last():
     import dashboard
 

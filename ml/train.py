@@ -33,21 +33,17 @@ import rewards
 #: is absent from ROLE_OVERRIDES so the main trains on base scales,
 #: exactly like the old main line). Snapshot roles are the going-forward
 #: manifest roles from the league plan. ME tracks the live main
-#: (threshold) and otherwise its snapshots; LEs track the pool; only exploiters reset.
+#: above its threshold, otherwise its snapshots; LEs track the pool.
 ROLE_CONFIGS = {
     "main": {"pricing": "challenger", "policy": "main",
-             "snapshot_role": "main-snapshot", "target": None,
-             "resets": False},
+             "snapshot_role": "main-snapshot"},
     "me": {"pricing": "exploiter", "policy": "me",
-           "snapshot_role": "me", "target": "main", "resets": True},
+           "snapshot_role": "me"},
     "le-a": {"pricing": "exploiter", "policy": "le",
-             "snapshot_role": "le", "target": "pool", "resets": True},
+             "snapshot_role": "le"},
     "le-b": {"pricing": "exploiter", "policy": "le",
-             "snapshot_role": "le", "target": "pool", "resets": True},
+             "snapshot_role": "le"},
 }
-
-#: Deterministic round-robin training order (mirrors archive.SCHEDULER_ORDER).
-LEARNER_ORDER = ("main", "me", "le-a", "le-b")
 
 
 def _penalty_rng(cfg: dict, gen_index: int, g: int) -> random.Random:
@@ -131,20 +127,16 @@ def _play_one(args) -> dict:
 
 def select_opponent(base: Path, learner: str, state: dict,
                     records: pfsp.Records,
-                    rng: random.Random,
-                    sample_id: str | None = None) -> str:
+                    rng: random.Random) -> str:
     """PFSP opponent for one learner tick (pure sampling, no I/O beyond
     the manifest read). Main runs the mini-AlphaStar 3-branch dispatch
     (squared / verification / self-play); ME stays on the live main
     while beating it, else hunts the main's snapshots; LEs probe the
     pool for holes. Frozen candidates are manifest members only; the
     live main is facable by ME and by main's self-play branch (loaded
-    live, never frozen).
-
-    sample_id is the seat identity the learner's games log under (the
-    bare slot id, "main" for main): records are keyed by it, so it must
-    drive the win-fraction lookups and self-exclusion. Defaults to the
-    slot for callers without one."""
+    live, never frozen). Records are keyed by slot id, which is also
+    the seat identity, so the learner drives lookups and
+    self-exclusion directly."""
     members = archive.members(base)
     candidates = [m["id"] for m in members
                   if isinstance(m.get("id"), str)]
@@ -159,17 +151,16 @@ def select_opponent(base: Path, learner: str, state: dict,
             live_ids.add(exp["id"])
     candidates = [c for c in candidates if c not in live_ids]
     policy = ROLE_CONFIGS[learner]["policy"]
-    live = sample_id if sample_id is not None else learner
     snapshots = list(state.get("main_snapshots", []) or [])
     admitted = [m["id"] for m in members
                 if m.get("role") == "admitted"
                 and isinstance(m.get("id"), str)]
     if policy == "main":
-        return pfsp.main_sample(live, "main", candidates, snapshots,
+        return pfsp.main_sample(learner, "main", candidates, snapshots,
                                 admitted, records, rng)
     if policy == "me":
-        return pfsp.me_sample(live, "main", snapshots, records, rng)
-    return pfsp.le_sample(live, candidates, records, rng)
+        return pfsp.me_sample(learner, "main", snapshots, records, rng)
+    return pfsp.le_sample(learner, candidates, records, rng)
 
 
 def ppo_update(policy, opt, batch: list, cfg: dict, anchor=None,

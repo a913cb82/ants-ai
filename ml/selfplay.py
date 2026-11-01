@@ -30,7 +30,6 @@ sys.path.insert(0, str(ROOT / "bots" / "alphaant"))
 import algorithm
 import archive
 import measure
-import model
 import train
 
 #: Live learners and their matrix/training ids. These ids are NOT
@@ -158,13 +157,6 @@ def parse_args(argv: list[str] | None = None) -> dict:
         "anchors": list(args.anchors),
         "archive": args.archive,
     }
-
-
-def _random_weights(seed: int, arch: str) -> dict:
-    import torch
-
-    torch.manual_seed(seed)
-    return model.state_dict_to_lists(model.CNNPolicy(arch=arch))
 
 
 def append_history(base: Path, entry: dict) -> None:
@@ -508,8 +500,7 @@ def run_tick(cfg: dict, base: Path, live: dict,
     seat_id = learner
 
     records = pair_records(base)
-    opp = train.select_opponent(base, learner, state, records,
-                                rng, sample_id=seat_id)
+    opp = train.select_opponent(base, learner, state, records, rng)
     if opp == "main":
         # live main: loaded live, never frozen (ME threshold branch and
         # main's self-play branch). The weights are fixed for the game;

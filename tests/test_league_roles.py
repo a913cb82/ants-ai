@@ -200,4 +200,4 @@ def test_member_game_counts_from_matrix(base):
     counts = archive.member_game_counts(base)
     assert counts[a] == 10
     assert counts[b] == 10
-    assert counts[c] == 0  # unevaluated newcomer: boost-eligible
+    assert counts[c] == 0  # unevaluated newcomer, no games yet
