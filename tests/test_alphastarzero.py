@@ -1263,7 +1263,8 @@ def test_snapshot_games_carry_dual_time(tmp_path):
     snap = dashboard.snapshot(base)
     assert [g["tick"] for g in snap["games"]] == [9, 7]  # newest first
     assert all(set(g) == {"tick", "learner", "seats",
-                           "scores", "result", "replay"}
+                           "scores", "stats", "length", "result",
+                           "replay"}
                for g in snap["games"])
 
 

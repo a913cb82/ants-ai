@@ -433,15 +433,54 @@ def build_game(gen: str, kind: str, map: str | None, replay: str,
     top = max(scores)
     ntop = sum(1 for s in scores if s == top)
     seats = []
+    buckets: dict[tuple, dict] = {}
+    for r in [r for _, r in items]:
+        food, kills, army = r.get("food"), r.get("kills"), \
+            r.get("army")
+        if not (isinstance(food, list) and isinstance(kills, list)
+                and isinstance(army, list)):
+            continue
+        if len(food) < 2 or len(kills) < 2 or len(army) < 2:
+            continue
+        try:
+            f = (float(food[0]), float(food[1]))
+            k = (float(kills[0]), float(kills[1]))
+            a = (float(army[0]), float(army[1]))
+        except (TypeError, ValueError):
+            continue
+        for cid, sc, fi, ki, ai in (
+                (r["a"], r["score_a"], f[0], k[0], a[0]),
+                (r["b"], r["score_b"], f[1], k[1], a[1])):
+            cell = buckets.setdefault((cid, sc),
+                                       {"food": [], "kills": [],
+                                        "army": []})
+            cell["food"].append(fi)
+            cell["kills"].append(ki)
+            if a[0] + a[1] > 0:
+                cell["army"].append(100 * ai / (a[0] + a[1]))
+    length = None
+    for r in [r for _, r in items]:
+        if isinstance(r.get("length"), (int, float)):
+            length = r["length"]
+            break
     for k, (cid, sc) in enumerate(pos):
         others = [s for j, s in enumerate(scores) if j != k]
         margin = sc - (max(others) if others else sc)
         result = "win" if sc == top and ntop == 1 else \
             ("draw" if sc == top else "loss")
+        cell = buckets.get((cid, sc), {"food": [], "kills": [],
+                                       "army": []})
+
+        def _mean(vals):
+            return sum(vals) / len(vals) if vals else None
         seats.append({
             "id": cid, "score": sc, "rank": ranks[k],
             "margin": margin, "pts": 1.0 if result == "win" else
             (0.5 if result == "draw" else 0.0), "result": result,
+            "food": _mean(cell["food"]),
+            "kills": _mean(cell["kills"]),
+            "army_pct": int(round(_mean(cell["army"]))) \
+            if cell["army"] else None,
         })
     return {
         "gen": gen, "kind": kind, "map": map, "replay": replay,
@@ -449,7 +488,7 @@ def build_game(gen: str, kind: str, map: str | None, replay: str,
         "pairs": [{"a": r["a"], "b": r["b"],
                     "score_a": r["score_a"], "score_b": r["score_b"]}
                    for _, r in items],
-        "tick": tick,
+        "tick": tick, "length": length,
     }
 
 
@@ -1564,6 +1603,10 @@ def games_panel(grouped: list[dict],
             "learner": g.get("gen"),
             "seats": [s.get("id") for s in seats],
             "scores": [s.get("score") for s in seats],
+            "stats": [{"food": s.get("food"),
+                         "kills": s.get("kills"),
+                         "army_pct": s.get("army_pct")} for s in seats],
+            "length": g.get("length"),
             "result": member_game_result(g, ref) if ref else None,
             "replay": g.get("replay"),
         })
@@ -1974,28 +2017,45 @@ def behavior_rows_html(rows: list | None, h0_tick) -> str:
     return "".join(out)
 
 
+def _stat_text(food, kills, army_pct) -> str:
+    """`8.0f · 23.0k · 33%`, unknowns read as dashes."""
+    f = "—" if food is None else f"{food:.1f}f"
+    k = "—" if kills is None else f"{kills:.1f}k"
+    a = "—" if army_pct is None else f"{army_pct}%"
+    return f"{f} · {k} · {a}"
+
+
 def game_replay_label(g: dict) -> str:
-    """`c 3 · m 1`: seat ids with scores, winner bold upstream."""
+    """`c 3 (8.0f · 23.0k · 33%) · m 1 (…)`: seat ids with scores and
+    per-seat behavior, winner bold upstream."""
     seats = g.get("seats", []) or []
     scores = g.get("scores", []) or []
+    stats = g.get("stats", []) or []
     bits = []
     for i, sid in enumerate(seats):
         sc = scores[i] if i < len(scores) else "?"
+        st = stats[i] if i < len(stats) else {}
+        bit = (f"{_esc(sid)} {_esc(sc)} "
+               f"({_stat_text(st.get('food'), st.get('kills'),
+                              st.get('army_pct'))})")
         if g.get("result") == "win" and i == 0:
-            bits.append(f"<b>{_esc(sid)} {_esc(sc)}</b>")
+            bits.append(f"<b>{bit}</b>")
         else:
-            bits.append(f"{_esc(sid)} {_esc(sc)}")
+            bits.append(bit)
     return " · ".join(bits)
 
 
 def game_row_html(g: dict) -> str:
-    """Twin of JS gameRow: tick · learner · matchup · replay."""
+    """Twin of JS gameRow: tick · learner · matchup(+behavior) · len ·
+    result · replay."""
     res = g.get("result") or "draw"
     names = " vs ".join(_esc(s) for s in g.get("seats", []) or [])
+    length = g.get("length")
     return (
         f"<tr><td class=\"num\">{fmt_tick(g.get('tick'))}</td>"
         f"<td>{_dot(g.get('learner'))}{_esc(g.get('learner'))}</td>"
         f"<td>{game_replay_label(g)}</td>"
+        f"<td class=\"num\">{length if isinstance(length, (int, float)) else '—'}</td>"
         f"<td><span class=\"badge {res}\">{res}</span></td>"
         f"<td class=\"replay\"><a href=\"/replay?f={_esc(g.get('replay'))}\" "
         f"target=\"_blank\" rel=\"noopener\" "
@@ -2292,16 +2352,19 @@ function pairsFallback(){
   if(!top.length)return '<div class="empty">no pairs yet</div>';
   return '<div class="fallback">'+esc(top.map(p=>p.a+" vs "+p.b+" · "+fmtShare(p.share)+" · n="+p.n+" · "+fmtTick(p.last_tick)).join(" · "))+"</div>";
 }
+function statText(food,kills,army){const f=(food==null?"—":Number(food).toFixed(1)+"f");const k=(kills==null?"—":Number(kills).toFixed(1)+"k");const a=(army==null?"—":army+"%");return f+" · "+k+" · "+a;}
 function gameRow(g){
   const res=g.result||"draw";
   const names=(g.seats||[]).join(" vs ");
   const bits=(g.seats||[]).map((sid,i)=>{
     const sc=(g.scores||[])[i]??"?";
-    const cell=esc(sid)+" "+esc(sc);
+    const st=(g.stats||[])[i]||{};
+    const cell=esc(sid)+" "+esc(sc)+" ("+statText(st.food,st.kills,st.army_pct)+")";
     return (res==="win"&&i===0)?"<b>"+cell+"</b>":cell;
   }).join(" · ");
+  const len=(g.len==null?"—":g.len);
   return "<tr><td class=num>"+fmtTick(g.tick)+"</td><td>"+dot(g.learner)+esc(g.learner)+"</td><td>"+bits+
-    '</td><td><span class="badge '+res+'">'+res+"</span></td>"+
+    '</td><td class="num">'+len+'</td><td><span class="badge '+res+'">'+res+"</span></td>"+
     '<td class="replay"><a href="/replay?f='+encodeURIComponent(g.replay)+'" target="_blank" rel="noopener" title="'+esc(names)+' — opens in a new tab">replay<span aria-hidden="true"> ↗</span></a></td></tr>';
 }
 async function renderGames(my){
@@ -2328,10 +2391,12 @@ async function renderGames(my){
     $("games-body").innerHTML=data.rows.map(g=>gameRow({
       tick:g.tick,learner:g.gen,
       seats:(g.seats||[]).map(s=>s.id),scores:(g.seats||[]).map(s=>s.score),
+      stats:(g.seats||[]).map(s=>({food:s.food,kills:s.kills,army_pct:s.army_pct})),
+      len:g.length,
       result:gameResult(g,m),replay:g.replay})).join("")||(data.total
-      ?'<tr><td colspan="5" class="empty">no games on this page — use the pager above</td></tr>'
-      :(m?'<tr><td colspan="5" class="empty">no games logged for '+esc(m)+' yet — <a href="#" class="js-clear">clear filter</a></td></tr>'
-        :'<tr><td colspan="5" class="empty">no games logged yet — they appear here as each game finishes</td></tr>'));
+      ?'<tr><td colspan="6" class="empty">no games on this page — use the pager above</td></tr>'
+      :(m?'<tr><td colspan="6" class="empty">no games logged for '+esc(m)+' yet — <a href="#" class="js-clear">clear filter</a></td></tr>'
+        :'<tr><td colspan="6" class="empty">no games logged yet — they appear here as each game finishes</td></tr>'));
   });
   bindClear();
   const pages=Math.max(1,Math.ceil(data.total/100));
@@ -2515,7 +2580,7 @@ def render_page(snap: dict | None = None) -> str:
 </div>
 <div class="tcell span12">
 <div class="section-title">Recent games</div>
-<div class="legend">tick is the game number · learner seats first · replay names the bots</div>
+<div class="legend">tick is the game number · learner seats first · replay names the bots · per-seat food/kills/army% + game length</div>
 <div class="card" id="games-card">
 <div class="toolbar">
 <label for="member">member</label>
@@ -2527,7 +2592,7 @@ def render_page(snap: dict | None = None) -> str:
 </div>
 <div class="table-scroll table-tall" id="games-scroll"><table>
 <caption style="display:none">Recent games, newest first</caption>
-<tr><th scope="col">game</th><th scope="col">learner</th><th scope="col">matchup</th><th scope="col">result</th><th scope="col">replay</th></tr>
+<tr><th scope="col">game</th><th scope="col">learner</th><th scope="col">matchup</th><th scope="col" class="num">len</th><th scope="col">result</th><th scope="col">replay</th></tr>
 <tbody id="games-body">{games}</tbody></table></div>
 </div>
 </div>

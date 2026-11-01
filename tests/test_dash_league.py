@@ -372,7 +372,8 @@ def test_games_newest_first_with_tick_ids(tmp_path):
     gs = snap["games"]
     assert [g["tick"] for g in gs] == [3, 2, 1, 0]
     assert all(set(g) == {"tick", "learner", "seats", "scores",
-                          "result", "replay"} for g in gs)
+                          "stats", "length", "result", "replay"}
+               for g in gs)
     assert gs[0]["learner"] == "me" and gs[0]["seats"] == ["me", "g000"]
     assert gs[0]["result"] in ("win", "draw", "loss")
     page = dashboard.render_page(snap)
@@ -597,3 +598,47 @@ def test_ladder_fallback_shows_shares_once_played(tmp_path):
              "main_games": 80, "snapshot_every": 80}
     html = dashboard.ladder_fallback_html(trend)
     assert "g000 75%" in html
+
+
+def test_build_game_carries_per_seat_behavior():
+    import dashboard
+
+    row = {"a": "main", "b": "main0", "score_a": 5, "score_b": 3,
+           "food": [8, 26], "kills": [23, 7], "army": [2, 4],
+           "length": 150}
+    g = dashboard.build_game("main", "eval", "m", "r",
+                             [(dashboard._norm_row(row), row)], tick=9)
+    by_id = {s["id"]: s for s in g["seats"]}
+    assert by_id["main"]["food"] == 8.0
+    assert by_id["main"]["kills"] == 23.0
+    assert by_id["main"]["army_pct"] == 33  # 2 of 2+4 alive
+    assert by_id["main0"]["food"] == 26.0
+    assert g["length"] == 150
+
+
+def test_games_panel_and_row_show_behavior():
+    import dashboard
+
+    row = {"a": "main", "b": "main0", "score_a": 5, "score_b": 3,
+           "food": [8, 26], "kills": [23, 7], "army": [2, 4],
+           "length": 150, "gen": "main", "kind": "eval", "map": "m",
+           "replay": "r", "game": "gid", "tick": 9}
+    grouped = dashboard.group_games([row])
+    games, total = dashboard.games_panel(grouped)
+    assert total == 1
+    assert games[0]["length"] == 150
+    assert games[0]["stats"][0]["food"] == 8.0
+    html = dashboard.game_row_html(games[0])
+    assert "12" not in html  # placeholder guard: real numbers below
+    assert "8.0f" in html and "23.0k" in html and "33%" in html
+    assert "<td>150</td>" in html.replace(' class="num"', "")
+
+
+def test_build_game_missing_behavior_reads_unknown():
+    import dashboard
+
+    row = {"a": "main", "b": "main0", "score_a": 5, "score_b": 3}
+    g = dashboard.build_game("main", "eval", "m", "r",
+                             [(dashboard._norm_row(row), row)], tick=9)
+    assert all(s["food"] is None for s in g["seats"])
+    assert g["length"] is None
