@@ -8,7 +8,7 @@ generations.
   .venv/bin/python ml/dashboard.py [--port 8080] [--archive ml/archive]
 
 Routes: / (page), /api/snapshot (everything as JSON),
-/api/games?member=&limit=&offset= (game index slice + total),
+/api/games?learner=&limit=&offset= (game index slice + total),
 /replay?f=<archive-relative replay> (visualizer page, new tab per link),
 /static/v/<path> (visualizer js/data/img).
 """
@@ -1670,7 +1670,7 @@ def make_handler(base: Path):
                         _json(self, snapshot(base))
                 elif parsed.path == "/api/games":
                     q = parse_qs(parsed.query)
-                    member = q.get("member", [None])[0]
+                    learner = q.get("learner", [None])[0]
                     try:
                         limit = max(0, min(int(q.get("limit", ["100"])[0]), 200))
                     except ValueError:
@@ -1680,9 +1680,9 @@ def make_handler(base: Path):
                     except ValueError:
                         offset = 0
                     rows = cached_grouped(base)
-                    if member is not None:
+                    if learner is not None:
                         rows = [g for g in rows
-                                if any(s["id"] == member for s in g["seats"])]
+                                if g.get("gen") == learner]
                     total = len(rows)
                     offset = min(offset, total)
                     _json(self, {"total": total,
@@ -2228,13 +2228,13 @@ function gameRow(g){
     '<td class="replay"><a href="/replay?f='+encodeURIComponent(g.replay)+'" target="_blank" rel="noopener" title="'+esc(names)+' — opens in a new tab">replay<span aria-hidden="true"> ↗</span></a></td></tr>';
 }
 async function renderGames(my){
-  const m=$("member").value.trim();
-  if(m)history.replaceState(null,"","#member="+encodeURIComponent(m));
+  const m=$("learner").value;
+  if(m)history.replaceState(null,"","#learner="+encodeURIComponent(m));
   else history.replaceState(null,"",location.pathname);
   syncClear();
   if(tableBusy("games-body"))return true;
   const qparts=[];
-  if(m)qparts.push("member="+encodeURIComponent(m));
+  if(m)qparts.push("learner="+encodeURIComponent(m));
   qparts.push("limit=100","offset="+gamesOffset);
   let data;
   try{data=await fetchJSON("/api/games?"+qparts.join("&"));}
@@ -2243,7 +2243,7 @@ async function renderGames(my){
     $("error").textContent="games feed failed ("+e.message+") — showing last good table. retrying…";
     return false;
   }
-  if(my!==seq||$("member").value.trim()!==m)return true;
+  if(my!==seq||$("learner").value!==m)return true;
   const h=m+"|"+gamesOffset+"|"+JSON.stringify(data);
   if(h===lastGames)return true;
   lastGames=h;
@@ -2251,8 +2251,7 @@ async function renderGames(my){
     $("games-body").innerHTML=data.rows.map(g=>gameRow({
       tick:g.tick,learner:g.gen,
       seats:(g.seats||[]).map(s=>s.id),scores:(g.seats||[]).map(s=>s.score),
-      result:(g.seats&&g.seats.length&&(g.seats[0].result||"draw"))||"draw",
-      replay:g.replay})).join("")||(data.total
+      result:gameResult(g,m),replay:g.replay})).join("")||(data.total
       ?'<tr><td colspan="5" class="empty">no games on this page — use the pager above</td></tr>'
       :(m?'<tr><td colspan="5" class="empty">no games logged for '+esc(m)+' yet — <a href="#" class="js-clear">clear filter</a></td></tr>'
         :'<tr><td colspan="5" class="empty">no games logged yet — they appear here as each game finishes</td></tr>'));
@@ -2265,33 +2264,39 @@ async function renderGames(my){
   $("pg-next").disabled=gamesOffset+100>=data.total;
   return true;
 }
+function gameResult(g,m){
+  const seats=g.seats||[];
+  const ref=m?seats.find(s=>s.id===m):seats[0];
+  return (ref&&ref.result)||"draw";
+}
 function syncClear(){
-  $("clear-filter").style.display=$("member").value?"":"none";
+  $("clear-filter").style.display=$("learner").value?"":"none";
 }
 function bindClear(){
   document.querySelectorAll(".js-clear").forEach(a=>{
     if(a.dataset.bound)return;
     a.dataset.bound="1";
-    a.addEventListener("click",e=>{e.preventDefault();clearMember();});
+    a.addEventListener("click",e=>{e.preventDefault();clearLearner();});
   });
 }
-function clearMember(){
-  $("member").value="";
+function clearLearner(){
+  $("learner").value="";
   gamesOffset=0;
   history.replaceState(null,"",location.pathname);
   syncClear();renderGames(++seq);
 }
-function seedMember(){
-  const q=new URLSearchParams(location.search).get("member");
-  const hm=new URLSearchParams(location.hash.slice(1)).get("member");
+function seedLearner(){
+  const q=new URLSearchParams(location.search).get("learner");
+  const hm=new URLSearchParams(location.hash.slice(1)).get("learner");
   const want=(hm!==null&&hm!=="")?hm:q;
   if(want===null||want===undefined||want===""){
     if(q)history.replaceState(null,"",location.pathname);
     return;
   }
-  $("member").value=want;
+  if(!["main","me","le-a","le-b"].includes(want))return;
+  $("learner").value=want;
   gamesOffset=0;
-  history.replaceState(null,"","#member="+encodeURIComponent(want));
+  history.replaceState(null,"","#learner="+encodeURIComponent(want));
   syncClear();
 }
 function renderPill(){
@@ -2317,10 +2322,10 @@ async function load(){
       const h=JSON.stringify(snap);
       if(h!==lastSnap){lastSnap=h;
         renderH0();renderBars();renderStandings();renderAlerts();renderBehavior();
-        /* canvases repaint from the same snapshot; member options refresh. */
-        drawLadder();drawPairs();renderMemberOptions();}
+        /* canvases repaint from the same snapshot. */
+        drawLadder();drawPairs();}
       else renderH0();
-      if(!load._seeded){load._seeded=true;seedMember();}
+      if(!load._seeded){load._seeded=true;seedLearner();}
     }
     renderPill();
     await renderGames(my);
@@ -2330,18 +2335,10 @@ async function load(){
       :"connection lost ("+e.message+") — no data yet. retrying…";
   }
 }
-function renderMemberOptions(){
-  const dl=$("member-list"),ids=(S.behavior||[]).map(r=>r.id);
-  const h=JSON.stringify(ids);
-  if(h===dl.dataset.ids)return;
-  dl.dataset.ids=h;
-  dl.innerHTML=ids.map(id=>'<option value="'+esc(id)+'">').join("");
-  syncClear();
-}
 let gamesOffset=0;
-$("member").addEventListener("input",()=>{gamesOffset=0;++seq;syncClear();renderGames(seq);});
-$("member").addEventListener("change",()=>{gamesOffset=0;++seq;syncClear();renderGames(seq);});
-$("clear-filter").addEventListener("click",e=>{e.preventDefault();clearMember();});
+$("learner").addEventListener("input",()=>{gamesOffset=0;++seq;syncClear();renderGames(seq);});
+$("learner").addEventListener("change",()=>{gamesOffset=0;++seq;syncClear();renderGames(seq);});
+$("clear-filter").addEventListener("click",e=>{e.preventDefault();clearLearner();});
 $("pg-prev").addEventListener("click",()=>{gamesOffset=Math.max(0,gamesOffset-100);renderGames(++seq);});
 $("pg-next").addEventListener("click",()=>{gamesOffset+=100;renderGames(++seq);});
 $("live-toggle").addEventListener("change",e=>{live=e.target.checked;
@@ -2445,8 +2442,7 @@ def render_page(snap: dict | None = None) -> str:
 <div class="card" id="games-card">
 <div class="toolbar">
 <label for="member">member</label>
-<input id="member" list="member-list" placeholder="all members" autocomplete="off" spellcheck="false">
-<datalist id="member-list"></datalist>
+<select id="learner"><option value="">all learners</option><option value="main">main</option><option value="me">me</option><option value="le-a">le-a</option><option value="le-b">le-b</option></select>
 <a href="#" id="clear-filter" class="clear-link" style="display:none">clear filter</a>
 <label class="live-toggle"><input type="checkbox" id="live-toggle" checked> <span id="live-label">live</span></label>
 <span class="pager"><button id="pg-prev" type="button" aria-label="newer games page">← newer</button><button id="pg-next" type="button" aria-label="older games page">older →</button></span>

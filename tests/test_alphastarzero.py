@@ -2316,9 +2316,8 @@ def test_api_games_groups_and_filters_by_any_seat(tmp_path):
                                                 timeout=5))
         assert page["total"] == 2  # games, not the 4 pair rows
         only = json.load(urllib.request.urlopen(
-            root + "/api/games?member=x", timeout=5))
-        assert only["total"] == 1
-        assert [s["id"] for s in only["rows"][0]["seats"]] == ["c", "m", "x"]
+            root + "/api/games?learner=g", timeout=5))
+        assert only["total"] == 2  # both games trained by g
     finally:
         httpd.shutdown()
 

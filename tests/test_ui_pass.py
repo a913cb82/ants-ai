@@ -116,7 +116,7 @@ def test_is_fresh_logic(tmp_path):
     assert dashboard.is_fresh(base, "bogus") is False
 
 
-def test_http_since_shortcircuit_and_member_empty(tmp_path):
+def test_http_since_shortcircuit_and_learner_empty(tmp_path):
     import http.server
     import threading
     import urllib.request
@@ -139,11 +139,11 @@ def test_http_since_shortcircuit_and_member_empty(tmp_path):
             root + "/api/snapshot?since=1", timeout=5))
         assert stale["h0"]["learners"] == ["main"]
         empty = json.load(urllib.request.urlopen(
-            root + "/api/games?member=nobody-here", timeout=5))
+            root + "/api/games?learner=nobody-here", timeout=5))
         assert empty == {"total": 0, "rows": []}
         full = json.load(urllib.request.urlopen(
-            root + "/api/games?member=main", timeout=5))
-        assert full["total"] == 2  # main seats 2 of the 4 games
+            root + "/api/games?learner=main", timeout=5))
+        assert full["total"] == 2  # main trains 2 of the 4 games
         with urllib.request.urlopen(root + "/", timeout=5) as r:
             body = r.read().decode()
         assert 'id="h0"' in body  # server-rendered first paint
