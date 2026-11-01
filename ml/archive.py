@@ -133,10 +133,8 @@ def behavior_from_replay(replaydata, n: int = 2, length=None) -> dict | None:
 
 def log_game(
     base: Path,
-    a: str,
-    b: str,
-    score_a: float,
-    score_b: float,
+    seats: list,
+    scores: list,
     replay: str,
     map: str | None = None,
     game: str | None = None,
@@ -149,17 +147,15 @@ def log_game(
 ) -> None:
     """Append one game to the dashboard index (replay path archive-relative).
 
-    One row is logged per mirror game: a == b == "main", always.
+    One row is logged per mirror game: every seat is "main", always.
     tick/food/kills/army/length are per-game behavior facts aligned to
-    the (a, b) seats; t is the wall-clock stamp. All default to None
+    the seats; t is the wall-clock stamp. All default to None
     and are omitted then, so the board renders a dash for unknown. The
     game id is informational (one row is one game)."""
     init(base)
     row = {
-        "a": a,
-        "b": b,
-        "score_a": score_a,
-        "score_b": score_b,
+        "seats": list(seats),
+        "scores": list(scores),
         "replay": replay,
         "map": map,
         "game": game,
@@ -195,14 +191,17 @@ def list_updates(base: Path) -> list[dict]:
 
 
 def _game_row(row: object) -> bool:
-    # Old league-era rows carry gen/kind; new mirror rows don't.
+    # Mirror rows carry seats/scores lists (any player count).
     # Both validate: the required game facts never changed.
-    required = {"a", "b", "score_a", "score_b", "replay"}
+    if not (isinstance(row, dict) and {"seats", "scores", "replay"} <= set(row)):
+        return False
+    seats, scores = row["seats"], row["scores"]
     return (
-        isinstance(row, dict)
-        and required <= set(row)
-        and isinstance(row["score_a"], (int, float))
-        and isinstance(row["score_b"], (int, float))
+        isinstance(seats, list)
+        and isinstance(scores, list)
+        and len(seats) == len(scores)
+        and len(seats) >= 2
+        and all(isinstance(s, (int, float)) for s in scores)
     )
 
 

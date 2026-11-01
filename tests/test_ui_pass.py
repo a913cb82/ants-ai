@@ -55,10 +55,7 @@ def _league_base(base, games=4):
     for i in range(games):
         archive.log_game(
             base,
-            "main",
-            "main",
-            3 if i % 3 else 1,
-            1,
+            ["main", "main"], [3 if i % 3 else 1, 1],
             f"games/g{i}/logs/0.replay",
             map="m",
             game=f"gid-{i}",

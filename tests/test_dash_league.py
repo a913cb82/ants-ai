@@ -14,23 +14,6 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "ml"))
 
 
-def _game(a, sa, b, sb, kind="eval", gen="main"):
-    ra = "win" if sa > sb else ("draw" if sa == sb else "loss")
-    rb = "win" if sb > sa else ("draw" if sb == sa else "loss")
-    return {
-        "gen": gen,
-        "kind": kind,
-        "map": "m",
-        "n": 2,
-        "replay": f"games/{gen}/logs/0.replay",
-        "seats": [
-            {"id": a, "score": sa, "result": ra},
-            {"id": b, "score": sb, "result": rb},
-        ],
-        "pairs": [{"a": a, "b": b, "score_a": sa, "score_b": sb}],
-    }
-
-
 def _league_base(base, games=8, behavior=True):
     """Synthetic archive: state.json + logged mirror games, no engine."""
     import archive
@@ -51,10 +34,7 @@ def _league_base(base, games=8, behavior=True):
         )
         archive.log_game(
             base,
-            "main",
-            "main",
-            3 if i % 3 else 1,
-            1,
+            ["main", "main"], [3 if i % 3 else 1, 1],
             f"games/g{i}/logs/0.replay",
             map="m",
             game=f"gid-{i}",
@@ -85,10 +65,7 @@ def test_log_game_carries_tick_and_behavior(tmp_path):
     base = tmp_path / "a"
     archive.log_game(
         base,
-        "main",
-        "main",
-        3,
-        1,
+        ["main", "main"], [3, 1],
         "games/g0/logs/0.replay",
         game="gid-0",
         tick=41,
@@ -107,7 +84,7 @@ def test_log_game_old_callers_keep_working(tmp_path):
     import archive
 
     base = tmp_path / "a"
-    archive.log_game(base, "main", "main", 3, 1, "games/g/logs/0.replay")
+    archive.log_game(base, ["main", "main"], [3, 1], "games/g/logs/0.replay")
     (row,) = archive.list_games(base)
     assert row.get("tick") is None and row.get("food") is None
 
@@ -144,10 +121,7 @@ def test_behavior_spark_series_capped_oldest_first(tmp_path):
     for i in range(45):
         archive.log_game(
             base,
-            "main",
-            "main",
-            1,
-            0,
+            ["main", "main"], [1, 0],
             f"games/g{i}/logs/0.replay",
             map="m",
             game=f"gid-{i}",
@@ -259,10 +233,8 @@ def test_build_game_carries_per_seat_behavior():
     import dashboard
 
     row = {
-        "a": "main",
-        "b": "main0",
-        "score_a": 5,
-        "score_b": 3,
+        "seats": ["main", "main0"],
+        "scores": [5, 3],
         "food": [8, 26],
         "kills": [23, 7],
         "army": [2, 4],
@@ -280,23 +252,30 @@ def test_build_game_carries_per_seat_behavior():
     assert g["length"] == 150
 
 
+def test_build_game_supports_three_seats():
+    import dashboard
+
+    row = {"seats": ["main", "main", "main"], "scores": [5, 3, 1],
+           "food": [8, 26, 0], "kills": [23, 7, 0], "army": [2, 4, 6],
+           "length": 150, "tick": 9}
+    g = dashboard.build_game(row)
+    assert g["seats"] == ["main", "main", "main"]
+    assert g["scores"] == [5, 3, 1] and g["result"] == "win"
+    assert g["stats"][2]["food"] == 0.0
+    assert g["stats"][0]["army_pct"] == 17  # 2 of 2+4+6 alive
+
+
 def test_panel_row_shows_behavior():
     import dashboard
 
     row = {
-        "a": "main",
-        "b": "main0",
-        "score_a": 5,
-        "score_b": 3,
+        "seats": ["main", "main0"],
+        "scores": [5, 3],
         "food": [8, 26],
         "kills": [23, 7],
         "army": [2, 4],
         "length": 150,
-        "gen": "main",
-        "kind": "eval",
-        "map": "m",
         "replay": "r",
-        "game": "gid",
         "tick": 9,
     }
     g = dashboard.build_game(row)
@@ -311,11 +290,11 @@ def test_panel_row_shows_behavior():
 def test_build_game_missing_behavior_reads_unknown():
     import dashboard
 
-    row = {"a": "main", "b": "main0", "score_a": 5, "score_b": 3}
+    row = {"seats": ["main", "main0"], "scores": [5, 3]}
     g = dashboard.build_game(row)
     assert all(s["food"] is None for s in g["stats"])
     assert g["length"] is None and g["tick"] is None
-    assert dashboard.build_game({"a": "main"}) is None  # bad facts drop
+    assert dashboard.build_game({"seats": ["main"]}) is None  # bad facts drop
 
 
 def test_training_panel_reports_latest_updates(tmp_path):

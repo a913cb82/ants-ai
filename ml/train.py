@@ -1,13 +1,14 @@
 """Mirror self-play: one game, one PPO micro-batch step.
 
 Knows the training loop. Each call plays exactly one latest-vs-latest
-game and returns both seats' records for the batch (AlphaZero trains
-on every position, not one side).
+game on the map's player count (2, 3 or 4 seats, all main) and returns
+every seat's records for the batch (AlphaZero trains on every position,
+not one side).
 
 PPO math is byte-identical to the retired generation path: one frozen
 baseline per update (frozen_advantages), then N epochs of train_epoch
-over the same batch. Pricing is the main line's diet (rewards.py base
-scales + the challenger outcome gate), the only diet there is."""
+over the same batch. Pricing is the one diet (rewards.py base scales),
+the only diet there is."""
 
 from __future__ import annotations
 
@@ -28,26 +29,22 @@ import game_if
 import rewards
 
 
-#: League learner -> training config. Pricing roles reuse the legacy
-#: scale tables (rewards.py knows "exploiter"/"challenger"; "challenger"
-#: is absent from ROLE_OVERRIDES so the main trains on base scales,
-#: exactly like the old main line). Snapshot roles are the going-forward
-#: manifest roles from the league plan. ME tracks the live main
-#: above its threshold, otherwise its snapshots; LEs track the pool.
+#: One diet for every seat: base scales, no roles, no overrides.
 def _play_one(cfg: dict, base: Path, weights: dict, map_path: str) -> dict:
-    """One mirror game: latest vs latest, both seats train.
+    """One mirror game: latest vs latest (vs latest ...), all seats train.
 
-    Both seats run the same weights; both seats' decision records and
+    Seats run the same weights; every seat's decision records and
     seat-perspective returns accumulate into the batch. One row is
     logged per game; the tick IS the game number (replay dirs and both
     seeds key on it)."""
     tick = cfg["tick"]
     rel = f"games/main/tick{tick}"
-    field = ["main", "main"]
+    n = game_if.map_player_count(map_path)
+    field = ["main"] * n
     out = game_if.play(
         ROOT,
         sys.executable,
-        [weights, weights],  # one entry per seat; both seats same net
+        [weights] * n,  # one entry per seat; all seats same net
         game_if.GameConfig(
             map=map_path,
             turns=cfg["turns"],
@@ -60,12 +57,12 @@ def _play_one(cfg: dict, base: Path, weights: dict, map_path: str) -> dict:
     )
     game = out["game"]
     scales = rewards.scales()  # the one diet
-    rows0 = algorithm.compact_records(out["records"][0])
-    rows1 = algorithm.compact_records(out["records"][1])
-    rets0 = rewards.compute_returns(game, 0, rows0, scales)
-    rets1 = rewards.compute_returns(game, 1, rows1, scales)
-    rows, rets = rows0 + rows1, rets0 + rets1
-    scores = game["score"]
+    rows, rets = [], []
+    for s in range(n):
+        recs = algorithm.compact_records(out["records"][s])
+        rows.extend(recs)
+        rets.extend(rewards.compute_returns(game, s, recs, scales))
+    scores = list(game["score"])
     gid = f"{rel}#{uuid.uuid4().hex[:12]}"  # one play, one id
     # Behavior facts, parsed once per game from the played game dict:
     # per-seat food/kills/army over owner indices.
@@ -74,7 +71,7 @@ def _play_one(cfg: dict, base: Path, weights: dict, map_path: str) -> dict:
         try:
             behavior = archive.behavior_from_replay(
                 game.get("replaydata"),
-                n=2,
+                n=n,
                 length=game.get("length", game.get("game_length")),
             )
         except Exception:
@@ -82,16 +79,14 @@ def _play_one(cfg: dict, base: Path, weights: dict, map_path: str) -> dict:
     now = time.time()
     kw: dict = {"t": now, "tick": tick}
     if behavior is not None:
-        kw["food"] = [behavior["food"][0], behavior["food"][1]]
-        kw["kills"] = [behavior["kills"][0], behavior["kills"][1]]
-        kw["army"] = [behavior["army"][0], behavior["army"][1]]
+        kw["food"] = list(behavior["food"][:n])
+        kw["kills"] = list(behavior["kills"][:n])
+        kw["army"] = list(behavior["army"][:n])
         kw["length"] = behavior["length"]
     archive.log_game(
         base,
-        "main",
-        "main",
-        scores[0],
-        scores[1],
+        field,
+        scores,
         rel + "/logs/0.replay",
         map=Path(map_path).name,
         game=gid,

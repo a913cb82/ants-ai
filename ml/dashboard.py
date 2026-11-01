@@ -148,15 +148,16 @@ def rank_of(scores: list) -> list[int]:
 
 def _seat_stats(row: dict, i: int) -> dict:
     """Per-seat behavior facts from a mirror row: food/kills raw, army
-    as the seat's share of the two living armies. Unknown reads None."""
+    as the seat's share of all living armies. Unknown reads None."""
     food, kills, army = row.get("food"), row.get("kills"), row.get("army")
     try:
         f = float(food[i])
         k = float(kills[i])
-        a = (float(army[0]), float(army[1]))
+        a = [float(x) for x in army]
     except (TypeError, ValueError, IndexError):
         return {"food": None, "kills": None, "army_pct": None}
-    share = 100 * a[i] / (a[0] + a[1]) if a[0] + a[1] > 0 else None
+    total = sum(a)
+    share = 100 * a[i] / total if total > 0 else None
     return {
         "food": f,
         "kills": k,
@@ -165,13 +166,22 @@ def _seat_stats(row: dict, i: int) -> dict:
 
 
 def build_game(row: dict) -> dict | None:
-    """One row is one game: two mirror seats, seat-0 result.
+    """One row is one game: N mirror seats, seat-0 result.
 
     None when the row cannot be a game. Behavior facts default to None
     per seat; the board renders a dash for unknown."""
+    seats = row.get("seats")
+    raw = row.get("scores")
+    if (
+        not isinstance(seats, list)
+        or not isinstance(raw, list)
+        or len(seats) != len(raw)
+        or not seats
+    ):
+        return None
     try:
-        scores = [float(row["score_a"]), float(row["score_b"])]
-    except (TypeError, ValueError, KeyError):
+        scores = [float(s) for s in raw]
+    except (TypeError, ValueError):
         return None
     ranks = rank_of(scores)  # engine tie rule: shared top shares rank 0
     ntop = sum(1 for r in ranks if r == 0)
@@ -185,9 +195,9 @@ def build_game(row: dict) -> dict | None:
     return {
         "tick": row.get("tick"),
         "learner": "main",
-        "seats": [row.get("a"), row.get("b")],
-        "scores": [row.get("score_a"), row.get("score_b")],
-        "stats": [_seat_stats(row, 0), _seat_stats(row, 1)],
+        "seats": list(seats),
+        "scores": list(raw),
+        "stats": [_seat_stats(row, i) for i in range(len(seats))],
         "length": length if isinstance(length, (int, float)) else None,
         "result": _result(ranks[0]),
         "replay": row.get("replay"),
@@ -313,6 +323,7 @@ def behavior_panel(base: Path) -> list[dict]:
     rows. Null when unplayed or unstamped."""
     acc = {"main": {"food": [], "kills": [], "army": [], "length": [], "n": 0}}
     for r in reversed(cached_games(base)):
+        seats = r.get("seats") or []
         food, kills, army = r.get("food"), r.get("kills"), r.get("army")
         if not (
             isinstance(food, list)
@@ -320,25 +331,28 @@ def behavior_panel(base: Path) -> list[dict]:
             and isinstance(army, list)
         ):
             continue
-        if len(food) < 2 or len(kills) < 2 or len(army) < 2:
+        if not seats or not (
+            len(food) == len(kills) == len(army) == len(seats)
+        ):
             continue
         try:
-            f = (float(food[0]), float(food[1]))
-            k = (float(kills[0]), float(kills[1]))
-            a = (float(army[0]), float(army[1]))
+            f = [float(x) for x in food]
+            k = [float(x) for x in kills]
+            a = [float(x) for x in army]
         except (TypeError, ValueError):
             continue
+        total = sum(a)
         length = r.get("length")
         length = length if isinstance(length, (int, float)) else None
-        sides = ((r.get("a"), f[0], k[0], a[0]), (r.get("b"), f[1], k[1], a[1]))
+        sides = tuple((seats[i], f[i], k[i], a[i]) for i in range(len(seats)))
         for cid, fi, ki, ai in sides:
             cell = acc.get(cid)
             if cell is None:
                 continue
             cell["food"].append(fi)
             cell["kills"].append(ki)
-            if a[0] + a[1] > 0:
-                cell["army"].append(100 * ai / (a[0] + a[1]))
+            if total > 0:
+                cell["army"].append(100 * ai / total)
             if length is not None:
                 cell["length"].append(length)
             cell["n"] += 1

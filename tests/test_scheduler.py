@@ -36,10 +36,7 @@ def _setup(tmp_path, monkeypatch, scores=(3, 1), **cfg_over):
         tick = c["tick"]
         archive.log_game(
             b,
-            "main",
-            "main",
-            scores[0],
-            scores[1],
+            ["main", "main"], [scores[0], scores[1]],
             "games/main/logs/0.replay",
             map="m.map",
             game="gid",
@@ -67,7 +64,7 @@ def test_tick_plays_mirror_and_banks_batch(tmp_path, monkeypatch):
     assert not rep["update"]  # micro 1/8: banked, no update yet
     games = archive.list_games(base)
     assert len(games) == 1
-    assert games[0]["a"] == "main" and games[0]["b"] == "main"
+    assert games[0]["seats"] == ["main", "main"]
     assert games[0]["tick"] == 0
     assert len(live["pending"]) == 2  # both seats train
     bank = selfplay.load_pending(base, "base")
@@ -106,10 +103,7 @@ def test_crashed_tick_rows_and_bank_survive(tmp_path, monkeypatch):
     # simulate a tick-6 crash after every effect fired, before tick end:
     archive.log_game(
         base,
-        "main",
-        "main",
-        1,
-        0,
+        ["main", "main"], [1, 0],
         "games/main/logs/0.replay",
         map="m",
         game="gid-x",

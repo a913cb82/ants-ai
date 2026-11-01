@@ -1049,8 +1049,8 @@ def test_games_index_roundtrip_and_filter(tmp_path):
     import archive
 
     base = tmp_path / "archive"
-    archive.log_game(base, "main", "main", 3, 1, "games/g001/t0/logs/0.replay")
-    archive.log_game(base, "main", "main", 2, 2, "games/g001/e0/logs/0.replay")
+    archive.log_game(base, ["main", "main"], [3, 1], "games/g001/t0/logs/0.replay")
+    archive.log_game(base, ["main", "main"], [2, 2], "games/g001/e0/logs/0.replay")
     all_games = archive.list_games(base)
     assert len(all_games) == 2
     assert [r["replay"] for r in all_games] == [
@@ -1064,9 +1064,9 @@ def test_log_game_records_map_name(tmp_path):
 
     base = tmp_path / "archive"
     archive.log_game(
-        base, "main", "main", 3, 1, "games/g001/t0/logs/0.replay", map="rung2c_gap.map"
+        base, ["main", "main"], [3, 1], "games/g001/t0/logs/0.replay", map="rung2c_gap.map"
     )
-    archive.log_game(base, "main", "main", 2, 2, "games/g001/e0/logs/0.replay")
+    archive.log_game(base, ["main", "main"], [2, 2], "games/g001/e0/logs/0.replay")
     rows = {r["replay"]: r for r in archive.list_games(base)}
     assert rows["games/g001/t0/logs/0.replay"]["map"] == "rung2c_gap.map"
     assert rows["games/g001/e0/logs/0.replay"]["map"] is None
@@ -1094,10 +1094,7 @@ def test_snapshot_empty_and_populated(tmp_path):
     archive.save_state(base, {"tick": 1, "next_tick": 1, "micro": 0})
     archive.log_game(
         base,
-        "main",
-        "main",
-        3,
-        1,
+        ["main", "main"], [3, 1],
         "games/g000/e0/logs/0.replay",
         game="gid-0",
         tick=0,
@@ -1118,10 +1115,10 @@ def test_snapshot_games_carry_dual_time(tmp_path):
 
     base = tmp_path / "archive"
     archive.log_game(
-        base, "main", "main", 3, 1, "games/g0/logs/0.replay", game="g#0", tick=7
+        base, ["main", "main"], [3, 1], "games/g0/logs/0.replay", game="g#0", tick=7
     )
     archive.log_game(
-        base, "main", "main", 0, 5, "games/g1/logs/0.replay", game="g#1", tick=9
+        base, ["main", "main"], [0, 5], "games/g1/logs/0.replay", game="g#1", tick=9
     )
     snap = dashboard.snapshot(base)
     assert [g["tick"] for g in snap["games"]] == [9, 7]  # newest first
@@ -1230,7 +1227,7 @@ def test_dashboard_http_api(tmp_path):
         snap = json.load(urllib.request.urlopen(root + "/api/snapshot", timeout=5))
         assert snap["h0"]["tick"] == 0 and snap["game_total"] == 0
         assert "history" not in snap and "status" not in snap
-        archive.log_game(base, "main", "main", 1, 1, "games/g/e/logs/0.replay")
+        archive.log_game(base, ["main", "main"], [1, 1], "games/g/e/logs/0.replay")
         page = json.load(urllib.request.urlopen(root + "/api/games?limit=1", timeout=5))
         assert page["total"] == 1 and len(page["rows"]) == 1
         with urllib.request.urlopen(root + "/", timeout=5) as r:
@@ -1246,15 +1243,15 @@ def test_list_games_skips_malformed_rows(tmp_path):
     archive.init(base)
     with open(base / "games.jsonl", "w") as f:
         f.write("{not json\n")
-        f.write('{"gen":"g","kind":"eval","a":"x"}\n')  # missing keys
+        f.write('{"seats":["main"]}\n')  # missing keys
         f.write(
-            '{"gen":"g","kind":"eval","a":"x","b":"y","score_a":null,"score_b":1,"replay":"r"}\n'
+            '{"seats":["main","main"],"scores":[null,1],"replay":"r"}\n'
         )
         f.write(
-            '{"gen":"g","kind":"eval","a":"x","b":"y","score_a":2,"score_b":1,"replay":"r"}\n'
+            '{"seats":["main","main"],"scores":[2,1],"replay":"r"}\n'
         )
     rows = archive.list_games(base)
-    assert len(rows) == 1 and rows[0]["score_a"] == 2
+    assert len(rows) == 1 and rows[0]["scores"] == [2, 1]
 
 
 def test_snapshot_survives_poisoned_index(tmp_path):
@@ -1524,6 +1521,40 @@ def test_bot_loads_deep_weights(tmp_path):
     assert bot.policy.arch == "deep"
 
 
+def test_default_pool_mixes_two_three_and_four_player_maps():
+    import game_if
+    import mapgen
+    import selfplay
+
+    pool = selfplay.default_map_pool()
+    counts = {}
+    for m in pool:
+        assert mapgen.is_playable(m), m
+        n = game_if.map_player_count(m)
+        counts[n] = counts.get(n, 0) + 1
+    assert set(counts) == {2, 3, 4}, counts  # every size trains
+    assert len(pool) >= 200
+
+
+def test_is_playable_accepts_n_player_maps(tmp_path):
+    import mapgen
+
+    def tiny(players, hills):
+        grid = ["m " + "." * 8 for _ in range(8)]
+        for i, h in enumerate(hills):
+            grid[i] = "m " + h + "." * 7
+        p = tmp_path / f"p{players}.map"
+        p.write_text(f"rows 8\ncols 8\nplayers {players}\n" + "\n".join(grid) + "\n")
+        return str(p)
+
+    assert mapgen.is_playable(tiny(2, "01"))
+    assert mapgen.is_playable(tiny(3, "012"))
+    assert mapgen.is_playable(tiny(4, "0123"))
+    assert not mapgen.is_playable(tiny(1, "0"))  # solo is not a game
+    assert not mapgen.is_playable(tiny(5, "01234"))  # pool trains 2-4p
+    assert not mapgen.is_playable(tiny(3, "01"))  # seat 2 has no hill
+
+
 def test_default_maps_exist_and_turns_cover_endgames():
     import os
 
@@ -1532,10 +1563,10 @@ def test_default_maps_exist_and_turns_cover_endgames():
 
     cfg = selfplay.default_config()
     assert sorted(cfg["maps"]) == selfplay.default_map_pool()
-    assert len(cfg["maps"]) >= 100  # the full upstream 2p pool + generated
+    assert len(cfg["maps"]) >= 200  # the mixed 2/3/4p upstream pool
     for m in cfg["maps"]:
         assert os.path.exists(m), m
-        assert mapgen.is_playable_2p(m), m
+        assert mapgen.is_playable(m), m
     assert cfg["turns"] >= 250  # pro median is 229; 150 covered 21%
 
 
@@ -1683,6 +1714,19 @@ def test_wins_pay_march_and_kills():
     assert rets[0] == rewards.WIN + rewards.HILL_APPROACH * closed
 
 
+def test_third_seat_gets_own_outcome():
+    import rewards
+
+    game = _game()
+    game["score"] = [0, 0, 3]  # seat 2 wins alone
+    game["replaydata"]["ants"] = [[5, 5, 1, 3, 1, "--"]]
+    records = [
+        {"turn": 3, "loc": [4, 5], "dest": [5, 5], "action": "s"},
+    ]
+    assert rewards.compute_returns(game, 2, records)[0] == rewards.WIN
+    assert rewards.compute_returns(game, 0, records)[0] == rewards.LOSS
+
+
 def test_main_kills_unpaid_on_loss():
     import rewards
 
@@ -1759,16 +1803,27 @@ def test_3p_game_end_to_end_fixed_seats(tmp_path):
 # game, all N seats, N-way outcomes, for train AND eval.
 
 
+def test_log_game_logs_n_seats_and_scores(tmp_path):
+    import archive
+
+    base = tmp_path / "archive"
+    archive.log_game(
+        base, ["main", "main", "main"], [3, 1, 0],
+        "games/g/logs/0.replay", game="gid-3", tick=5,
+        food=[2, 1, 0], kills=[1, 0, 0], army=[5, 4, 6], length=120)
+    (row,) = archive.list_games(base)
+    assert row["seats"] == ["main", "main", "main"]
+    assert row["scores"] == [3, 1, 0] and row["tick"] == 5
+    assert row["food"] == [2, 1, 0] and row["army"] == [5, 4, 6]
+
+
 def test_log_game_carries_game_id(tmp_path):
     import archive
 
     base = tmp_path / "archive"
     archive.log_game(
         base,
-        "main",
-        "main",
-        3,
-        1,
+        ["main", "main"], [3, 1],
         "games/g001/t0/logs/0.replay",
         game="games/g001/t0#abc",
     )
@@ -1780,7 +1835,7 @@ def test_log_game_game_optional_for_old_callers(tmp_path):
     import archive
 
     base = tmp_path / "archive"
-    archive.log_game(base, "main", "main", 3, 1, "games/g001/t0/logs/0.replay")
+    archive.log_game(base, ["main", "main"], [3, 1], "games/g001/t0/logs/0.replay")
     rows = archive.list_games(base)
     assert len(rows) == 1 and not rows[0].get("game")
 
@@ -1825,6 +1880,53 @@ def test_train_play_one_tags_pairs_with_one_game_id(tmp_path, monkeypatch):
     assert gid.startswith("games/main/tick7#")
 
 
+def _tmp_3p_map(tmp_path, name="e3.map"):
+    p = tmp_path / name
+    p.write_text("rows 16\ncols 24\nplayers 3\n" + "m " + "." * 24 + "\n")
+    return str(p)
+
+
+def test_play_one_learns_from_every_seat(tmp_path, monkeypatch):
+    import game_if
+    import train
+
+    base = tmp_path / "archive"
+    cfg = {"seed": 0, "turns": 5, "temperature": 0.0, "tick": 7}
+
+    def fake_play(*a, **k):
+        assert isinstance(a[2], list) and len(a[2]) == 3  # one entry per seat
+        game = {
+            "game_length": 10,
+            "score": [3, 1, 0],
+            "replaydata": {
+                "map": {"rows": 10, "cols": 10},
+                "viewradius2": 77,
+                "attackradius2": 5,
+                "food": [],
+                "ants": [[5, 5, 1, 3, 2, "--"]],
+                "hills": [],
+            },
+        }
+        recs = [
+            [{"turn": 3, "loc": [4, 5], "dest": [5, 5], "action": "s",
+              "window": [[[0.0]]]}],
+            [{"turn": 3, "loc": [4, 5], "dest": [5, 5], "action": "s",
+              "window": [[[0.0]]]}],
+            [{"turn": 3, "loc": [4, 5], "dest": [5, 5], "action": "s",
+              "window": [[[0.0]]]}],
+        ]
+        return {"game": game, "records": recs}
+
+    monkeypatch.setattr(game_if, "play", fake_play)
+    out = train._play_one(cfg, base, {}, _tmp_3p_map(tmp_path))
+    assert len(out["rows"]) == 3  # one decision row per seat
+    assert out["rets"][0] > 0 > out["rets"][2]  # winner up, loser down
+    (row,) = __import__("archive").list_games(base)
+    assert row["seats"] == ["main", "main", "main"]
+    assert row["scores"] == [3, 1, 0]
+    assert row["food"] == [0, 0, 0] and row["kills"] == [1, 1, 0]
+
+
 def _fake_game_out(names, scores, outdir):
     (outdir / "logs").mkdir(parents=True, exist_ok=True)
     (outdir / "logs" / "0.replay").write_text(
@@ -1841,14 +1943,14 @@ def test_cached_panel_shares_one_build_per_poll(tmp_path):
     import dashboard
 
     base = tmp_path / "archive"
-    archive.log_game(base, "main", "main", 1, 0, "games/g/e0/logs/0.replay", game="g#1")
+    archive.log_game(base, ["main", "main"], [1, 0], "games/g/e0/logs/0.replay", game="g#1")
     first = dashboard.cached_panel(base)
     assert dashboard.cached_panel(base) is first  # no rebuild on repoll
     assert len(first) == 1 and set(first[0]) == {
         "tick", "learner", "seats", "scores", "stats",
         "length", "result", "replay"}
     assert first[0]["result"] == "win"  # seat-0 perspective
-    archive.log_game(base, "main", "main", 0, 1, "games/g/e1/logs/0.replay", game="g#2")
+    archive.log_game(base, ["main", "main"], [0, 1], "games/g/e1/logs/0.replay", game="g#2")
     second = dashboard.cached_panel(base)
     assert len(second) == 2  # file change rebuilds
     assert second[0]["result"] == "loss"  # newest first, seat-0 lost

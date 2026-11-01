@@ -1,9 +1,10 @@
-"""Symmetric 2-player map generator + pool validation.
+"""Symmetric map generator + pool validation.
 
-Supplements the upstream pool (148 playable 2p grids across maze /
-random_walk / cell_maze / tutorial) with generated 180-degree symmetric,
+Supplements the upstream pool with generated 180-degree symmetric,
 guaranteed-connected grids for rotation variety. Deterministic per seed;
-generated maps live in tools/maps/generated/.
+generated maps live in tools/maps/generated/. The training pool mixes
+2, 3 and 4-player grids: every tick plays one map, so map size is the
+player-count curriculum.
 """
 
 from __future__ import annotations
@@ -120,13 +121,8 @@ def write(path: str, seed: int) -> None:
         f.write("\n".join(generate(seed)) + "\n")
 
 
-def is_playable_2p(path: str) -> bool:
-    """A real 2-player grid: parseable header, full grid, a hill each.
-
-    Comment lines (#) precede headers in most upstream maps, hills are
-    digits (0/1) or ant+hills (A/B), and hill-only maps are fine — hills
-    spawn ants on turn 1, which is why maze_02p_02 plays with no 'a'/'b'.
-    """
+def _read_grid(path: str):
+    """(rows, cols, players, grid) or None when unparseable."""
     rows = cols = players = 0
     grid: list[str] = []
     with open(path) as f:
@@ -142,23 +138,63 @@ def is_playable_2p(path: str) -> bool:
                 players = int(line.split()[1])
             elif line.startswith("m "):
                 grid.append(line[2:])
-    if players != 2 or len(grid) != rows or rows == 0:
-        return False
+    if len(grid) != rows or rows == 0:
+        return None
     if any(len(r) != cols for r in grid):
-        return False
+        return None
     flat = "".join(grid)
     if set(flat) - set(
         ".%*abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
     ):
+        return None
+    return rows, cols, players, flat
+
+
+def _seat_has_hill(flat: str, seat: int) -> bool:
+    if str(seat) in flat:
+        return True
+    # legacy 2p aliases: ant+hills (A/B).
+    return (seat == 0 and "A" in flat) or (seat == 1 and "B" in flat)
+
+
+def is_playable(path: str) -> bool:
+    """A real 2/3/4-player grid: parseable header, full grid, a hill
+    per seat.
+
+    Comment lines (#) precede headers in most upstream maps, hills are
+digits (0/1/...) or ant+hills (A/B), and hill-only maps are fine — hills
+    spawn ants on turn 1, which is why maze_02p_02 plays with no 'a'/'b'.
+    """
+    parsed = _read_grid(path)
+    if parsed is None:
         return False
-    return any(c in "0A" for c in flat) and any(c in "1B" for c in flat)
+    _rows, _cols, players, flat = parsed
+    if players not in (2, 3, 4):
+        return False
+    return all(_seat_has_hill(flat, s) for s in range(players))
+
+
+def is_playable_2p(path: str) -> bool:
+    """A real 2-player grid: parseable header, full grid, a hill each.
+
+    Comment lines (#) precede headers in most upstream maps, hills are
+    digits (0/1) or ant+hills (A/B), and hill-only maps are fine — hills
+    spawn ants on turn 1, which is why maze_02p_02 plays with no 'a'/'b'.
+    Kept for the mapgen scripts' 2p checks; the training pool uses
+    is_playable (2/3/4 players).
+    """
+    parsed = _read_grid(path)
+    if parsed is None:
+        return False
+    _rows, _cols, players, flat = parsed
+    return players == 2 and _seat_has_hill(flat, 0) and _seat_has_hill(flat, 1)
 
 
 def default_pool() -> list[str]:
-    """Every playable 2p grid under tools/maps, sorted, deterministic."""
+    """Every playable 2/3/4-player grid under tools/maps, sorted."""
     import glob as _glob
 
-    return sorted(f for f in _glob.glob("tools/maps/*/*.map") if is_playable_2p(f))
+    return sorted(f for f in _glob.glob("tools/maps/*/*.map") if is_playable(f))
 
 
 if __name__ == "__main__":

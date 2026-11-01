@@ -9,9 +9,10 @@ right way, PPO stays healthy.
 
 ## The loop
 
-1. **Mirror.** `main` plays `main`. Both seats train the same policy;
-   both seats' records and seat-perspective returns accumulate into one
-   batch. One row per game; the tick IS the game number
+1. **Mirror.** `main` plays `main` (2, 3 or 4 seats, per the map).
+   Every seat trains the same policy; every seat's records and
+   seat-perspective returns accumulate into one batch. One row per
+   game; the tick IS the game number
    (`games/main/tick{tick}`, `player_seed = seed + tick`,
    `engine_seed = 1000 + tick`).
 2. **Cadence.** Micro-batch PPO every 8 games (`MICRO_BATCH=8`).

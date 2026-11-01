@@ -1,8 +1,9 @@
 """Mirror self-play: one learner, latest vs latest, single-threaded.
 
-Every tick plays exactly one game: main vs main, both seats running
-the current live weights. Both seats' records train the next PPO
-micro-batch (AlphaZero trains on every position, not one side).
+Every tick plays exactly one game: main vs main (vs main ...), all
+seats running the current live weights. Every seat's records train
+the next PPO micro-batch (AlphaZero trains on every position, not one
+side).
 Every 8th game runs the update.
 
 State is two integers (tick, micro) plus the live weights, Adam blob,
@@ -40,7 +41,7 @@ def _request_shutdown(signum, frame) -> None:
 
 
 def default_map_pool() -> list[str]:
-    """Every playable 2p grid under tools/maps, sorted, deterministic."""
+    """Every playable 2/3/4-player grid under tools/maps, sorted."""
     import mapgen
 
     return mapgen.default_pool()
