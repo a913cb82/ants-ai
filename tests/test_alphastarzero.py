@@ -2287,6 +2287,7 @@ def _trace_game():
     rows[5] = "......%..."
     game["replaydata"]["map"] = {"rows": 10, "cols": 10, "data": rows}
     game["replaydata"]["ants"] = [[5, 5, 1, 6, 0, "----"]]
+    game["playerturns"] = [3, 3]
     return game
 
 
@@ -2339,6 +2340,28 @@ def test_trace_report_counts_order_lost_when_timed_out():
     recs = [{"turn": 3, "loc": [5, 5], "dest": [5, 4], "action": "w"}]
     miss, problems = rewards.trace_report(game, 0, recs)
     assert miss == 1.0 and problems == []
+
+
+def test_trace_report_flags_order_lost_off_the_timeout_turn():
+    import rewards
+
+    game = _trace_game()
+    game["status"] = ["timeout", "timeout"]
+    game["playerturns"] = [5, 5]  # timeout came later; turn 3 stood alone
+    recs = [{"turn": 3, "loc": [5, 5], "dest": [5, 4], "action": "w"}]
+    miss, problems = rewards.trace_report(game, 0, recs)
+    assert miss == 1.0 and len(problems) == 1 and "without timeout" in problems[0]
+
+
+def test_trace_report_needs_playerturns_for_lost():
+    import rewards
+
+    game = _trace_game()
+    game["status"] = ["timeout", "timeout"]
+    game.pop("playerturns")
+    recs = [{"turn": 3, "loc": [5, 5], "dest": [5, 4], "action": "w"}]
+    with pytest.raises(ValueError):  # no turn to pin the cutoff to
+        rewards.trace_report(game, 0, recs)
 
 
 def test_trace_report_flags_order_lost_without_timeout():

@@ -43,8 +43,9 @@ right way, PPO stays healthy.
 
 6. **Loud, never silent.** Anything unexpected errors: a mask breach
    or ghost record fails the tick and halts the trainer for a human;
-   passable-stay loss without a timeout status fails it too (the engine
-   applies every order it receives). Only timeout-cutoff loss counts,
+   passable-stay loss off the timeout turn fails it too (the engine
+   applies every order it receives; playerturns pins the cutoff turn).
+   Only timeout-turn loss counts,
    and trace-miss over 5% raises a board alert. Silent fallbacks hid
    a dead water channel all game; never again.
 7. **PPO baseline (frozen).** Advantages from one frozen pre-update

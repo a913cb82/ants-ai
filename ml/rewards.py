@@ -288,12 +288,12 @@ def trace_report(game, seat, records):
     miss_rate counts records no replay ant explains. problems lists the
     ones that should be impossible: dest on water or live food (the
     legal mask forbids both — a mask breach), no stayed step at all
-    (ghost), or a lost order with no timeout to explain it (the engine
-    applies every order it receives; sends are flushed per ant, so a
-    cutoff strands decided-but-unsent orders and marks the seat
-    timeout). Timeout-explained loss is infra noise: counted, never
-    raised. Missing map data or status raises: the engine always logs
-    both."""
+    (ghost), or a lost order off any timeout turn (the engine applies
+    every order it receives; sends flush per ant, so a cutoff strands
+    decided-but-unsent orders and marks seat and turn). Only loss on
+    the timeout turn itself is infra noise: counted, never raised.
+    Missing map data, status, or playerturns raises: the engine always
+    logs all three."""
     if not records:
         return (0.0, [])  # nothing to audit: vacuous, not silent
     rd = game["replaydata"]
@@ -341,13 +341,15 @@ def trace_report(game, seat, records):
             )
             continue
         status = game.get("status")
+        turns = game.get("playerturns")
         try:
-            timed_out = status[seat] == "timeout"
+            cutoff_here = status[seat] == "timeout" and turns[seat] == t
         except (TypeError, IndexError):
-            raise ValueError("trace_report needs game.status")
-        if not timed_out:
+            raise ValueError("trace_report needs game.status/playerturns")
+        if not cutoff_here:
             # The engine applies every order it receives; without a
-            # cutoff to strand it, a lost order is a bug, not noise.
+            # cutoff on exactly this turn to strand it, a lost order
+            # is a bug, not noise.
             problems.append(f"t{t} {loc}->{dest}: order lost without timeout")
     total = len(records)
     return (missed / total if total else 0.0, problems)
