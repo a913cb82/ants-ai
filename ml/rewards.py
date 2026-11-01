@@ -319,40 +319,91 @@ def trace_report(game, seat, records):
         if key is not None:
             continue
         missed += 1
+        kind, detail = _classify_miss(game, seat, rec, stayed, grid, foods)
         t, loc, dest = rec["turn"], tuple(rec["loc"]), tuple(rec["dest"])
-        if (t, loc, loc) not in stayed:
+        if kind == "ghost":
             problems.append(f"t{t} {loc}->{dest}: no ant stayed there (ghost)")
-            continue
-        r, c = dest
-        on_water = (
-            0 <= r < len(grid)
-            and 0 <= c < len(grid[r])
-            and grid[r][c] == "%"
-        )
-        on_food = any(
-            f[0] == r and f[1] == c and f[2] <= t <= f[3] for f in foods
-        )
-        if on_water or on_food:
+        elif kind == "breach":
             # Decided, not sent: the mask forbids both before any order
             # exists, so a cutoff cannot explain it. Always a bug.
             problems.append(
-                f"t{t} {loc}->{dest}: order into "
-                f"{'water' if on_water else 'food'} (mask breach)"
+                f"t{t} {loc}->{dest}: order into {detail} (mask breach)"
             )
-            continue
-        status = game.get("status")
-        turns = game.get("playerturns")
-        try:
-            cutoff_here = status[seat] == "timeout" and turns[seat] == t
-        except (TypeError, IndexError):
-            raise ValueError("trace_report needs game.status/playerturns")
-        if not cutoff_here:
+        elif kind == "lost":
             # The engine applies every order it receives; without a
             # cutoff on exactly this turn to strand it, a lost order
             # is a bug, not noise.
             problems.append(f"t{t} {loc}->{dest}: order lost without timeout")
     total = len(records)
     return (missed / total if total else 0.0, problems)
+
+
+def _classify_miss(game, seat, rec, stayed, grid, foods):
+    """One unmatched record: (kind, detail).
+
+    ghost: no ant stayed on the square. breach: dest on water/live
+    food, which the mask forbids deciding. stranded: stayed, passable,
+    on the seat's timeout turn (cutoff stranded it). lost: stayed,
+    passable, anywhere else (should have arrived: bug). Status and
+    playerturns are read only here: ghosts and breaches need neither."""
+    t, loc, dest = rec["turn"], tuple(rec["loc"]), tuple(rec["dest"])
+    if (t, loc, loc) not in stayed:
+        return ("ghost", None)
+    r, c = dest
+    on_water = (
+        0 <= r < len(grid) and 0 <= c < len(grid[r]) and grid[r][c] == "%"
+    )
+    on_food = any(
+        f[0] == r and f[1] == c and f[2] <= t <= f[3] for f in foods
+    )
+    if on_water or on_food:
+        return ("breach", "water" if on_water else "food")
+    status = game.get("status")
+    turns = game.get("playerturns")
+    try:
+        cutoff_here = status[seat] == "timeout" and turns[seat] == t
+    except (TypeError, IndexError):
+        raise ValueError("trace_report needs game.status/playerturns")
+    return ("stranded", None) if cutoff_here else ("lost", None)
+
+
+def resolve_stranded(game, seat, records):
+    """Rewrite stranded orders as stays; everything else passes through.
+
+    A cutoff strands decided-but-unsent orders: the replay shows a
+    stay, the record says a move, the join misses. Since unsent orders
+    ARE stays, rewriting dest to loc restores the exact join instead
+    of tolerating a miss. Only dest changes: action and intent stay
+    honest for PPO (logging intent as stay would forge supervision the
+    policy never chose). Breach, ghost, and off-turn loss pass through
+    untouched for trace_report to raise on. Pure: input never mutates."""
+    if not records:
+        return []
+    rd = game["replaydata"]
+    trajs = trajectories(rd)
+    keys = record_identities(rd, records)
+    out = [dict(r) for r in records]
+    if all(k is not None for k in keys):
+        return out
+    grid = (rd.get("map") or {}).get("data")
+    if not grid:
+        raise ValueError("resolve_stranded needs replaydata.map.data")
+    stayed = {
+        (t, a, b)
+        for (o, _i), tr in trajs.items()
+        if o == seat
+        for k in range(1, len(tr))
+        for (t, a, b) in [(tr[k][0], tr[k - 1][1], tr[k][1])]
+        if a == b
+    }
+    foods = [f for f in rd.get("food", []) if len(f) >= 4]
+    for r, rec, key in zip(out, records, keys):
+        if key is not None:
+            continue
+        if _classify_miss(game, seat, rec, stayed, grid, foods)[0] == "stranded":
+            d = r["dest"]
+            r["dest"] = list(rec["loc"]) if isinstance(d, list) else tuple(rec["loc"])
+    return out
 
 
 def compute_returns(game, me, records, table=None):

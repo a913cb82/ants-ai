@@ -79,6 +79,9 @@ def _play_one(cfg: dict, base: Path, weights: dict, map_path: str) -> dict:
     rows, rets, misses = [], [], []
     for s in range(n):
         recs = algorithm.compact_records(out["records"][s])
+        # Stranded orders ARE stays: resolve them so the join is exact
+        # instead of tolerated. What remains unfound here is a bug.
+        recs = rewards.resolve_stranded(game, s, recs)
         miss, problems = rewards.trace_report(game, s, recs)
         if problems:
             # Mask breach, ghost, or cutoff-less loss: the join should

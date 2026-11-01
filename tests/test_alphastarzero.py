@@ -2382,3 +2382,81 @@ def test_trace_report_needs_status_for_lost():
     recs = [{"turn": 3, "loc": [5, 5], "dest": [5, 4], "action": "w"}]
     with pytest.raises(ValueError):  # no status to explain the loss
         rewards.trace_report(game, 0, recs)
+
+
+def _timeout_game():
+    game = _trace_game()
+    game["status"] = ["timeout", "timeout"]
+    return game
+
+
+def test_resolve_stranded_rewrites_dest_not_action():
+    import rewards
+
+    game = _timeout_game()
+    recs = [{"turn": 3, "loc": [5, 5], "dest": [5, 4], "action": "w"}]
+    out = rewards.resolve_stranded(game, 0, recs)
+    assert out[0]["dest"] == [5, 5]  # stranded ≡ stay: joinable
+    assert out[0]["action"] == "w"  # intent stays honest for PPO
+    assert recs[0]["dest"] == [5, 4]  # input untouched: pure return
+
+
+def test_resolve_stranded_leaves_the_rest_for_trace():
+    import rewards
+
+    game = _timeout_game()
+    matched = {"turn": 3, "loc": [5, 5], "dest": [5, 5], "action": "stay"}
+    assert rewards.resolve_stranded(game, 0, [matched])[0]["dest"] == [5, 5]
+    water = {"turn": 3, "loc": [5, 5], "dest": [5, 6], "action": "e"}
+    assert rewards.resolve_stranded(game, 0, [water])[0]["dest"] == [5, 6]
+    ghost = {"turn": 9, "loc": [5, 5], "dest": [5, 4], "action": "w"}
+    assert rewards.resolve_stranded(game, 0, [ghost])[0]["dest"] == [5, 4]
+    # Off the timeout turn even passable loss stays put: trace raises.
+    game["playerturns"] = [5, 5]
+    calm = {"turn": 3, "loc": [5, 5], "dest": [5, 4], "action": "w"}
+    assert rewards.resolve_stranded(game, 0, [calm])[0]["dest"] == [5, 4]
+    assert rewards.resolve_stranded(game, 0, []) == []
+
+
+def test_play_one_resolves_stranded_orders_on_timeout_turns(tmp_path, monkeypatch):
+    import archive
+    import game_if
+    import train as _train
+
+    base = tmp_path / "archive"
+    cfg = {"seed": 0, "turns": 5, "temperature": 0.0, "tick": 7}
+    land = ["." * 10 for _ in range(10)]
+
+    def fake_play(*a, **k):
+        game = {
+            "game_length": 10,
+            "score": [3, 1],
+            "status": ["timeout", "survived"],
+            "playerturns": [3, 0],
+            "replaydata": {
+                "map": {"rows": 10, "cols": 10, "data": land},
+                "viewradius2": 77,
+                "attackradius2": 5,
+                "food": [],
+                "ants": [
+                    [4, 4, 1, 10, 0, "-" * 9],
+                    [6, 6, 1, 10, 1, "-" * 9],
+                ],
+                "hills": [],
+            },
+        }
+        recs = [
+            [{"turn": 3, "loc": [4, 4], "dest": [5, 4], "action": "e",
+              "window": [[[0.0]]]}],
+            [{"turn": 3, "loc": [6, 6], "dest": [6, 6], "action": "stay",
+              "window": [[[0.0]]]}],
+        ]
+        return {"game": game, "records": recs}
+
+    monkeypatch.setattr(game_if, "play", fake_play)
+    out = _train._play_one(cfg, base, {}, _tmp_2p_map(tmp_path))
+    assert out["rows"][0]["dest"] == [4, 4]  # stranded ≡ stay: joinable
+    assert out["rows"][0]["action"] == "e"  # intent stays honest
+    assert out["rows"][1]["dest"] == [6, 6]
+    (row,) = archive.list_games(base)
+    assert row["trace_miss"] == 0.0  # resolved before audit, not tolerated
