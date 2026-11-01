@@ -777,6 +777,66 @@ def seat0_outcome(game: dict) -> str | None:
     return member_game_result(game, seats[0].get("id"))
 
 
+FORM_WINDOW = 20  # games per form point
+FORM_POINTS = 40  # points per sparkline (matches SPARK_MAX)
+
+
+def form_series(grouped: list[dict], resets: list[dict],
+                parents: dict, window: int = FORM_WINDOW,
+                points: int = FORM_POINTS) -> dict[str, list[float]]:
+    """Per-game trailing form: for each of the last `points` game-ends,
+    Elo refitted over the trailing `window` games, oldest end first.
+
+    Same Bradley-Terry math as the headline pass, but the memory comes
+    from the window, not carried thetas (a converged refit over one
+    game of data would just fit the priors). A reset member's
+    pre-reset games leave the window entirely: asymmetric buckets
+    would break the mirror invariant, and both sides losing one data
+    point is display-grade. Pure; constant cost per poll."""
+    chrono = grouped[::-1]
+    ends = chrono[max(0, len(chrono) - points):]
+    ids = sorted({p["a"] for g in chrono for p in g.get("pairs", [])}
+                 | {p["b"] for g in chrono for p in g.get("pairs", [])})
+    pos = {cid: i for i, cid in enumerate(ids)}
+    latest_cut: dict[str, int] = {}
+    for r in resets:
+        if isinstance(r, dict) and isinstance(r.get("seat"), str) \
+                and isinstance(r.get("tick"), int):
+            latest_cut[r["seat"]] = max(latest_cut.get(r["seat"], -1),
+                                          r["tick"])
+    out: dict[str, list[float]] = {cid: [] for cid in ids}
+    for ei in range(len(ends)):
+        win = ends[max(0, ei - window + 1):ei + 1]
+        kept = []
+        for g in win:
+            gt = g.get("tick")
+            drop = False
+            if isinstance(gt, int):
+                for s in g.get("seats", []) or []:
+                    sid = s.get("id") if isinstance(s, dict) else None
+                    if sid in latest_cut and gt < latest_cut[sid]:
+                        drop = True
+                        break
+            if not drop:
+                kept.append(g)
+        if not kept:
+            for cid in ids:
+                out[cid].append(out[cid][-1] if out[cid] else 0.0)
+            continue
+        per = interval_pair_buckets(kept[::-1], len(kept), pos)
+        theta = [1.0] * len(ids)
+        series: dict = {}
+        _interval_elo_extend(ids, per, ids, _RUN_SWEEPS, 0, theta,
+                             series, parents, set(), set())
+        for cid in ids:
+            vals = series.get(cid) or []
+            out[cid].append(vals[-1]
+                              if vals and isinstance(vals[-1],
+                                                     (int, float))
+                              else (out[cid][-1] if out[cid] else 0.0))
+    return out
+
+
 def game_margin(game: dict) -> float | None:
     """Training-side edge for 2-seat games: seats[0] minus seats[1].
 
@@ -916,13 +976,13 @@ def _interval_elo_cached(base: Path, grouped: list[dict], K: int,
         pass
     cuts = reset_cut_intervals(grouped, K, resets)
     cuts_sig = sorted((m, sorted(s)) for m, s in cuts.items())
-    st = _interval_elo_cache.get("state")
+    sig = (K, tuple(tracked))
+    st = _interval_elo_cache.get(sig)
     if (st is not None
             and len(ids) >= len(st["ids"])
             and ids[:len(st["ids"])] == st["ids"]
             and len(per_interval) >= st["n_interval"]
             and counts[:st["n_interval"]] == st["counts"]
-            and tracked == st["tracked"]
             and cuts_sig == st.get("cuts_sig", [])):
         theta = st["theta"] + [1.0] * (len(ids) - len(st["ids"]))
         series = {k: list(v) for k, v in st["series"].items()}
@@ -939,7 +999,7 @@ def _interval_elo_cached(base: Path, grouped: list[dict], K: int,
                              theta, series, parents, seen, played,
                              cuts=cuts)
         n_interval = len(per_interval)
-    _interval_elo_cache["state"] = {
+    _interval_elo_cache[sig] = {
         "ids": ids, "counts": counts, "theta": theta,
         "tracked": tracked, "series": series, "seen": seen,
         "played": played, "cuts_sig": cuts_sig,
@@ -1302,6 +1362,15 @@ def standings_panel(base: Path, grouped: list[dict], K: int,
             base, grouped, K, list(LIVE_SLOTS))["series"]
     except (OSError, ValueError, KeyError, TypeError):
         elo = {s: [] for s in LIVE_SLOTS}
+    try:
+        # Sparkline form: trailing-window refits, one point per game
+        # end (memory from the window, not carried thetas). Same scale
+        # as the headline number.
+        st = state if isinstance(state, dict) else {}
+        form = form_series(grouped, st.get("resets", []) or [],
+                           _parent_map(base))
+    except (OSError, ValueError, KeyError, TypeError):
+        form = {s: [] for s in LIVE_SLOTS}
     last: dict[str, float] = {}
     for g in grouped:
         tick = g.get("tick")
@@ -1318,10 +1387,12 @@ def standings_panel(base: Path, grouped: list[dict], K: int,
         w, d, lo = tally.get(sid, [0, 0, 0])
         raw = elo.get(sid) or []
         vals = [v for v in raw if isinstance(v, (int, float))]
+        fraw = form.get(sid) or []
+        fvals = [v for v in fraw if isinstance(v, (int, float))]
         rows.append({
             "id": sid, "class": SLOT_CLASS[sid],
             "elo": int(round(vals[-1])) if vals else None,
-            "spark": [round(v, 1) for v in raw[-SPARK_MAX:]
+            "spark": [round(v, 1) for v in fvals[-SPARK_MAX:]
                         if isinstance(v, (int, float))],
             "w": w, "d": d, "l": lo, "n": w + d + lo,
             "last_tick": last.get(sid),
@@ -2413,7 +2484,7 @@ def render_page(snap: dict | None = None) -> str:
 <tr><th scope="col">slot</th><th scope="col">target</th><th scope="col">rate</th><th scope="col" class="num">window</th><th scope="col" class="num">in</th></tr>
 <tbody id="bars-body">{bars}</tbody></table></div>
 <div class="section-title">Standings</div>
-<div class="legend">running Elo, integers · W-D-L over eval games · rows older than 200 ticks gray out</div>
+<div class="legend">running Elo, integers · spark is per-game running form · W-D-L over eval games · rows older than 200 ticks gray out</div>
 <div class="card table-scroll"><table>
 <caption style="display:none">Standings</caption>
 <tr><th scope="col">slot</th><th scope="col">class</th><th scope="col" class="num">elo</th><th scope="col" class="num">w-d-l</th><th scope="col" class="num">n</th><th scope="col" class="num">upd</th><th scope="col" class="num">last</th></tr>

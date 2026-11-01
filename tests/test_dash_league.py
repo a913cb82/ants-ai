@@ -246,13 +246,15 @@ def test_bars_window_rate_and_eligible_in(tmp_path):
     assert le["eligible_in"] == 40 and le["rate"] is None
 
 
-def test_standings_elo_carries_sparkline(tmp_path):
+def test_standings_spark_tracks_each_game(tmp_path):
     import dashboard
 
     base = _league_base(tmp_path / "a", games=8)
     rows = {r["id"]: r for r in dashboard.snapshot(base)["standings"]}
     sp = rows["main"]["spark"]
-    assert sp and int(round(sp[-1])) == rows["main"]["elo"]
+    assert len(sp) == 8  # one trailing-window point per game end
+    assert all(isinstance(v, float) for v in sp)
+    assert sp[-1] != sp[0]  # the line moves with the games
     assert all(isinstance(v, (int, float)) for v in sp)
     assert len(sp) <= dashboard.SPARK_MAX
 
@@ -526,3 +528,39 @@ def test_elo_ranks_loser_below_splitter():
     series: dict = {}
     dashboard._interval_elo_extend(ids, per, ids, 4, 0, theta, series)
     assert series["loser"][-1] < series["mid"][-1] < series["champ"][-1]
+
+
+def test_form_series_tracks_each_game_end(tmp_path):
+    import dashboard
+
+    from test_curves import _elo_archive
+
+    games = [("champ", "loser", "w")] * 5
+    base, mid = _elo_archive(tmp_path, ["g000", "champ", "loser"], games,
+                             K=4, seat="champ", name="elo-form")
+    grouped = dashboard.group_games(dashboard.archive.list_games(base))
+    form = dashboard.form_series(grouped, [], {}, window=20, points=40)
+    champ, loser = mid["champ"], mid["loser"]
+    assert len(form[champ]) == 5  # one point per game end
+    assert all(b > a for a, b in zip(form[champ], form[champ][1:]))
+    assert all(b < a for a, b in zip(form[loser], form[loser][1:]))
+    assert all(c > l for c, l in zip(form[champ], form[loser]))
+
+
+def test_form_series_drops_pre_reset_games(tmp_path):
+    import dashboard
+
+    from test_curves import _elo_archive
+
+    games = [("champ", "loser", "w")] * 4
+    base, mid = _elo_archive(tmp_path, ["g000", "champ", "loser"], games,
+                             K=4, seat="champ", name="elo-cut")
+    grouped = dashboard.group_games(dashboard.archive.list_games(base))
+    assert sorted(g["tick"] for g in grouped) == [0, 1, 2, 3]
+    resets = [{"slot": "loser", "seat": mid["loser"], "tick": 3}]
+    form = dashboard.form_series(grouped, resets, {}, window=20,
+                                 points=40)
+    # loser's 0-3 record is severed: only the tick-3 game counts,
+    # so its form sits at the prior, far above a fitted 0-4.
+    plain = dashboard.form_series(grouped, [], {}, window=20, points=40)
+    assert form[mid["loser"]][-1] > plain[mid["loser"]][-1]
