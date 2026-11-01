@@ -24,6 +24,7 @@ import random
 import signal
 import sys
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -730,14 +731,27 @@ def _request_shutdown(signum, frame) -> None:
     _SHUTDOWN = True
 
 
-def _pool_worker(cfg: dict, base: Path, live: dict, learners: list[str],
-                 remaining: list, reports: list, guard: threading.Lock) -> None:
-    """One pool thread: own a disjoint learner set, claim ticks tock-free.
+def _dispatch_learner(state: dict, in_flight: set) -> str | None:
+    """Which idle learner runs next: fewest games, ties in role order.
 
-    Learners cycle locally (no two threads ever share a learner, so no
-    policy/Adam/bank lock is needed); the global tick counter and the
-    shutdown flag are the only shared atoms."""
-    i = 0
+    In-flight learners are excluded (one tick per learner at a time,
+    so policies and banks need no locks). Pure and deterministic given
+    state: valid for any worker count, not just divisors of four."""
+    cands = [l for l in archive.SCHEDULER_ORDER if l not in in_flight]
+    if not cands:
+        return None
+    return min(cands, key=lambda l: (learner_games(state, l),
+                                     archive.SCHEDULER_ORDER.index(l)))
+
+
+def _pool_worker(cfg: dict, base: Path, live: dict, remaining: list,
+                 reports: list, guard: threading.Lock,
+                 in_flight: set) -> None:
+    """One pool thread: take the most starved idle learner per tick.
+
+    A freed slot never sits on a fixed learner; it feeds whoever is
+    behind. The in-flight set is released in a finally so a crashed
+    tick can't wedge its learner out of rotation."""
     while True:
         with guard:
             if _SHUTDOWN:
@@ -745,11 +759,26 @@ def _pool_worker(cfg: dict, base: Path, live: dict, learners: list[str],
             n = remaining[0]
             if n is not None and n >= 0 and n <= 0:
                 return
-            if n is not None and n >= 0:
-                remaining[0] = n - 1
-            learner = learners[i % len(learners)]
-            i += 1
-        rep = run_tick(cfg, base, live, learner=learner)
+            try:
+                state = archive.load_league(base) or {}
+            except (OSError, ValueError):
+                state = {}
+            learner = _dispatch_learner(state, in_flight)
+            if learner is None:
+                busy = True
+            else:
+                if n is not None and n >= 0:
+                    remaining[0] = n - 1
+                in_flight.add(learner)
+                busy = False
+        if busy:
+            time.sleep(0.05)
+            continue
+        try:
+            rep = run_tick(cfg, base, live, learner=learner)
+        finally:
+            with guard:
+                in_flight.discard(learner)
         with guard:
             reports.append(rep)
 
@@ -781,11 +810,11 @@ def run_loop(cfg: dict, base: Path, ticks: int | None = None) -> list[dict]:
             return reports
         guard: threading.Lock = threading.Lock()
         remaining = [n]
+        in_flight: set = set()
         with ThreadPoolExecutor(max_workers=workers) as ex:
             futures = [ex.submit(_pool_worker, cfg, base, live,
-                                 order[i::workers], remaining,
-                                 reports, guard)
-                       for i in range(workers)]
+                                 remaining, reports, guard, in_flight)
+                       for _ in range(workers)]
             for f in futures:
                 f.result()
     finally:

@@ -447,6 +447,17 @@ def test_concurrent_ticks_split_learners(tmp_path, monkeypatch):
         __import__("time").sleep(0.005)  # force thread interleaving
         with guard:
             seen.append(learner)
+        # a real tick advances its learner's game count: the dispatcher
+        # steers by it, so the fake must too (else every tie repeats).
+        with archive.league_lock():
+            st = archive.load_league(base) or {}
+            if learner == "main":
+                st["main_games"] = st.get("main_games", 0) + 1
+            else:
+                exp = st.setdefault("exploiters", {}).setdefault(
+                    learner, {})
+                exp["games"] = exp.get("games", 0) + 1
+            archive.save_league(base, st)
         return {"learner": learner}
 
     monkeypatch.setattr(selfplay, "run_tick", fake_tick)
@@ -457,9 +468,19 @@ def test_concurrent_ticks_split_learners(tmp_path, monkeypatch):
     assert not list(base.glob("tick.*.marker"))  # markers die at tick end
 
 
-def test_pool_worker_cycles_own_learners(tmp_path):
+def test_dispatch_feeds_most_starved_idle_learner():
+    state = {"main_games": 5, "exploiters": {
+        "me": {"games": 5}, "le-a": {"games": 2}, "le-b": {"games": 5}}}
+    assert selfplay._dispatch_learner(state, set()) == "le-a"
+    assert selfplay._dispatch_learner(state, {"le-a"}) == "main"
+    assert selfplay._dispatch_learner(
+        state, {"main", "me", "le-a", "le-b"}) is None
+
+
+def test_pool_worker_drains_through_dispatcher(tmp_path):
     base, _, _, _ = _league_base(tmp_path)
     cfg = _cfg(tmp_path)
+    selfplay.ensure_roles(base, cfg)
 
     seen = []
     guard = __import__("threading").Lock()
@@ -470,9 +491,11 @@ def test_pool_worker_cycles_own_learners(tmp_path):
 
     real = selfplay.run_tick
     selfplay.run_tick = fake_tick
+    in_flight = set()
     try:
-        selfplay._pool_worker(cfg, base, {}, ["main", "me"], [3],
-                              [], guard)
+        # static league: every dispatch ties at zero, order[0] wins.
+        selfplay._pool_worker(cfg, base, {}, [3], [], guard, in_flight)
     finally:
         selfplay.run_tick = real
-    assert seen == ["main", "me", "main"]  # local round-robin to empty
+    assert seen == ["main"] * 3
+    assert in_flight == set()  # released, never wedged

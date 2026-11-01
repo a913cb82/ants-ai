@@ -7,10 +7,9 @@ Plan: ml/runs/plan-league.md. Migration: plan §Initialization.
 ## The 10 rules
 
 1. **Roles + shares.** 1 main + 1 ME (`me`) + 2 LE (`le-a`, `le-b`).
-   Workers own disjoint learner sets (`--concurrency`, default 4 =
-   one per type); each learner advances at its own game pace, so the
-   global order is no longer a strict round-robin, but every learner
-   still trains exactly its own games. One tick = one game, always.
+   Workers pull the most starved idle learner (fewest games, ties in
+   role order; `--concurrency`, default 4). One tick = one game, always;
+   the same learner never runs twice concurrently.
 2. **PFSP only (mini-AlphaStar transcription).** Scores are
    Laplace-smoothed means (unseen = 0.5); squared seeking branches add
    a UCB bonus (our labeled small-sample layer). Main: coin < 0.5
