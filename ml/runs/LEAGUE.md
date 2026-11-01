@@ -35,7 +35,9 @@ right way, PPO stays healthy.
 5. **The one diet.** `rewards.scales()`: FOOD 1.0, KILL 1.0,
    HILL_APPROACH 0.25, DEATH −2.0, raze +10 / lost −10, WIN +5 /
    LOSS −5. Hill-approach and kills pay only on wins; death always
-   hurts. Terminal outcome broadcasts to every move, undiscounted.
+   hurts. Each game's priced rows enter the batch whole up to
+   `ROW_CAP` (4096, uniform seed:tick subsample), so a 20k-row table
+   cannot dominate RAM or the batch. Terminal outcome broadcasts to every move, undiscounted.
 6. **PPO baseline (frozen).** Advantages from one frozen pre-update
    baseline, standardized over the whole micro-batch; clipped
    surrogate + shared-trunk value head. Stats logged per update:

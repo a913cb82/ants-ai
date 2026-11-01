@@ -12,6 +12,7 @@ the only diet there is."""
 
 from __future__ import annotations
 
+import random
 import sys
 import time
 import uuid
@@ -29,7 +30,25 @@ import game_if
 import rewards
 
 
+def _cap_rows(rows: list, rets: list, cfg: dict) -> tuple[list, list]:
+    """Uniform seed:tick subsample of a game's priced rows to ROW_CAP.
+
+    Small games pass through whole; big ones keep a random subset with
+    returns attached, so pricing (computed on full trajectories) stays
+    exact while RAM and batch composition stay bounded."""
+    if len(rows) <= ROW_CAP:
+        return rows, rets
+    rng = random.Random(f"{cfg.get('seed', 0)}:{cfg['tick']}")
+    keep = sorted(rng.sample(range(len(rows)), ROW_CAP))
+    return [rows[i] for i in keep], [rets[i] for i in keep]
+
+
 #: One diet for every seat: base scales, no roles, no overrides.
+ROW_CAP = 4096  # max batch rows per game: 20k-row 250-turn tables
+# would otherwise dominate RAM (pending + transients OOM-killed a run
+# at 11GB) and the batch. Uniform seed:tick subsample keeps every
+# decision equally likely, so the objective is unchanged in expectation
+# and each game weighs the same no matter its size.
 def _play_one(cfg: dict, base: Path, weights: dict, map_path: str) -> dict:
     """One mirror game: latest vs latest (vs latest ...), all seats train.
 
@@ -62,6 +81,7 @@ def _play_one(cfg: dict, base: Path, weights: dict, map_path: str) -> dict:
         recs = algorithm.compact_records(out["records"][s])
         rows.extend(recs)
         rets.extend(rewards.compute_returns(game, s, recs, scales))
+    rows, rets = _cap_rows(rows, rets, cfg)
     scores = list(game["score"])
     gid = f"{rel}#{uuid.uuid4().hex[:12]}"  # one play, one id
     # Behavior facts, parsed once per game from the played game dict:

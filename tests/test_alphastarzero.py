@@ -2101,3 +2101,38 @@ def test_compact_records_accepts_both_window_formats():
     )
     assert all(isinstance(r["window"], torch.Tensor) for r in recs)
     assert torch.equal(recs[0]["window"], recs[1]["window"])
+
+
+def _big_game(monkeypatch, tmp_path, n_rows=5000):
+    """Stub engine game: n_rows priced rows, returns stay attached."""
+    import game_if
+    import rewards as _rewards
+    import train as _train
+
+    rec = {"window": [[[0.0] * 9] * 9] * 10, "action": "stay"}
+    game = {"score": [1, 2], "game_length": 10}
+    mapp = tmp_path / "m.map"
+    mapp.write_text("rows 8\ncols 8\nplayers 2\n" + "m " + "." * 8 + "\n")
+
+    def fake_play(*a, **k):
+        return {"game": game, "records": [[dict(rec) for _ in range(n_rows)]] * 2}
+
+    monkeypatch.setattr(game_if, "play", fake_play)
+    monkeypatch.setattr(
+        _rewards, "compute_returns", lambda g, s, r, sc: [float(i) for i in range(len(r))]
+    )
+    cfg = {"tick": 4, "turns": 10, "temperature": 1.0, "seed": 7}
+    return _train._play_one(cfg, tmp_path, {}, str(mapp))
+
+
+def test_play_one_caps_rows_per_game(tmp_path, monkeypatch):
+    out = _big_game(monkeypatch, tmp_path)
+    assert len(out["rows"]) == 4096 and len(out["rets"]) == 4096
+    out2 = _big_game(monkeypatch, tmp_path)
+    assert list(out2["rets"]) == list(out["rets"])  # seed:tick stable
+    assert out["rets"] != [float(i) for i in range(4096)]  # subsampled, not truncated
+
+
+def test_play_one_keeps_small_games_whole(tmp_path, monkeypatch):
+    out = _big_game(monkeypatch, tmp_path, n_rows=100)
+    assert len(out["rows"]) == 200 and len(out["rets"]) == 200  # 2 seats x 100
