@@ -15,9 +15,16 @@ right way, PPO stays healthy.
    game; the tick IS the game number
    (`games/main/tick{tick}`, `player_seed = seed + tick`,
    `engine_seed = 1000 + tick`).
-2. **Cadence.** Micro-batch PPO every 8 completions (`MICRO_BATCH=8`).
+2. **Cadence.** Micro-batch PPO every 16 completions (`MICRO_BATCH=16`).
    Serial by default; `--concurrency N` plays N games in flight while
-   the update still fires every 8 completions.
+   the update still fires every 16 completions. The update trains in a
+   background thread on a weights snapshot taken at the boundary, so
+   dispatch never stalls; games played mid-update train from weights at
+   most one update old. Backpressure: at most one update runs — when
+   the learner is slower than 16 games, the loop waits instead of
+   piling up stale games. `updates.jsonl` carries `update_seconds`
+   per update; the training table shows it, so the duty cycle reads
+   off the board.
 3. **Crash-ok.** `_claim_tick` hands out each tick under a lock, never
    reuses numbers. Every state is valid: game rows kept, `live/` points
    at the last finished update, pending banks ≤ one micro-batch

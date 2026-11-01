@@ -3,8 +3,9 @@
 Every tick plays exactly one game: main vs main (vs main ...), all
 seats running the current live weights. Every seat's records train
 the next PPO micro-batch (AlphaZero trains on every position, not one
-side). Serial by default; --concurrency N plays N games in flight
-while the update still fires every 8 completions.
+side). The update trains in a background thread on a weights snapshot taken
+at the boundary, so dispatch never stalls; games played mid-update
+train from weights at most one update old (bounded staleness of 1).
 
 State is two integers (tick, micro) plus the live weights, Adam blob,
 and banked batch on disk. Resume is load + schedule: tick numbers are
@@ -20,6 +21,7 @@ import random
 import signal
 import sys
 import threading
+import time
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from pathlib import Path
 
@@ -31,7 +33,7 @@ import algorithm
 import archive
 import train
 
-MICRO_BATCH = 8
+MICRO_BATCH = 16
 
 #: Serializes tick claims: load/compute/save must not interleave,
 #: or two threads play the same tick number.
@@ -98,7 +100,7 @@ def parse_args(argv: list[str] | None = None) -> dict:
         type=int,
         default=defaults["concurrency"],
         help="games in flight at once (default 1 = serial; "
-        "updates still fire every 8 completions)",
+        "updates still fire every 16 completions)",
     )
     p.add_argument(
         "--ticks",
@@ -222,6 +224,7 @@ def ensure(base: Path, cfg: dict) -> dict:
         "opt": opt,
         "pending": load_pending(base, cfg.get("arch", "base")),
         "lr": cfg["lr"],
+        "bg": None,  # background update slot; None until first boundary
     }
 
 
@@ -248,61 +251,124 @@ def _finish_tick(cfg: dict, base: Path, live: dict, result: dict) -> dict:
     live["pending"].extend(batch)
     state = archive.load_state(base)
     micro = state.get("micro", 0) + 1
-    update_stats = None
+    _bg_swap(cfg, base, live, block=False)  # land a finished update, if any
+    update = False
     if micro % MICRO_BATCH == 0:
-        update_stats = train.ppo_update(
-            live["policy"], live["opt"], live["pending"], cfg
-        )
-    if update_stats is not None:
-        live["pending"] = []
-        bank_pending(base, [], cfg.get("arch", "base"))
-        store_live(
-            base,
-            algorithm.policy_weights(live["policy"]),
-            algorithm.serialize_opt(live["opt"]),
-        )
-
-        def _mean(v):
-            return sum(v) / len(v) if v else 0.0
-
-        archive.log_update(
-            base,
-            {
-                "tick": tick,
-                "rows": update_stats["rows"],
-                "mean_return": update_stats["mean_return"],
-                "explained_var": update_stats["explained_var"],
-                "loss": _mean(update_stats["losses"]),
-                "entropy": _mean(update_stats["entropies"]),
-                "kl": _mean(update_stats["kl"]),
-                "clipfrac": _mean(update_stats["clipfrac"]),
-                "pg_loss": _mean(update_stats["pg_loss"]),
-                "v_loss": _mean(update_stats["v_loss"]),
-            },
-        )
-    else:
-        # No update this tick: bank the batch so an early exit loses
-        # nothing; the next run resumes it like a continued loop.
-        bank_pending(base, live["pending"], cfg.get("arch", "base"), tick)
+        update = True
+        # Backpressure: at most one update runs; when the learner is the
+        # bottleneck the loop waits here instead of piling up stale games.
+        _bg_swap(cfg, base, live, block=True)
+        _bg_start(cfg, live, tick)
+    # Bank every tick: rows played mid-update must survive a crash too
+    # (resume retrains at most one frozen prefix, as before).
+    bank_pending(base, live["pending"], cfg.get("arch", "base"), tick)
     state["micro"] = micro
     state["tick"] = max(state.get("tick", 0), tick + 1)
     archive.save_state(base, state)
     return {
         "tick": tick,
         "scores": played["scores"],
-        "update": update_stats is not None,
+        "update": update,
     }
 
 
+def _bg_start(cfg: dict, live: dict, tick: int) -> None:
+    """Snapshot live weights+Adam and train them in a daemon thread.
+
+    The batch is the pending prefix (own list; items shared read-only —
+    the main thread only ever appends). Staleness is bounded: games
+    played mid-update train from weights at most one update old."""
+    bg = live["bg"]
+    if bg is None:
+        bg = live["bg"] = {
+            "policy": algorithm.new_policy(None, cfg.get("arch", "base")),
+            "opt": None,
+            "busy": False,
+        }
+        bg["opt"] = algorithm.make_optimizer(bg["policy"], lr=live["lr"])
+    bg["policy"].load_state_dict(live["policy"].state_dict())
+    bg["opt"].load_state_dict(live["opt"].state_dict())
+    n0 = len(live["pending"])
+    batch = live["pending"][:n0]
+    bg.update(
+        n0=n0, tick=tick, started=time.perf_counter(),
+        stats=None, seconds=None, busy=True, done=threading.Event(),
+    )
+
+    def _run() -> None:
+        try:
+            bg["stats"] = train.ppo_update(
+                bg["policy"], bg["opt"], batch, cfg
+            )
+        finally:
+            bg["seconds"] = time.perf_counter() - bg["started"]
+            bg["done"].set()
+
+    threading.Thread(target=_run, daemon=True).start()
+
+
+def _bg_swap(cfg: dict, base: Path, live: dict, block: bool) -> bool:
+    """Land a finished background update: swap weights+Adam into live,
+    log with its wall seconds, consume its pending prefix. No-op when
+    nothing is running (or running and block is False)."""
+    bg = live.get("bg")
+    if not bg or not bg["busy"]:
+        return False
+    if not bg["done"].wait(timeout=None if block else 0):
+        return False
+    live["policy"].load_state_dict(bg["policy"].state_dict())
+    live["opt"].load_state_dict(bg["opt"].state_dict())
+    store_live(
+        base,
+        algorithm.policy_weights(live["policy"]),
+        algorithm.serialize_opt(live["opt"]),
+    )
+
+    def _mean(v):
+        return sum(v) / len(v) if v else 0.0
+
+    stats = bg["stats"]
+    archive.log_update(
+        base,
+        {
+            "tick": bg["tick"],
+            "rows": stats["rows"],
+            "mean_return": stats["mean_return"],
+            "explained_var": stats["explained_var"],
+            "loss": _mean(stats["losses"]),
+            "entropy": _mean(stats["entropies"]),
+            "kl": _mean(stats["kl"]),
+            "clipfrac": _mean(stats["clipfrac"]),
+            "pg_loss": _mean(stats["pg_loss"]),
+            "v_loss": _mean(stats["v_loss"]),
+            "update_seconds": bg["seconds"],
+        },
+    )
+    del live["pending"][: bg["n0"]]
+    bank_pending(base, live["pending"], cfg.get("arch", "base"), bg["tick"])
+    bg["busy"] = False
+    return True
+
+
+def _drain_bg(cfg: dict, base: Path, live: dict) -> None:
+    """Wait out a running background update and land it, if any."""
+    _bg_swap(cfg, base, live, block=True)
+
+
 def run_tick(cfg: dict, base: Path, live: dict) -> dict:
-    """One mirror game: play, log, accumulate, maybe train."""
+    """One mirror game: play, log, accumulate, maybe train.
+
+    Serial: drains any background update before returning, so one call
+    is one fully-applied tick, exactly as before."""
     tick = _claim_tick(base)  # persisted: never reused, even by restarts
     rng = random.Random(f"{cfg.get('seed', 0)}:{tick}")
     map_path = rng.choice(cfg["maps"])
     weights = algorithm.policy_weights(live["policy"])
-    return _finish_tick(
+    rep = _finish_tick(
         cfg, base, live, _play_tick(cfg, base, weights, tick, map_path)
     )
+    _drain_bg(cfg, base, live)
+    return rep
 
 
 def _dispatch_tick(cfg: dict, base: Path, live: dict, pool) -> object:
@@ -317,7 +383,7 @@ def _dispatch_tick(cfg: dict, base: Path, live: dict, pool) -> object:
 
 def run_loop(cfg: dict, base: Path, ticks: int) -> None:
     """Play ticks (negative = forever). Ctrl-C stops dispatching new
-    games and drains the in-flight ones, then exits."""
+    games, drains the in-flight ones and the background update, exits."""
     signal.signal(signal.SIGINT, _request_shutdown)
     signal.signal(signal.SIGTERM, _request_shutdown)
     live = ensure(base, cfg)
@@ -344,6 +410,7 @@ def run_loop(cfg: dict, base: Path, ticks: int) -> None:
                 # row simply never logs while the rest stay valid.
                 _finish_tick(cfg, base, live, fut.result())
                 done += 1
+    _drain_bg(cfg, base, live)
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -61,7 +61,7 @@ def test_tick_plays_mirror_and_banks_batch(tmp_path, monkeypatch):
     rep = selfplay.run_tick(cfg, base, live)
     assert rep["tick"] == 0
     assert rep["scores"] == [3, 1]
-    assert not rep["update"]  # micro 1/8: banked, no update yet
+    assert not rep["update"]  # micro 1/16: banked, no update yet
     games = archive.list_games(base)
     assert len(games) == 1
     assert games[0]["seats"] == ["main", "main"]
@@ -71,15 +71,15 @@ def test_tick_plays_mirror_and_banks_batch(tmp_path, monkeypatch):
     assert len(bank) == 2  # banked for a restart
 
 
-def test_update_fires_every_eighth_game(tmp_path, monkeypatch):
+def test_update_fires_every_sixteenth_game(tmp_path, monkeypatch):
     base, cfg, live = _setup(tmp_path, monkeypatch)
-    updates = [selfplay.run_tick(cfg, base, live)["update"] for _ in range(8)]
-    assert updates == [False] * 7 + [True]
+    updates = [selfplay.run_tick(cfg, base, live)["update"] for _ in range(16)]
+    assert updates == [False] * 15 + [True]
     assert live["pending"] == []  # consumed by the update
     assert not selfplay._pending_path(base).exists()  # bank cleared
     assert archive.list_updates(base) != []  # measurements logged
     state = archive.load_state(base)
-    assert state["tick"] == 8 and state["micro"] == 8
+    assert state["tick"] == 16 and state["micro"] == 16
 
 
 def test_claim_tick_never_reuses_across_restarts(tmp_path):
@@ -197,7 +197,10 @@ def _par_setup(tmp_path, monkeypatch, nmaps=3, concurrency=3, ticks=6):
 
         _time.sleep(0.05)  # let the pool spread work across threads
         tick = c["tick"]
-        seen.append((tick, threading.get_ident(), Path(map_path).name))
+        seen.append(
+            (tick, threading.get_ident(),
+             Path(map_path).name, _time.perf_counter())
+        )
         archive.log_game(
             b,
             ["main", "main"], [3, 1],
@@ -236,22 +239,22 @@ def test_parallel_ticks_claim_unique_ticks_on_threads(tmp_path, monkeypatch):
     rows = archive.list_games(base)
     assert len(rows) == 6
     assert sorted(r["tick"] for r in rows) == [0, 1, 2, 3, 4, 5]
-    assert len({tid for _, tid, _ in seen}) > 1  # really parallel
-    for tick, _, name in seen:
+    assert len({tid for _, tid, _, _ in seen}) > 1  # really parallel
+    for tick, _, name, _ in seen:
         assert name == Path(_expected_map(0, tick, maps)).name
 
 
-def test_parallel_completions_fire_update_every_eight(tmp_path, monkeypatch):
+def test_parallel_completions_fire_update_every_sixteen(tmp_path, monkeypatch):
     base, cfg, live, seen = _par_setup(
-        tmp_path, monkeypatch, concurrency=2, ticks=8)
+        tmp_path, monkeypatch, concurrency=2, ticks=16)
     cfg["maps"] = ["m0.map"]
-    selfplay.run_loop(cfg, base, ticks=8)
+    selfplay.run_loop(cfg, base, ticks=16)
     updates = archive.list_updates(base)
-    assert len(updates) == 1  # 8 completions, one update
-    assert updates[0]["rows"] == 8  # one stubbed row per game
-    assert updates[0]["tick"] == 7  # the completing tick names it
+    assert len(updates) == 1  # 16 completions, one update
+    assert updates[0]["rows"] == 16  # one stubbed row per game
+    assert updates[0]["tick"] == 15  # the completing tick names it
     assert selfplay.load_pending(base, "base") == []  # bank cleared
-    assert archive.load_state(base)["micro"] == 8
+    assert archive.load_state(base)["micro"] == 16
 
 
 def test_parallel_matches_serial_results(tmp_path, monkeypatch):
@@ -290,3 +293,83 @@ def test_parallel_matches_serial_results(tmp_path, monkeypatch):
             for r in archive.list_games(base))
         outs.append((rows, len(selfplay.load_pending(base, "base"))))
     assert outs[0] == outs[1]  # same games, same banked rows
+
+
+def test_update_log_carries_wall_seconds(tmp_path, monkeypatch):
+    base, cfg, live, seen = _par_setup(
+        tmp_path, monkeypatch, concurrency=1, ticks=16)
+    selfplay.run_loop(cfg, base, ticks=16)
+    updates = archive.list_updates(base)
+    assert len(updates) == 1
+    assert isinstance(updates[0]["update_seconds"], float)
+    assert updates[0]["update_seconds"] >= 0.0
+
+
+def _wrap_ppo(monkeypatch, extra_sleep):
+    """Real PPO slowed down, with start/end timestamps recorded."""
+    import time as _time
+
+    import train as _train
+
+    orig = _train.ppo_update
+    marks = {}
+
+    def slow(policy, opt, batch, cfg):
+        marks["start"] = _time.perf_counter()
+        _time.sleep(extra_sleep)
+        try:
+            return orig(policy, opt, batch, cfg)
+        finally:
+            marks["end"] = _time.perf_counter()
+
+    monkeypatch.setattr(_train, "ppo_update", slow)
+    return marks
+
+
+def test_bg_update_overlaps_games(tmp_path, monkeypatch):
+    base, cfg, live, seen = _par_setup(
+        tmp_path, monkeypatch, concurrency=2, ticks=20)
+    starts = {}
+    marks = _wrap_ppo(monkeypatch, 1.0)
+    selfplay.run_loop(cfg, base, ticks=20)
+    for tick, _, _, at in seen:
+        starts[tick] = at
+    late = [starts[t] for t in range(16, 20)]
+    assert late and max(late) < marks["end"]  # batch 2 played mid-update
+    assert len(archive.list_updates(base)) == 1
+
+
+def test_learner_backpressure_waits_not_drops(tmp_path, monkeypatch):
+    base, cfg, live, seen = _par_setup(
+        tmp_path, monkeypatch, concurrency=4, ticks=33)
+    _wrap_ppo(monkeypatch, 2.0)  # learner slower than 16 instant games
+    selfplay.run_loop(cfg, base, ticks=33)
+    updates = archive.list_updates(base)
+    assert len(updates) == 2  # second boundary waited, nothing dropped
+    assert [u["rows"] for u in updates] == [16, 16]
+    assert archive.load_state(base)["micro"] == 33
+    assert len(selfplay.load_pending(base, "base")) == 1  # tick 32 banks
+
+
+def test_second_batch_trains_on_pre_update_weights(tmp_path, monkeypatch):
+    import json as _json
+
+    base, cfg, live, seen = _par_setup(
+        tmp_path, monkeypatch, concurrency=2, ticks=33)
+    sums = {}
+    import train as _train
+
+    orig_play = _train._play_one
+
+    def checksummed(c, b, weights, map_path):
+        sums[c["tick"]] = _json.dumps(weights, sort_keys=True)
+        return orig_play(c, b, weights, map_path)
+
+    monkeypatch.setattr(_train, "_play_one", checksummed)
+    _wrap_ppo(monkeypatch, 1.0)
+    selfplay.run_loop(cfg, base, ticks=33)
+    first = sums[0]
+    assert all(sums[t] == first for t in range(16, 32))  # at most 1 stale
+    assert (
+        _json.dumps(selfplay.load_live(base)[0], sort_keys=True) != first
+    )  # both updates landed

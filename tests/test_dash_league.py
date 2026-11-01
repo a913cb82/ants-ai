@@ -324,7 +324,7 @@ def test_training_panel_reports_latest_updates(tmp_path):
     assert [r["tick"] for r in rows] == [16, 8, 0]  # newest first
     html = dashboard.training_rows_html(rows)
     assert "0.10" in html and "no updates yet" not in html
-    assert dashboard.training_rows_html([]).count('colspan="8"') == 1
+    assert dashboard.training_rows_html([]).count('colspan="9"') == 1
 
 
 def test_snapshot_contract_is_pure_az(tmp_path):

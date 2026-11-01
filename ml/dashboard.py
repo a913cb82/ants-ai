@@ -621,7 +621,7 @@ def h0_strip_html(h0: dict | None) -> str:
         f"<span><b>game</b> {_esc(h0.get('tick', 0))}</span>"
         f"<span>{_dot()}main</span>"
         f"<span><b>updates</b> {_esc(h0.get('updates', 0))}</span>"
-        f"<span><b>micro</b> {_esc(h0.get('micro', 0))}/8</span>"
+        f"<span><b>micro</b> {_esc(h0.get('micro', 0))}/16</span>"
         f"<span><b>decisive÷40</b> {dec}</span>"
         f"<span><b>last</b> {_esc(last)} {last_len}</span>"
         f"<span><b>rate</b> {fmt_rate(h0.get('games_per_h'))}</span>"
@@ -840,7 +840,7 @@ function renderH0(){
     "<span><b>game</b> "+esc(h.tick)+"</span>"+
     "<span>"+dot()+"main</span>"+
     "<span><b>updates</b> "+esc(h.updates)+"</span>"+
-    "<span><b>micro</b> "+esc(h.micro)+"/8</span>"+
+    "<span><b>micro</b> "+esc(h.micro)+"/16</span>"+
     "<span><b>decisive÷40</b> "+dec+"</span>"+
     "<span><b>last</b> "+esc(last)+" "+lastLen+"</span>"+
     "<span><b>rate</b> "+fmtRate(h.games_per_h)+"</span>"+
@@ -857,8 +857,8 @@ function renderTraining(){
     "<tr><td class=num>"+fmtTick(u.tick)+'</td><td class="num">'+esc(u.rows)+
     '</td><td class="num">'+num(u.mean_return,2)+'</td><td class="num">'+num(u.explained_var,2)+
     '</td><td class="num">'+num(u.loss)+'</td><td class="num">'+num(u.entropy)+
-    '</td><td class="num">'+num(u.kl)+'</td><td class="num">'+num(u.clipfrac,2)+"</td></tr>"
-  ).join("")||'<tr><td colspan="8" class="empty">no updates yet — the first lands after 8 games</td></tr>';
+    '</td><td class="num">'+num(u.kl)+'</td><td class="num">'+num(u.clipfrac,2)+'</td><td class="num">'+num(u.update_seconds,1)+"</td></tr>"
+  ).join("")||'<tr><td colspan="9" class="empty">no updates yet — the first lands after 16 games</td></tr>';
 }
 function renderAlerts(){
   const h="a|"+JSON.stringify(S.alerts);
@@ -984,8 +984,8 @@ def training_rows_html(rows: list | None) -> str:
     """Twin of JS renderTraining."""
     if not rows:
         return (
-            '<tr><td colspan="8" class="empty">no updates yet — '
-            "the first lands after 8 games</td></tr>"
+            '<tr><td colspan="9" class="empty">no updates yet — '
+            "the first lands after 16 games</td></tr>"
         )
     out = []
     for u in rows:
@@ -997,7 +997,8 @@ def training_rows_html(rows: list | None) -> str:
             '<td class="num">' + _num(u.get("loss")) + "</td>"
             '<td class="num">' + _num(u.get("entropy")) + "</td>"
             '<td class="num">' + _num(u.get("kl")) + "</td>"
-            '<td class="num">' + _num(u.get("clipfrac"), 2) + "</td></tr>"
+            '<td class="num">' + _num(u.get("clipfrac"), 2) + "</td>"
+            '<td class="num">' + _num(u.get("update_seconds"), 1) + "</td></tr>"
         )
     return "".join(out)
 
@@ -1067,7 +1068,7 @@ def render_page(snap: dict | None = None) -> str:
 <div class="legend">PPO vital signs per update, newest first · flat or rising loss with collapsing entropy means learning stopped · clipfrac near 1 means the clip binds every step · explained variance tracks the value head (1 is perfect)</div>
 <div class="card table-scroll"><table>
 <caption style="display:none">Training updates, newest first</caption>
-<tr><th scope="col">update</th><th scope="col" class="num">rows</th><th scope="col" class="num">mean ret</th><th scope="col" class="num">expl var</th><th scope="col" class="num">loss</th><th scope="col" class="num">entropy</th><th scope="col" class="num">kl</th><th scope="col" class="num">clipfrac</th></tr>
+<tr><th scope="col">update</th><th scope="col" class="num">rows</th><th scope="col" class="num">mean ret</th><th scope="col" class="num">expl var</th><th scope="col" class="num">loss</th><th scope="col" class="num">entropy</th><th scope="col" class="num">kl</th><th scope="col" class="num">clipfrac</th><th scope="col" class="num">upd s</th></tr>
 <tbody id="training-body">{training}</tbody></table></div>
 </div>
 <div class="tcell span12">
