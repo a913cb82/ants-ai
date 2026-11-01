@@ -754,7 +754,7 @@ td.truncate,.truncate{max-width:220px; overflow:hidden; text-overflow:ellipsis; 
 .badge.win{color:var(--green1); background:#E6F4EC;}
 .badge.loss{color:var(--red); background:#FBEAE8;}
 .badge.draw{color:var(--blue); background:#EAF0FE;}
-td.matchup, td.replay{white-space:nowrap;}
+td.replay{white-space:nowrap;}
 .toolbar{display:flex; gap:10px; align-items:center; margin-bottom:10px; flex-wrap:wrap;}
 .toolbar label{font-size:13px; color:var(--secondary);}
 input{font-size:13px; padding:6px 10px; border:1px solid var(--border-strong); border-radius:8px; background:#fff;}
