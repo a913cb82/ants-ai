@@ -10,6 +10,8 @@ are unchanged; everything pinning retired keys is rewritten.
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "ml"))
 
@@ -191,7 +193,7 @@ def test_games_newest_first_with_tick_ids(tmp_path):
     assert all(
         set(g)
         == {"tick", "learner", "map", "seats", "scores", "stats",
-            "length", "result", "replay"}
+            "length", "trace_miss", "result", "replay"}
         for g in gs
     )
     assert gs[0]["learner"] == "main" and gs[0]["seats"] == ["main", "main"]
@@ -344,6 +346,7 @@ def test_snapshot_contract_is_pure_az(tmp_path):
         "games",
         "h0",
         "mtime",
+        "trace_miss",
         "training",
     ]
     h0 = snap["h0"]
@@ -400,3 +403,37 @@ def test_game_row_unknown_behavior_reads_dashes():
     html = dashboard.game_row_html(g)
     assert html.count("—") >= 3  # food, kills, army all unknown
     assert "1-1" in html and "draw" in html
+
+
+def test_build_game_carries_trace_miss():
+    import dashboard
+
+    row = {"seats": ["main", "main"], "scores": [5, 3], "trace_miss": 0.02}
+    assert dashboard.build_game(row)["trace_miss"] == 0.02
+    assert dashboard.build_game({"seats": ["main"], "scores": [1]}).get(
+        "trace_miss"
+    ) is None
+
+
+def test_trace_miss_mean_over_recent_games():
+    import dashboard
+
+    rows = [{"trace_miss": 0.0}] * 30 + [{"trace_miss": 0.2}] * 10 + [{}]
+    assert dashboard.trace_miss_mean(rows) == pytest.approx(0.05)
+    assert dashboard.trace_miss_mean([{}]) is None
+    assert dashboard.trace_miss_mean([]) is None
+
+
+def test_alerts_fire_on_trace_miss():
+    import dashboard
+
+    h0 = {"tick": 9}
+    rows = dashboard.alerts_panel(h0, trace_miss=0.21)
+    assert any(
+        r["level"] == "alert" and "trace" in r["msg"] for r in rows
+    )
+    rows = dashboard.alerts_panel(h0, trace_miss=0.01)
+    assert all("trace" not in r["msg"] for r in rows)
+    assert dashboard.alerts_panel(h0) == [
+        {"level": "ok", "msg": "all clear", "tick": 9}
+    ]

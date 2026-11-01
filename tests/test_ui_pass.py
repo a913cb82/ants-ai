@@ -16,7 +16,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "ml"))
 
-NEW_KEYS = {"h0", "training", "behavior", "games", "game_total", "alerts", "mtime"}
+NEW_KEYS = {"h0", "training", "behavior", "games", "game_total", "alerts", "mtime", "trace_miss"}
 LEGACY_KEYS = {
     "anchors",
     "standings",

@@ -282,6 +282,61 @@ def _awards(game, me, records, scales):
     return awards, outcome(game, me, scales), length, turns, keys
 
 
+def trace_report(game, seat, records):
+    """Join audit: (miss_rate, problems).
+
+    miss_rate counts records no replay ant explains. problems lists the
+    ones that should be impossible: dest on water or live food (the
+    legal mask forbids both — a mask breach) or no stayed step at all
+    (ghost). Passable-stay misses are order-lost infra noise: counted,
+    never raised. Missing map data raises: the engine always logs it."""
+    if not records:
+        return (0.0, [])  # nothing to audit: vacuous, not silent
+    rd = game["replaydata"]
+    trajs = trajectories(rd)
+    keys = record_identities(rd, records)
+    if all(k is not None for k in keys):
+        return (0.0, [])  # nothing to classify: grid needed only for misses
+    grid = (rd.get("map") or {}).get("data")
+    if not grid:
+        raise ValueError("trace_report needs replaydata.map.data")
+    stayed = {
+        (t, a, b)
+        for (o, _i), tr in trajs.items()
+        if o == seat
+        for k in range(1, len(tr))
+        for (t, a, b) in [(tr[k][0], tr[k - 1][1], tr[k][1])]
+        if a == b
+    }
+    foods = [f for f in rd.get("food", []) if len(f) >= 4]
+    missed = 0
+    problems = []
+    for rec, key in zip(records, keys):
+        if key is not None:
+            continue
+        missed += 1
+        t, loc, dest = rec["turn"], tuple(rec["loc"]), tuple(rec["dest"])
+        if (t, loc, loc) not in stayed:
+            problems.append(f"t{t} {loc}->{dest}: no ant stayed there (ghost)")
+            continue
+        r, c = dest
+        on_water = (
+            0 <= r < len(grid)
+            and 0 <= c < len(grid[r])
+            and grid[r][c] == "%"
+        )
+        on_food = any(
+            f[0] == r and f[1] == c and f[2] <= t <= f[3] for f in foods
+        )
+        if on_water or on_food:
+            problems.append(
+                f"t{t} {loc}->{dest}: order into "
+                f"{'water' if on_water else 'food'} (mask breach)"
+            )
+    total = len(records)
+    return (missed / total if total else 0.0, problems)
+
+
 def compute_returns(game, me, records, table=None):
     """Discounted return for each decision record.
 

@@ -76,9 +76,17 @@ def _play_one(cfg: dict, base: Path, weights: dict, map_path: str) -> dict:
     )
     game = out["game"]
     scales = rewards.scales()  # the one diet
-    rows, rets = [], []
+    rows, rets, misses = [], [], []
     for s in range(n):
         recs = algorithm.compact_records(out["records"][s])
+        miss, problems = rewards.trace_report(game, s, recs)
+        if problems:
+            # Mask breach or ghost: the join should be exact here, so a
+            # problem is a bug, not noise. Raise LOUD: the tick fails,
+            # the row never logs, the trainer halts for a human.
+            # Order-lost infra noise only counts toward misses.
+            raise ValueError(f"tick{tick} seat{s}: {'; '.join(problems)}")
+        misses.append(miss)
         rows.extend(recs)
         rets.extend(rewards.compute_returns(game, s, recs, scales))
     rows, rets = _cap_rows(rows, rets, cfg)
@@ -103,6 +111,7 @@ def _play_one(cfg: dict, base: Path, weights: dict, map_path: str) -> dict:
         kw["kills"] = list(behavior["kills"][:n])
         kw["army"] = list(behavior["army"][:n])
         kw["length"] = behavior["length"]
+    kw["trace_miss"] = sum(misses) / len(misses) if misses else 0.0
     archive.log_game(
         base,
         field,

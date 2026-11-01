@@ -40,6 +40,11 @@ right way, PPO stays healthy.
    hurts. Each game's priced rows enter the batch whole up to
    `ROW_CAP` (4096, uniform seed:tick subsample), so a 20k-row table
    cannot dominate RAM or the batch. Terminal outcome broadcasts to every move, undiscounted.
+
+7. **Loud, never silent.** Anything unexpected errors: a mask breach
+   or ghost record fails the tick and halts the trainer for a human,
+   and trace-miss over 5% raises a board alert. Silent fallbacks hid
+   a dead water channel all game; never again.
 6. **PPO baseline (frozen).** Advantages from one frozen pre-update
    baseline, standardized over the whole micro-batch; clipped
    surrogate + shared-trunk value head. Stats logged per update:

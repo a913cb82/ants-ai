@@ -151,12 +151,14 @@ def log_game(
     army=None,
     length=None,
     t=None,
+    trace_miss=None,
 ) -> None:
     """Append one game to the dashboard index (replay path archive-relative).
 
     One row is logged per mirror game: every seat is "main", always.
     tick/food/kills/army/length are per-game behavior facts aligned to
-    the seats; t is the wall-clock stamp. All default to None
+    the seats; trace_miss is the mean join-miss rate across seats; t is
+    the wall-clock stamp. All default to None
     and are omitted then, so the board renders a dash for unknown. The
     game id is informational (one row is one game)."""
     init(base)
@@ -177,6 +179,8 @@ def log_game(
         row["army"] = list(army)
     if length is not None:
         row["length"] = length
+    if trace_miss is not None:
+        row["trace_miss"] = trace_miss
     if t is not None:
         row["t"] = t
     append_jsonl(base / "games.jsonl", row)

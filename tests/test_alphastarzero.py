@@ -1178,7 +1178,7 @@ def test_snapshot_games_carry_dual_time(tmp_path):
     assert all(
         set(g)
         == {"tick", "learner", "map", "seats", "scores", "stats",
-            "length", "result", "replay"}
+            "length", "trace_miss", "result", "replay"}
         for g in snap["games"]
     )
 
@@ -1962,20 +1962,30 @@ def test_play_one_learns_from_every_seat(tmp_path, monkeypatch):
             "game_length": 10,
             "score": [3, 1, 0],
             "replaydata": {
-                "map": {"rows": 10, "cols": 10},
+                "map": {
+                    "rows": 10,
+                    "cols": 10,
+                    "data": [".........." for _ in range(10)],
+                },
                 "viewradius2": 77,
                 "attackradius2": 5,
                 "food": [],
-                "ants": [[5, 5, 1, 3, 2, "--"]],
+                "ants": [
+                    [4, 4, 1, 10, 0, "--"],
+                    [6, 6, 1, 10, 1, "--"],
+                    [5, 5, 1, 3, 2, "--"],
+                ],
                 "hills": [],
             },
         }
+        # Each seat's record traces to its own staying ant, so the join
+        # is exact. The owner-2 ant died: kills stay [1, 1, 0].
         recs = [
-            [{"turn": 3, "loc": [4, 5], "dest": [5, 5], "action": "s",
+            [{"turn": 3, "loc": [4, 4], "dest": [4, 4], "action": "stay",
               "window": [[[0.0]]]}],
-            [{"turn": 3, "loc": [4, 5], "dest": [5, 5], "action": "s",
+            [{"turn": 3, "loc": [6, 6], "dest": [6, 6], "action": "stay",
               "window": [[[0.0]]]}],
-            [{"turn": 3, "loc": [4, 5], "dest": [5, 5], "action": "s",
+            [{"turn": 3, "loc": [5, 5], "dest": [5, 5], "action": "stay",
               "window": [[[0.0]]]}],
         ]
         return {"game": game, "records": recs}
@@ -2011,7 +2021,7 @@ def test_cached_panel_shares_one_build_per_poll(tmp_path):
     assert dashboard.cached_panel(base) is first  # no rebuild on repoll
     assert len(first) == 1 and set(first[0]) == {
         "tick", "learner", "map", "seats", "scores", "stats",
-        "length", "result", "replay"}
+        "length", "trace_miss", "result", "replay"}
     assert first[0]["result"] == "win"  # seat-0 perspective
     archive.log_game(base, ["main", "main"], [0, 1], "games/g/e1/logs/0.replay", game="g#2")
     second = dashboard.cached_panel(base)
@@ -2162,8 +2172,26 @@ def _big_game(monkeypatch, tmp_path, n_rows=5000):
     import rewards as _rewards
     import train as _train
 
-    rec = {"window": [[[0.0] * 9] * 9] * 10, "action": "stay"}
-    game = {"score": [1, 2], "game_length": 10}
+    rec = {
+        "turn": 2,
+        "loc": [1, 1],
+        "dest": [1, 1],
+        "action": "stay",
+        "window": [[[0.0] * 9] * 9] * 10,
+    }
+    land = ["." * 8 for _ in range(8)]
+    game = {
+        "score": [1, 2],
+        "game_length": 10,
+        "replaydata": {
+            "map": {"rows": 8, "cols": 8, "data": land},
+            "viewradius2": 77,
+            "attackradius2": 5,
+            "food": [],
+            "ants": [[1, 1, 1, 10, 0, "-" * 9], [2, 2, 1, 10, 1, "-" * 9]],
+            "hills": [],
+        },
+    }
     mapp = tmp_path / "m.map"
     mapp.write_text("rows 8\ncols 8\nplayers 2\n" + "m " + "." * 8 + "\n")
 
@@ -2249,3 +2277,64 @@ def test_window_water_channel_masks_the_move():
     assert w[features.WATER_CHANNEL, 2, 1] == 1.0  # west cell marked
     assert float(w[features.WATER_CHANNEL].sum()) == 1.0
     assert model.legal_mask(w, frozenset()).tolist() == [True, True, True, False, True]
+
+
+def _trace_game():
+    import rewards  # noqa: F401  (keeps the one-diet import idiom)
+
+    game = _game()
+    rows = [".........." for _ in range(10)]
+    rows[5] = "......%..."
+    game["replaydata"]["map"] = {"rows": 10, "cols": 10, "data": rows}
+    game["replaydata"]["ants"] = [[5, 5, 1, 6, 0, "----"]]
+    return game
+
+
+def test_trace_report_flags_water_breach():
+    import rewards
+
+    game = _trace_game()
+    recs = [{"turn": 3, "loc": [5, 5], "dest": [5, 6], "action": "e"}]
+    miss, problems = rewards.trace_report(game, 0, recs)
+    assert miss == 1.0 and len(problems) == 1 and "water" in problems[0]
+
+
+def test_trace_report_counts_order_lost_not_a_problem():
+    import rewards
+
+    game = _trace_game()
+    recs = [{"turn": 3, "loc": [5, 5], "dest": [5, 4], "action": "w"}]
+    miss, problems = rewards.trace_report(game, 0, recs)
+    assert miss == 1.0 and problems == []
+
+
+def test_trace_report_clean_when_matched():
+    import rewards
+
+    game = _trace_game()
+    recs = [{"turn": 3, "loc": [5, 5], "dest": [5, 5], "action": "stay"}]
+    assert rewards.trace_report(game, 0, recs) == (0.0, [])
+
+
+def test_trace_report_flags_food_breach_and_ghost():
+    import rewards
+
+    game = _trace_game()
+    game["replaydata"]["food"] = [[5, 4, 2, 5, 1]]
+    recs = [{"turn": 3, "loc": [5, 5], "dest": [5, 4], "action": "w"}]
+    miss, problems = rewards.trace_report(game, 0, recs)
+    assert miss == 1.0 and len(problems) == 1 and "food" in problems[0]
+    lonely = [{"turn": 9, "loc": [5, 5], "dest": [5, 4], "action": "w"}]
+    miss, problems = rewards.trace_report(game, 0, lonely)
+    assert miss == 1.0 and len(problems) == 1 and "ghost" in problems[0]
+
+
+def test_trace_report_needs_map_data():
+    import rewards
+
+    game = _game()
+    game["replaydata"]["ants"] = [[5, 5, 1, 6, 0, "----"]]
+    recs = [{"turn": 3, "loc": [5, 5], "dest": [5, 6], "action": "e"}]
+    with pytest.raises(ValueError):  # a miss with no grid to classify it
+        rewards.trace_report(game, 0, recs)
+    assert rewards.trace_report(game, 0, []) == (0.0, [])  # vacuous: clean

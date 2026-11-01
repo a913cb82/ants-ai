@@ -191,6 +191,7 @@ def build_game(row: dict) -> dict | None:
         return "draw" if rank == 0 else "loss"
 
     length = row.get("length")
+    miss = row.get("trace_miss")
     return {
         "tick": row.get("tick"),
         "learner": "main",
@@ -199,6 +200,7 @@ def build_game(row: dict) -> dict | None:
         "scores": list(raw),
         "stats": [_seat_stats(row, i) for i in range(len(seats))],
         "length": length if isinstance(length, (int, float)) else None,
+        "trace_miss": miss if isinstance(miss, (int, float)) else None,
         "result": _result(ranks[0]),
         "replay": row.get("replay"),
     }
@@ -416,15 +418,42 @@ def training_panel(updates: list[dict], limit: int = 8) -> list[dict]:
     return rows
 
 
-def alerts_panel(h0: dict) -> list[dict]:
-    """Attention queue: stuck training; else one all-clear line."""
+def trace_miss_mean(games: list[dict], window: int = 40) -> float | None:
+    """Mean trace-miss over the most recent window of games that log it.
+
+    None when no game carries the fact yet (pre-alarm rows). The 5%
+    alert threshold sits far above healthy order-lost noise (~1%) and
+    far below a real mask breach (~21%): it fires on bugs, not infra."""
+    vals = [
+        g.get("trace_miss")
+        for g in (games or [])[:window]
+        if isinstance(g.get("trace_miss"), (int, float))
+    ]
+    if not vals:
+        return None
+    return sum(vals) / len(vals)
+
+
+def alerts_panel(h0: dict, trace_miss: float | None = None) -> list[dict]:
+    """Attention queue: stuck training, trace-miss breach; else all-clear."""
     tick = h0.get("tick", 0)
     secs = h0.get("secs_since_game")
+    rows = []
     if isinstance(secs, (int, float)) and secs > ALERT_IDLE_S:
-        return [
+        rows.append(
             {"level": "alert", "msg": f"no game for {_fmt_idle(secs)}", "tick": tick}
-        ]
-    return [{"level": "ok", "msg": "all clear", "tick": tick}]
+        )
+    if isinstance(trace_miss, (int, float)) and trace_miss > 0.05:
+        rows.append(
+            {
+                "level": "alert",
+                "msg": f"trace miss {trace_miss:.0%} over recent games — decisions the replay cannot explain",
+                "tick": tick,
+            }
+        )
+    if not rows:
+        rows.append({"level": "ok", "msg": "all clear", "tick": tick})
+    return rows
 
 
 def _build_snapshot(base: Path) -> dict:
@@ -433,13 +462,15 @@ def _build_snapshot(base: Path) -> dict:
     panel = cached_panel(base)
     updates = archive.list_updates(base)
     h0 = h0_panel(base, state, panel, updates)
+    miss = trace_miss_mean(panel)
     return {
         "h0": h0,
         "training": training_panel(updates),
         "behavior": behavior_panel(base),
         "games": panel[:100],
         "game_total": len(panel),
-        "alerts": alerts_panel(h0),
+        "trace_miss": miss,
+        "alerts": alerts_panel(h0, miss),
         "mtime": archive_mtime(base),
     }
 
