@@ -767,30 +767,6 @@ def _interval_elo_extend(ids: list[str], per_interval: list[dict],
                                if mi is not None else None)
 
 
-def running_elo_intervals(ids: list[str], per_interval: list[dict],
-                          tracked: list[str],
-                          sweeps: int = _RUN_SWEEPS,
-                          parents: dict | None = None,
-                          cuts: dict | None = None) -> dict:
-    """Per-learner trajectories in one sequential pass, interval 0 -> I.
-
-    The pass maintains a single theta vector: each interval's pairs
-    move both endpoints against the field as it stands, then every
-    tracked member (live main + live exploiters + anchors) is read
-    out. No windows, no refits, no lookahead, no takeover breaks --
-    the value at interval I is exactly what the games <= I imply.
-    parents maps member id -> parent id for lineage seeding. cuts maps
-    member id -> reset interval indices: entering a cut interval resets
-    that member's theta to seed (1.0) before its games move it, so a
-    reset slot restarts from g000's level instead of peak-continuing.
-    Pure."""
-    theta = [1.0] * len(ids)
-    series: dict = {}
-    _interval_elo_extend(ids, per_interval, tracked, sweeps, 0, theta,
-                         series, parents, set(), cuts=cuts)
-    return {"tracked": list(tracked), "series": series}
-
-
 def seat0_outcome(game: dict) -> str | None:
     """Training-side outcome for one game: seats[0] is the training side
     (learner first in run_tick, challenger first in legacy gens)."""
@@ -846,13 +822,6 @@ def conversion(batches: list[list[dict]], window: int = 15) -> dict:
     return {"conv": conv, "clo": clo, "chi": chi}
 
 
-def main_history(history: list[dict]) -> list[dict]:
-    """Main-learner history rows only: league snapshot entries carry a
-    learner field; legacy gen entries predate roles and all read as
-    main, so old archives keep their PG/value curves."""
-    return [h for h in history if h.get("learner", "main") == "main"]
-
-
 def decisiveness(batches: list[list[dict]],
                  window: int = 15) -> dict:
     """Nonzero-margin fraction per K-game interval, split by kind.
@@ -903,42 +872,6 @@ def margin_band(batches: list[list[dict]], window: int = 15) -> dict:
             q1.append(None)
             q3.append(None)
     return {"med": med, "q1": q1, "q3": q3}
-
-
-def pg_signal(history: list[dict], window: int = 10) -> dict:
-    """PG signal ratio |pg_loss|/pg_abs at the last epoch + entropy.
-
-    EXPERIMENTAL: no literature backing — the ratio is a local probe of
-    whether the policy gradient still moves the update relative to its
-    own scale, not an endorsed health metric. Missing/zero pg_abs (gens
-    logged before the field existed) yield None, never 0."""
-    ratio, entropy = [], []
-    for h in history:
-        tr = h.get("train", {}) or {}
-        pl = tr.get("pg_loss", []) or []
-        pa = tr.get("pg_abs", []) or []
-        en = tr.get("entropies", []) or []
-        last_abs = pa[-1] if pa else None
-        ratio.append(abs(pl[-1]) / last_abs
-                     if pl and isinstance(last_abs, (int, float))
-                     and last_abs else None)
-        entropy.append(en[-1] if en else None)
-    return {"ratio": ratio, "ratio_med": roll_median(ratio, window),
-            "entropy": entropy,
-            "entropy_med": roll_median(entropy, window)}
-
-
-def value_slope(history: list[dict]) -> list:
-    """Critic fit per gen: (v_loss[0]-v_loss[-1])/v_loss[0]. Positive =
-    the critic still learned within the gen; ~0 = saturated; negative =
-    the value fit got worse. Zero/missing opener yields None."""
-    out = []
-    for h in history:
-        v = (h.get("train", {}) or {}).get("v_loss", []) or []
-        out.append((v[0] - v[-1]) / v[0]
-                   if len(v) and isinstance(v[0], (int, float)) and v[0]
-                   else None)
-    return out
 
 
 def _parent_map(base: Path) -> dict:
@@ -1193,7 +1126,6 @@ def build_board(base: Path, history: list[dict],
                                     tracked_members(base, grouped))
     except (OSError, ValueError, KeyError, TypeError):
         duel = {"tracked": [], "series": {}}
-    main_hist = main_history(history)
     return {
         "k": K,
         "labels": labels,
@@ -1201,8 +1133,6 @@ def build_board(base: Path, history: list[dict],
         "conv": conversion(batches),
         "decisive": decisiveness(batches),
         "margin": margin_band(batches),
-        "pg": pg_signal(main_hist),
-        "vslope": value_slope(main_hist),
     }
 
 
@@ -1237,11 +1167,7 @@ def snapshot(base: Path) -> dict:
 def _build_snapshot(base: Path) -> dict:
     archive.init(base)
     state = league_state(base)
-    try:
-        champ = archive.get_champion(base)
-    except (OSError, ValueError, KeyError, TypeError):
-        champ = None
-    main = (state or {}).get("main_id", champ)
+    main = (state or {}).get("main_id")
     history = cached_history(base)
     grouped = cached_grouped(base)
     tally = tally_eval(grouped)
@@ -1511,20 +1437,6 @@ def status_html(st: dict, main, nrows: int) -> tuple[str, int]:
         return (f"training <b>{_esc(st.get('challenger', ''))}</b> · "
                 f"game {done}/{st.get('total', 0)} · "
                 f"last mean return <b>{ret_s}</b>", 100 * done // total)
-    if phase == "eval":
-        done, total = max(0, int(st.get("done", 0) or 0)), \
-            max(1, int(st.get("total", 0) or 1))
-        return (f"evaluating <b>{_esc(st.get('challenger', ''))}</b> · "
-                f"duel {done}/{st.get('total', 0)} · "
-                f"<b>{st.get('wins', 0)}W {st.get('draws', 0)}D</b> so far",
-                100 * done // total)
-    if phase == "done":
-        badge = ('<span class="badge promoted">promoted ★</span>'
-                 if st.get("promoted")
-                 else '<span class="badge held">held</span>')
-        return (f"last run finished: <b>{_esc(st.get('challenger', ''))}</b> "
-                f"{badge} · champion {_esc(st.get('champion', ''))} · "
-                f"idle, waiting for the next run", 100)
     if nrows:
         return (f"idle · live main {_esc(main or '—')}", 0)
     return ("waiting for the first games…", 0)
@@ -2221,12 +2133,6 @@ function renderBoard(){
   plotBand("ch-marg",B.margin.med,B.margin.q1,B.margin.q3,"#2456E0","rgba(36,86,224,.15)",ids,
     adesc("training-side margin median",B.margin.med||[],ids),{yt:"pts"});
   deltaChip("d-marg",B.margin.med||[]);
-  plotDual("ch-pg",B.pg.ratio,B.pg.ratio_med,B.pg.entropy,B.pg.entropy_med,ids,
-    adesc("PG signal ratio",B.pg.ratio||[],ids),{yt:"ratio"});
-  deltaChip("d-pg",B.pg.ratio_med||[]);
-  plotBars("ch-vslope",[B.vslope],["#8A5A00"],ids,
-    adesc("value-fit slope",B.vslope||[],ids),null,{yt:"slope"});
-  deltaChip("d-vsl",B.vslope||[]);
 }
 function renderLeague(){
   const L=S.league;
@@ -2536,9 +2442,7 @@ def render_page(snap: dict | None = None) -> str:
         status_line, pct = status_html(snap.get("status"), main,
                                        snap.get("counts", {}).get("rows", 0))
         st = snap.get("status", {}) or {}
-        bar_bg = ("var(--success)" if st.get("phase") == "done" and st.get("promoted")
-                  else "var(--warn)" if st.get("phase") == "done"
-                  else "var(--accent)")
+        bar_bg = "var(--accent)"
         counts = (str(snap.get("counts", {}).get("rows", 0)),
                   str(snap.get("counts", {}).get("games", 0)),
                   str(len(snap.get("members", []))),
@@ -2612,10 +2516,6 @@ def render_page(snap: dict | None = None) -> str:
     <p class="chart-sub">nonzero-margin fraction · faint raw, bold 15-interval average</p><canvas id="ch-dec"></canvas></div>
   <div class="card chart-card"><div class="chart-head"><h3>Training-side margin median ± IQR</h3><span class="delta flat" id="d-marg" style="display:none"></span></div>
     <p class="chart-sub">pooled trailing 15-interval window · seats[0]-minus-seats[1], pts</p><canvas id="ch-marg"></canvas></div>
-  <div class="card chart-card"><div class="chart-head"><h3>PG signal ratio + entropy</h3><span class="delta flat" id="d-pg" style="display:none"></span></div>
-    <p class="chart-sub">ratio = |pg_loss|/pg_abs at last epoch · main snapshots only · EXPERIMENTAL · entropy on right axis</p><canvas id="ch-pg"></canvas></div>
-  <div class="card chart-card"><div class="chart-head"><h3>Value-fit slope</h3><span class="delta flat" id="d-vsl" style="display:none"></span></div>
-    <p class="chart-sub">(v_loss[0]−v_loss[−1])/v_loss[0] · main snapshots only · + means the critic learned</p><canvas id="ch-vslope"></canvas></div>
 </div>
 <div class="tables-2col">
 <div class="tcell">

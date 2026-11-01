@@ -15,7 +15,7 @@ labeled layer for small-sample exploration where DeepMind is silent.
 No game-count special cases anywhere.
 
 Weighting functions (mini-AlphaStar names and shapes):
-linear p, squared p^2, variance p(1-p) (peaks at even = learning-rich),
+squared p^2, variance p(1-p) (peaks at even = learning-rich),
 linear_capped min(0.5, 1-p) (challenges without single-nemesis
 obsession: weight peaks where the learner loses or splits, victims
 sink).
@@ -57,11 +57,6 @@ UCB_C = 1.0
 
 # Records map (id_a, id_b) -> [wins_a, wins_b].
 Records = dict[tuple[str, str], list[int]]
-def linear(p: float) -> float:
-    """Weight proportional to the win fraction."""
-    return p
-
-
 def squared(p: float) -> float:
     """Weight quadratic in the win fraction (seeks counters/nemeses)."""
     return p * p

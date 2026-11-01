@@ -31,7 +31,6 @@ def _league_base(base, k=4, anchors=("g000", "g009"), games=8):
 
     archive.init(base)
     g000 = archive.save_checkpoint(base, {}, role="main", parent=None)
-    archive.set_champion(base, g000)
     archive.init_league(base, "live-main", list(anchors))
     st = archive.load_league(base)
     st["snapshot_every"] = k

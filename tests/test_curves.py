@@ -79,122 +79,138 @@ def test_interval_size_reads_league_snapshot_every(tmp_path):
     assert dashboard.interval_size(base) == 80  # junk guards to cadence
 
 
-# --- running Elo over intervals: same math, per-learner readout ---
+# --- running Elo over intervals: live entry, real archives ---
 
-def test_intervals_transitive_panel():
+def _elo_archive(tmp_path, ids, games, K=1, parents=None, resets=(),
+                 seat="t", name="elo"):
+    """Minimal league archive for Elo tests: one checkpoint per id
+    (returned as name -> minted-id map), one eval game per
+    (a, b, result) oldest-first, league resets optional.
+
+    result is "w"/"l"/"d" from a's side. Games log under `seat` with
+    train{N} replay paths so reset entries match the live format."""
+    import archive
+
+    base = tmp_path / name
+    archive.init(base)
+    mid = {}
+    for m in ids:
+        par = (parents or {}).get(m)
+        mid[m] = archive.save_checkpoint(base, {}, "main",
+                                         mid[par] if par in mid else par)
+    seat = mid.get(seat, seat)  # live seats are member ids
+    for n, (a, b, r) in enumerate(games):
+        sa, sb = {"w": (1, 0), "l": (0, 1), "d": (1, 1)}[r]
+        archive.record_result(base, mid[a], mid[b], sa, sb, kind="eval")
+        archive.log_game(base, seat, "eval", mid[a], mid[b], sa, sb,
+                         f"games/{seat}/train{n}/logs/0.replay",
+                         map="m", game=f"gid-{seat}-{n}")
+    state = archive.init_league(base, mid[ids[0]], [])
+    if resets:
+        state["resets"] = [{**r, "seat": mid.get(r.get("seat"),
+                                                 r.get("seat"))}
+                           for r in resets]
+        archive.save_league(base, state)
+    return base, mid
+
+
+def _elo_series(base, mid, tracked, K=1):
     import dashboard
 
-    ids = ["g000", "a", "b", "c"]
-    per = [{(1, 2): [3.0, 0.0]}, {(2, 3): [3.0, 0.0]}]
-    s = dashboard.running_elo_intervals(ids, per, ["a", "b", "c"])
-    assert s["series"]["a"][0] > s["series"]["b"][0]  # a beat b
-    assert s["series"]["b"][1] > s["series"]["c"][1]  # b beat c
+    dashboard._interval_elo_cache.pop("state", None)
+    raw = dashboard._interval_elo_cached(
+        base, dashboard.cached_grouped(base), K,
+        [mid[m] for m in tracked])["series"]
+    return {m: raw[mid[m]] for m in tracked}
 
 
-def test_intervals_draws_shrink_and_empty_stays_zero():
-    import dashboard
-
-    ids = ["g000", "a", "b", "lonely"]
-    per = [{(1, 2): [2.0, 2.0]}, {}]
-    s = dashboard.running_elo_intervals(ids, per, ["a", "b", "lonely"])
-    assert s["series"]["a"][0] == s["series"]["b"][0] == 0.0  # all-square
-    assert s["series"]["lonely"] == [0.0, 0.0]  # known, unplayed: zero
+def test_intervals_transitive_panel(tmp_path):
+    base, mid = _elo_archive(tmp_path, ["g000", "a", "b", "c"],
+                        [("a", "b", "w")] * 3 + [("b", "c", "w")] * 3, K=3)
+    s = _elo_series(base, mid, ["a", "b", "c"], K=3)
+    assert s["a"][0] > s["b"][0]  # a beat b
+    assert s["b"][1] > s["c"][1]  # b beat c
 
 
-def test_intervals_g000_pinned():
-    import dashboard
-
-    ids = ["g000", "x"]
-    per = [{(0, 1): [0.0, 4.0]}]  # x sweeps g000 4-0
-    s = dashboard.running_elo_intervals(ids, per, ["g000", "x"])
-    assert s["series"]["g000"] == [0.0]  # pinned zero never moves
-    assert s["series"]["x"][0] > 100  # decisive sweep reads as a large gap
+def test_intervals_draws_shrink_and_empty_stays_zero(tmp_path):
+    base, mid = _elo_archive(tmp_path, ["g000", "a", "b", "lonely"],
+                        [("a", "b", "d")] * 2, K=2)
+    s = _elo_series(base, mid, ["a", "b", "lonely"], K=2)
+    assert s["a"][0] == s["b"][0] == 0.0  # all-square
+    assert s["lonely"] == [None]  # never logged: unknown gap, not zero
 
 
-def test_intervals_seed_indifferent():
-    import dashboard
+def test_intervals_g000_pinned(tmp_path):
+    base, mid = _elo_archive(tmp_path, ["g000", "x"], [("x", "g000", "w")] * 4,
+                        K=4)
+    s = _elo_series(base, mid, ["g000", "x"], K=4)
+    assert s["g000"] == [0.0]  # pinned zero never moves
+    assert s["x"][0] > 100  # decisive sweep reads as a large gap
 
-    ids = ["g000", "a", "b", "c"]
-    per = [{(0, 1): [0.0, 4.0]}, {(1, 2): [3.0, 1.0]}, {(2, 3): [1.0, 3.0]}]
-    plain = dashboard.running_elo_intervals(ids, per, ["a", "b", "c"])
-    seeded = dashboard.running_elo_intervals(
-        ids, per, ["a", "b", "c"],
-        parents={"a": "c", "b": "c", "c": "c"})
+
+def test_intervals_seed_indifferent(tmp_path):
+    games = ([("a", "g000", "w")] * 4 + [("a", "b", "w")] * 3 +
+             [("b", "a", "w")] + [("b", "c", "w")] + [("c", "b", "w")] * 3)
+    plain = _elo_archive(tmp_path, ["g000", "a", "b", "c"], games, K=4,
+                         name="elo-plain")
+    seeded = _elo_archive(tmp_path, ["g000", "a", "b", "c"], games, K=4,
+                          parents={"a": "c", "b": "c", "c": "c"},
+                          name="elo-seeded")
+    p = _elo_series(*plain, ["a", "b", "c"], K=4)
+    q = _elo_series(*seeded, ["a", "b", "c"], K=4)
     for m in ("a", "b", "c"):
-        for p, q in zip(plain["series"][m], seeded["series"][m],
-                         strict=True):
-            assert abs(p - q) < 5.0  # sub-display agreement, hostile seeds
+        for u, v in zip(p[m], q[m], strict=True):
+            assert abs(u - v) < 5.0  # sub-display agreement, hostile seeds
 
 
-def test_intervals_unplayed_tracker_carries_parent():
+def test_intervals_unplayed_tracker_carries_parent(tmp_path):
+    games = [("par", "g000", "w")] * 2 + [("kid", "g000", "l")]
+    base, mid = _elo_archive(tmp_path, ["g000", "par", "kid"], games, K=1,
+                        parents={"par": "g000", "kid": "par"})
+    s = _elo_series(base, mid, ["par", "kid"], K=1)
+    assert s["kid"][0] == 0.0  # at anchor before the parent moves
+    assert s["kid"][1] == s["par"][0]  # then carries the parent's value
+
+
+def test_intervals_reset_cut_drops_theta_to_seed(tmp_path):
+    games = [("me", "x", "w")] * 4 + [("me", "x", "w")] * 3 + [("x", "me",
+                                                                "w")]
+    plain = _elo_archive(tmp_path, ["g000", "me", "x"], games, K=4,
+                         seat="me", name="elo-plain")
+    cut = _elo_archive(tmp_path, ["g000", "me", "x"], games, K=4,
+                       seat="me", name="elo-cut",
+                       resets=[{"slot": "me", "seat": "me", "game": 3,
+                                "tick": 0}])
+    p = _elo_series(*plain, ["me"], K=4)
+    q = _elo_series(*cut, ["me"], K=4)
+    assert q["me"][0] == p["me"][0]
+    assert q["me"][1] < p["me"][1]
+    assert q["me"][1] > 0  # fresh wins rebuild from seed
+
+
+def test_intervals_empty_resets_match_no_resets(tmp_path):
     import dashboard
 
-    ids = ["g000", "par", "kid"]
-    per = [{(0, 1): [0.0, 4.0]}, {}]
-    assert dashboard.running_elo_intervals(
-        ids, per, ["kid"])["series"]["kid"] == [0.0, 0.0]  # at anchor
-    s = dashboard.running_elo_intervals(
-        ids, per, ["par", "kid"], parents={"par": "g000", "kid": "par"})
-    assert abs(s["series"]["kid"][1] - s["series"]["par"][0]) < 1e-9
-    assert s["series"]["kid"][1] > 100
+    games = [("me", "x", "w")] * 4 + [("me", "x", "d")] * 2
+    base, mid = _elo_archive(tmp_path, ["g000", "me", "x"], games, K=4)
+    first = _elo_series(base, mid, ["me"], K=4)
+    second = _elo_series(base, mid, ["me"], K=4)
+    assert first == second  # no resets, deterministic rebuild
 
 
-def test_intervals_reset_cut_drops_theta_to_seed():
-    import dashboard
-
-    ids = ["g000", "me", "x"]
-    per = [{(1, 2): [4.0, 0.0]},   # interval 0: me sweeps -> peak
-           {(1, 2): [3.0, 1.0]}]   # interval 1: fresh wins after reset
-    plain = dashboard.running_elo_intervals(ids, per, ["me"])
-    cut = dashboard.running_elo_intervals(ids, per, ["me"],
-                                          cuts={"me": {1}})
-    assert cut["series"]["me"][0] == plain["series"]["me"][0]
-    assert cut["series"]["me"][1] < plain["series"]["me"][1]
-    assert cut["series"]["me"][1] > 0  # fresh wins rebuild from seed
-
-
-def test_intervals_empty_cuts_match_no_cuts_bitwise():
-    import dashboard
-
-    ids = ["g000", "me", "x"]
-    per = [{(1, 2): [4.0, 0.0]}, {(1, 2): [1.0, 1.0]}]
-    plain = dashboard.running_elo_intervals(ids, per, ["me"])
-    assert dashboard.running_elo_intervals(
-        ids, per, ["me"], cuts={}) == plain
-    assert dashboard.running_elo_intervals(
-        ids, per, ["me"], cuts=None) == plain
-
-
-def test_reset_cut_intervals_map_to_first_interval_after():
-    import dashboard
-
-    def game(seat, n):
-        return {"replay": f"games/{seat}/train{n}/logs/0.replay",
-                "kind": "eval", "seats": [{"id": seat}]}
-    # grouped is newest-first: train2 newest.
-    grouped = [game("me", 2), game("me", 1), game("me", 0)]
-    resets = [{"slot": "me", "seat": "me", "game": 1, "tick": 7}]
-    cuts = dashboard.reset_cut_intervals(grouped, 2, resets)
-    # chrono order is train0, train1, train2; reset game train1 sits in
-    # interval 0 (games 0-1), so the cut fires at interval 1.
-    assert cuts == {"me": {1}}
-    # unknown games / empty resets: no cuts, never a crash.
-    assert dashboard.reset_cut_intervals(
-        grouped, 2, [{"slot": "me", "seat": "zz", "game": 9,
-                       "tick": 1}]) == {}
-    assert dashboard.reset_cut_intervals(grouped, 2, []) == {}
-
-
-def test_intervals_prefix_stable():
-    import dashboard
-
-    ids = ["g000", "a", "b"]
-    full = [{(0, 1): [3.0, 1.0]}, {(0, 2): [0.0, 4.0]}, {(1, 2): [2.0, 2.0]}]
-    a = dashboard.running_elo_intervals(ids, full, ["a", "b"])
-    b = dashboard.running_elo_intervals(ids, full[:2], ["a", "b"])
+def test_intervals_prefix_stable(tmp_path):
+    games = ([("g000", "a", "w")] * 3 + [("a", "g000", "w")] +
+             [("b", "g000", "w")] * 4 + [("a", "b", "d")] * 2)
+    full = _elo_archive(tmp_path, ["g000", "a", "b"], games, K=1,
+                        name="elo-full")
+    pre = _elo_archive(tmp_path, ["g000", "a", "b"], games[:4], K=1,
+                       name="elo-pre")
+    a = _elo_series(*full, ["a", "b"], K=1)
+    b = _elo_series(*pre, ["a", "b"], K=1)
     # later games never move earlier intervals (bitwise: same trajectory).
-    assert a["series"]["a"][:2] == b["series"]["a"]
-    assert a["series"]["b"][:2] == b["series"]["b"]
+    assert a["a"][:4] == b["a"]
+    assert a["b"][:4] == [0.0] * 4  # known but unplayed: carries seed
+    assert b["b"] == [None] * 4  # never logged: unknown gaps
 
 
 # --- interval curves ---
@@ -256,44 +272,6 @@ def test_game_margin_seat0_minus_seat1_and_nplayer_none():
     assert dashboard.game_margin(three) is None  # no single training edge
 
 
-def test_pg_signal_ratio_last_epoch():
-    import dashboard
-
-    hist = [_h("g001", train={"pg_loss": [0.5, 0.2], "pg_abs": [1.0, 0.8],
-                              "entropies": [0.9, 0.7]})]
-    p = dashboard.pg_signal(hist, window=2)
-    assert abs(p["ratio"][0] - 0.25) < 1e-9
-    assert p["entropy"][0] == 0.7
-    assert p["ratio_med"][0] == p["ratio"][0]
-
-
-def test_pg_signal_missing_or_zero_abs_is_none():
-    import dashboard
-
-    hist = [_h("g001", train={"pg_loss": [0.2], "pg_abs": [0.0]}),
-            _h("g002", train={"pg_loss": [0.2]})]
-    p = dashboard.pg_signal(hist, window=2)
-    assert p["ratio"] == [None, None]
-
-
-def test_value_slope():
-    import dashboard
-
-    hist = [_h("g001", train={"v_loss": [1.0, 0.6, 0.4]}),
-            _h("g002", train={"v_loss": [0.0, 0.0]}),
-            _h("g003")]
-    v = dashboard.value_slope(hist)
-    assert abs(v[0] - 0.6) < 1e-9
-    assert v[1] is None and v[2] is None
-
-
-def test_main_history_filters_exploiter_rows():
-    import dashboard
-
-    hist = [{"learner": "main"}, {"learner": "me"}, {"challenger": "g001"}]
-    assert dashboard.main_history(hist) == [hist[0], hist[2]]
-
-
 def _mini_league(base, n_games=12, k=4, learners=("main", "me"),
                 start=0):
     """Synthetic league archive: league.json + logged learner games.
@@ -303,8 +281,7 @@ def _mini_league(base, n_games=12, k=4, learners=("main", "me"),
     import archive
 
     archive.init(base)
-    g000 = archive.save_checkpoint(base, {}, role="main", parent=None)
-    archive.set_champion(base, g000)
+    archive.save_checkpoint(base, {}, role="main", parent=None)
     archive.init_league(base, "live-main", ["g000"])
     st = archive.load_league(base)
     st["snapshot_every"] = k
@@ -327,8 +304,7 @@ def test_snapshot_board_present_and_interval_shaped(tmp_path):
     base = _mini_league(tmp_path / "archive")
     snap = dashboard.snapshot(base)
     board = snap["board"]
-    for key in ("k", "labels", "elo", "conv", "decisive", "margin",
-                "pg", "vslope"):
+    for key in ("k", "labels", "elo", "conv", "decisive", "margin"):
         assert key in board, key
     assert board["k"] == 4
     assert len(board["labels"]) == 3  # 12 games, K=4

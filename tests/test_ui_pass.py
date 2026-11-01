@@ -109,7 +109,6 @@ def test_first_paint_has_main_history_and_league_cards(tmp_path):
     base = tmp_path / "archive"
     a = archive.save_checkpoint(base, {}, role="main", parent=None)
     b = archive.save_checkpoint(base, {}, role="challenger", parent=a)
-    archive.set_champion(base, a)
     archive.init_league(base, a, ["g000"])
     archive.log_game(base, "main", "eval", "main", b, 3, 1,
                      "games/main0/logs/0.replay")
@@ -126,8 +125,7 @@ def test_first_paint_has_main_history_and_league_cards(tmp_path):
     assert "s1" in page  # history row server-rendered
     assert "adm1" in page  # admissions log server-rendered
     for cid in ("ch-elo", "ch-anchor", "ch-conv", "ch-dec", "ch-marg",
-                "ch-pg", "ch-vslope", "league-body", "admit-body",
-                "pool-summary"):
+                "league-body", "admit-body", "pool-summary"):
         assert cid in page, cid
     assert "ch-loss" not in page and "ch-ret" not in page
     assert "ch-knock" not in page and "ch-tenure" not in page
@@ -166,7 +164,7 @@ def test_http_since_shortcircuit_and_member_empty(tmp_path):
 
     base = tmp_path / "archive"
     a = archive.save_checkpoint(base, {}, role="main", parent=None)
-    archive.set_champion(base, a)
+    archive.init_league(base, a, [])
     srv = dashboard.make_handler(base)
     httpd = http.server.ThreadingHTTPServer(("127.0.0.1", 0), srv)
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
@@ -180,7 +178,7 @@ def test_http_since_shortcircuit_and_member_empty(tmp_path):
         assert tiny == {"unchanged": True, "mtime": snap["mtime"]}
         stale = json.load(urllib.request.urlopen(
             root + "/api/snapshot?since=1", timeout=5))
-        assert stale["main"] == a  # legacy fallback: frozen record
+        assert stale["main"] == a  # league working id
         empty = json.load(urllib.request.urlopen(
             root + "/api/games?member=nobody-here", timeout=5))
         assert empty == {"total": 0, "rows": []}

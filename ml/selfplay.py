@@ -70,8 +70,6 @@ def default_config() -> dict:
     return {
         "maps": maps,
         "turns": 250,
-        "train_draw_penalty_every": 0,
-        "water_stall_tax": False,
         "temperature": 1.0,
         "lr": 1e-3,
         "epochs": 3,
@@ -100,14 +98,6 @@ def parse_args(argv: list[str] | None = None) -> dict:
     p = argparse.ArgumentParser(description="Run the continuous league.")
     p.add_argument("--maps", nargs="+", default=None)
     p.add_argument("--turns", type=int, default=defaults["turns"])
-    p.add_argument("--train-draw-penalty-every", type=int,
-                   default=defaults["train_draw_penalty_every"],
-                   help="every Nth train game prices draws as losses "
-                   "(anti-turtle); 0 disables")
-    p.add_argument("--water-stall-tax", action=argparse.BooleanOptionalAction,
-                   default=defaults["water_stall_tax"],
-                   help="tax unproductive stays near water "
-                   "(anti-dwell shaping); default off = legacy")
     p.add_argument("--temperature", type=float, default=defaults["temperature"])
     p.add_argument("--lr", type=float, default=defaults["lr"])
     p.add_argument("--epochs", type=int, default=defaults["epochs"])
@@ -136,8 +126,6 @@ def parse_args(argv: list[str] | None = None) -> dict:
     return {
         "maps": args.maps if args.maps is not None else defaults["maps"],
         "turns": args.turns,
-        "train_draw_penalty_every": args.train_draw_penalty_every,
-        "water_stall_tax": args.water_stall_tax,
         "temperature": args.temperature,
         "lr": args.lr,
         "epochs": args.epochs,

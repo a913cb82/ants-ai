@@ -225,24 +225,6 @@ def _game(**kw):
     return base
 
 
-def test_reconstruct_tracks_orders_with_wrap():
-    import rewards
-
-    ants = [
-        [9, 9, 1, 11, 0, "es"],  # (9,9) ->e-> (9,0) ->s-> (0,0), survives
-    ]
-    traj = rewards.trajectories(_game()["replaydata"] | {"ants": ants})
-    assert traj[(0, 0)] == [(1, (9, 9)), (2, (9, 0)), (3, (0, 0))]
-
-
-def test_reconstruct_stops_at_death_turn():
-    import rewards
-
-    ants = [[4, 4, 1, 2, 0, "s"]]  # moves south on turn 2, dies there
-    traj = rewards.trajectories(_game()["replaydata"] | {"ants": ants})
-    assert traj[(0, 0)] == [(1, (4, 4)), (2, (5, 4))]
-
-
 def test_food_credit_goes_to_gatherer_dest():
     import rewards
 
@@ -1047,34 +1029,6 @@ def test_archive_save_load_roundtrip(tmp_path):
     assert archive.members(base)[0]["id"] == cid
 
 
-def test_nash_splits_rock_paper_scissors(tmp_path):
-    import archive
-
-    base = tmp_path / "archive"
-    a = archive.save_checkpoint(base, {}, role="main", parent=None)
-    b = archive.save_checkpoint(base, {}, role="main", parent=None)
-    c = archive.save_checkpoint(base, {}, role="main", parent=None)
-    archive.record_result(base, a, b, 1, 0)
-    archive.record_result(base, b, c, 1, 0)
-    archive.record_result(base, c, a, 1, 0)
-    mix = archive.nash_mixture(base)
-    for cid in (a, b, c):
-        assert mix[cid] == abs(mix[cid]) and abs(mix[cid] - 1 / 3) < 0.05
-
-
-def test_nash_crowns_dominant_strategy(tmp_path):
-    import archive
-
-    base = tmp_path / "archive"
-    a = archive.save_checkpoint(base, {}, role="main", parent=None)
-    b = archive.save_checkpoint(base, {}, role="main", parent=None)
-    archive.record_result(base, a, b, 5, 0)
-    archive.record_result(base, a, b, 3, 0)
-    archive.record_result(base, a, b, 7, 2)
-    mix = archive.nash_mixture(base)
-    assert mix[a] > 0.9 and mix[b] < 0.1
-
-
 def test_to_batch_converts_rows_and_returns():
     import torch
 
@@ -1112,8 +1066,6 @@ def test_matrices_separate_train_and_eval(tmp_path):
     b = archive.save_checkpoint(base, {}, role="main", parent=None)
     archive.record_result(base, a, b, 1, 0, kind="train")
     assert b not in archive.win_rates(base, a)  # train registers no members
-    _, mat = archive.payoff_matrix(base)
-    assert mat.size == 0  # no eval games yet, no population
     archive.record_result(base, a, b, 1, 0, kind="eval")
     assert archive.win_rates(base, a)[b] < 0.5
 
@@ -1168,36 +1120,6 @@ def test_rotate_item_turns_window_action_mask_together():
         zw, za, _, zm, _ = algorithm._rotate_item(item, k)
         assert torch.equal(zw, w) and za == 0
         assert zm == [True, False, False, False, True]
-
-
-def test_decompose_reports_category_mass():
-    import rewards
-
-    game = _game(score=[10, 4])
-    game["replaydata"]["food"] = [[5, 5, 1, 3, 0]]
-    records = [
-        {"turn": 3, "loc": [5, 3], "dest": [5, 4], "action": "e"},
-        {"turn": 3, "loc": [0, 0], "dest": [0, 0], "action": "stay"},
-    ]
-    mass = rewards.decompose(game, 0, records)
-    assert mass["food"] == rewards.FOOD
-    assert mass["terminal"] == rewards.WIN  # per-record, not xN
-    assert mass["result"] == "win"
-    assert mass["kill"] == 0.0
-    assert "draw" not in mass
-
-
-def test_decompose_draw_and_loss():
-    import rewards
-
-    game = _game(score=[1, 1])
-    mass = rewards.decompose(game, 0, [{"turn": 0, "loc": [0, 0],
-                                         "dest": [0, 0], "action": "stay"}])
-    assert mass["terminal"] == 0.0 and mass["result"] == "draw"
-    game = _game(score=[0, 5])
-    mass = rewards.decompose(game, 0, [{"turn": 0, "loc": [0, 0],
-                                         "dest": [0, 0], "action": "stay"}])
-    assert mass["terminal"] == -rewards.WIN and mass["result"] == "loss"
 
 
 def test_legal_mask_blocks_food_tiles():
@@ -1316,11 +1238,10 @@ def test_snapshot_empty_and_populated(tmp_path):
     assert snap["main"] is None and snap["members"] == [] and snap["games"] == []
     a = archive.save_checkpoint(base, {}, role="main", parent=None)
     b = archive.save_checkpoint(base, {}, role="challenger", parent=a)
-    archive.set_champion(base, a)
     archive.log_game(base, a, "eval", a, b, 3, 1, "games/g000/e0/logs/0.replay")
     selfplay.append_history(base, {"train": {"losses": [0.5], "mean_return": 1.0}})
     snap = dashboard.snapshot(base)
-    assert snap["main"] == a  # legacy fallback: frozen record
+    assert snap["main"] is None  # no league.json: no main yet
     assert snap["members"][0]["wins"] == 1.0
     assert snap["games"][0]["replay"].endswith("0.replay")
 
@@ -1424,7 +1345,7 @@ def test_dashboard_http_api(tmp_path):
 
     base = tmp_path / "archive"
     a = archive.save_checkpoint(base, {}, role="main", parent=None)
-    archive.set_champion(base, a)
+    archive.init_league(base, a, [])
     srv = dashboard.make_handler(base)
     import http.server
 
@@ -1464,22 +1385,10 @@ def test_snapshot_survives_poisoned_index(tmp_path):
 
     base = tmp_path / "archive"
     a = archive.save_checkpoint(base, {}, role="main", parent=None)
-    archive.set_champion(base, a)
     with open(base / "games.jsonl", "w") as f:
         f.write('{"gen":"x","kind":"eval","a":"g000"}\n')
     snap = dashboard.snapshot(base)
     assert snap["game_total"] == 0
-
-
-def test_nash_splits_evenly_on_all_draws(tmp_path):
-    import archive
-
-    base = tmp_path / "archive"
-    a = archive.save_checkpoint(base, {}, role="main", parent=None)
-    b = archive.save_checkpoint(base, {}, role="challenger", parent=a)
-    archive.record_result(base, a, b, 1, 1)
-    mix = archive.nash_mixture(base)
-    assert abs(mix[a] - 0.5) < 1e-6 and abs(mix[b] - 0.5) < 1e-6
 
 
 def test_read_history_and_members_skip_bad_lines(tmp_path):
@@ -2046,136 +1955,6 @@ def test_death_still_hurts_on_loss():
 
 # --- idea 3: draw-penalty training games (turtle tax) ---
 
-def test_draw_penalty_treats_draw_as_loss():
-    import rewards
-
-    game = _hill_game([0, 0])  # draw
-    records = [{"turn": 1, "loc": [5, 5], "dest": [6, 6], "action": "s"}]
-    normal = rewards.compute_returns(game, 0, records)
-    assert normal == [0.0]  # draws keep no march subsidy, no terminal
-    pen = rewards.compute_returns(game, 0, records, draw_as_loss=True)
-    # draw pays like a loss: march gated, LOSS terminal lands.
-    assert pen == [rewards.LOSS]
-
-
-def test_draw_penalty_default_off_byte_identical():
-    import rewards
-
-    game = _game()
-    game["score"] = [2, 2]  # draw
-    game["length"] = 10
-    game["replaydata"]["food"] = [[5, 5, 1, 3, 0]]
-    game["replaydata"]["ants"] = [[5, 5, 1, 3, 1, "--"],
-                                 [4, 4, 1, 2, 0, "s"]]
-    game["replaydata"]["hills"] = [[9, 9, 1, 999]]
-    records = [
-        {"turn": 1, "loc": [5, 5], "dest": [6, 6], "action": "s"},
-        {"turn": 2, "loc": [4, 4], "dest": [5, 4], "action": "s"},
-        {"turn": 3, "loc": [5, 3], "dest": [5, 4], "action": "e"},
-    ]
-    scales = rewards.scales_for("challenger")
-    default = rewards.compute_returns(game, 0, records, scales, "challenger")
-    explicit = rewards.compute_returns(game, 0, records, scales,
-                                       "challenger", draw_as_loss=False)
-    assert default == explicit
-    assert sum(default) == rewards.FOOD + rewards.DEATH  # no terminal
-
-
-def test_draw_penalty_win_unchanged():
-    import math
-    import rewards
-
-    game = _hill_game([1, 0])  # win
-    records = [{"turn": 1, "loc": [5, 5], "dest": [6, 6], "action": "s"}]
-    scales = rewards.scales_for("challenger")
-    normal = rewards.compute_returns(game, 0, records, scales, "challenger")
-    pen = rewards.compute_returns(game, 0, records, scales,
-                                  "challenger", draw_as_loss=True)
-    assert pen == normal  # wins already pay: penalty changes nothing
-    closed = math.sqrt(32) - math.sqrt(18)
-    assert normal == [rewards.WIN + rewards.HILL_APPROACH * closed]
-
-
-def test_train_draw_penalty_flags_seeded_subset(tmp_path, monkeypatch):
-    import archive
-    import game_if
-    import rewards
-    import train
-
-    game = _hill_game([0, 0])  # drawn game: penalty visible in returns
-    recs = [{"turn": 1, "loc": [5, 5], "dest": [6, 6], "action": "s"}]
-
-    def fake_play(root, python, weights, cfg, outdir, names=None):
-        return {"game": game, "records": [list(recs), []]}
-
-    monkeypatch.setattr(game_if, "play", fake_play)
-    monkeypatch.setattr(archive, "record_result", lambda *a, **k: None)
-    monkeypatch.setattr(archive, "log_game", lambda *a, **k: None)
-    monkeypatch.setattr(archive, "write_status", lambda *a, **k: None)
-    base = tmp_path / "archive"
-    cfg = {"turns": 10, "temperature": 0.0, "seed": 0, "train_games": 8,
-           "train_draw_penalty_every": 2}
-
-    def run(g):
-        return train._play_one(
-            (cfg, base, "g003", ["g003", "g000"], [{"w": [1.0]}, {"w": [1.0]}],
-             g, "challenger", "somemap"))
-
-    # the challenger id pins the gen (g003 -> gen 3): expected flags come
-    # straight from the seeded assignment, and plumbing prices exactly
-    # the flagged draws as losses while the rest stay normal draws.
-    expected = [train._is_penalty_game(cfg, g, 3) for g in range(8)]
-    assert any(expected) and not all(expected)
-    for g, flagged in enumerate(expected):
-        assert run(g)["rets"] == [rewards.LOSS if flagged else 0.0]
-
-
-def test_penalty_assignment_is_deterministic():
-    import train
-
-    cfg = {"seed": 7, "train_draw_penalty_every": 4}
-    first = [train._is_penalty_game(cfg, g, 3) for g in range(60)]
-    again = [train._is_penalty_game(cfg, g, 3) for g in range(60)]
-    assert first == again  # same (seed, gen, g) -> same flag
-    assert any(first) and not all(first)  # a real draw, not all-or-nothing
-    other = [train._is_penalty_game(cfg, g, 4) for g in range(60)]
-    assert other != first  # the gen index breaks stride sync
-
-
-def test_penalty_spreads_across_boards(tmp_path):
-    import archive
-    import train
-
-    base = tmp_path / "archive"
-    pool = [f"board{i:02d}.map" for i in range(12)]
-    cfg = {"seed": 3, "train_draw_penalty_every": 4}
-    # one 60-game gen: the seeded draw spreads penalized games over
-    # the boards instead of dumping them onto stride-synced ones.
-    maps = archive.next_drill_maps(base, pool, 60, 0)
-    pen = {m for g, m in enumerate(maps)
-           if train._is_penalty_game(cfg, g, 0)}
-    assert len(pen) >= 10
-    # 15-gen horizon: every board sees BOTH normal and penalized games.
-    seen = {m: [False, False] for m in pool}
-    for gen in range(15):
-        maps = archive.next_drill_maps(base, pool, 60, gen)
-        for g, m in enumerate(maps):
-            seen[m][train._is_penalty_game(cfg, g, gen)] = True
-    assert all(all(v) for v in seen.values())
-
-
-def test_penalty_n_zero_disables():
-    import train
-
-    for cfg in ({"seed": 0, "train_draw_penalty_every": 0},
-                {"seed": 0, "train_draw_penalty_every": None},
-                {"seed": 0}):
-        assert not any(train._is_penalty_game(cfg, g, gen)
-                       for g in range(20) for gen in range(3))
-
-
-# --- idea 4: spoiler v2 in the line-B slot ---
-
 def test_spoiler_scales_exact_values():
     import rewards
 
@@ -2238,82 +2017,6 @@ def test_drills_cycle_respects_least_recent_first(tmp_path):
 
 
 # --- round-72 post-mortem repair 1: spoiler fold (TDD) ---
-def _seeded_frontier(tmp_path):
-    import archive
-
-    base = tmp_path / "archive"
-    for _ in range(21):
-        archive.save_checkpoint(base, {"w": [1.0]}, "main", None)
-    archive.set_champion(base, "g020")
-    for old in ("g000", "g001"):
-        archive.record_result(base, "g020", old, 3, 0)
-    return base
-
-
-def test_train_map_for_indexing():
-    import train
-
-    maps = [f"m{i}.map" for i in range(80)]
-    cfg = {"maps": maps}
-    assert train._train_map_for(cfg, 0) == "m0.map"
-    assert train._train_map_for(cfg, 59) == "m59.map"
-    assert train._train_map_for(cfg, 80) == "m0.map"  # short pools cycle
-
-def test_mixture_draw_even_splits_without_mass():
-    import archive
-    import numpy as np
-
-    got = archive.mixture_draw(["g000", "g001"], np.array([0.0, 0.0]),
-                               k=30, rng=np.random.default_rng(7),
-                               exclude=("g001",))
-    assert got == ["g000"] * 30  # only eligible member, mass or not
-    got = archive.mixture_draw(["g000", "g001"], np.array([0.0, 0.0]),
-                               k=30, rng=np.random.default_rng(7))
-    assert set(got) == {"g000", "g001"}  # degenerate -> even split
-
-
-def test_mixture_draw_follows_mass_with_replacement():
-    import archive
-    import numpy as np
-
-    # g000 holds all the mass: excluding it leaves g001, always.
-    got = archive.mixture_draw(["g000", "g001"], np.array([1.0, 0.0]),
-                               k=10, rng=np.random.default_rng(11),
-                               exclude=("g000",))
-    assert got == ["g001"] * 10
-    got = archive.mixture_draw(["g000", "g001"], np.array([1.0, 0.0]),
-                               k=10, rng=np.random.default_rng(11),
-                               exclude=("g001",))
-    assert got == ["g000"] * 10
-
-
-def test_mixture_draw_excludes_and_deterministic():
-    import archive
-    import numpy as np
-
-    ids = ["g%03d" % i for i in range(21)]
-    probs = np.arange(21, dtype=float)
-    a = archive.mixture_draw(ids, probs, k=10,
-                             rng=np.random.default_rng(5),
-                             exclude=("g020", "g019"))
-    b = archive.mixture_draw(ids, probs, k=10,
-                             rng=np.random.default_rng(5),
-                             exclude=("g020", "g019"))
-    assert a == b
-    assert all(g not in ("g020", "g019") for g in a)
-
-
-def test_prune_missing_drops_gone_weights(tmp_path):
-    import archive
-    import numpy as np
-
-    base = tmp_path / "archive"
-    archive.save_checkpoint(base, {"w": [1.0]}, "main", None)
-    ids = ["g000", "g999"]
-    names, w = archive.prune_missing(base, ids, np.array([0.7, 0.3]))
-    assert names == ["g000"] and w.tolist() == [1.0]
-
-
 def test_map_player_count_reads_header(tmp_path):
     import game_if
 
@@ -2559,7 +2262,6 @@ def test_snapshot_np_train_and_eval_count_games(tmp_path):
     base = tmp_path / "archive"
     a = archive.save_checkpoint(base, {}, role="main", parent=None)
     archive.save_checkpoint(base, {}, role="challenger", parent=a)
-    archive.set_champion(base, a)
     # one 2p, one 3p, one 4p game in EACH phase = 6 games, 20 pair rows.
     fields = {2: ["c", "m"], 3: ["c", "m", "x"], 4: ["c", "m", "x", "y"]}
     scores = {2: [3, 1], 3: [3, 1, 0], 4: [3, 2, 1, 0]}
@@ -2647,8 +2349,7 @@ def test_train_play_one_tags_pairs_with_one_game_id(tmp_path, monkeypatch):
     import train
 
     base = tmp_path / "archive"
-    cfg = {"seed": 0, "turns": 5, "temperature": 0.0, "train_games": 1,
-           "train_draw_penalty_every": 0, "water_stall_tax": False}
+    cfg = {"seed": 0, "turns": 5, "temperature": 0.0, "train_games": 1}
     monkeypatch.setattr(game_if, "play", lambda *a, **k: (
         _fake_game_out(["g007", "g001", "g002"], [1, 3, 0], a[4])))
     import algorithm
@@ -2683,7 +2384,6 @@ def test_snapshot_2p_history_meaning_unchanged(tmp_path):
     base = tmp_path / "archive"
     a = archive.save_checkpoint(base, {}, role="main", parent=None)
     b = archive.save_checkpoint(base, {}, role="challenger", parent=a)
-    archive.set_champion(base, a)
     archive.log_game(base, a, "eval", a, b, 3, 1,
                      "games/g000/e0/logs/0.replay")
     archive.log_game(base, a, "eval", b, a, 1, 1,

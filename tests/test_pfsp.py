@@ -34,7 +34,6 @@ def sample_many(sampler, args, seed, n):
 
 
 def test_weighting_functions():
-    assert pfsp.linear(0.75) == pytest.approx(0.75)
     assert pfsp.squared(0.5) == pytest.approx(0.25)
     assert pfsp.variance(0.5) == pytest.approx(0.25)
     # MAS linear_capped: min(0.5, 1-p) -- challenges, capped.

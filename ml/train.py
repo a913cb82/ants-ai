@@ -46,43 +46,12 @@ ROLE_CONFIGS = {
 }
 
 
-def _penalty_rng(cfg: dict, gen_index: int, g: int) -> random.Random:
-    """Deterministic per-game penalty draw, seeded by (seed, gen, game)."""
-    return random.Random(f"{cfg.get('seed', 0)}:{gen_index}:{g}")
-
-
-def _train_map_for(cfg, i):
-    """Map for train game i: first train_games*2 boards 1:1, cycling if
-    the pool is shorter (debug pools)."""
-    maps = cfg["maps"]
-    return maps[i % len(maps)]
-
-
-def _is_penalty_game(cfg: dict, g: int, gen_index: int = 0) -> bool:
-    """Seeded per-game draw penalty: probability 1/N for each game.
-
-    This replaces the every-Nth stride, which synchronized with drill
-    rotation and dumped every penalized game onto the same few boards
-    (no within-board normal-vs-penalized overlap). The seeded draw is
-    reproducible across reruns and spreads penalized games across all
-    boards every gen. 0/None/missing disables: behavior byte-identical
-    to no penalty."""
-    n = cfg.get("train_draw_penalty_every", 0) or 0
-    if not n:
-        return False
-    return _penalty_rng(cfg, gen_index, g).random() < 1.0 / n
-
-
 def _play_one(args) -> dict:
     """One train game: play, price, record. Thread-safe via archive lock."""
     (cfg, base, chal_id, field, weights, i, role, map_path) = args
     # Display names ARE attribution ids: every seat id is in-universe
     # (main / me / le-a / le-b / mainN / meN / le-aN / le-bN / legacy
     # g-ids), so replays, tables, and records all show the same names.
-    try:
-        gen_index = int(chal_id[1:])
-    except (ValueError, IndexError):
-        gen_index = 0
     rel = f"games/{chal_id}/train{i}"
     out = game_if.play(
         ROOT,
@@ -101,9 +70,7 @@ def _play_one(args) -> dict:
     game = out["game"]
     rows = algorithm.compact_records(out["records"][0])  # student seat 0
     rets = rewards.compute_returns(game, 0, rows, rewards.scales_for(role),
-                                   role,
-                                   draw_as_loss=_is_penalty_game(cfg, i, gen_index),
-                                   enable_water_stall=cfg.get("water_stall_tax", False))
+                                   role)
     scores = game["score"]
     gid = f"{rel}#{uuid.uuid4().hex[:12]}"  # one play, one id (pairs group back)
     kind = cfg.get("game_kind", "train")

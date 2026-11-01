@@ -18,8 +18,6 @@ import tempfile
 import threading
 from pathlib import Path
 
-import numpy as np
-
 DEFAULT_DIR = Path(__file__).resolve().parent / "archive"
 
 
@@ -39,13 +37,6 @@ def init(base: Path = DEFAULT_DIR) -> None:
         p["matrix"].write_text(json.dumps({"ids": [], "eval": {}, "train": {}}))
 
 
-def get_champion(base: Path = DEFAULT_DIR) -> str | None:
-    champ = _paths(base)["dir"] / "champion.json"
-    if not champ.exists():
-        return None
-    return json.loads(champ.read_text())["id"]
-
-
 def atomic_write_json(path: Path, obj: object) -> None:
     """Write JSON atomically: readers see old-or-new, never torn."""
     fd, tmp = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
@@ -59,11 +50,6 @@ def atomic_write_json(path: Path, obj: object) -> None:
         except OSError:
             pass
         raise
-
-
-def set_champion(base: Path, cid: str) -> None:
-    init(base)
-    atomic_write_json(_paths(base)["dir"] / "champion.json", {"id": cid})
 
 
 def last_exploiter(base: Path = DEFAULT_DIR, line: int = 0) -> str | None:
@@ -185,47 +171,6 @@ def _key(a: str, b: str) -> str:
     """Single constructor for matchup keys (built here, parsed nowhere:
     _head_to_head derives both orders from one key)."""
     return f"{a} vs {b}"
-
-
-def prune_missing(base: Path, ids: list[str], probs) -> tuple[list[str], object]:
-    """Drop mixture members whose weights are gone, renormalize."""
-    keep = []
-    for i, p in zip(ids, probs):
-        try:
-            load_checkpoint(base, i)
-        except (FileNotFoundError, ValueError, KeyError):
-            continue
-        keep.append((i, float(p)))
-    if not keep:
-        return [], np.array([])
-    names = [i for i, _ in keep]
-    w = np.array([p for _, p in keep])
-    return names, w / w.sum() if w.sum() > 0 else np.ones(len(names)) / len(names)
-
-
-def mixture_draw(ids: list[str], probs, k: int, rng, exclude: tuple = ()) -> list[str]:
-    """Draw k opponents with replacement from a FIXED mixture.
-
-    The mixture is computed ONCE per generation (nash_mixture over a
-    1700-member matrix costs ~40s); per-game sampling must be pure
-    arithmetic, never I/O. Renormalizes over members minus exclude;
-    degenerate (all-zero) mass falls back to even-split. Deterministic
-    in the caller's rng."""
-    elig = [(i, p) for i, p in zip(ids, probs) if i not in exclude]
-    if k <= 0 or not elig:
-        return []
-    names = [i for i, _ in elig]
-    w = np.array([p for _, p in elig], dtype=float)
-    if w.sum() <= 0:
-        w = np.ones(len(names))
-    w = w / w.sum()
-    picks = []
-    for _ in range(k):
-        if rng.random() <= 0.0 or w.sum() <= 0.0:
-            picks.append(names[0])
-        else:
-            picks.append(str(rng.choice(names, p=w)))
-    return picks
 
 
 def outcome_of(score_a: float, score_b: float) -> float:
@@ -369,49 +314,6 @@ def win_rates(
         mine, theirs = _head_to_head(data, kind, student, cid)
         rates[cid] = theirs / (mine + theirs)
     return rates
-
-
-def payoff_matrix(base: Path, kind: str = "eval") -> tuple[list[str], np.ndarray]:
-    """Symmetric zero-sum utility matrix from logged eval duels."""
-    data = json.loads(_paths(base)["matrix"].read_text())
-    ids = data["ids"]
-    n = len(ids)
-    mat = np.zeros((n, n))
-    for i, a in enumerate(ids):
-        for j, b in enumerate(ids):
-            if i == j:
-                continue
-            mine, _theirs = _head_to_head(data, kind, a, b)
-            total = mine + _theirs
-            mat[i, j] = mine / total - 0.5
-    return ids, mat  # diagonal stays 0: self-play is neutral, not a loss
-
-
-def nash_mixture(base: Path, iters: int = 2000, seed: int = 0) -> dict[str, float]:
-    """Nash mass over the population via fictitious play.
-
-    Each side best-responds to the other's historical average; the
-    averages converge to equilibrium. Farmers of weaklings get ~zero.
-    """
-    ids, mat = payoff_matrix(base)
-    if not ids:
-        return {}
-    n = len(ids)
-    if not np.any(mat):
-        return {cid: round(1.0 / n, 4) for cid in ids}  # all draws: split evenly
-    avg_r = np.full(n, 1.0 / n)
-    avg_c = np.full(n, 1.0 / n)
-    strat_r = np.zeros(n)
-    strat_c = np.zeros(n)
-    for _ in range(iters):
-        br_r = int(np.argmax(mat @ avg_c))
-        br_c = int(np.argmin(avg_r @ mat))
-        strat_r[br_r] += 1
-        strat_c[br_c] += 1
-        avg_r = strat_r / strat_r.sum()
-        avg_c = strat_c / strat_c.sum()
-    mix = (avg_r + avg_c) / 2
-    return {cid: float(mix[i]) for i, cid in enumerate(ids)}
 
 
 def wilson_lower(wins: float, games: int, z: float = 1.0) -> float:
