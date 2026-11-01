@@ -191,6 +191,8 @@ def pair_records(base: Path) -> dict[tuple[str, str], list[int]]:
         if " vs " not in key:
             continue
         a, b = key.split(" vs ", 1)
+        if a == b:
+            continue  # mirror games train but never inform PFSP/Elo
         try:
             wa, wb = float(wins[0]), float(wins[1])
         except (TypeError, IndexError, ValueError):
@@ -481,8 +483,9 @@ def run_tick(cfg: dict, base: Path, live: dict,
              rng: random.Random | None = None) -> dict:
     """One scheduler iteration: play, log, accumulate, maybe train.
 
-    Trains exactly one learner (the seat-0 side); the opponent is a
-    frozen snapshot that learns nothing. Returns a report dict."""
+    Trains exactly one learner (the seat-0 side); the opponent's weights
+    are fixed for the game (frozen snapshot, or a live-main copy that
+    learns nothing from it). Returns a report dict."""
     import rewards
 
     rewards.GAMMA = cfg.get("gamma", rewards.GAMMA)
@@ -507,7 +510,13 @@ def run_tick(cfg: dict, base: Path, live: dict,
     records = pair_records(base)
     opp = train.select_opponent(base, learner, state, records,
                                 rng, sample_id=seat_id)
-    opp_w = archive.load_checkpoint(base, opp)
+    if opp == "main":
+        # live main: loaded live, never frozen (ME threshold branch and
+        # main's self-play branch). The weights are fixed for the game;
+        # only the seat-0 learner trains.
+        opp_w = algorithm.policy_weights(live["main"]["policy"])
+    else:
+        opp_w = archive.load_checkpoint(base, opp)
     live_w = algorithm.policy_weights(entry["policy"])
     game_no = learner_games(state, learner)
     map_path = rng.choice(cfg["maps"])
@@ -537,20 +546,12 @@ def run_tick(cfg: dict, base: Path, live: dict,
     if learner == "main":
         state["main_games"] = state.get("main_games", 0) + 1
     else:
-        exp = state["exploiters"][learner]
-        if learner == "me":
-            # The bar is vs main: only main-snapshot games grow the
-            # window (fallback historicals train, they don't count).
-            if opp in state.get("main_snapshots", []):
-                archive.note_exploiter_game(base, learner, outcome,
-                                            target=state.get("main_id"))
-                state = archive.load_league(base)
-            else:
-                exp["games"] = exp.get("games", 0) + 1
-        else:
-            archive.note_exploiter_game(base, learner, outcome,
-                                        target="pool")
-            state = archive.load_league(base)
+        # Every exploiter game grows its window: ME faces the main
+        # lineage (live main or its snapshots), LEs face the pool.
+        target = state.get("main_id") if learner == "me" else "pool"
+        archive.note_exploiter_game(base, learner, outcome,
+                                    target=target)
+        state = archive.load_league(base)
     archive.save_league(base, state)
 
     admitted = maybe_admit(base, live, state, learner, g000_w)

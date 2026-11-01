@@ -1,9 +1,9 @@
 """PFSP opponent sampling (phase 1 of ml/runs/plan-league.md).
 
-Pins the role-appropriate distributions of ml/pfsp.py on synthetic
-matrices: weighting functions, main/victim-counter behavior, Bayesian UCB
-exploration (replaces unseen=0.5 + newcomer boost), ME always-on-main,
-LE spread, seeded determinism.
+Pins the mini-AlphaStar role policies of ml/pfsp.py on synthetic
+matrices: weighting functions, main 3-branch dispatch (squared /
+verification / self-play-curriculum), ME live-main threshold +
+variance fallback, LE capped challenge-seeking, seeded determinism.
 """
 
 import random
@@ -37,8 +37,10 @@ def test_weighting_functions():
     assert pfsp.linear(0.75) == pytest.approx(0.75)
     assert pfsp.squared(0.5) == pytest.approx(0.25)
     assert pfsp.variance(0.5) == pytest.approx(0.25)
-    assert pfsp.linear_capped(0.9) == pytest.approx(0.5)
-    assert pfsp.linear_capped(0.3) == pytest.approx(0.3)
+    # MAS linear_capped: min(0.5, 1-p) -- challenges, capped.
+    assert pfsp.linear_capped(0.9) == pytest.approx(0.1)
+    assert pfsp.linear_capped(0.5) == pytest.approx(0.5)
+    assert pfsp.linear_capped(0.1) == pytest.approx(0.5)
 
 
 def test_variance_peaks_at_even():
@@ -86,62 +88,129 @@ def test_win_fraction_reads_both_key_orders():
 
 def _main_args():
     records = {}
-    records.update(rec("me", "counter", 2, 8))  # opponent wins 80%: my counter
-    records.update(rec("me", "victim", 8, 2))  # opponent wins 20%: my victim
-    return ("me", ["counter", "victim"], records)
+    records.update(rec("me", "counter", 2, 8))  # opp wins 80%: my counter
+    records.update(rec("me", "victim", 8, 2))  # opp wins 20%: my victim
+    return ("me", "main", ["counter", "victim"], [], [], records)
 
 
-def test_main_draws_counters_over_victims():
+def test_main_branch1_draws_counters_over_victims():
+    # branch 1 (coin < 0.5) is squared-UCB: counters dominate victims.
+    # Other branches return live main / snapshots, so pin the ratio
+    # within the frozen draws, not the overall share.
     draws = sample_many(pfsp.main_sample, _main_args(), seed=7, n=2000)
-    n_counter = draws.count("counter")
-    n_victim = draws.count("victim")
-    assert n_counter > n_victim
-    assert n_counter > 0.65 * len(draws)
+    frozen = [d for d in draws if d in ("counter", "victim")]
+    assert len(frozen) > 0.3 * len(draws)  # branch 1 fires its ~half
+    assert frozen.count("counter") > 0.65 * len(frozen)
 
 
 def test_main_splits_unseen_evenly():
-    draws = sample_many(pfsp.main_sample, ("me", ["a", "b", "c"], {}), seed=11, n=3000)
+    # unseen trio ties in branch 1 (equal UCB) and in branch-2 checks;
+    # self-play adds live main. Pin the trio's internal split.
+    draws = sample_many(
+        pfsp.main_sample, ("me", "main", ["a", "b", "c"], [], [], {}),
+        seed=11, n=3000)
+    assert "main" in draws  # self-play/curriculum branch fires
+    trio = [d for d in draws if d in ("a", "b", "c")]
     for opp in ("a", "b", "c"):
-        assert 700 < draws.count(opp) < 1300
+        assert 0.28 * len(trio) < trio.count(opp) < 0.39 * len(trio)
+
+
+def test_main_verification_hunts_exploiter_threat():
+    # main loses to admitted e1 (mean 2/12 < 0.3): verification fires.
+    records = {}
+    records.update(rec("me", "e1", 1, 9))
+    args = ("me", "main", ["e1"], [], ["e1"], records)
+    draws = sample_many(pfsp.main_sample, args, seed=5, n=1)
+    assert draws == ["e1"]  # seed 5 opens in the [0.5, 0.65) window
+
+
+def test_main_verification_stands_down_when_safe():
+    # e1 beaten (mean 10/12): no trigger, falls through to self-play.
+    records = {}
+    records.update(rec("me", "e1", 9, 1))
+    args = ("me", "main", ["e1"], [], ["e1"], records)
+    draws = sample_many(pfsp.main_sample, args, seed=5, n=1)
+    assert draws == ["main"]
+
+
+def test_main_verification_checks_forgetting():
+    # snapshots s1 beaten?? no: s1 beats main (mean 10/12 for s1... see
+    # below); rising suffix [s1-loses, s2-wins]... construct: main vs s1
+    # mean 0.167 (main loses), vs s2 mean 0.833 (main wins): suffix
+    # [0.167, 0.833] rises -> keep both -> min 0.167 < 0.7 -> fire.
+    records = {}
+    records.update(rec("me", "s1", 1, 9))  # main mean 2/12
+    records.update(rec("me", "s2", 9, 1))  # main mean 10/12
+    args = ("me", "main", ["s1", "s2"], ["s1", "s2"], [], records)
+    draws = sample_many(pfsp.main_sample, args, seed=5, n=400)
+    assert set(draws) <= {"s1", "s2", "main"}
+    assert draws.count("s1") > draws.count("s2")  # squared seeks s1
+
+
+def test_main_selfplay_faces_live_main():
+    args = ("me", "main", ["counter"], [], [], {})
+    draws = sample_many(pfsp.main_sample, args, seed=0, n=1)
+    assert draws == ["main"]  # seed 0 opens past 0.65; self-rate 0.5
 
 
 # ----------------------------------------------------------------------- ME
 
 
-def test_me_always_plays_main_when_winning():
-    records = rec("me", "main", 8, 2)
+def test_me_stays_on_live_main_when_winning():
+    records = rec("me", "main", 8, 2)  # smoothed 9/12 > 0.1
     for seed in range(20):
         rng = random.Random(seed)
-        assert pfsp.me_sample("main") == "main"
+        assert pfsp.me_sample("me", "main", [], records, rng) == "main"
 
 
-def test_me_always_plays_main_when_losing():
-    # no fallback: even at 0-10 the ME hammers the main (AlphaStar-exact;
-    # blowout windows are the honest price, not a branch).
+def test_me_stays_on_live_main_with_no_games():
+    assert pfsp.me_sample("me", "main", [], {},
+                          random.Random(7)) == "main"
+
+
+def test_me_drops_to_snapshots_when_losing():
+    records = {}
+    records.update(rec("me", "main", 0, 10))  # smoothed 1/12 < 0.1
+    records.update(rec("me", "s1", 5, 5))  # even: variance 0.25
+    records.update(rec("me", "s2", 0, 10))  # nemesis: variance ~0.08
+    args = ("me", "main", ["s1", "s2"], records)
+    draws = sample_many(pfsp.me_sample, args, seed=7, n=1500)
+    assert "main" not in draws
+    assert draws.count("s1") > draws.count("s2")
+
+
+def test_me_drops_at_exact_boundary():
+    # smoothed (0+1)/(8+2) = exactly 0.1: not > 0.1, so drop.
+    records = {}
+    records.update(rec("me", "main", 0, 8))
+    records.update(rec("me", "s1", 5, 5))
+    rng = random.Random(7)
+    assert pfsp.me_sample("me", "main", ["s1"], records, rng) == "s1"
+
+
+def test_me_empty_snapshots_stays_on_main():
     records = rec("me", "main", 0, 10)
-    records.update(rec("me", "hist", 10, 0))
-    for seed in range(20):
-        rng = random.Random(seed)
-        assert pfsp.me_sample("main") == "main"
-
-
-def test_me_always_plays_main_with_no_games():
-    assert pfsp.me_sample("main") == "main"
+    assert pfsp.me_sample("me", "main", [], records,
+                          random.Random(7)) == "main"
 
 
 # ----------------------------------------------------------------------- LE
 
 
-def test_le_seeks_victims_but_does_not_obsess():
+def test_le_seeks_challenges_not_victims():
+    # MAS orientation: min(0.5, 1-mean) -- weight peaks where the LE
+    # loses or splits, victims sink.
     records = {}
-    records.update(rec("le", "nemesis", 0, 10))  # own ~0.08: avoided
-    records.update(rec("le", "even", 5, 5))  # own 0.5 -> capped 0.5
-    records.update(rec("le", "victim", 9, 1))  # own ~0.94 -> capped 0.5
-    cands = ["nemesis", "even", "victim", "unseen"]  # unseen UCB -> capped 0.5
-    draws = sample_many(pfsp.le_sample, ("le", cands, records), seed=7, n=3000)
-    assert draws.count("victim") > draws.count("nemesis")
-    assert draws.count("victim") < 0.45 * len(draws)
-    assert draws.count("nemesis") < 0.15 * len(draws)
+    records.update(rec("le", "nemesis", 0, 10))  # mean ~0.08 -> 0.5
+    records.update(rec("le", "even", 5, 5))  # mean 0.5 -> 0.5
+    records.update(rec("le", "victim", 9, 1))  # mean ~0.92 -> ~0.08
+    cands = ["nemesis", "even", "victim", "unseen"]  # unseen -> 0.5
+    draws = sample_many(pfsp.le_sample, ("le", cands, records), seed=7,
+                        n=3000)
+    assert draws.count("victim") < 0.15 * len(draws)
+    trio = [d for d in draws if d != "victim"]
+    for opp in ("nemesis", "even", "unseen"):
+        assert 0.28 * len(trio) < trio.count(opp) < 0.39 * len(trio)
 
 
 # --------------------------------------------- UCB exploration (was newcomer boost)
@@ -153,20 +222,11 @@ def test_ucb_explores_newcomers_over_known_even():
     records = {}
     records.update(rec("me", "vet", 50, 50))
     draws = sample_many(
-        pfsp.main_sample, ("me", ["new", "vet"], records), seed=7, n=1500
+        pfsp.main_sample, ("me", "main", ["new", "vet"], [], [], records),
+        seed=7, n=1500
     )
-    assert draws.count("new") > draws.count("vet")
-
-
-def test_ucb_le_explores_newcomers():
-    records = {}
-    records.update(rec("le", "vet", 5, 50))  # known bad: avoided either way
-    records.update(rec("le", "even", 50, 50))  # known even: capped 0.5
-    draws = sample_many(
-        pfsp.le_sample, ("le", ["new", "even", "vet"], records), seed=7, n=1500
-    )
-    assert draws.count("new") > draws.count("vet")
-    assert draws.count("even") > draws.count("vet")
+    frozen = [d for d in draws if d != "main"]
+    assert frozen.count("new") > frozen.count("vet")
 
 
 # ------------------------------------------------------------ determinism
@@ -178,13 +238,16 @@ def test_seeded_determinism():
     records.update(rec("me", "victim", 8, 2))
     records.update(rec("me", "main", 0, 10))
 
-    main_args = ("me", ["counter", "victim"], records)
+    main_args = ("me", "main", ["counter", "victim"], [], [], records)
+    me_args = ("me", "main", [], records)
     le_args = ("me", ["counter", "victim"], records)
 
     assert sample_many(pfsp.main_sample, main_args, 1234, 30) == sample_many(
         pfsp.main_sample, main_args, 1234, 30
     )
-    assert pfsp.me_sample("main") == pfsp.me_sample("main") == "main"
+    assert sample_many(pfsp.me_sample, me_args, 1234, 30) == sample_many(
+        pfsp.me_sample, me_args, 1234, 30
+    )
     assert sample_many(pfsp.le_sample, le_args, 1234, 30) == sample_many(
         pfsp.le_sample, le_args, 1234, 30
     )
@@ -193,6 +256,10 @@ def test_seeded_determinism():
 def test_empty_pool_raises():
     rng = random.Random(7)
     with pytest.raises(ValueError):
-        pfsp.main_sample("me", [], {}, rng)
-    with pytest.raises(ValueError):
         pfsp.le_sample("me", [], {}, rng)
+
+
+def test_main_empty_pool_falls_back_to_live_main():
+    # a lone main still trains: the degenerate pool faces live main.
+    rng = random.Random(7)
+    assert pfsp.main_sample("me", "main", [], [], [], {}, rng) == "main"

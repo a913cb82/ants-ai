@@ -251,17 +251,23 @@ def test_select_opponent_excludes_live_ids(tmp_path, monkeypatch):
     def fake(policy):
         def _fake(*args, **kwargs):
             if policy == "me":
-                # ME takes only the main id now: no candidate list.
-                seen[policy] = list(args)
-                return args[0]
-            seen[policy] = list(args[1])
-            return args[1][0]
+                # (live, live_main, snapshots, records, rng): the ME
+                # takes the live main, snapshots are the fallback pool.
+                assert args[1] == "main"
+                seen[policy] = list(args[2])
+                return args[2][0] if args[2] else args[1]
+            # main: (live, live_main, candidates, ...); le: (live,
+            # candidates, records, rng). Both record the frozen pool.
+            idx = 2 if policy == "main" else 1
+            seen[policy] = list(args[idx])
+            return args[idx][0]
         return _fake
 
     monkeypatch.setattr(pfsp, "main_sample", fake("main"))
     monkeypatch.setattr(pfsp, "me_sample", fake("me"))
     monkeypatch.setattr(pfsp, "le_sample", fake("le"))
     state = {"main_id": source,
+             "main_snapshots": [source],
              "exploiters": {"me": {"id": "me-1"},
                               "le-a": {"id": "lea-1"},
                               "le-b": {"id": "leb-1"}}}

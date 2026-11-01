@@ -21,9 +21,9 @@ tuning choice — their compute split is unpublished).
 
 | Learner | Init | Opponent rule (PFSP, no Nash anywhere) | Objective | Reset |
 |---|---|---|---|---|
-| Main | g1732 weights + banked Adam (main.json head = freshest trained state) | 50% squared-weighted historical (seeks counters); else variance-weighted mean | none (trains forever) | NEVER |
-| ME | g000 weights (+pad to current arch, tested path) + fresh Adam | always the current main (no fallback since 2026-11-02) | sustained >60% over last 40 vs main → freeze copy in pool (relabel snapshot, no extra copy step)  | to g000 on admission only (no stall rule since 2026-11-02) |
-| LE-A/B | same g000 init (independent runs) | linear_capped UCB over all historicals (seeks any hole)  | sustained >60% over last 40 vs pool → freeze + reset | to g000 on admission only (no stall rule since 2026-11-02) |
+| Main | g1732 weights + banked Adam (main.json head = freshest trained state) | 50% squared-weighted historical (seeks counters); coin<0.5 squared over frozen; <0.65 verification; else self-play | none (trains forever) | NEVER |
+| ME | g000 weights (+pad to current arch, tested path) + fresh Adam | live main above 0.1 own mean, else variance over the main's snapshots | sustained >60% over last 40 vs main → freeze copy in pool (relabel snapshot, no extra copy step)  | to g000 on admission only (no stall rule since 2026-11-02) |
+| LE-A/B | same g000 init (independent runs) | min(0.5, 1-mean) over all frozen (even-or-stronger, capped)  | sustained >60% over last 40 vs pool → freeze + reset | to g000 on admission only (no stall rule since 2026-11-02) |
 
 Invariants (go in LEAGUE.md verbatim):
 - One game trains exactly one learner; opponents are always frozen snapshots.
@@ -49,13 +49,17 @@ privilege — a readout, not a throne).
 
 PFSP weighting functions (implement per mini-AlphaStar pseudocode, TDD-pinned
 on synthetic matrices; acceptance = role-appropriate distributions):
-- Let p = UCB score for monotone branches, posterior mean for the
-  even branch (uniform Beta(1,1) prior; strangers rate even, no Laplace):
-  linear p, squared p², variance p(1−p) (peaks at even = learning-rich),
-  linear_capped min(p, 0.5) (no single-nemesis obsession).
-- Exploiters invert the direction (weight by own score: seek victims).
-- No unseen default, no newcomer boost (both replaced 2026-11-02 by the
-  UCB rule above; the rare/omitted rule stays replaced).
+- Scores are Laplace-smoothed means (uniform Beta(1,1) prior;
+  unseen = 0.5, as mini-AlphaStar); squared seeking branches add the
+  UCB bonus (mean + 1 std, our labeled small-sample layer).
+  linear p, squared p², variance p(1−p) (peaks at even), linear_capped
+  min(0.5, 1-p) (even-or-stronger, capped).
+- ME threshold/fallback and main 3-branch dispatch per mini-AlphaStar;
+  single-main degeneracies noted in code (self-play always live main,
+  curriculum unreachable).
+- No newcomer boost, no stall, no ME-always-main (all removed for the
+  transcription). Decay 0.99 stays different (disk-backed cumulative
+  counts, no per-update decay).
 
 ## Initialization (day one — verified on disk)
 

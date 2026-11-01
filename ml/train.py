@@ -32,8 +32,8 @@ import rewards
 #: scale tables (rewards.py knows "exploiter"/"challenger"; "challenger"
 #: is absent from ROLE_OVERRIDES so the main trains on base scales,
 #: exactly like the old main line). Snapshot roles are the going-forward
-#: manifest roles from the league plan. ME tracks the live main's
-#: latest snapshot; LEs track the pool; only exploiters reset.
+#: manifest roles from the league plan. ME tracks the live main
+#: (threshold) and otherwise its snapshots; LEs track the pool; only exploiters reset.
 ROLE_CONFIGS = {
     "main": {"pricing": "challenger", "policy": "main",
              "snapshot_role": "main-snapshot", "target": None,
@@ -134,22 +134,25 @@ def select_opponent(base: Path, learner: str, state: dict,
                     rng: random.Random,
                     sample_id: str | None = None) -> str:
     """PFSP opponent for one learner tick (pure sampling, no I/O beyond
-    the manifest read). Main seeks counters/variance-weighted
-    historicals; ME stays on the main snapshot while beating it, else
-    hunts easier historicals; LEs probe the pool for holes. Candidates
-    are manifest members only: live training weights move under the
-    learner, so only frozen snapshots may oppose.
+    the manifest read). Main runs the mini-AlphaStar 3-branch dispatch
+    (squared / verification / self-play); ME stays on the live main
+    while beating it, else hunts the main's snapshots; LEs probe the
+    pool for holes. Frozen candidates are manifest members only; the
+    live main is facable by ME and by main's self-play branch (loaded
+    live, never frozen).
 
     sample_id is the seat identity the learner's games log under (the
     bare slot id, "main" for main): records are keyed by it, so it must
     drive the win-fraction lookups and self-exclusion. Defaults to the
     slot for callers without one."""
-    candidates = [m["id"] for m in archive.members(base)
+    members = archive.members(base)
+    candidates = [m["id"] for m in members
                   if isinstance(m.get("id"), str)]
     # Live weights move under training: the live head and live slots
     # are never frozen opponents (they have no frozen weights file;
     # sampling them would face the wrong weights). Snapshots and
-    # admitted copies stay in the pool.
+    # admitted copies stay in the pool. The live main stays facable:
+    # ME and main's self-play branch load it live (see run_tick).
     live_ids = {"main"}
     for exp in state.get("exploiters", {}).values():
         if isinstance(exp.get("id"), str):
@@ -157,10 +160,15 @@ def select_opponent(base: Path, learner: str, state: dict,
     candidates = [c for c in candidates if c not in live_ids]
     policy = ROLE_CONFIGS[learner]["policy"]
     live = sample_id if sample_id is not None else learner
+    snapshots = list(state.get("main_snapshots", []) or [])
+    admitted = [m["id"] for m in members
+                if m.get("role") == "admitted"
+                and isinstance(m.get("id"), str)]
     if policy == "main":
-        return pfsp.main_sample(live, candidates, records, rng)
+        return pfsp.main_sample(live, "main", candidates, snapshots,
+                                admitted, records, rng)
     if policy == "me":
-        return pfsp.me_sample(state["main_id"])
+        return pfsp.me_sample(live, "main", snapshots, records, rng)
     return pfsp.le_sample(live, candidates, records, rng)
 
 
