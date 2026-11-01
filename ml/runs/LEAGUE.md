@@ -15,9 +15,9 @@ right way, PPO stays healthy.
    game; the tick IS the game number
    (`games/main/tick{tick}`, `player_seed = seed + tick`,
    `engine_seed = 1000 + tick`).
-2. **Cadence.** Micro-batch PPO every 8 games (`MICRO_BATCH=8`).
-   Single-threaded first: one tick runs one game, then at most one
-   update.
+2. **Cadence.** Micro-batch PPO every 8 completions (`MICRO_BATCH=8`).
+   Serial by default; `--concurrency N` plays N games in flight while
+   the update still fires every 8 completions.
 3. **Crash-ok.** `_claim_tick` hands out each tick under a lock, never
    reuses numbers. Every state is valid: game rows kept, `live/` points
    at the last finished update, pending banks ≤ one micro-batch

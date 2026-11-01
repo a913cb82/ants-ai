@@ -11,9 +11,15 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+import threading
 from pathlib import Path
 
 DEFAULT_DIR = Path(__file__).resolve().parent / "archive"
+
+#: Serializes games.jsonl/updates.jsonl appends: one open/write/close
+#: per row keeps single-threaded behavior identical and concurrent
+#: ticks from interleaving lines.
+_APPEND_LOCK = threading.Lock()
 
 
 def _paths(base: Path) -> dict[str, Path]:
@@ -40,10 +46,11 @@ def atomic_write_json(path: Path, obj: object) -> None:
 
 
 def append_jsonl(path: Path, row: dict) -> None:
-    """One JSON line appended (single-threaded: no lock needed)."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "a") as f:
-        f.write(json.dumps(row) + "\n")
+    """One JSON line appended; concurrent ticks share the append lock."""
+    with _APPEND_LOCK:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "a") as f:
+            f.write(json.dumps(row) + "\n")
 
 
 def read_jsonl(path: Path, valid) -> list[dict]:

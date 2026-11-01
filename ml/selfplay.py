@@ -1,10 +1,10 @@
-"""Mirror self-play: one learner, latest vs latest, single-threaded.
+"""Mirror self-play: one learner, latest vs latest.
 
 Every tick plays exactly one game: main vs main (vs main ...), all
 seats running the current live weights. Every seat's records train
 the next PPO micro-batch (AlphaZero trains on every position, not one
-side).
-Every 8th game runs the update.
+side). Serial by default; --concurrency N plays N games in flight
+while the update still fires every 8 completions.
 
 State is two integers (tick, micro) plus the live weights, Adam blob,
 and banked batch on disk. Resume is load + schedule: tick numbers are
@@ -19,6 +19,8 @@ import json
 import random
 import signal
 import sys
+import threading
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -30,6 +32,10 @@ import archive
 import train
 
 MICRO_BATCH = 8
+
+#: Serializes tick claims: load/compute/save must not interleave,
+#: or two threads play the same tick number.
+_CLAIM_LOCK = threading.Lock()
 
 _SHUTDOWN = False
 
@@ -63,6 +69,7 @@ def default_config() -> dict:
         "minibatch": 64,
         "gamma": 0.97,
         "seed": 0,
+        "concurrency": 1,
         "ticks": -1,
         "archive": "ml/archive",
     }
@@ -87,6 +94,13 @@ def parse_args(argv: list[str] | None = None) -> dict:
     p.add_argument("--gamma", type=float, default=defaults["gamma"])
     p.add_argument("--seed", type=int, default=defaults["seed"])
     p.add_argument(
+        "--concurrency",
+        type=int,
+        default=defaults["concurrency"],
+        help="games in flight at once (default 1 = serial; "
+        "updates still fire every 8 completions)",
+    )
+    p.add_argument(
         "--ticks",
         type=int,
         default=defaults["ticks"],
@@ -108,6 +122,7 @@ def parse_args(argv: list[str] | None = None) -> dict:
         "minibatch": args.minibatch,
         "gamma": args.gamma,
         "seed": args.seed,
+        "concurrency": args.concurrency,
         "ticks": args.ticks,
         "archive": args.archive,
     }
@@ -168,10 +183,11 @@ def _claim_tick(base: Path) -> int:
     """Next tick number, persisted at claim: never reused, even by
     restarts. A crashed tick's number is never handed out again, so
     its rows can simply stay logged — no stripping is ever needed."""
-    state = archive.load_state(base) or {}
-    tick = max(state.get("tick", 0), state.get("next_tick", 0))
-    state["next_tick"] = tick + 1
-    archive.save_state(base, state)
+    with _CLAIM_LOCK:
+        state = archive.load_state(base) or {}
+        tick = max(state.get("tick", 0), state.get("next_tick", 0))
+        state["next_tick"] = tick + 1
+        archive.save_state(base, state)
     return tick
 
 
@@ -209,16 +225,25 @@ def ensure(base: Path, cfg: dict) -> dict:
     }
 
 
-def run_tick(cfg: dict, base: Path, live: dict) -> dict:
-    """One mirror game: play, log, accumulate, maybe train."""
+def _play_tick(cfg: dict, base: Path, weights: dict, tick: int, map_path: str) -> dict:
+    """Play + price one tick. Thread-safe: subprocess games in per-tick
+    dirs, pricing is pure, the game log shares the append lock.
+
+    No shared mutation: weights arrive as a snapshot dict, the policy
+    object stays in the dispatching thread (collect runs there)."""
     import rewards
 
     rewards.GAMMA = cfg.get("gamma", rewards.GAMMA)
-    tick = _claim_tick(base)  # persisted: never reused, even by restarts
-    rng = random.Random(f"{cfg.get('seed', 0)}:{tick}")
-    map_path = rng.choice(cfg["maps"])
-    weights = algorithm.policy_weights(live["policy"])
     played = train._play_one(dict(cfg, tick=tick), base, weights, map_path)
+    return {"tick": tick, "played": played}
+
+
+def _finish_tick(cfg: dict, base: Path, live: dict, result: dict) -> dict:
+    """Accumulate one completed game, maybe train. Main thread only:
+    policy forward, pending batch, counters, weights, Adam all mutate
+    here and nowhere else."""
+    tick = result["tick"]
+    played = result["played"]
     batch = algorithm.collect(live["policy"], played["rows"], played["rets"])
     live["pending"].extend(batch)
     state = archive.load_state(base)
@@ -269,15 +294,56 @@ def run_tick(cfg: dict, base: Path, live: dict) -> dict:
     }
 
 
+def run_tick(cfg: dict, base: Path, live: dict) -> dict:
+    """One mirror game: play, log, accumulate, maybe train."""
+    tick = _claim_tick(base)  # persisted: never reused, even by restarts
+    rng = random.Random(f"{cfg.get('seed', 0)}:{tick}")
+    map_path = rng.choice(cfg["maps"])
+    weights = algorithm.policy_weights(live["policy"])
+    return _finish_tick(
+        cfg, base, live, _play_tick(cfg, base, weights, tick, map_path)
+    )
+
+
+def _dispatch_tick(cfg: dict, base: Path, live: dict, pool) -> object:
+    """Claim a tick and submit its game: map and weights snapshot are
+    per-tick deterministic (seed:tick), so dispatch order never matters."""
+    tick = _claim_tick(base)  # persisted: never reused, even by restarts
+    rng = random.Random(f"{cfg.get('seed', 0)}:{tick}")
+    map_path = rng.choice(cfg["maps"])
+    weights = algorithm.policy_weights(live["policy"])
+    return pool.submit(_play_tick, cfg, base, weights, tick, map_path)
+
+
 def run_loop(cfg: dict, base: Path, ticks: int) -> None:
-    """Play ticks (negative = forever). Ctrl-C finishes the tick."""
+    """Play ticks (negative = forever). Ctrl-C stops dispatching new
+    games and drains the in-flight ones, then exits."""
     signal.signal(signal.SIGINT, _request_shutdown)
     signal.signal(signal.SIGTERM, _request_shutdown)
     live = ensure(base, cfg)
-    done = 0
-    while (ticks < 0 or done < ticks) and not _SHUTDOWN:
-        run_tick(cfg, base, live)
-        done += 1
+    concurrency = max(1, cfg.get("concurrency", 1))
+    done = dispatched = 0
+    with ThreadPoolExecutor(max_workers=concurrency) as pool:
+        in_flight = {}
+        while (ticks < 0 or done < ticks) and not _SHUTDOWN:
+            while (
+                len(in_flight) < concurrency
+                and (ticks < 0 or dispatched < ticks)
+                and not _SHUTDOWN
+            ):
+                in_flight[_dispatch_tick(cfg, base, live, pool)] = True
+                dispatched += 1
+            if not in_flight:
+                break
+            finished, _ = wait(
+                in_flight, timeout=5, return_when=FIRST_COMPLETED
+            )
+            for fut in finished:
+                del in_flight[fut]
+                # A failed game propagates, as in the serial loop; its
+                # row simply never logs while the rest stay valid.
+                _finish_tick(cfg, base, live, fut.result())
+                done += 1
 
 
 def main(argv: list[str] | None = None) -> int:

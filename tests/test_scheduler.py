@@ -157,18 +157,136 @@ def test_fresh_ensure_mints_random_net_then_resumes(tmp_path):
 
 def test_shutdown_flag_stops_loop_between_ticks(tmp_path, monkeypatch):
     base, cfg, live = _setup(tmp_path, monkeypatch)
-    calls = []
-    orig = selfplay.run_tick
+    import train as _train
 
-    def counting(c, b, lv):
+    calls = []
+    orig = _train._play_one
+
+    def counting(c, b, w, m):
         calls.append(1)
         selfplay._SHUTDOWN = True
-        return orig(c, b, lv)
+        return orig(c, b, w, m)
 
-    monkeypatch.setattr(selfplay, "run_tick", counting)
+    monkeypatch.setattr(_train, "_play_one", counting)
     selfplay._SHUTDOWN = False
     try:
         selfplay.run_loop(cfg, base, 10)
     finally:
         selfplay._SHUTDOWN = False
     assert len(calls) == 1  # current tick finished, then stopped
+
+
+def _par_setup(tmp_path, monkeypatch, nmaps=3, concurrency=3, ticks=6):
+    """Loop harness with a stubbed instant game (no engine)."""
+    import threading
+
+    import train as _train
+
+    base = tmp_path / "archive"
+    cfg = _cfg(
+        tmp_path,
+        maps=[f"m{i}.map" for i in range(nmaps)],
+        concurrency=concurrency,
+        epochs=1,
+    )
+    live = selfplay.ensure(base, cfg)
+    seen = []
+
+    def fake_play_one(c, b, weights, map_path):
+        import time as _time
+
+        _time.sleep(0.05)  # let the pool spread work across threads
+        tick = c["tick"]
+        seen.append((tick, threading.get_ident(), Path(map_path).name))
+        archive.log_game(
+            b,
+            ["main", "main"], [3, 1],
+            f"games/main/tick{tick}/logs/0.replay",
+            map=Path(map_path).name,
+            game=f"gid-{tick}",
+            tick=tick,
+            t=_time.time(),
+        )
+        return {
+            "rows": [{"window": [[[0.0] * 9] * 9] * 10, "action": "stay"}],
+            "rets": [1.0],
+            "scores": [3, 1],
+        }
+
+    monkeypatch.setattr(_train, "_play_one", fake_play_one)
+    return base, cfg, live, seen
+
+
+def _expected_map(seed, tick, maps):
+    import random
+
+    return random.Random(f"{seed}:{tick}").choice(maps)
+
+
+def test_concurrency_defaults_to_serial():
+    assert selfplay.default_config()["concurrency"] == 1
+    assert selfplay.parse_args([])["concurrency"] == 1
+
+
+def test_parallel_ticks_claim_unique_ticks_on_threads(tmp_path, monkeypatch):
+
+    base, cfg, live, seen = _par_setup(tmp_path, monkeypatch)[:4]
+    maps = cfg["maps"]
+    selfplay.run_loop(cfg, base, ticks=6)
+    rows = archive.list_games(base)
+    assert len(rows) == 6
+    assert sorted(r["tick"] for r in rows) == [0, 1, 2, 3, 4, 5]
+    assert len({tid for _, tid, _ in seen}) > 1  # really parallel
+    for tick, _, name in seen:
+        assert name == Path(_expected_map(0, tick, maps)).name
+
+
+def test_parallel_completions_fire_update_every_eight(tmp_path, monkeypatch):
+    base, cfg, live, seen = _par_setup(
+        tmp_path, monkeypatch, concurrency=2, ticks=8)
+    cfg["maps"] = ["m0.map"]
+    selfplay.run_loop(cfg, base, ticks=8)
+    updates = archive.list_updates(base)
+    assert len(updates) == 1  # 8 completions, one update
+    assert updates[0]["rows"] == 8  # one stubbed row per game
+    assert updates[0]["tick"] == 7  # the completing tick names it
+    assert selfplay.load_pending(base, "base") == []  # bank cleared
+    assert archive.load_state(base)["micro"] == 8
+
+
+def test_parallel_matches_serial_results(tmp_path, monkeypatch):
+    # two independent archives through the same harness shape
+    outs = []
+    for sub, conc in (("s1", 1), ("s2", 3)):
+        d = tmp_path / sub
+        d.mkdir()
+        base = d / "archive"
+        cfg = _cfg(d, maps=["m0.map", "m1.map"], concurrency=conc, epochs=1)
+        selfplay.ensure(base, cfg)
+        import time as _time
+
+        import train as _train
+
+        seen = []
+
+        def fake_play_one(c, b, weights, map_path, _seen=seen):
+            tick = c["tick"]
+            _seen.append((tick, Path(map_path).name))
+            archive.log_game(
+                b, ["main", "main"], [3, 1],
+                f"games/main/tick{tick}/logs/0.replay",
+                map=Path(map_path).name, game=f"gid-{tick}", tick=tick,
+                t=_time.time())
+            return {
+                "rows": [{"window": [[[0.0] * 9] * 9] * 10, "action": "stay"}],
+                "rets": [1.0],
+                "scores": [3, 1],
+            }
+
+        monkeypatch.setattr(_train, "_play_one", fake_play_one)
+        selfplay.run_loop(cfg, base, ticks=4)
+        rows = sorted(
+            (r["tick"], r["map"], tuple(r["scores"]))
+            for r in archive.list_games(base))
+        outs.append((rows, len(selfplay.load_pending(base, "base"))))
+    assert outs[0] == outs[1]  # same games, same banked rows
