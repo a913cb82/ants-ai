@@ -61,6 +61,7 @@ def test_init_league_schema(base):
     assert state["main_id"] == "g005"
     assert state["anchors"] == ["g000", "g003"]
     assert state["admissions"] == []
+    assert state["resets"] == []
     assert state["scheduler_pos"] == 0
     assert state["snapshot_counter"] == 0
     assert "micro_batch_progress" in state
@@ -104,6 +105,15 @@ def test_record_admission_appends(base):
         {"id": "g011", "role": "admitted", "at_game": 240, "record": "25-10-5"},
         {"id": "g012", "role": "me", "at_game": 320, "record": "24-8-8"},
     ]
+
+
+def test_note_reset_appends_identifiable_entry(base):
+    archive.init_league(base, "g010", ["g000"])
+    entry = archive.note_reset(base, "me", "me", 41, 160)
+    assert entry == {"slot": "me", "seat": "me", "game": 41,
+                      "tick": 160}
+    state = archive.load_league(base)
+    assert state["resets"] == [entry]
 
 
 def test_record_admission_without_league_raises(base):

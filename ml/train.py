@@ -79,10 +79,10 @@ def _is_penalty_game(cfg: dict, g: int, gen_index: int = 0) -> bool:
 
 def _play_one(args) -> dict:
     """One train game: play, price, record. Thread-safe via archive lock."""
-    (cfg, base, chal_id, field, weights, i, role, map_path) = args[:8]
-    # Display names for the replay (bot filenames): live seats show role
-    # names, frozen opponents their member ids. Attribution (records,
-    # logs, matrix) always uses field. Defaults to field when absent.
+    (cfg, base, chal_id, field, weights, i, role, map_path) = args
+    # Display names ARE attribution ids: every seat id is in-universe
+    # (main / me / le-a / le-b / mainN / meN / le-aN / le-bN / legacy
+    # g-ids), so replays, tables, and records all show the same names.
     try:
         gen_index = int(chal_id[1:])
     except (ValueError, IndexError):
@@ -100,7 +100,7 @@ def _play_one(args) -> dict:
             engine_seed=1000 + i,
         ),
         base / rel,
-        names=list(args[8]) if len(args) > 8 else field,
+        names=field,
     )
     game = out["game"]
     rows = algorithm.compact_records(out["records"][0])  # student seat 0
@@ -141,16 +141,15 @@ def select_opponent(base: Path, learner: str, state: dict,
     learner, so only frozen snapshots may oppose.
 
     sample_id is the seat identity the learner's games log under (the
-    live incarnation id for exploiters, "main" for main): records are
-    keyed by it, so it -- not the slot name -- must drive the win-
-    fraction lookups and self-exclusion. Defaults to the slot for
-    callers without incarnations."""
+    bare slot id, "main" for main): records are keyed by it, so it must
+    drive the win-fraction lookups and self-exclusion. Defaults to the
+    slot for callers without one."""
     candidates = [m["id"] for m in archive.members(base)
                   if isinstance(m.get("id"), str)]
-    # Live weights move under training: the live head and the live
-    # incarnations are never frozen opponents (their files are stale or
-    # absent; sampling them would face the wrong weights). Snapshots,
-    # admitted copies, and retired incarnations stay in the pool.
+    # Live weights move under training: the live head and live slots
+    # are never frozen opponents (they have no frozen weights file;
+    # sampling them would face the wrong weights). Snapshots and
+    # admitted copies stay in the pool.
     live_ids = {"main"}
     for exp in state.get("exploiters", {}).values():
         if isinstance(exp.get("id"), str):

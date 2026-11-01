@@ -627,16 +627,14 @@ def merge_pairs(*dicts: dict) -> dict:
 
 
 def tracked_members(base: Path, grouped: list[dict]) -> list[str]:
-    """Elo trajectories to plot: main + live incarnations + anchors.
+    """Elo trajectories to plot: main + live slots + anchors.
 
     The league translation of the duel panel: the live main (whose games
-    log under "main" forever) plus each exploiter's LIVE incarnation id
-    from league.json (games log per incarnation, so following the slot
-    name would stitch every incarnation's peak onto one line) plus the
-    anchor ladder, deduped in that order. Retired incarnations keep
-    their frozen games in the log but leave the panel: their segments
-    flatline truthfully instead of inheriting the new line. Legacy
-    archives without league.json fall back to the 8 most-played members."""
+    log under "main" forever) plus each exploiter's bare slot id
+    ("me", "le-a", "le-b" -- games log under the slot across resets;
+    the reset log severs the record instead of minting ids) plus the
+    anchor ladder, deduped in that order. No league.json means no
+    league: just the main."""
     state = league_state(base)
     if state is not None:
         ids: list[str] = ["main"]
@@ -648,13 +646,7 @@ def tracked_members(base: Path, grouped: list[dict]) -> list[str]:
             if a not in ids:
                 ids.append(a)
         return ids
-    tally: dict[str, int] = {}
-    for g in grouped:
-        for s in g.get("seats", []) or []:
-            sid = s.get("id")
-            if isinstance(sid, str):
-                tally[sid] = tally.get(sid, 0) + 1
-    return sorted(tally, key=lambda m: -tally[m])[:8]
+    return ["main"]
 
 
 def _readout_member(mi: int, opps: dict, theta: list[float],
@@ -713,12 +705,50 @@ def _elo_of(t: float) -> float | None:
     return math.log(t) * _BT_ELO_SCALE if t > 0 else None
 
 
+def reset_cut_intervals(grouped: list[dict], K: int,
+                          resets: list[dict]) -> dict[str, set[int]]:
+    """Reset log -> {seat id: cut interval indices}.
+
+    Each reset entry names the game that triggered it (seat + game_no
+    identify games/{seat}/train{game_no}/logs/0.replay, unique per seat).
+    The cut fires at the first interval AFTER that game: the game itself
+    still counts pre-reset (its weights were), everything after restarts
+    from seed. grouped is newest-first (interval_batches counts from the
+    oldest). Unknown games and empty logs map to no cuts, never a crash.
+    Pure."""
+    if K <= 0:
+        K = 1
+    if not resets:
+        return {}
+    by_replay: dict[str, int] = {}
+    for order, g in enumerate(reversed(grouped)):
+        rp = g.get("replay", "") if isinstance(g, dict) else ""
+        if isinstance(rp, str) and rp not in by_replay:
+            by_replay[rp] = order
+    cuts: dict[str, set[int]] = {}
+    for r in resets:
+        if not isinstance(r, dict):
+            continue
+        seat, game = r.get("seat"), r.get("game")
+        if not isinstance(seat, str):
+            continue
+        try:
+            n = int(game)
+        except (TypeError, ValueError):
+            continue
+        key = f"games/{seat}/train{n}/logs/0.replay"
+        if key in by_replay:
+            cuts.setdefault(seat, set()).add(by_replay[key] // K + 1)
+    return cuts
+
+
 def _interval_elo_extend(ids: list[str], per_interval: list[dict],
                        tracked: list[str], sweeps: int, start: int,
                        theta: list[float], series: dict,
                        parents: dict | None = None,
                        seen: set | None = None,
-                       played: set | None = None) -> None:
+                       played: set | None = None,
+                       cuts: dict | None = None) -> None:
     """Extend per-learner trajectories over intervals, in place.
 
     Same math as the retired duel pass: one sequential theta vector,
@@ -740,6 +770,15 @@ def _interval_elo_extend(ids: list[str], per_interval: list[dict],
     for mid in tracked:
         series.setdefault(mid, [])
     for gi in range(start, len(per_interval)):
+        if cuts:
+            for mid, idxs in cuts.items():
+                if gi in idxs:
+                    mi = pos.get(mid)
+                    if mi is not None and mi != g0:
+                        # Reset seam: the slot's weights restarted (fresh
+                        # g000 net or newly admitted peak elsewhere), so
+                        # its carried peak must not leak past this point.
+                        theta[mi] = 1.0
         opps = _gen_opponents(per_interval[gi]
                               if gi < len(per_interval) else {})
         act = [m for m in opps if m != g0]
@@ -772,7 +811,8 @@ def _interval_elo_extend(ids: list[str], per_interval: list[dict],
 def running_elo_intervals(ids: list[str], per_interval: list[dict],
                           tracked: list[str],
                           sweeps: int = _RUN_SWEEPS,
-                          parents: dict | None = None) -> dict:
+                          parents: dict | None = None,
+                          cuts: dict | None = None) -> dict:
     """Per-learner trajectories in one sequential pass, interval 0 -> I.
 
     The pass maintains a single theta vector: each interval's pairs
@@ -780,11 +820,15 @@ def running_elo_intervals(ids: list[str], per_interval: list[dict],
     tracked member (live main + live exploiters + anchors) is read
     out. No windows, no refits, no lookahead, no takeover breaks --
     the value at interval I is exactly what the games <= I imply.
-    parents maps member id -> parent id for lineage seeding. Pure."""
+    parents maps member id -> parent id for lineage seeding. cuts maps
+    member id -> reset interval indices: entering a cut interval resets
+    that member's theta to seed (1.0) before its games move it, so a
+    reset slot restarts from g000's level instead of peak-continuing.
+    Pure."""
     theta = [1.0] * len(ids)
     series: dict = {}
     _interval_elo_extend(ids, per_interval, tracked, sweeps, 0, theta,
-                         series, parents, set())
+                         series, parents, set(), cuts=cuts)
     return {"tracked": list(tracked), "series": series}
 
 
@@ -987,31 +1031,42 @@ def _interval_elo_cached(base: Path, grouped: list[dict], K: int,
     per_interval = interval_pair_buckets(grouped, K, pos)
     counts = [len(b) for b in per_interval]
     parents = _parent_map(base)
+    resets = []
+    try:
+        st_league = json.loads((base / "league.json").read_text())
+        if isinstance(st_league, dict):
+            resets = st_league.get("resets", []) or []
+    except (OSError, ValueError):
+        pass
+    cuts = reset_cut_intervals(grouped, K, resets)
+    cuts_sig = sorted((m, sorted(s)) for m, s in cuts.items())
     st = _interval_elo_cache.get("state")
     if (st is not None
             and len(ids) >= len(st["ids"])
             and ids[:len(st["ids"])] == st["ids"]
             and len(per_interval) >= st["n_interval"]
             and counts[:st["n_interval"]] == st["counts"]
-            and tracked == st["tracked"]):
+            and tracked == st["tracked"]
+            and cuts_sig == st.get("cuts_sig", [])):
         theta = st["theta"] + [1.0] * (len(ids) - len(st["ids"]))
         series = {k: list(v) for k, v in st["series"].items()}
         seen = set(st["seen"])
         played = set(st["played"])
         _interval_elo_extend(ids, per_interval, tracked, _RUN_SWEEPS,
                              st["n_interval"], theta, series,
-                             parents, seen, played)
+                             parents, seen, played, cuts=cuts)
         n_interval = len(per_interval)
     else:
         theta = [1.0] * len(ids)
         series, seen, played = {}, set(), set()
         _interval_elo_extend(ids, per_interval, tracked, _RUN_SWEEPS, 0,
-                             theta, series, parents, seen, played)
+                             theta, series, parents, seen, played,
+                             cuts=cuts)
         n_interval = len(per_interval)
     _interval_elo_cache["state"] = {
         "ids": ids, "counts": counts, "theta": theta,
         "tracked": tracked, "series": series, "seen": seen,
-        "played": played,
+        "played": played, "cuts_sig": cuts_sig,
         "n_interval": n_interval}
     # No matrix-membership filter: anchors and learner slots with no
     # logged games yet read as None gaps (unknown) or the 0.0 default

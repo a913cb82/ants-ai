@@ -139,6 +139,52 @@ def test_intervals_unplayed_tracker_carries_parent():
     assert s["series"]["kid"][1] > 100
 
 
+def test_intervals_reset_cut_drops_theta_to_seed():
+    import dashboard
+
+    ids = ["g000", "me", "x"]
+    per = [{(1, 2): [4.0, 0.0]},   # interval 0: me sweeps -> peak
+           {(1, 2): [3.0, 1.0]}]   # interval 1: fresh wins after reset
+    plain = dashboard.running_elo_intervals(ids, per, ["me"])
+    cut = dashboard.running_elo_intervals(ids, per, ["me"],
+                                          cuts={"me": {1}})
+    assert cut["series"]["me"][0] == plain["series"]["me"][0]
+    assert cut["series"]["me"][1] < plain["series"]["me"][1]
+    assert cut["series"]["me"][1] > 0  # fresh wins rebuild from seed
+
+
+def test_intervals_empty_cuts_match_no_cuts_bitwise():
+    import dashboard
+
+    ids = ["g000", "me", "x"]
+    per = [{(1, 2): [4.0, 0.0]}, {(1, 2): [1.0, 1.0]}]
+    plain = dashboard.running_elo_intervals(ids, per, ["me"])
+    assert dashboard.running_elo_intervals(
+        ids, per, ["me"], cuts={}) == plain
+    assert dashboard.running_elo_intervals(
+        ids, per, ["me"], cuts=None) == plain
+
+
+def test_reset_cut_intervals_map_to_first_interval_after():
+    import dashboard
+
+    def game(seat, n):
+        return {"replay": f"games/{seat}/train{n}/logs/0.replay",
+                "kind": "eval", "seats": [{"id": seat}]}
+    # grouped is newest-first: train2 newest.
+    grouped = [game("me", 2), game("me", 1), game("me", 0)]
+    resets = [{"slot": "me", "seat": "me", "game": 1, "tick": 7}]
+    cuts = dashboard.reset_cut_intervals(grouped, 2, resets)
+    # chrono order is train0, train1, train2; reset game train1 sits in
+    # interval 0 (games 0-1), so the cut fires at interval 1.
+    assert cuts == {"me": {1}}
+    # unknown games / empty resets: no cuts, never a crash.
+    assert dashboard.reset_cut_intervals(
+        grouped, 2, [{"slot": "me", "seat": "zz", "game": 9,
+                       "tick": 1}]) == {}
+    assert dashboard.reset_cut_intervals(grouped, 2, []) == {}
+
+
 def test_intervals_prefix_stable():
     import dashboard
 
@@ -270,13 +316,12 @@ def test_merge_pairs_sums_overlap():
 
 # --- snapshot board ---
 
-def _mini_league(base, n_games=12, k=4, learners=("main", "me-inc"),
+def _mini_league(base, n_games=12, k=4, learners=("main", "me"),
                 start=0):
     """Synthetic league archive: league.json + logged learner games.
 
-    Exploiter games log under the live incarnation id (never the slot
-    name), so the fixture mints me's incarnation id in league.json and
-    seats its games under it."""
+    Live games log under bare slot ids ("main", "me"), so the fixture
+    seats them directly under the slots."""
     import archive
 
     archive.init(base)
@@ -285,7 +330,7 @@ def _mini_league(base, n_games=12, k=4, learners=("main", "me-inc"),
     archive.init_league(base, "live-main", ["g000"])
     st = archive.load_league(base)
     st["snapshot_every"] = k
-    st["exploiters"]["me"]["id"] = "me-inc"
+    st["exploiters"]["me"]["id"] = "me"
     archive.save_league(base, st)
     for j in range(n_games):
         i = start + j
@@ -310,7 +355,7 @@ def test_snapshot_board_present_and_interval_shaped(tmp_path):
     assert board["k"] == 4
     assert len(board["labels"]) == 3  # 12 games, K=4
     elo = board["elo"]
-    assert elo["tracked"][:2] == ["main", "me-inc"]
+    assert elo["tracked"][:2] == ["main", "me"]
     assert set(elo["series"]) == set(elo["tracked"])
     assert all(len(v) == 3 for v in elo["series"].values())
     assert snap["main"] == "live-main"  # league working id, not a champion

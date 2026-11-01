@@ -149,6 +149,17 @@ Dashboard rework (phase 4 implements; contracts fixed here):
 4. Dashboard cards swapped (per dashboard contracts above). DONE (d50283b).
 5. `LEAGUE.md` (written, ml/runs/LEAGUE.md) + migration runbook; first live week. LIVE.
 
+Fresh start 2026-11-01 (user order: throw away ALL history): pre-wipe
+tarball /tmp/league-prewipe-backup.tar.gz (670MB). Kept ONLY the 4 live
+weight+Adam sets (learners/), g000.json (reset baseline + floor anchor),
+and the 80-map pool. Fresh matrix (empty), manifest (main/me/le-a/le-b +
+main0 = frozen current main), empty games/history, no anchor.jsonl,
+league.json main_id=main0 anchors=[g000] tick 0 resets []. g000 kept as
+infrastructure (exploiters must reset to SOMETHING; random init would
+un-train them for weeks) -- one file, delete on veto. Anchor ladder
+rebuilds from main0 (g000 floor + past mains). NO port union, NO lineage
+seeding content, NO grandfathering anywhere. Training stays stopped.
+
 Migration log 2026-10-31: backup /tmp/league-port-backup/ (matrix,
 manifest, history, champion, main). Pool: 80 fresh 2p gen_mixed maps
 (seed 456001) at ml/archive/maps-live/ (9-board gone from tree; rung

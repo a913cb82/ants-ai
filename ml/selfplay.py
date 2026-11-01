@@ -209,57 +209,6 @@ def pair_records(base: Path) -> dict[tuple[str, str], list[int]]:
     return records
 
 
-def port_main_union(base: Path, tip_id: str) -> dict[str, float]:
-    """Port-only step: the live main's initial matrix row.
-
-    Unions the main-chain pair-records (traced tip -> root via manifest
-    parents) under the live "main" id. Ancestors' rows are untouched;
-    the union dilutes as fresh games dominate and is never repeated.
-    Returns the added {"main vs X": total} map."""
-    members = {m["id"]: m for m in archive.members(base)
-               if isinstance(m.get("id"), str)}
-    if "main" in members:
-        return {}  # port-only: the union is never repeated.
-    chain = []
-    seen = set()
-    cur = tip_id
-    while cur is not None and cur not in seen and cur in members:
-        seen.add(cur)
-        chain.append(cur)
-        cur = members[cur].get("parent")
-    data = json.loads((base / "matrix.json").read_text())
-    items = list(data.get("eval", {}).items())
-    added: dict[str, float] = {}
-    for member in chain:
-        for key, wins in items:
-            if " vs " not in key:
-                continue
-            a, b = key.split(" vs ", 1)
-            try:
-                wa, wb = float(wins[0]), float(wins[1])
-            except (TypeError, IndexError, ValueError):
-                continue
-            if a == member and b != "main" and b != member:
-                k = f"main vs {b}"
-                w = data["eval"].setdefault(k, [0.0, 0.0])
-                w[0] += wa
-                w[1] += wb
-                added[k] = added.get(k, 0.0) + wa + wb
-            elif b == member and a != "main" and a != member:
-                k = f"main vs {a}"
-                w = data["eval"].setdefault(k, [0.0, 0.0])
-                w[0] += wb
-                w[1] += wa
-                added[k] = added.get(k, 0.0) + wa + wb
-    if "main" not in data.get("ids", []):
-        data.setdefault("ids", []).append("main")
-    archive.atomic_write_json(base / "matrix.json", data)
-    row = {"id": "main", "role": "main", "parent": tip_id}
-    with open(base / "manifest.jsonl", "a") as f:
-        f.write(json.dumps(row) + "\n")
-    return added
-
-
 def learners_dir(base: Path) -> Path:
     return base / "learners"
 
@@ -306,9 +255,11 @@ def ensure_league(base: Path, cfg: dict) -> dict:
     """Create league.json on first start; top up scheduler extras after.
 
     Phase-2 init_league owns the base shape (main working id, exploiter
-    slots, anchors, admissions, scheduler position); the scheduler adds
-    its own counters (main own-games, per-learner micro-batch progress,
-    tick count, main snapshot lineage) without touching that shape."""
+    slots, anchors, admissions, reset log, scheduler position); the
+    scheduler adds its own counters (main own-games, per-learner
+    micro-batch progress, tick count, main snapshot lineage) without
+    touching that shape. Live slot ids are bare names forever ("main",
+    "me", "le-a", "le-b"); ensure their manifest rows once."""
     import rewards
 
     rewards.GAMMA = cfg.get("gamma", rewards.GAMMA)
@@ -318,7 +269,6 @@ def ensure_league(base: Path, cfg: dict) -> dict:
         source = cfg.get("main_source", "g000")
         state = archive.init_league(
             base, source, list(cfg.get("anchors", [])))
-        port_main_union(base, source)
         state.setdefault("main_games", 0)
         state.setdefault("micro", {})
         state.setdefault("tick", 0)
@@ -329,7 +279,7 @@ def ensure_league(base: Path, cfg: dict) -> dict:
     else:
         changed = False
         for key, default in (("main_games", 0), ("micro", {}),
-                             ("tick", 0)):
+                             ("tick", 0), ("resets", [])):
             if key not in state:
                 state[key] = copy.deepcopy(default)
                 changed = True
@@ -342,6 +292,22 @@ def ensure_league(base: Path, cfg: dict) -> dict:
                 changed = True
         if changed:
             archive.save_league(base, state)
+    # Live slot manifest rows (bare ids, parentless seeds): one row per
+    # slot ever; games under a slot accumulate for the lineage's life.
+    # Resets never mint ids -- the reset log severs the record instead.
+    have = {m.get("id") for m in archive.members(base)
+            if isinstance(m.get("id"), str)}
+    for slot in ("main", "me", "le-a", "le-b"):
+        if slot not in have:
+            archive.append_member(base, slot, slot, None)
+    # Fresh leagues start exploiters on their bare slot ids.
+    changed = False
+    for slot, exp in state.get("exploiters", {}).items():
+        if exp.get("id") is None:
+            exp["id"] = slot
+            changed = True
+    if changed:
+        archive.save_league(base, state)
     return state
 
 
@@ -373,21 +339,6 @@ def ensure_roles(base: Path, cfg: dict) -> None:
                        if source_opt is not None else None)
         else:
             store_live(base, learner, copy.deepcopy(g000_w), None)
-    # Each exploiter incarnation is its own manifest member (role
-    # me/le, parent g000): games log under the incarnation id, so a
-    # reset starts a fresh record instead of inheriting the old
-    # incarnation's peak Elo under the slot name. Mint once per slot:
-    # restarts resume the live incarnation (ids persist in league.json).
-    state = archive.load_league(base)
-    minted = False
-    for slot, exp in state.get("exploiters", {}).items():
-        if slot not in train.ROLE_CONFIGS:
-            continue
-        if exp.get("id") is None:
-            exp["id"] = mint_incarnation(base, slot, g000, g000_w)
-            minted = True
-    if minted:
-        archive.save_league(base, state)
 
 
 def load_live_all(cfg: dict, base: Path) -> dict:
@@ -406,14 +357,12 @@ def load_live_all(cfg: dict, base: Path) -> dict:
 
 
 def _next_family_id(base: Path, prefix: str, start: int = 0) -> str:
-    """First free family id ``prefix-k`` (k >= start) not in the manifest.
+    """First free family id ``prefix`` + k (k >= start), e.g. main0.
 
     Scans manifest ids; collision-skips taken names. Numbering is
-    0-based: the first admitted exploiter of a slot is ``prefix-0``,
-    and the counter moves only on admission (stall resets mint plain
-    g-ids, never family names). Callers pass a log-derived start (slot
-    admissions) so numbering continues instead of reusing gaps.
-    Pure except for the manifest read."""
+    0-based and derived from the admissions log (or 0 for a fresh
+    namespace), so it continues instead of reusing gaps and restarts
+    safely with no counter state. Pure except for the manifest read."""
     try:
         k = int(start)
     except (TypeError, ValueError):
@@ -422,17 +371,9 @@ def _next_family_id(base: Path, prefix: str, start: int = 0) -> str:
         k = 0
     taken = {m.get("id") for m in archive.members(base)
              if isinstance(m.get("id"), str)}
-    while f"{prefix}-{k}" in taken:
+    while f"{prefix}{k}" in taken:
         k += 1
-    return f"{prefix}-{k}"
-
-
-#: Admission family prefixes per exploiter slot.
-ADMISSION_PREFIXES = {
-    "me": "main-exploiter",
-    "le-a": "league-exploiter-a",
-    "le-b": "league-exploiter-b",
-}
+    return f"{prefix}{k}"
 
 
 def _slot_admissions(state: dict, learner: str) -> int:
@@ -442,35 +383,6 @@ def _slot_admissions(state: dict, learner: str) -> int:
     entries whose role is the slot name."""
     return sum(1 for a in state.get("admissions", []) or []
                if isinstance(a, dict) and a.get("role") == learner)
-
-
-#: Replay display names for live seats: role names, never ids. The live
-#: main is bare "main"; live exploiters show the role family without a
-#: number (the -N is earned at admission, when the frozen copy takes it).
-#: Frozen opponents display as their member ids (g-ids, main snapshots,
-#: earned family names). Attribution (records/logs/matrix) always uses
-#: the seat/incarnation ids, never these display names.
-DISPLAY_NAMES = {
-    "main": "main",
-    "me": "main-exploiter",
-    "le-a": "league-exploiter-a",
-    "le-b": "league-exploiter-b",
-}
-
-
-def mint_incarnation(base: Path, slot: str, g000_id: str,
-                     g000_w: dict) -> str:
-    """Fresh per-incarnation member row: the exploiter's live id.
-
-    Mints a manifest member (role me/le per the slot, parent g000) via
-    the existing allocator and returns its id. The incarnation's games
-    accumulate under this id -- never the slot name -- so a reset (which
-    mints again) starts at g000's level instead of peak-continuing the
-    previous incarnation's Elo. Snapshots taken during the incarnation
-    parent to this id and seed from its level."""
-    role = train.ROLE_CONFIGS[slot]["snapshot_role"]
-    return archive.save_league_snapshot(
-        base, copy.deepcopy(g000_w), role, g000_id)
 
 
 def reset_learner(base: Path, live: dict, learner: str, g000_w: dict) -> None:
@@ -493,15 +405,15 @@ def _window_record(window: list[float]) -> str:
 
 
 def maybe_admit(base: Path, live: dict, state: dict, learner: str,
-                g000_w: dict, g000_id: str = "g000") -> dict | None:
+                g000_w: dict) -> dict | None:
     """Admission check: sustained >60% over the last 40 vs the target.
 
-    Freezes the current weights as an admitted pool member (the freeze
-    IS the record: no extra copy step), logs the admission, and resets
-    the learner to a FRESH incarnation id (g000 weights + fresh Adam).
-    The admitted copy parents to the live incarnation, so it seeds from
-    the incarnation's peak; the new incarnation parents to g000, so it
-    restarts near 0.0. Returns the entry or None."""
+    Freezes the current weights as an admitted pool member under the next
+    family id (meN/le-aN/le-bN, 0-based from the admissions log) with the
+    live slot as parent, so it seeds from the slot's peak. Logs the
+    admission, then resets the live slot IN PLACE (g000 weights + fresh
+    Adam, same bare id): the family id is the achievement, the slot is
+    the continuing lineage. Returns the entry or None."""
     if learner == "main":
         return None
     exp = state["exploiters"][learner]
@@ -510,11 +422,10 @@ def maybe_admit(base: Path, live: dict, state: dict, learner: str,
         return None
     if _window_rate(window) > ADMISSION_RATE:
         weights = algorithm.policy_weights(live[learner]["policy"])
-        prefix = ADMISSION_PREFIXES.get(learner, f"{learner}-exploiter")
         start = _slot_admissions(state, learner)
         sid = archive.save_named_snapshot(
-            base, _next_family_id(base, prefix, start),
-            weights, "admitted", exp.get("id"))
+            base, _next_family_id(base, learner, start),
+            weights, "admitted", learner)
         entry = archive.record_admission(
             base, sid, learner, exp.get("games", 0),
             _window_record(window))
@@ -524,7 +435,6 @@ def maybe_admit(base: Path, live: dict, state: dict, learner: str,
         exp = state["exploiters"][learner]
         reset_learner(base, live, learner, g000_w)
         exp["window"] = []
-        exp["id"] = mint_incarnation(base, learner, g000_id, g000_w)
         exp["reset_at"] = exp.get("games", 0)
         archive.save_league(base, state)
         return entry
@@ -532,16 +442,21 @@ def maybe_admit(base: Path, live: dict, state: dict, learner: str,
 
 
 def maybe_stall_reset(base: Path, live: dict, state: dict, learner: str,
-                      g000_w: dict, g000_id: str = "g000") -> bool:
-    """Stall rule: 400 own-games with no admission mints a fresh
-    incarnation (g000 weights + fresh Adam, new member id)."""
+                      g000_w: dict) -> bool:
+    """Stall rule: 400 own-games with no admission resets IN PLACE.
+
+    Same bare slot id before and after (g000 weights + fresh Adam,
+    window cleared): the record persists across the reset, so a fresh
+    start inherits the failed era's level -- pessimistic direction,
+    self-corrects as fresh games dominate. Admission-resets always move
+    the lineage forward under a fresh family id, so peak-inheritance
+    (the optimistic direction) can never happen."""
     if learner == "main":
         return False
     exp = state["exploiters"][learner]
     if exp.get("games", 0) - exp.get("reset_at", 0) >= STALL_GAMES:
         reset_learner(base, live, learner, g000_w)
         exp["window"] = []
-        exp["id"] = mint_incarnation(base, learner, g000_id, g000_w)
         exp["reset_at"] = exp.get("games", 0)
         archive.save_league(base, state)
         return True
@@ -550,45 +465,37 @@ def maybe_stall_reset(base: Path, live: dict, state: dict, learner: str,
 
 def maybe_snapshot(cfg: dict, base: Path, live: dict, state: dict,
                    learner: str) -> dict | None:
-    """Snapshot cadence: every 80th own-game freezes a permanent member.
+    """Snapshot cadence: the MAIN freezes a permanent member every 80th
+    own-game (mainN, fresh 0-based namespace). Exploiters never snapshot:
+    they enter the pool only by admission (meN/le-aN/le-bN).
 
-    Counted on cycle games (since the last reset) so a fresh reset never
-    snapshots on its first tick. Main snapshots chain via the league main
-    id and trigger the anchor ladder series (measurement only). Exploiter
-    snapshots parent to the LIVE incarnation id -- which snapshots never
-    overwrite, so the incarnation id stays stable across resets -- and
-    the frozen copy seeds from the incarnation's level. Returns
-    {"id", "anchors"} or None.
+    Main snapshots chain via the league main id and trigger the anchor
+    ladder series (measurement only). Returns {"id", "anchors"} or None.
     """
-    if learner == "main":
-        games = state.get("main_games", 0)
-    else:
-        exp = state["exploiters"][learner]
-        games = exp.get("games", 0) - exp.get("reset_at", 0)
+    if learner != "main":
+        return None
+    games = state.get("main_games", 0)
     if games <= 0 or games % SNAPSHOT_EVERY != 0:
         return None
-    role = train.ROLE_CONFIGS[learner]["snapshot_role"]
     weights = algorithm.policy_weights(live[learner]["policy"])
-    parent = state.get("main_id") if learner == "main" else state["exploiters"][learner].get("id")
-    sid = archive.save_league_snapshot(base, weights, role, parent)
+    parent = state.get("main_id")
+    sid = archive.save_named_snapshot(
+        base, _next_family_id(base, "main", 0),
+        weights, train.ROLE_CONFIGS[learner]["snapshot_role"], parent)
     anchors = None
-    if learner == "main":
-        state["main_id"] = sid
-        snaps = state.setdefault("main_snapshots", [])
-        if sid not in snaps:
-            snaps.append(sid)
-        anchor_ws = {}
-        for aid in state.get("anchors", []):
-            try:
-                anchor_ws[aid] = archive.load_checkpoint(base, aid)
-            except (FileNotFoundError, ValueError, KeyError):
-                continue
-        if anchor_ws:
-            anchors = measure.measure_all(cfg, base, sid, sid, weights,
-                                          anchor_ws)
-    # Exploiter snapshots parent to the live incarnation id but never
-    # overwrite it: the incarnation id stays stable until a reset mints
-    # a new one.
+    state["main_id"] = sid
+    snaps = state.setdefault("main_snapshots", [])
+    if sid not in snaps:
+        snaps.append(sid)
+    anchor_ws = {}
+    for aid in state.get("anchors", []):
+        try:
+            anchor_ws[aid] = archive.load_checkpoint(base, aid)
+        except (FileNotFoundError, ValueError, KeyError):
+            continue
+    if anchor_ws:
+        anchors = measure.measure_all(cfg, base, sid, sid, weights,
+                                      anchor_ws)
     archive.save_league(base, state)
     append_history(base, {"snapshot": sid, "learner": learner,
                           "games": games,
@@ -616,22 +523,13 @@ def run_tick(cfg: dict, base: Path, live: dict,
     lcfg = train.ROLE_CONFIGS[learner]
     entry = live[learner]
     g000_w = archive.load_checkpoint(base, cfg.get("g000", "g000"))
-    g000_id = cfg.get("g000", "g000")
 
-    # Seat identity: main logs under "main" forever (it never resets).
-    # Exploiters log under their LIVE incarnation id: one manifest member
-    # per incarnation, so a reset starts a fresh record instead of
-    # peak-continuing under the slot name.
-    if learner == "main":
-        seat_id = "main"
-    else:
-        seat_id = state["exploiters"][learner].get("id")
-        if seat_id is None:
-            # Pre-incarnation leagues (id predates the fix): mint on the
-            # fly so games never fall back to the slot name.
-            seat_id = mint_incarnation(base, learner, g000_id, g000_w)
-            state["exploiters"][learner]["id"] = seat_id
-            archive.save_league(base, state)
+    # Seat identity: bare slot names, forever. The main logs under
+    # "main" (it never resets); exploiters log under their slot
+    # ("me", "le-a", "le-b") across resets. No incarnation ids:
+    # the reset log severs the record instead (see note_reset + the
+    # Elo reset-cuts), and admissions freeze peaks under family ids.
+    seat_id = learner
 
     records = pair_records(base)
     totals = archive.member_game_counts(base)
@@ -643,8 +541,7 @@ def run_tick(cfg: dict, base: Path, live: dict,
     map_path = rng.choice(cfg["maps"])
     played = train._play_one(
         (dict(cfg, game_kind="eval"), base, seat_id, [seat_id, opp],
-         [live_w, opp_w], game_no, lcfg["pricing"], map_path,
-         [DISPLAY_NAMES.get(learner, seat_id), opp]))
+         [live_w, opp_w], game_no, lcfg["pricing"], map_path))
     batch = algorithm.collect(entry["policy"], played["rows"],
                               played["rets"])
     entry["pending"].extend(batch)
@@ -684,19 +581,23 @@ def run_tick(cfg: dict, base: Path, live: dict,
             state = archive.load_league(base)
     archive.save_league(base, state)
 
-    admitted = maybe_admit(base, live, state, learner, g000_w, g000_id)
+    admitted = maybe_admit(base, live, state, learner, g000_w)
     snapshot = None
     stalled = False
     if admitted is not None:
         # maybe_admit reloads internally: refresh or the final save
         # clobbers the admission entry and the reset.
         state = archive.load_league(base)
+        archive.note_reset(base, learner, seat_id, game_no, tick)
+        state = archive.load_league(base)
     else:
         # A stall reset means dead weights: reset first so the cycle
         # restarts and no snapshot freezes the dropped lineage.
         stalled = maybe_stall_reset(base, live, state, learner,
-                                   g000_w, g000_id)
+                                    g000_w)
         if stalled:
+            state = archive.load_league(base)
+            archive.note_reset(base, learner, seat_id, game_no, tick)
             state = archive.load_league(base)
         else:
             # The admitted freeze is the permanent record for that tick;

@@ -475,8 +475,8 @@ def save_named_snapshot(base: Path, member_id: str, weights: dict, role: str,
     """Freeze a league snapshot under a caller-supplied family id.
 
     Same role validation + store + manifest-append as save_checkpoint,
-    but the id is caller-supplied (family naming: main-{k},
-    main-exploiter-{k}, league-exploiter-{k}). Raises ValueError for a
+    but the id is caller-supplied (universe naming: mainN snapshots,
+    meN/le-aN/le-bN admissions, 0-based). Raises ValueError for a
     bad role or when the id is already in the manifest. The g-allocator
     (_next_id) is untouched: named ids never consume g-numbers."""
     if role not in LEAGUE_ROLES:
@@ -492,6 +492,26 @@ def save_named_snapshot(base: Path, member_id: str, weights: dict, role: str,
     row: dict = {"id": member_id, "role": role, "parent": parent}
     if line is not None:
         row["line"] = line
+    with open(_paths(base)["manifest"], "a") as f:
+        f.write(json.dumps(row) + "\n")
+    return member_id
+
+
+def append_member(base: Path, member_id: str, role: str,
+                  parent: str | None) -> str:
+    """Manifest-only member row (no weights file).
+
+    For live slot ids (bare names whose weights live in live-state
+    files, never frozen). Raises ValueError on duplicate id, mirroring
+    save_named_snapshot so manifest ids stay unique.
+    """
+    init(base)
+    taken = {m.get("id") for m in members(base)
+             if isinstance(m.get("id"), str)}
+    if member_id in taken:
+        raise ValueError(f"append_member: id {member_id!r} "
+                         f"already in manifest")
+    row = {"id": member_id, "role": role, "parent": parent}
     with open(_paths(base)["manifest"], "a") as f:
         f.write(json.dumps(row) + "\n")
     return member_id
@@ -528,6 +548,7 @@ def init_league(base: Path, main_id: str, anchors: list[str],
         },
         "anchors": list(anchors),
         "admissions": [],
+        "resets": [],
         "scheduler_pos": 0,
         "snapshot_counter": 0,
     }
@@ -569,6 +590,23 @@ def record_admission(base: Path, member_id: str, role: str, at_game: int,
     entry = {"id": member_id, "role": role,
              "at_game": at_game, "record": record}
     state.setdefault("admissions", []).append(entry)
+    save_league(base, state)
+    return entry
+
+
+def note_reset(base: Path, slot: str, seat: str, game_no: int,
+               tick: int) -> dict:
+    """Append a reset-log entry {slot, seat, game, tick}.
+
+    seat + game_no identify the reset-triggering game
+    (games/{seat}/train{game_no}), so the Elo pass can cut the slot's
+    theta exactly after it. Resets are append-only; the log is the
+    record-severance mechanism replacing incarnation ids. Raises
+    FileNotFoundError without league.json."""
+    state = _require_league(base)
+    entry = {"slot": slot, "seat": seat, "game": game_no,
+             "tick": tick}
+    state.setdefault("resets", []).append(entry)
     save_league(base, state)
     return entry
 

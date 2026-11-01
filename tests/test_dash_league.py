@@ -35,6 +35,9 @@ def _league_base(base, k=4, anchors=("g000", "g009"), games=8):
     archive.init_league(base, "live-main", list(anchors))
     st = archive.load_league(base)
     st["snapshot_every"] = k
+    # production ensure fills bare slot ids (see ensure_league top-up).
+    for _slot, _exp in st.get("exploiters", {}).items():
+        _exp["id"] = _slot
     archive.save_league(base, st)
     for i in range(games):
         learner = "main" if i % 2 == 0 else "me"
@@ -103,39 +106,17 @@ def test_league_panel_empty_without_league_json(tmp_path):
     assert dashboard.league_panel(base) == []
 
 
-def test_tracked_members_are_main_live_incarnations_plus_anchors(tmp_path):
+def test_tracked_members_are_main_live_slots_plus_anchors(tmp_path):
     import dashboard
 
     base = _league_base(tmp_path / "a", anchors=["g000", "g009"])
     import archive
 
     state = archive.load_league(base)
-    # Fresh league.json has no live incarnations yet: main + anchors.
+    # Fresh league.json has bare slot ids: main + slots + anchors.
     grouped = dashboard.cached_grouped(base)
     assert dashboard.tracked_members(base, grouped) == \
-        ["main", "g000", "g009"]
-    # Once incarnations are live, the panel follows them (not the slots).
-    state["exploiters"]["me"]["id"] = "g101"
-    state["exploiters"]["le-a"]["id"] = "g102"
-    state["exploiters"]["le-b"]["id"] = "g103"
-    archive.save_league(base, state)
-    assert dashboard.tracked_members(base, grouped) == \
-        ["main", "g101", "g102", "g103", "g000", "g009"]
-    # After a reset mints a new incarnation, the panel follows the new id.
-    state["exploiters"]["me"]["id"] = "g104"
-    archive.save_league(base, state)
-    assert dashboard.tracked_members(base, grouped) == \
-        ["main", "g104", "g102", "g103", "g000", "g009"]
-
-
-def test_tracked_members_fallback_without_league(tmp_path):
-    import archive
-    import dashboard
-
-    base = tmp_path / "a"
-    archive.init(base)
-    grouped = [_game("x", 3, "y", 1), _game("x", 1, "z", 0)]
-    assert dashboard.tracked_members(base, grouped) == ["x", "y", "z"]
+        ["main", "me", "le-a", "le-b", "g000", "g009"]
 
 
 # --- anchor-trend card ---
