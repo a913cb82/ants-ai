@@ -675,36 +675,30 @@ def reset_cut_intervals(grouped: list[dict], K: int,
                           resets: list[dict]) -> dict[str, set[int]]:
     """Reset log -> {seat id: cut interval indices}.
 
-    Each reset entry names the game that triggered it (seat + game_no
-    identify games/{seat}/train{game_no}/logs/0.replay, unique per seat).
-    The cut fires at the first interval AFTER that game: the game itself
-    still counts pre-reset (its weights were), everything after restarts
-    from seed. grouped is newest-first (interval_batches counts from the
-    oldest). Unknown games and empty logs map to no cuts, never a crash.
-    Pure."""
+    Each reset entry names its game by tick (one tick is one game).
+    The cut fires at the first interval AFTER that game: the game
+    itself still counts pre-reset (its weights were), everything
+    after restarts from seed. grouped is newest-first
+    (interval_batches counts from the oldest). Unknown ticks and
+    empty logs map to no cuts, never a crash. Pure."""
     if K <= 0:
         K = 1
     if not resets:
         return {}
-    by_replay: dict[str, int] = {}
+    by_tick: dict[int, int] = {}
     for order, g in enumerate(reversed(grouped)):
-        rp = g.get("replay", "") if isinstance(g, dict) else ""
-        if isinstance(rp, str) and rp not in by_replay:
-            by_replay[rp] = order
+        t = g.get("tick") if isinstance(g, dict) else None
+        if isinstance(t, int) and t not in by_tick:
+            by_tick[t] = order
     cuts: dict[str, set[int]] = {}
     for r in resets:
         if not isinstance(r, dict):
             continue
-        seat, game = r.get("seat"), r.get("game")
-        if not isinstance(seat, str):
+        seat, tick = r.get("seat"), r.get("tick")
+        if not isinstance(seat, str) or not isinstance(tick, int):
             continue
-        try:
-            n = int(game)
-        except (TypeError, ValueError):
-            continue
-        key = f"games/{seat}/train{n}/logs/0.replay"
-        if key in by_replay:
-            cuts.setdefault(seat, set()).add(by_replay[key] // K + 1)
+        if tick in by_tick:
+            cuts.setdefault(seat, set()).add(by_tick[tick] // K + 1)
     return cuts
 
 
@@ -1290,7 +1284,6 @@ def h0_panel(base: Path, state: dict | None, grouped: list[dict],
     games_per_h, secs = rate_window(base)
     return {
         "tick": state.get("tick", 0),
-        "game_n": len(grouped),
         "learners": active_learners(base, state),
         "games_per_h": games_per_h,
         "secs_since_game": secs,
@@ -1496,14 +1489,13 @@ def behavior_panel(base: Path) -> list[dict]:
 
 def games_panel(grouped: list[dict],
                 limit: int = 100) -> tuple[list[dict], int]:
-    """Recent games newest-first: dual ordinal+tick, learner-side result."""
+    """Recent games newest-first: the tick IS the game number."""
     total = len(grouped)
     out = []
     for idx, g in enumerate(grouped[:limit]):
         seats = g.get("seats", []) or []
         ref = seats[0].get("id") if seats else None
         out.append({
-            "game_n": total - 1 - idx,
             "tick": g.get("tick"),
             "learner": g.get("gen"),
             "seats": [s.get("id") for s in seats],
@@ -1774,11 +1766,6 @@ def fmt_tick(t) -> str:
     return f"t{t}" if isinstance(t, (int, float)) else "t—"
 
 
-def dual(g, t) -> str:
-    """Dual time, everywhere: g1234 · t5678, dashes for unknowns."""
-    gg = f"g{g}" if isinstance(g, (int, float)) else "g—"
-    return f"{gg} · {fmt_tick(t)}"
-
 
 def is_stale(row_tick, h0_tick) -> bool:
     """A row older than 200 ticks vs the H0 tick reads grayed out."""
@@ -1802,7 +1789,7 @@ def h0_strip_html(h0: dict | None) -> str:
     dots = "".join(f"{_dot(l)}{_esc(l)}" for l in who)
     return (
         f"<span><b>tick</b> {_esc(h0.get('tick', 0))}</span>"
-        f"<span><b>game</b> {_esc(h0.get('game_n', 0))}</span>"
+        f"<span><b>game</b> {_esc(h0.get('tick', 0))}</span>"
         f"<span>{dots}</span>"
         f"<span><b>rate</b> {fmt_rate(h0.get('games_per_h'))}</span>"
         f"<span><b>last game</b> {fmt_age(h0.get('secs_since_game'))}</span>"
@@ -1937,7 +1924,7 @@ def game_row_html(g: dict) -> str:
     res = g.get("result") or "draw"
     names = " vs ".join(_esc(s) for s in g.get("seats", []) or [])
     return (
-        f"<tr><td class=\"num\">{dual(g.get('game_n'), g.get('tick'))}</td>"
+        f"<tr><td class=\"num\">{fmt_tick(g.get('tick'))}</td>"
         f"<td>{_dot(g.get('learner'))}{_esc(g.get('learner'))}</td>"
         f"<td>{game_replay_label(g)}</td>"
         f"<td><span class=\"badge {res}\">{res}</span></td>"
@@ -2063,7 +2050,6 @@ function fmtRate(h){return (h===null||h===undefined||!Number.isFinite(+h))?"—"
 function fmtElo(e){return (e===null||e===undefined)?"—":String(Math.round(e));}
 function fmtShare(s){return (s===null||s===undefined||!Number.isFinite(+s))?"—":Math.round(s)+"%";}
 function fmtTick(t){return (t===null||t===undefined)?"t—":"t"+t;}
-function dual(g,t){return (g===null||g===undefined?"g—":"g"+g)+" · "+fmtTick(t);}
 function dot(id){return '<span aria-hidden="true" style="color:'+col(id)+'">●</span> ';}
 function staleCls(t,h){return (Number.isFinite(t)&&Number.isFinite(h)&&h-t>200)?' class="stale"':"";}
 /* P0-3 guards: never clobber a table the reader is using; keep its scroll. */
@@ -2082,7 +2068,7 @@ function renderH0(){
   const dots=who.map(id=>dot(id)+esc(id)).join(" ");
   $("h0").innerHTML=
     "<span><b>tick</b> "+esc(h.tick)+"</span>"+
-    "<span><b>game</b> "+esc(h.game_n)+"</span>"+
+    "<span><b>game</b> "+esc(h.tick)+"</span>"+
     "<span>"+dots+"</span>"+
     "<span><b>rate</b> "+fmtRate(h.games_per_h)+"</span>"+
     "<span><b>last game</b> "+fmtAge(h.secs_since_game)+"</span>"+
@@ -2239,7 +2225,7 @@ function gameRow(g){
     const cell=esc(sid)+" "+esc(sc);
     return (res==="win"&&i===0)?"<b>"+cell+"</b>":cell;
   }).join(" · ");
-  return "<tr><td class=num>"+dual(g.game_n,g.tick)+"</td><td>"+dot(g.learner)+esc(g.learner)+"</td><td>"+bits+
+  return "<tr><td class=num>"+fmtTick(g.tick)+"</td><td>"+dot(g.learner)+esc(g.learner)+"</td><td>"+bits+
     '</td><td><span class="badge '+res+'">'+res+"</span></td>"+
     '<td class="replay"><a href="/replay?f='+encodeURIComponent(g.replay)+'" target="_blank" rel="noopener" title="'+esc(names)+' — opens in a new tab">replay<span aria-hidden="true"> ↗</span></a></td></tr>';
 }
@@ -2265,7 +2251,7 @@ async function renderGames(my){
   lastGames=h;
   keepScroll($("games-scroll"),()=>{
     $("games-body").innerHTML=data.rows.map(g=>gameRow({
-      game_n:g.game_n,tick:g.tick,learner:g.gen,
+      tick:g.tick,learner:g.gen,
       seats:(g.seats||[]).map(s=>s.id),scores:(g.seats||[]).map(s=>s.score),
       result:(g.seats&&g.seats.length&&(g.seats[0].result||"draw"))||"draw",
       replay:g.replay})).join("")||(data.total

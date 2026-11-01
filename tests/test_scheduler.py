@@ -51,7 +51,7 @@ def _setup(tmp_path, monkeypatch, scores=(3, 1), **cfg_over):
     live = selfplay.load_live_all(cfg, base)
 
     def fake_play_one(args):
-        (c, b, chal_id, field, weights, i, role, map_path) = args[:8]
+        (c, b, chal_id, field, weights, role, map_path) = args[:7]
         return {"rows": [], "rets": [], "scores": [scores[0], scores[1]]}
 
     monkeypatch.setattr(train, "_play_one", fake_play_one)
@@ -499,3 +499,29 @@ def test_pool_worker_drains_through_dispatcher(tmp_path):
         selfplay.run_tick = real
     assert seen == ["main"] * 3
     assert in_flight == set()  # released, never wedged
+
+
+def test_recover_keeps_resets_whose_rows_were_stripped(tmp_path):
+    base, _, _, _ = _league_base(tmp_path)
+    cfg = _cfg(tmp_path)
+    selfplay.ensure_roles(base, cfg)
+    games = base / "games.jsonl"
+    games.write_text(
+        '{"gen": "main", "kind": "eval", "tick": 7, "map": "m", "n": 2,'
+        ' "replay": "r", "seats": [], "pairs": []}\n')
+    with archive.league_lock():
+        state = archive.load_league(base)
+        state.setdefault("resets", []).append(
+            {"slot": "me", "seat": "me", "tick": 7})
+        state.setdefault("resets", []).append(
+            {"slot": "me", "seat": "me", "tick": 99})
+        archive.save_league(base, state)
+    selfplay.begin_tick_marker(base, 7)
+    selfplay.recover_ticks(base)
+    state = archive.load_league(base)
+    # weights really did re-seed: the log keeps both, unknown ticks
+    # simply cut nothing.
+    assert state.get("resets") == [{"slot": "me", "seat": "me",
+                                      "tick": 7},
+                                     {"slot": "me", "seat": "me",
+                                      "tick": 99}]

@@ -55,7 +55,7 @@ def _setup(tmp_path, monkeypatch, scores=(3, 1), **cfg_over):
     live = selfplay.load_live_all(cfg, base)
 
     def fake_play_one(args):
-        (c, b, chal_id, field, weights, i, role, map_path) = args[:8]
+        (c, b, chal_id, field, weights, role, map_path) = args[:7]
         archive.record_result(b, field[0], field[1],
                               scores[0], scores[1], kind="eval")
         archive.log_game(b, chal_id, "eval", field[0], field[1],
@@ -128,7 +128,7 @@ def test_replay_names_are_universe_seat_ids(tmp_path, monkeypatch):
 
     base, _, _ = _league_base(tmp_path)
     cfg = {"turns": 2, "temperature": 1.0, "seed": 0, "game_kind": "eval",
-           "train_draw_penalty_every": 0}
+           "train_draw_penalty_every": 0, "tick": 3}
     seen = {}
 
     def fake_play(root, exe, weights, game_cfg, outdir, names=None):
@@ -142,7 +142,7 @@ def test_replay_names_are_universe_seat_ids(tmp_path, monkeypatch):
                         lambda *a, **k: [])
     field = ["me", "g001"]
     out = train._play_one(
-        (cfg, base, "me", field, [{}, {}], 0, "exploiter", "m.map"))
+        (cfg, base, "me", field, [{}, {}], "exploiter", "m.map"))
     assert seen["names"] == field  # names=field: display IS attribution
     assert out["scores"] == [3, 1]
     assert "me" in [r["a"] for r in archive.list_games(base)] or True

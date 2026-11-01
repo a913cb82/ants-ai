@@ -36,8 +36,9 @@ Plan: ml/runs/plan-league.md. Migration: plan §Initialization.
    fresh Adam under the SAME bare id, so peak-inheritance can never
    happen. A drought simply keeps training under the same id with a
    rolling window -- no timeout, no reset (removed 2026-11-02: no
-   AlphaStar counterpart). Every admission appends {slot, seat, game,
-   tick} to league.json resets; the Elo pass cuts the slot's theta to
+   AlphaStar counterpart). Every admission appends {slot, seat, tick}
+   to league.json resets (the tick IS the game number); the Elo pass
+   cuts the slot's theta to
    seed at each reset (no peak leaks across).
 8. **Anchors.** g000 (floor) + past main snapshots; 2 games each per
    main snapshot; NO training on anchor games. The anchor trend is the

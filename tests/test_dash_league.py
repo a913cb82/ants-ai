@@ -360,21 +360,20 @@ def test_pairs_share_and_last_tick(tmp_path):
 
 # --- games: newest first with dual time ---
 
-def test_games_newest_first_with_dual_time(tmp_path):
+def test_games_newest_first_with_tick_ids(tmp_path):
     import dashboard
 
     base = _league_base(tmp_path / "a", games=4)
     snap = dashboard.snapshot(base)
     assert snap["game_total"] == 4
     gs = snap["games"]
-    assert [g["game_n"] for g in gs] == [3, 2, 1, 0]
     assert [g["tick"] for g in gs] == [3, 2, 1, 0]
-    assert all(set(g) == {"game_n", "tick", "learner", "seats", "scores",
+    assert all(set(g) == {"tick", "learner", "seats", "scores",
                           "result", "replay"} for g in gs)
     assert gs[0]["learner"] == "me" and gs[0]["seats"] == ["me", "g000"]
     assert gs[0]["result"] in ("win", "draw", "loss")
     page = dashboard.render_page(snap)
-    assert "g3 · t3" in page  # dual time everywhere
+    assert ">t3<" in page  # the tick is the game number
 
 
 # --- alerts rules ---
@@ -453,7 +452,7 @@ def test_active_learners_falls_back_to_aggregate(tmp_path):
 def test_h0_strip_joins_learners():
     import dashboard
 
-    html = dashboard.h0_strip_html({"tick": 3, "game_n": 9,
+    html = dashboard.h0_strip_html({"tick": 3,
                                     "learners": ["main", "me"],
                                     "games_per_h": None,
                                     "secs_since_game": 4,
@@ -473,3 +472,16 @@ def test_standings_carries_micro_progress(tmp_path):
     archive.save_league(base, st)
     rows = {r["id"]: r for r in dashboard.snapshot(base)["standings"]}
     assert rows["me"]["micro"] == 5 and rows["main"]["micro"] == 0
+
+
+def test_reset_cut_keys_on_tick_not_replay_path():
+    import dashboard
+
+    def row(tick, replay="x"):
+        return {"tick": tick, "replay": replay}
+    grouped = [row(12), row(11), row(10)]  # newest-first
+    cuts = dashboard.reset_cut_intervals(
+        grouped, 2, [{"slot": "le-a", "seat": "le-a", "tick": 11}])
+    assert cuts == {"le-a": {1}}  # order 1 of 3 -> cut fires at 1
+    assert dashboard.reset_cut_intervals(
+        grouped, 2, [{"slot": "le-a", "seat": "le-a", "tick": 99}]) == {}

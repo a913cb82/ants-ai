@@ -1261,9 +1261,8 @@ def test_snapshot_games_carry_dual_time(tmp_path):
     archive.log_game(base, a, "eval", "g9", a, 0, 5,
                      "games/g1/logs/0.replay", game="g#1", tick=9)
     snap = dashboard.snapshot(base)
-    assert [(g["game_n"], g["tick"]) for g in snap["games"]] == \
-        [(1, 9), (0, 7)]  # newest first, chronological ordinals
-    assert all(set(g) == {"game_n", "tick", "learner", "seats",
+    assert [g["tick"] for g in snap["games"]] == [9, 7]  # newest first
+    assert all(set(g) == {"tick", "learner", "seats",
                            "scores", "result", "replay"}
                for g in snap["games"])
 
@@ -1333,7 +1332,7 @@ def test_snapshot_retires_status_and_members(tmp_path):
     archive.write_status(base, {"phase": "eval", "done": 3, "total": 20})
     snap = dashboard.snapshot(base)
     assert "status" not in snap and "members" not in snap
-    assert set(snap["h0"]) == {"tick", "game_n", "learners",
+    assert set(snap["h0"]) == {"tick", "learners",
                                 "games_per_h",
                                 "secs_since_game", "anchor_verdict"}
 
@@ -2171,11 +2170,11 @@ def test_group_splits_rerun_collision_into_two_games(tmp_path):
 
 
 def test_group_dup_seat_game_stays_one_game(tmp_path):
-    """Real train5 shape: 3p field [g1732,g1690,g1690], scores [0,2,3]."""
+    """Real tick5 shape: 3p field [g1732,g1690,g1690], scores [0,2,3]."""
     import dashboard
 
     base = tmp_path / "archive"
-    rep = "games/g1732/train5/logs/0.replay"
+    rep = "games/g1732/tick5/logs/0.replay"
     _write_np_rows(base, [
         _np_row("g1732", "train", "g1732", "g1690", 0, 2, rep),
         _np_row("g1732", "train", "g1732", "g1690", 0, 3, rep),
@@ -2190,11 +2189,11 @@ def test_group_dup_seat_game_stays_one_game(tmp_path):
 
 
 def test_group_dup_seat_4p_game_stays_one_game(tmp_path):
-    """Real train20 shape: 4p [g1732,g1690,g1657,g1657], scores [5,0,1,0]."""
+    """Real tick20 shape: 4p [g1732,g1690,g1657,g1657], scores [5,0,1,0]."""
     import dashboard
 
     base = tmp_path / "archive"
-    rep = "games/g1732/train20/logs/0.replay"
+    rep = "games/g1732/tick20/logs/0.replay"
     _write_np_rows(base, [
         _np_row("g1732", "train", "g1732", "g1657", 5, 1, rep),
         _np_row("g1732", "train", "g1732", "g1657", 5, 0, rep),
@@ -2354,9 +2353,16 @@ def test_train_play_one_tags_pairs_with_one_game_id(tmp_path, monkeypatch):
     import train
 
     base = tmp_path / "archive"
-    cfg = {"seed": 0, "turns": 5, "temperature": 0.0, "train_games": 1}
-    monkeypatch.setattr(game_if, "play", lambda *a, **k: (
-        _fake_game_out(["g007", "g001", "g002"], [1, 3, 0], a[4])))
+    cfg = {"seed": 0, "turns": 5, "temperature": 0.0, "train_games": 1,
+           "tick": 7}
+    seen_cfg = {}
+
+    def fake_play(*a, **k):
+        seen_cfg.update(vars(a[3]))  # GameConfig carries both seeds
+        return _fake_game_out(["g007", "g001", "g002"], [1, 3, 0],
+                              a[4])
+
+    monkeypatch.setattr(game_if, "play", fake_play)
     import algorithm
     import rewards
 
@@ -2364,13 +2370,14 @@ def test_train_play_one_tags_pairs_with_one_game_id(tmp_path, monkeypatch):
     monkeypatch.setattr(rewards, "compute_returns", lambda *a, **k: [0.1])
     monkeypatch.setattr(rewards, "scales_for", lambda role: {})
     train._play_one((cfg, base, "g007", ["g007", "g001", "g002"],
-                     {}, 0, "challenger", _tmp_3p_map(tmp_path)))
+                     {}, "challenger", _tmp_3p_map(tmp_path)))
+    assert (seen_cfg["player_seed"], seen_cfg["engine_seed"]) == (7, 1007)
     rows = archive.list_games(base)
     assert len(rows) == 3  # 3p game logs 3 pair rows
     gids = {r.get("game") for r in rows}
     assert len(gids) == 1
     (gid,) = gids
-    assert gid.startswith("games/g007/train0#")
+    assert gid.startswith("games/g007/tick7#")
 
 
 def _fake_game_out(names, scores, outdir):

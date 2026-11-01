@@ -88,7 +88,7 @@ def _elo_archive(tmp_path, ids, games, K=1, parents=None, resets=(),
     (a, b, result) oldest-first, league resets optional.
 
     result is "w"/"l"/"d" from a's side. Games log under `seat` with
-    train{N} replay paths so reset entries match the live format."""
+    tick{N} replay paths so reset entries match the live format."""
     import archive
 
     base = tmp_path / name
@@ -103,8 +103,8 @@ def _elo_archive(tmp_path, ids, games, K=1, parents=None, resets=(),
         sa, sb = {"w": (1, 0), "l": (0, 1), "d": (1, 1)}[r]
         archive.record_result(base, mid[a], mid[b], sa, sb, kind="eval")
         archive.log_game(base, seat, "eval", mid[a], mid[b], sa, sb,
-                         f"games/{seat}/train{n}/logs/0.replay",
-                         map="m", game=f"gid-{seat}-{n}")
+                         f"games/{seat}/tick{n}/logs/0.replay",
+                         map="m", game=f"gid-{seat}-{n}", tick=n)
     state = archive.init_league(base, mid[ids[0]], [])
     if resets:
         state["resets"] = [{**r, "seat": mid.get(r.get("seat"),
@@ -179,8 +179,8 @@ def test_intervals_reset_cut_drops_theta_to_seed(tmp_path):
                          seat="me", name="elo-plain")
     cut = _elo_archive(tmp_path, ["g000", "me", "x"], games, K=4,
                        seat="me", name="elo-cut",
-                       resets=[{"slot": "me", "seat": "me", "game": 3,
-                                "tick": 0}])
+                       resets=[{"slot": "me", "seat": "me",
+                                "tick": 3}])
     p = _elo_series(*plain, ["me"], K=4)
     q = _elo_series(*cut, ["me"], K=4)
     assert q["me"][0] == p["me"][0]
@@ -315,7 +315,7 @@ def test_snapshot_contract_new_keys_only(tmp_path):
     assert set(rows) == {"main", "me", "le-a", "le-b"}
     assert isinstance(rows["main"]["elo"], int)
     h0 = snap["h0"]
-    assert (h0["tick"], h0["game_n"], h0["learners"]) == (0, 12, ["main"])
+    assert (h0["tick"], h0["learners"]) == (0, ["main"])
     assert h0["games_per_h"] is None  # no wall-clock stamps logged
     assert h0["secs_since_game"] is not None and h0["secs_since_game"] >= 0
     assert h0["anchor_verdict"] == "flat"  # no anchor rows yet

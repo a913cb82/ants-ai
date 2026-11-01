@@ -109,9 +109,8 @@ def test_record_admission_appends(base):
 
 def test_note_reset_appends_identifiable_entry(base):
     archive.init_league(base, "g010", ["g000"])
-    entry = archive.note_reset(base, "me", "me", 41, 160)
-    assert entry == {"slot": "me", "seat": "me", "game": 41,
-                      "tick": 160}
+    entry = archive.note_reset(base, "me", "me", 160)
+    assert entry == {"slot": "me", "seat": "me", "tick": 160}
     state = archive.load_league(base)
     assert state["resets"] == [entry]
 

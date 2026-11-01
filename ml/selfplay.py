@@ -423,6 +423,8 @@ def recover_ticks(base: Path) -> list[int]:
         archive.trim_matrix_rows(base, removed)
         archive.strip_tick_anchors(base, tick)
         archive.strip_tick_history(base, tick)
+        # Reset entries stay even when their rows are gone: the weights
+        # really did re-seed, and unknown ticks map to no cut.
         try:
             dirs = [d for d in learners_dir(base).iterdir()
                     if d.is_dir()]
@@ -628,11 +630,10 @@ def run_tick(cfg: dict, base: Path, live: dict,
     else:
         opp_w = archive.load_checkpoint(base, opp)
     live_w = algorithm.policy_weights(entry["policy"])
-    game_no = learner_games(state, learner)
     map_path = rng.choice(cfg["maps"])
     played = train._play_one(
         (dict(cfg, game_kind="eval", tick=tick), base, seat_id,
-         [seat_id, opp], [live_w, opp_w], game_no, lcfg["pricing"],
+         [seat_id, opp], [live_w, opp_w], lcfg["pricing"],
          map_path))
     batch = algorithm.collect(entry["policy"], played["rows"],
                               played["rets"])
@@ -681,7 +682,7 @@ def run_tick(cfg: dict, base: Path, live: dict,
             # maybe_admit reloads internally: refresh or the final save
             # clobbers the admission entry and the reset.
             state = archive.load_league(base)
-            archive.note_reset(base, learner, seat_id, game_no, tick)
+            archive.note_reset(base, learner, seat_id, tick)
             state = archive.load_league(base)
         # Behavior stats ride the played game dict into log_game inside
         # _play_one (parsed once per game); the tick rides this cfg copy.

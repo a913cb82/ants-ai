@@ -667,18 +667,16 @@ def record_admission(base: Path, member_id: str, role: str, at_game: int,
     return entry
 
 
-def note_reset(base: Path, slot: str, seat: str, game_no: int,
-               tick: int) -> dict:
-    """Append a reset-log entry {slot, seat, game, tick}.
+def note_reset(base: Path, slot: str, seat: str, tick: int) -> dict:
+    """Append a reset-log entry {slot, seat, tick}.
 
-    seat + game_no identify the reset-triggering game
-    (games/{seat}/train{game_no}), so the Elo pass can cut the slot's
-    theta exactly after it. Resets are append-only; the log is the
-    record-severance mechanism replacing incarnation ids. Raises
-    FileNotFoundError without league.json."""
+    The tick IS the game number (one tick plays exactly one game),
+    so the Elo pass cuts the slot's theta exactly after the game
+    stamped with that tick. Resets are append-only; the log is the
+    record-severance mechanism replacing incarnation ids.
+    Raises FileNotFoundError without league.json."""
     state = _require_league(base)
-    entry = {"slot": slot, "seat": seat, "game": game_no,
-             "tick": tick}
+    entry = {"slot": slot, "seat": seat, "tick": tick}
     state.setdefault("resets", []).append(entry)
     save_league(base, state)
     return entry

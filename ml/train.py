@@ -49,11 +49,14 @@ ROLE_CONFIGS = {
 
 def _play_one(args) -> dict:
     """One train game: play, price, record. Thread-safe via archive lock."""
-    (cfg, base, chal_id, field, weights, i, role, map_path) = args
+    (cfg, base, chal_id, field, weights, role, map_path) = args
     # Display names ARE attribution ids: every seat id is in-universe
     # (main / me / le-a / le-b / mainN / meN / le-aN / le-bN / legacy
     # g-ids), so replays, tables, and records all show the same names.
-    rel = f"games/{chal_id}/train{i}"
+    # The tick IS the game number: replay dirs and both seeds key on it
+    # (globally unique, where per-learner counts collided across seats).
+    tick = cfg["tick"]
+    rel = f"games/{chal_id}/tick{tick}"
     out = game_if.play(
         ROOT,
         sys.executable,
@@ -62,8 +65,8 @@ def _play_one(args) -> dict:
             map=map_path,
             turns=cfg["turns"],
             temperature=cfg["temperature"],
-            player_seed=cfg["seed"] + i,
-            engine_seed=1000 + i,
+            player_seed=cfg["seed"] + tick,
+            engine_seed=1000 + tick,
         ),
         base / rel,
         names=field,
@@ -106,7 +109,7 @@ def _play_one(args) -> dict:
     n_games = cfg.get("train_games", 0) * 2
     archive.write_status(base, {
         "phase": "train", "challenger": chal_id,
-        "done": i + 1, "total": n_games,
+        "done": tick + 1, "total": n_games,
         "last_mean_return": sum(rets) / len(rets) if rets else 0.0,
         "last_game": rel,
     })

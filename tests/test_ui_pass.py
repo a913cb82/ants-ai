@@ -65,10 +65,10 @@ def test_snapshot_h0_shape(tmp_path):
 
     base = _league_base(tmp_path / "archive")
     h0 = dashboard.snapshot(base)["h0"]
-    assert set(h0) == {"tick", "game_n", "learners",
+    assert set(h0) == {"tick", "learners",
                        "games_per_h", "secs_since_game",
                        "anchor_verdict"}
-    assert h0["game_n"] == 4
+    assert h0["tick"] == 0
     assert h0["learners"] == ["main"]
     assert h0["anchor_verdict"] in ("new-high", "flat", "down")
 

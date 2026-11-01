@@ -60,12 +60,13 @@ def _setup(tmp_path, monkeypatch, scores=(3, 1), **cfg_over):
     live = selfplay.load_live_all(cfg, base)
 
     def fake_play_one(args):
-        (c, b, chal_id, field, weights, i, role, map_path) = args[:8]
+        (c, b, chal_id, field, weights, role, map_path) = args[:7]
         archive.record_result(b, field[0], field[1],
                               scores[0], scores[1], kind="eval")
         archive.log_game(b, chal_id, "eval", field[0], field[1],
                          scores[0], scores[1], "rel", map="m",
-                         game=f"gid-{chal_id}-{i}")
+                         game=f"gid-{chal_id}-{c.get('tick', 0)}",
+                         tick=c.get("tick"))
         return {"rows": [], "rets": [], "scores": [scores[0], scores[1]]}
 
     monkeypatch.setattr(train, "_play_one", fake_play_one)
