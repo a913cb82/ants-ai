@@ -1,9 +1,9 @@
-"""Training dashboard: key stats, population, games, replay links.
+"""Training dashboard: mirror self-play stats, games, replay links.
 
 Stdlib only. Serves a live page over HTTP so it works from a Windows
 browser against WSL (open http://localhost:PORT; WSL2 forwards
-localhost automatically). Polls the archive; no restart needed between
-generations.
+localhost automatically). Polls the archive; no restart needed as
+training runs.
 
   .venv/bin/python ml/dashboard.py [--port 8080] [--archive ml/archive]
 
@@ -128,12 +128,11 @@ def _rnd(x, nd: int):
     return round(x, nd) if isinstance(x, (int, float)) else x
 
 
-# ---------------------------------------------------------------- LEAGUE BACKEND
-# Continuous-league contracts (ml/runs/plan-league.md, phase 4): the game
-# log is bucketed into K-game intervals (game order // K, K from
-# league.json snapshot_every); the Elo panel is the anchor ladder from
-# league.json; per-learner trajectories replace the duel cand/champ
-# framing. Elo pass math itself is unchanged.
+# ---------------------------------------------------------------- AZ BACKEND
+# Pure-AZ mirror board: h0, training, behavior, games, alerts. One row
+# is one game (tick IS the game number); seats/scores lists support
+# 2/3/4-player maps, seat 0 names the result. Unknowns read as None
+# and render as a dash, never as zero.
 
 
 def rank_of(scores: list) -> list[int]:
@@ -195,6 +194,7 @@ def build_game(row: dict) -> dict | None:
     return {
         "tick": row.get("tick"),
         "learner": "main",
+        "map": row.get("map"),
         "seats": list(seats),
         "scores": list(raw),
         "stats": [_seat_stats(row, i) for i in range(len(seats))],
@@ -242,9 +242,9 @@ def snapshot(base: Path) -> dict:
 
 # ---------------------------------------------------------------- NEW CONTRACT
 # Pure AZ board: h0, training, behavior, games, alerts, mtime. Derived
-# from games.jsonl rows (tick + behavior facts), updates.jsonl (PPO
-# measurements) and state.json (tick + micro). Unknowns read as None
-# and render as a dash, never as zero.
+# from games.jsonl rows (tick + map + behavior facts), updates.jsonl
+# (PPO measurements incl. update_seconds) and state.json (tick +
+# micro). Unknowns read as None and render as a dash, never as zero.
 
 #: No game for this long: training is stuck.
 ALERT_IDLE_S = 15 * 60
@@ -408,6 +408,7 @@ def training_panel(updates: list[dict], limit: int = 8) -> list[dict]:
                 "entropy": u.get("entropy"),
                 "kl": u.get("kl"),
                 "clipfrac": u.get("clipfrac"),
+                "update_seconds": u.get("update_seconds"),
                 "pg_loss": u.get("pg_loss"),
                 "v_loss": u.get("v_loss"),
             }
@@ -701,15 +702,17 @@ def game_replay_label(g: dict) -> str:
 
 
 def game_row_html(g: dict) -> str:
-    """Twin of JS gameRow: tick · learner · matchup(+behavior) · len ·
-    result · replay."""
+    """Twin of JS gameRow: tick · learner · matchup(+behavior) · map ·
+    len · result · replay."""
     res = g.get("result") or "draw"
     names = " vs ".join(_esc(s) for s in g.get("seats", []) or [])
     length = g.get("length")
+    game_map = g.get("map")
     return (
         f'<tr><td class="num">{fmt_tick(g.get("tick"))}</td>'
         f"<td>{_dot()}{_esc(g.get('learner'))}</td>"
         f"<td>{game_replay_label(g)}</td>"
+        f'<td class="truncate">{_esc(game_map) if game_map else "—"}</td>'
         f'<td class="num">{length if isinstance(length, (int, float)) else "—"}</td>'
         f'<td><span class="badge {res}">{res}</span></td>'
         f'<td class="replay"><a href="/replay?f={_esc(g.get("replay"))}" '
@@ -903,9 +906,9 @@ function gameRow(g){
     const cell=esc(sid)+" "+esc(sc)+" ("+statText(st.food,st.kills,st.army_pct)+")";
     return (res==="win"&&i===0)?"<b>"+cell+"</b>":cell;
   }).join(" · ");
-  const len=(g.length==null?"—":g.length);
+  const map=(g.map==null?"—":esc(g.map));
   return "<tr><td class=num>"+fmtTick(g.tick)+"</td><td>"+dot()+esc(g.learner)+"</td><td>"+bits+
-    '</td><td class="num">'+len+'</td><td><span class="badge '+res+'">'+res+"</span></td>"+
+    '</td><td class="truncate">'+map+'</td><td class="num">'+len+'</td><td><span class="badge '+res+'">'+res+"</span></td>"+
     '<td class="replay"><a href="/replay?f='+encodeURIComponent(g.replay)+'" target="_blank" rel="noopener" title="'+esc(names)+' — opens in a new tab">replay<span aria-hidden="true"> ↗</span></a></td></tr>';
 }
 async function renderGames(my){
@@ -924,8 +927,8 @@ async function renderGames(my){
   lastGames=h;
   keepScroll($("games-scroll"),()=>{
     $("games-body").innerHTML=data.rows.map(gameRow).join("")||(data.total
-      ?'<tr><td colspan="6" class="empty">no games on this page — use the pager above</td></tr>'
-      :'<tr><td colspan="6" class="empty">no games logged yet — they appear here as each game finishes</td></tr>');
+      ?'<tr><td colspan="7" class="empty">no games on this page — use the pager above</td></tr>'
+      :'<tr><td colspan="7" class="empty">no games logged yet — they appear here as each game finishes</td></tr>');
   });
   const pages=Math.max(1,Math.ceil(data.total/100));
   const page=Math.min(Math.floor(gamesOffset/100)+1,pages);
@@ -1041,7 +1044,7 @@ def render_page(snap: dict | None = None) -> str:
         alerts = alerts_html(snap.get("alerts"))
         behavior = behavior_rows_html(snap.get("behavior"), tick)
         games = "".join(game_row_html(g) for g in snap.get("games", [])) or (
-            f'<tr><td colspan="6" class="empty">{EMPTY_GAMES}</td></tr>'
+            f'<tr><td colspan="7" class="empty">{EMPTY_GAMES}</td></tr>'
         )
         total = snap.get("game_total", len(snap.get("games", [])))
         game_count = (
@@ -1060,7 +1063,7 @@ def render_page(snap: dict | None = None) -> str:
 <span class="updated" id="updated" title="page refresh time"></span></div>
 <div class="wrap">
 <h1>AlphaAnt mirror self-play</h1>
-<p class="sub">one net · latest vs latest · every 8th game trains</p>
+<p class="sub">one net · latest vs latest · every 16th game trains · 2-4p maps</p>
 <div id="error" role="alert" style="display:none"></div>
 <div class="grid12">
 <div class="tcell span12">
@@ -1085,7 +1088,7 @@ def render_page(snap: dict | None = None) -> str:
 </div>
 <div class="tcell span12">
 <div class="section-title">Recent games</div>
-<div class="legend">tick is the game number · learner seats first · replay names the bots · per-seat food/kills/army% + game length</div>
+<div class="legend">tick is the game number · all seats run the same net · map mixes 2/3/4 players · per-seat food/kills/army% + game length</div>
 <div class="card" id="games-card">
 <div class="toolbar">
 <label class="live-toggle"><input type="checkbox" id="live-toggle" checked> <span id="live-label">live</span></label>
@@ -1094,7 +1097,7 @@ def render_page(snap: dict | None = None) -> str:
 </div>
 <div class="table-scroll table-tall" id="games-scroll"><table>
 <caption style="display:none">Recent games, newest first</caption>
-<tr><th scope="col">game</th><th scope="col">learner</th><th scope="col">matchup</th><th scope="col" class="num">len</th><th scope="col">result</th><th scope="col">replay</th></tr>
+<tr><th scope="col">game</th><th scope="col">learner</th><th scope="col">matchup</th><th scope="col">map</th><th scope="col" class="num">len</th><th scope="col">result</th><th scope="col">replay</th></tr>
 <tbody id="games-body">{games}</tbody></table></div>
 </div>
 </div>

@@ -190,7 +190,8 @@ def test_games_newest_first_with_tick_ids(tmp_path):
     assert [g["tick"] for g in gs] == [3, 2, 1, 0]
     assert all(
         set(g)
-        == {"tick", "learner", "seats", "scores", "stats", "length", "result", "replay"}
+        == {"tick", "learner", "map", "seats", "scores", "stats",
+            "length", "result", "replay"}
         for g in gs
     )
     assert gs[0]["learner"] == "main" and gs[0]["seats"] == ["main", "main"]
@@ -344,3 +345,33 @@ def test_snapshot_contract_is_pure_az(tmp_path):
     h0 = snap["h0"]
     assert h0["tick"] == 4 and h0["games"] == 4
     assert h0["micro"] == 0 and h0["updates"] == 0
+
+
+def test_training_panel_carries_update_seconds(tmp_path):
+    import archive
+    import dashboard
+
+    base = _league_base(tmp_path / "a", games=0)
+    archive.log_update(
+        base,
+        {"tick": 15, "rows": 1406, "mean_return": 0.5, "explained_var": 0.1,
+         "loss": 1.0, "entropy": 0.5, "kl": 0.01, "clipfrac": 0.1,
+         "pg_loss": 0.5, "v_loss": 0.5, "update_seconds": 4.3},
+    )
+    rows = dashboard.training_panel(archive.list_updates(base))
+    assert rows[0]["update_seconds"] == 4.3
+    assert "4.3" in dashboard.training_rows_html(rows)
+
+
+def test_build_game_carries_map():
+    import dashboard
+
+    row = {"seats": ["main", "main", "main"], "scores": [5, 3, 1],
+           "food": [8, 26, 0], "kills": [23, 7, 0], "army": [2, 4, 6],
+           "length": 150, "tick": 9, "map": "cell_maze_p03_26.map"}
+    g = dashboard.build_game(row)
+    assert g["map"] == "cell_maze_p03_26.map"
+    html = dashboard.game_row_html(g)
+    assert "cell_maze_p03_26.map" in html  # 2p/3p/4p mix reads off the table
+    assert dashboard.build_game({"seats": ["main", "main"],
+                                 "scores": [1, 1]}).get("map") is None

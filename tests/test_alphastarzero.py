@@ -1124,7 +1124,8 @@ def test_snapshot_games_carry_dual_time(tmp_path):
     assert [g["tick"] for g in snap["games"]] == [9, 7]  # newest first
     assert all(
         set(g)
-        == {"tick", "learner", "seats", "scores", "stats", "length", "result", "replay"}
+        == {"tick", "learner", "map", "seats", "scores", "stats",
+            "length", "result", "replay"}
         for g in snap["games"]
     )
 
@@ -1947,7 +1948,7 @@ def test_cached_panel_shares_one_build_per_poll(tmp_path):
     first = dashboard.cached_panel(base)
     assert dashboard.cached_panel(base) is first  # no rebuild on repoll
     assert len(first) == 1 and set(first[0]) == {
-        "tick", "learner", "seats", "scores", "stats",
+        "tick", "learner", "map", "seats", "scores", "stats",
         "length", "result", "replay"}
     assert first[0]["result"] == "win"  # seat-0 perspective
     archive.log_game(base, ["main", "main"], [0, 1], "games/g/e1/logs/0.replay", game="g#2")
