@@ -203,7 +203,7 @@ def _pending_path(base: Path, learner: str) -> Path:
 
 
 def bank_pending(base: Path, learner: str, items: list,
-                 arch: str) -> None:
+                 arch: str, tick: int | None = None) -> None:
     """Persist unapplied PPO rows (empty clears the bank)."""
     path = _pending_path(base, learner)
     if not items:
@@ -212,7 +212,7 @@ def bank_pending(base: Path, learner: str, items: list,
         except OSError:
             pass
         return
-    algorithm.dump_pending(path, items, arch)
+    algorithm.dump_pending(path, items, arch, tick)
 
 
 def load_pending(base: Path, learner: str, arch: str) -> list:
@@ -340,6 +340,47 @@ def ensure_roles(base: Path, cfg: dict) -> None:
                        if source_opt is not None else None)
         else:
             store_live(base, learner, copy.deepcopy(g000_w), None)
+
+
+def shed_crashed_banks(base: Path, completed: int) -> bool:
+    """Drop banks newer than the last completed tick (only the
+    interrupted tick's batch). Returns True when anything was shed."""
+    moved = False
+    try:
+        dirs = [d for d in learners_dir(base).iterdir() if d.is_dir()]
+    except OSError:
+        return False
+    for d in dirs:
+        bank = d / "pending.pt"
+        tick = algorithm.pending_tick(bank)
+        if tick is not None and tick > completed:
+            try:
+                bank.unlink()
+                moved = True
+            except OSError:
+                pass
+    return moved
+
+
+def recover_startup(base: Path) -> int | None:
+    """Restore the last committed tick boundary; baseline when new.
+
+    Unconditional on every startup: clean shutdowns find everything
+    already committed (no-op); crashes roll back the partial tick.
+    Returns the completed tick, or None without a commit."""
+    commit = archive.read_commit(base)
+    if commit is None:
+        state = archive.load_league(base) or {}
+        tick = state.get("tick", 0)
+        archive.write_commit(base, tick - 1)
+        return None
+    moved = archive.restore_commit(base)
+    completed = commit.get("completed")
+    if isinstance(completed, int):
+        moved = shed_crashed_banks(base, completed) or moved
+    if moved:
+        print(f"rolled back to committed tick {completed}")
+    return completed if isinstance(completed, int) else None
 
 
 def load_live_all(cfg: dict, base: Path) -> dict:
@@ -549,7 +590,7 @@ def run_tick(cfg: dict, base: Path, live: dict,
         # No update this tick: bank the batch so an early exit loses
         # nothing; the next run resumes it like a continued loop.
         bank_pending(base, learner, entry["pending"],
-                     cfg.get("arch", "base"))
+                     cfg.get("arch", "base"), tick)
     # Persist progress before the counter helpers below: they reload the
     # league from disk and would drop unsaved in-memory progress.
     archive.save_league(base, state)
@@ -589,6 +630,7 @@ def run_tick(cfg: dict, base: Path, live: dict,
     state["tick"] = tick + 1
     archive.save_league(base, state)
     next_learner = archive.advance_scheduler(base)
+    archive.write_commit(base, tick)  # commit point: tick fully applied
     archive.write_status(base, {
         "phase": "league", "learner": learner, "opponent": opp,
         "tick": tick + 1, "next": next_learner,
@@ -625,6 +667,7 @@ def _request_shutdown(signum, frame) -> None:
 def run_loop(cfg: dict, base: Path, ticks: int | None = None) -> list[dict]:
     """Perpetual scheduler: ensure roles, then tick until ticks run out."""
     ensure_roles(base, cfg)
+    recover_startup(base)  # unconditional: no-op when clean
     live = load_live_all(cfg, base)
     reports = []
     n = cfg.get("ticks", -1) if ticks is None else ticks

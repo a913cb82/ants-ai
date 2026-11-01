@@ -188,6 +188,108 @@ def outcome_of(score_a: float, score_b: float) -> float:
 _write_lock = threading.Lock()
 
 
+COMMIT_LOGS = ("games.jsonl", "anchor.jsonl", "manifest.jsonl",
+               "history.jsonl")
+
+
+def _commit_path(base: Path) -> Path:
+    return base / "commit.json"
+
+
+def write_commit(base: Path, completed: int) -> dict:
+    """Snapshot the tick boundary: league+matrix bytes, log sizes.
+
+    One atomic record at tick end (plus a baseline when no commit
+    exists yet, covering the first tick). Crash recovery restores
+    exactly this: completed ticks stay, the interrupted one goes."""
+    init(base)
+    p = _paths(base)
+    try:
+        league = _league_path(base).read_text()
+    except OSError:
+        league = ""
+    try:
+        matrix = p["matrix"].read_text()
+    except OSError:
+        matrix = ""
+    sizes = {}
+    for name in COMMIT_LOGS:
+        path = p["dir"] / name if name != "manifest.jsonl" else p["manifest"]
+        try:
+            sizes[name] = path.stat().st_size
+        except OSError:
+            sizes[name] = 0  # missing file truncates to empty, not unknown
+    commit = {"completed": completed, "league": league,
+              "matrix": matrix, "sizes": sizes}
+    atomic_write_json(_commit_path(base), commit)
+    return commit
+
+
+def read_commit(base: Path) -> dict | None:
+    """Last commit record, else None (fresh archive, never bricks)."""
+    try:
+        commit = json.loads(_commit_path(base).read_text())
+    except (OSError, ValueError):
+        return None
+    return commit if isinstance(commit, dict) else None
+
+
+def restore_commit(base: Path) -> bool:
+    """Roll back files to the last committed tick boundary. Idempotent.
+
+    League+matrix return to committed bytes; append-only logs truncate
+    to committed sizes. Bank shedding lives in selfplay (torch side).
+    Returns True when anything actually moved. Missing league/matrix
+    aborts the whole restore: something bigger than a crash happened,
+    don't guess."""
+    commit = read_commit(base)
+    if not commit:
+        return False
+    p = _paths(base)
+    league_path = _league_path(base)
+    matrix_path = p["matrix"]
+    if not league_path.exists() or not matrix_path.exists():
+        return False
+    moved = False
+    for path, text in ((league_path, commit.get("league", "")),
+                       (matrix_path, commit.get("matrix", ""))):
+        if not isinstance(text, str) or not text:
+            continue
+        try:
+            if path.read_text() == text:
+                continue
+            fd, tmp = tempfile.mkstemp(dir=str(path.parent),
+                                        suffix=".tmp")
+            try:
+                with os.fdopen(fd, "w") as f:
+                    f.write(text)
+                os.replace(tmp, path)
+            except BaseException:
+                try:
+                    os.unlink(tmp)
+                except OSError:
+                    pass
+                raise
+            moved = True
+        except (OSError, ValueError):
+            continue
+    sizes = commit.get("sizes", {}) or {}
+    for name in COMMIT_LOGS:
+        want = sizes.get(name)
+        if not isinstance(want, int):
+            continue
+        path = p["dir"] / name if name != "manifest.jsonl" else p["manifest"]
+        try:
+            if path.stat().st_size <= want:
+                continue
+            with open(path, "r+b") as f:
+                f.truncate(want)
+            moved = True
+        except OSError:
+            continue
+    return moved
+
+
 def record_result(
     base: Path, a: str, b: str, score_a: float, score_b: float, kind: str = "eval"
 ) -> None:

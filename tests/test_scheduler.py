@@ -364,3 +364,64 @@ def test_shutdown_flag_preset_runs_zero_ticks(tmp_path):
         assert selfplay.run_loop(cfg, base) == []
     finally:
         selfplay._SHUTDOWN = False
+
+
+def test_recover_startup_rolls_back_partial_tick(tmp_path, monkeypatch):
+    import torch
+
+    import algorithm
+
+    base, _, _, _ = _league_base(tmp_path)
+    cfg = _cfg(tmp_path)
+    selfplay.ensure_roles(base, cfg)
+    assert selfplay.recover_startup(base) is None  # fresh: baseline only
+    commit = archive.read_commit(base)
+    assert commit["completed"] == -1  # nothing completed yet
+
+    # simulate a tick-0 crash after every effect fired:
+    archive.log_game(base, "main", "eval", "main", "g000", 1, 0,
+                     "games/x/logs/0.replay", map="m", game="gid-x", tick=0)
+    archive.record_result(base, "main", "g000", 1, 0, kind="eval")
+    archive.record_anchor(base, "s", "main", "g000", 1, 0, 0, tick=0)
+    orphan = archive.save_checkpoint(base, {}, "main", None)
+    selfplay.append_history(base, {"tick": 0})
+    st = archive.load_league(base)
+    st["tick"] = 1  # mid-tick league save
+    archive.save_league(base, st)
+    item = (torch.zeros(2), 1, 0.5, [True], 0.1)
+    selfplay.bank_pending(base, "main", [item], "base", tick=0)
+
+    assert selfplay.recover_startup(base) == -1  # rolled back to baseline
+    assert archive.load_league(base)["tick"] == 0
+    assert archive.list_games(base) == []
+    data = __import__("json").loads((base / "matrix.json").read_text())
+    assert "main vs g000" not in data["eval"]
+    assert archive.list_anchors(base) == []
+    assert orphan not in (base / "manifest.jsonl").read_text()
+    assert selfplay.read_history(base) == []
+    assert not selfplay._pending_path(base, "main").exists()
+
+
+def test_restore_is_noop_when_clean(tmp_path):
+    base, _, _, _ = _league_base(tmp_path)
+    cfg = _cfg(tmp_path)
+    selfplay.ensure_roles(base, cfg)
+    selfplay.recover_startup(base)
+    before = (base / "league.json").read_bytes()
+    assert selfplay.recover_startup(base) == -1  # commit exists: restore
+    assert (base / "league.json").read_bytes() == before  # nothing moved
+
+
+def test_crashed_bank_shed_only_when_newer(tmp_path):
+    import torch
+
+    base, _, _, _ = _league_base(tmp_path)
+    cfg = _cfg(tmp_path)
+    selfplay.ensure_roles(base, cfg)
+    archive.write_commit(base, 5)
+    item = (torch.zeros(1), 0, 0.0, [], 0.0)
+    selfplay.bank_pending(base, "me", [item], "base", tick=6)
+    selfplay.bank_pending(base, "le-a", [item], "base", tick=5)
+    selfplay.recover_startup(base)
+    assert not selfplay._pending_path(base, "me").exists()  # shed
+    assert selfplay._pending_path(base, "le-a").exists()  # kept

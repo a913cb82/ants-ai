@@ -155,15 +155,28 @@ def collect(
     ]
 
 
-def dump_pending(path: Path, items: list[BatchItem], arch: str) -> None:
+def dump_pending(path: Path, items: list[BatchItem], arch: str,
+               tick: int | None = None) -> None:
     """Bank unapplied PPO rows: restart resumes them instead of dropping.
 
     Atomic tmp+rename (old-or-new, never half-written); the arch tag
-    guards shape changes across runs."""
+    guards shape changes across runs, the tick tag lets crash recovery
+    shed only the interrupted tick's batch."""
     tmp = path.with_suffix(".tmp")
     tmp.parent.mkdir(parents=True, exist_ok=True)
-    torch.save({"arch": arch, "items": list(items)}, tmp)
+    torch.save({"arch": arch, "tick": tick, "items": list(items)},
+               tmp)
     os.replace(tmp, path)
+
+
+def pending_tick(path: Path) -> int | None:
+    """Tick that wrote this bank, else None (missing/corrupt/untagged)."""
+    try:
+        blob = torch.load(path, map_location="cpu", weights_only=True)
+    except Exception:
+        return None
+    tick = blob.get("tick") if isinstance(blob, dict) else None
+    return tick if isinstance(tick, int) else None
 
 
 def read_pending(path: Path, arch: str) -> list[BatchItem]:
