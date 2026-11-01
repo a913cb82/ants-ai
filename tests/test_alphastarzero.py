@@ -1804,6 +1804,7 @@ def test_train_play_one_tags_pairs_with_one_game_id(tmp_path, monkeypatch):
 
     def fake_play(*a, **k):
         seen_cfg.update(vars(a[3]))  # GameConfig carries both seeds
+        assert isinstance(a[2], list) and len(a[2]) == 2  # one entry per seat
         return _fake_game_out(["main", "main"], [1, 0], a[4])
 
     monkeypatch.setattr(game_if, "play", fake_play)

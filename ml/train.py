@@ -47,7 +47,7 @@ def _play_one(cfg: dict, base: Path, weights: dict, map_path: str) -> dict:
     out = game_if.play(
         ROOT,
         sys.executable,
-        weights,
+        [weights, weights],  # one entry per seat; both seats same net
         game_if.GameConfig(
             map=map_path,
             turns=cfg["turns"],
