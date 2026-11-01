@@ -1299,11 +1299,13 @@ def standings_panel(base: Path, grouped: list[dict], K: int) -> list[dict]:
     rows = []
     for sid in LIVE_SLOTS:
         w, d, lo = tally.get(sid, [0, 0, 0])
-        vals = [v for v in (elo.get(sid) or [])
-                if isinstance(v, (int, float))]
+        raw = elo.get(sid) or []
+        vals = [v for v in raw if isinstance(v, (int, float))]
         rows.append({
             "id": sid, "class": SLOT_CLASS[sid],
             "elo": int(round(vals[-1])) if vals else None,
+            "spark": [round(v, 1) for v in raw[-SPARK_MAX:]
+                        if isinstance(v, (int, float))],
             "w": w, "d": d, "l": lo, "n": w + d + lo,
             "last_tick": last.get(sid),
         })
@@ -1320,10 +1322,19 @@ def bars_panel(state: dict | None) -> list[dict]:
         w = sum(1 for x in window if x == 1.0)
         d = sum(1 for x in window if x == 0.5)
         n = len(window)
+        run: list[float] = []
+        rw = rd = 0
+        for x in window:
+            if x == 1.0:
+                rw += 1
+            elif x == 0.5:
+                rd += 1
+            run.append(round((rw + 0.5 * rd) / (len(run) + 1), 3))
         out.append({
             "id": name,
             "target": (exp or {}).get("target"),
             "rate": round((w + 0.5 * d) / n, 4) if n else None,
+            "spark": run[-SPARK_MAX:],
             "record_wdl": f"{w}-{d}-{n - w - d}",
             "eligible_in": max(0, archive.WINDOW_SIZE - n),
         })
@@ -1370,6 +1381,32 @@ def pairs_panel(base: Path, grouped: list[dict]) -> list[dict]:
     return out
 
 
+SPARK_MAX = 40  # per-cell sparkline depth: last 40 games per id
+
+
+def spark_svg(vals: list, w: int = 90, h: int = 18) -> str:
+    """Inline sparkline: min/max-normalized polyline, flat renders midline.
+
+    Empty input renders nothing (the cell shows — instead)."""
+    pts = [v for v in vals if isinstance(v, (int, float))]
+    if not pts:
+        return ""
+    lo, hi = min(pts), max(pts)
+    span = hi - lo or 1.0
+    n = len(pts)
+
+    def _x(i):
+        return round(i * w / max(n - 1, 1), 1)
+
+    def _y(v):
+        return round(h - 2 - (v - lo) * (h - 4) / span, 1)
+
+    line = " ".join(f"{_x(i)},{_y(v)}" for i, v in enumerate(pts))
+    return (f'<svg class="spk" width="{w}" height="{h}" '
+            f'viewBox="0 0 {w} {h}" aria-hidden="true">'
+            f'<polyline points="{line}" /></svg>')
+
+
 def behavior_panel(base: Path) -> list[dict]:
     """Per snapshot id + live slots: mean food/kills/army share/length
     over logged behavior rows. Null when unplayed or unstamped."""
@@ -1377,7 +1414,7 @@ def behavior_panel(base: Path) -> list[dict]:
     for cid in behavior_ids(base):
         acc[cid] = {"food": [], "kills": [], "army": [],
                     "length": [], "n": 0}
-    for r in cached_games(base):
+    for r in reversed(cached_games(base)):
         food, kills, army = r.get("food"), r.get("kills"), r.get("army")
         if not (isinstance(food, list) and isinstance(kills, list)
                 and isinstance(army, list)):
@@ -1422,6 +1459,12 @@ def behavior_panel(base: Path) -> list[dict]:
             "length": int(round(_mean(cell["length"])))
             if cell["length"] else None,
             "n": n,
+            "spark": {
+                "food": [round(v, 1) for v in cell["food"][-SPARK_MAX:]],
+                "kills": [round(v, 1) for v in cell["kills"][-SPARK_MAX:]],
+                "army": [int(round(v)) for v in cell["army"][-SPARK_MAX:]],
+                "length": [v for v in cell["length"][-SPARK_MAX:]],
+            },
         })
     return out
 
@@ -1773,7 +1816,8 @@ def bars_rows_html(bars: list | None) -> str:
             f"<td class=\"truncate\">{_esc(b.get('target') or '—')}</td>"
             f"<td><span class=\"share-wrap\"><span class=\"share-bar\">"
             f"<div style=\"width:{bar}\"></div></span>"
-            f"{fmt_share100(pct) if rate is not None else '—'}</span></td>"
+            f"{fmt_share100(pct) if rate is not None else '—'}"
+            f"{spark_svg(b.get('spark') or [])}</span></td>"
             f"<td class=\"num\">{_esc(b.get('record_wdl'))}</td>"
             f"<td class=\"num\">{eli_s}</td></tr>")
     return "".join(rows)
@@ -1791,7 +1835,8 @@ def standings_rows_html(rows: list | None, h0_tick) -> str:
         out.append(
             f"<tr{stale}><td>{_dot(r.get('id'))}{_esc(r.get('id'))}</td>"
             f"<td>{_esc(r.get('class'))}</td>"
-            f"<td class=\"num\">{fmt_elo(r.get('elo'))}</td>"
+            f"<td class=\"num\">{fmt_elo(r.get('elo'))}"
+            f"{spark_svg(r.get('spark') or [])}</td>"
             f"<td class=\"num\">{wdl}</td>"
             f"<td class=\"num\">{_esc(r.get('n'))}</td>"
             f"<td class=\"num\">{fmt_tick(r.get('last_tick'))}</td></tr>")
@@ -1830,14 +1875,19 @@ def behavior_rows_html(rows: list | None, h0_tick) -> str:
         # behavior rows carry means, not ticks: never stale by recency.
         food = r.get("food")
         kills = r.get("kills")
+        sp = r.get("spark") or {}
         out.append(
             f"<tr><td>{_dot(r.get('id'))}{_esc(r.get('id'))}</td>"
             f"<td class=\"num\">"
-            f"{f'{food:.1f}' if isinstance(food, (int, float)) else '—'}</td>"
+            f"{f'{food:.1f}' if isinstance(food, (int, float)) else '—'}"
+            f"{spark_svg(sp.get('food') or [])}</td>"
             f"<td class=\"num\">"
-            f"{f'{kills:.1f}' if isinstance(kills, (int, float)) else '—'}</td>"
-            f"<td class=\"num\">{fmt_share100(r.get('army_pct'))}</td>"
-            f"<td class=\"num\">{_esc(r.get('length')) if r.get('length') is not None else '—'}</td>"
+            f"{f'{kills:.1f}' if isinstance(kills, (int, float)) else '—'}"
+            f"{spark_svg(sp.get('kills') or [])}</td>"
+            f"<td class=\"num\">{fmt_share100(r.get('army_pct'))}"
+            f"{spark_svg(sp.get('army') or [])}</td>"
+            f"<td class=\"num\">{_esc(r.get('length')) if r.get('length') is not None else '—'}"
+            f"{spark_svg(sp.get('length') or [])}</td>"
             f"<td class=\"num\">{_esc(r.get('n'))}</td></tr>")
     return "".join(out)
 
@@ -1905,6 +1955,8 @@ h1{font-size:22px; margin:0 0 4px;}
 .tcell>.card{flex:1 1 auto;}
 canvas{width:100%; display:block;}
 #ch-ladder{height:280px;} #ch-pairs{height:300px;}
+.spk{width:90px;height:18px;vertical-align:middle;margin-left:8px;}
+.spk polyline{fill:none;stroke:#64748b;stroke-width:1.2;}
 .fallback{font-size:11px; color:var(--muted); margin-top:8px;}
 .alert-alert{color:var(--red); font-size:13px; padding:4px 0;}
 .alert-ok{font-size:13px; padding:4px 0;}
@@ -2019,7 +2071,7 @@ function renderBars(){
     const eli=(typeof b.eligible_in==="number"&&b.eligible_in>0)?b.eligible_in+" to go":"due";
     return "<tr><td>"+dot(b.id)+esc(b.id)+'</td><td class="truncate">'+esc(b.target||"—")+"</td>"+
       '<td><span class="share-wrap"><span class="share-bar"><div style="width:'+bar+'"></div></span>'+
-      (typeof b.rate==="number"?fmtShare(pct):"—")+"</span></td>"+
+      (typeof b.rate==="number"?fmtShare(pct):"—")+spark(b.spark||[])+"</span></td>"+
       '<td class="num">'+esc(b.record_wdl)+'</td><td class="num">'+eli+"</td></tr>";
   }).join("")||'<tr><td colspan="5" class="empty">no exploiters yet</td></tr>';
 }
@@ -2029,7 +2081,7 @@ function renderStandings(){
   renderStandings._last=h;
   $("standings-body").innerHTML=S.standings.map(r=>
     "<tr"+staleCls(r.last_tick,S.h0.tick)+"><td>"+dot(r.id)+esc(r.id)+"</td><td>"+esc(r.class)+
-    '</td><td class="num">'+fmtElo(r.elo)+'</td><td class="num">'+r.w+"-"+r.d+"-"+r.l+
+    '</td><td class="num">'+fmtElo(r.elo)+spark(r.spark||[])+'</td><td class="num">'+r.w+"-"+r.d+"-"+r.l+
     '</td><td class="num">'+esc(r.n)+'</td><td class="num">'+fmtTick(r.last_tick)+"</td></tr>"
   ).join("");
 }
@@ -2041,18 +2093,28 @@ function renderAlerts(){
     '<div class="alert-'+esc(a.level)+'">'+esc(a.msg)+' <span class="legend">'+fmtTick(a.tick)+"</span></div>"
   ).join("");
 }
+function spark(vals){
+  const p=(vals||[]).filter(v=>typeof v==="number");
+  if(!p.length)return "";
+  const lo=Math.min.apply(null,p),hi=Math.max.apply(null,p),sp=(hi-lo)||1;
+  const w=90,h=18,n=p.length;
+  const pts=p.map((v,i)=>((i*w/Math.max(n-1,1)).toFixed(1))+","+(h-2-(v-lo)*(h-4)/sp).toFixed(1)).join(" ");
+  return '<svg class="spk" width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" aria-hidden="true"><polyline points="'+pts+'"/></svg>';
+}
 function renderBehavior(){
   const h="bh|"+JSON.stringify(S.behavior);
   if(h===renderBehavior._last)return;
   renderBehavior._last=h;
-  $("behavior-body").innerHTML=S.behavior.map(r=>
-    "<tr><td>"+dot(r.id)+esc(r.id)+"</td>"+
-    '<td class="num">'+(typeof r.food==="number"?r.food.toFixed(1):"—")+"</td>"+
-    '<td class="num">'+(typeof r.kills==="number"?r.kills.toFixed(1):"—")+"</td>"+
-    '<td class="num">'+fmtShare(r.army_pct)+"</td>"+
-    '<td class="num">'+(r.length===null||r.length===undefined?"—":esc(r.length))+"</td>"+
-    '<td class="num">'+esc(r.n)+"</td></tr>"
-  ).join("");
+  const cell=(v,sp,fmt)=>'<td class="num">'+v+sp+"</td>";
+  $("behavior-body").innerHTML=S.behavior.map(r=>{
+    const sp=r.spark||{};
+    return "<tr><td>"+dot(r.id)+esc(r.id)+"</td>"+
+    cell(typeof r.food==="number"?r.food.toFixed(1):"—",spark(sp.food))+
+    cell(typeof r.kills==="number"?r.kills.toFixed(1):"—",spark(sp.kills))+
+    cell(fmtShare(r.army_pct),spark(sp.army))+
+    cell(r.length===null||r.length===undefined?"—":esc(r.length),spark(sp.length))+
+    '<td class="num">'+esc(r.n)+"</td></tr>";
+  }).join("");
 }
 /* Canvas frame: shared geometry, gridlines, HiDPI. Direct end labels —
    no legends for ≤4 series (and none above either: labels ride the lines). */

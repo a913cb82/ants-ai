@@ -215,7 +215,7 @@ def test_standings_four_live_rows(tmp_path):
     assert rows["le-a"]["class"] == "le"
     for r in rows.values():
         assert set(r) == {"id", "class", "elo", "w", "d", "l", "n",
-                          "last_tick"}
+                          "last_tick", "spark"}
     assert rows["main"]["n"] == 4 and rows["me"]["n"] == 4
     assert rows["le-a"]["n"] == 0  # never played: unknown, not zero-elo lie
     assert rows["le-a"]["elo"] is None
@@ -238,8 +238,33 @@ def test_bars_window_rate_and_eligible_in(tmp_path):
     assert bar["record_wdl"] == "10-4-6"
     assert bar["rate"] == (10 + 0.5 * 4) / 20
     assert bar["eligible_in"] == 20  # 40-window minus 20 games
+    assert bar["spark"][0] == 1.0  # expanding rate: first 10 all wins
+    assert bar["spark"][10] == round(10.5 / 11, 3)  # first draw dents it
+    assert bar["spark"][-1] == bar["rate"]  # converges to the window rate
+    assert len(bar["spark"]) == 20
     le = next(b for b in snap["bars"] if b["id"] == "le-a")
     assert le["eligible_in"] == 40 and le["rate"] is None
+
+
+def test_standings_elo_carries_sparkline(tmp_path):
+    import dashboard
+
+    base = _league_base(tmp_path / "a", games=8)
+    rows = {r["id"]: r for r in dashboard.snapshot(base)["standings"]}
+    sp = rows["main"]["spark"]
+    assert sp and int(round(sp[-1])) == rows["main"]["elo"]
+    assert all(isinstance(v, (int, float)) for v in sp)
+    assert len(sp) <= dashboard.SPARK_MAX
+
+
+def test_standings_rows_html_has_sparklines():
+    import dashboard
+
+    rows = [{"id": "main", "class": "main", "elo": 42, "w": 1,
+             "d": 0, "l": 0, "n": 1, "last_tick": 3,
+             "spark": [0.0, 42.0]}]
+    html = dashboard.standings_rows_html(rows, 3)
+    assert "<svg" in html and "polyline" in html
 
 
 def test_window_record_counts_wdl():
@@ -262,8 +287,51 @@ def test_behavior_aggregates_rows(tmp_path):
     assert main["army_pct"] == 56  # 5/9 seats alive, 0dp
     assert main["length"] == 120 and main["n"] == 4
     assert rows["le-a"]["food"] is None  # unplayed: null, not zero
+    assert main["spark"]["food"] == [2.0] * 4  # oldest-first series
+    assert rows["le-a"]["spark"]["food"] == []
 
 
+def test_behavior_spark_series_capped_oldest_first(tmp_path):
+    import archive
+    import dashboard
+
+    base = tmp_path / "a"
+    archive.init(base)
+    archive.save_checkpoint(base, {}, role="main", parent=None)
+    archive.init_league(base, "live-main", ["g000"])
+    for i in range(45):
+        archive.log_game(base, "main", "eval", "main", "g000", 1, 0,
+                         f"games/g{i}/logs/0.replay", map="m",
+                         game=f"gid-{i}", tick=i, food=[i, 0],
+                         kills=[0, 0], army=[5, 4], length=100)
+        archive.record_result(base, "main", "g000", 1, 0)
+    rows = {r["id"]: r for r in dashboard.snapshot(base)["behavior"]}
+    sp = rows["main"]["spark"]["food"]
+    assert len(sp) == dashboard.SPARK_MAX
+    assert sp[0] == 5.0 and sp[-1] == 44.0  # last 40, oldest first
+
+
+def test_spark_svg_shapes():
+    import dashboard
+
+    assert dashboard.spark_svg([]) == ""
+    assert dashboard.spark_svg([None, "x"]) == ""
+    flat = dashboard.spark_svg([3, 3, 3])
+    assert "polyline" in flat and flat.count(",") == 3
+    rising = dashboard.spark_svg([0, 10])
+    assert "0.0,16.0" in rising and "90.0,2.0" in rising
+
+
+def test_behavior_rows_html_has_sparklines():
+    import dashboard
+
+    rows = [{"id": "main", "food": 2.0, "kills": 1.0,
+             "army_pct": 56, "length": 120, "n": 4,
+             "spark": {"food": [1.0, 2.0, 3.0], "kills": [],
+                       "army": [50, 56], "length": [120]}}]
+    html = dashboard.behavior_rows_html(rows, 0)
+    assert html.count("<svg") == 3  # kills empty: no spark, — only
+    assert "polyline" in html
 def test_behavior_unknown_when_no_stats(tmp_path):
     import dashboard
 
