@@ -1320,6 +1320,7 @@ def standings_panel(base: Path, grouped: list[dict], K: int,
                 last[sid] = max(last.get(sid, tick), tick)
     rows = []
     micro = ((state or {}).get("micro", {}) or {})
+    size = archive.MICRO_BATCH_SIZE
     for sid in LIVE_SLOTS:
         w, d, lo = tally.get(sid, [0, 0, 0])
         raw = elo.get(sid) or []
@@ -1331,7 +1332,7 @@ def standings_panel(base: Path, grouped: list[dict], K: int,
                         if isinstance(v, (int, float))],
             "w": w, "d": d, "l": lo, "n": w + d + lo,
             "last_tick": last.get(sid),
-            "micro": micro.get(sid, 0),
+            "micro": micro.get(sid, 0) % size,
         })
     return rows
 
