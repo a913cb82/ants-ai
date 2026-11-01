@@ -181,3 +181,18 @@ dashboard :8090 restarted live. Resume note: a crashed first run left
 league.json behind, so ensure_league skipped the port on retry; the
 union was applied manually after (idempotent, merged with new games).
 main.json left pointing at g1732 (last frozen main = port source).
+
+Purge 2026-11-01 (user order: live code + tests for live code only,
+commit 2143bb1, training still STOPPED): deleted ml/bc.py,
+ml/probe_imitate.py, ml/probe_dwell.py; champion.json API
+(get/set_champion), payoff_matrix, nash_mixture, prune_missing,
+mixture_draw from archive.py; water-stall tax, draw-as-loss gate,
+decompose from rewards.py; draw-penalty scheduling, _train_map
+helpers, water-stall flags from train.py/selfplay.py; linear from
+pfsp.py; pg_signal/value_slope/main_history + ch-pg/ch-vslope cards +
+dead eval/done status branches from dashboard.py. Tests: Elo units
+migrated to live _interval_elo_cached via real-archive fixture
+(cuts, lineage carry, prefix stability now pin production);
+league/http/ui fixtures use init_league. 323 green; league golden
+drift pre-existing, untouched. ml/README.md marked superseded
+(old throne regime) -> live docs are LEAGUE.md + this file.
