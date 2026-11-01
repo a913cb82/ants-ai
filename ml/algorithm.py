@@ -15,6 +15,7 @@ the distribution the bot acted with.
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -152,6 +153,34 @@ def collect(
         (w, a, r, m, float(c))
         for (w, a, r, m, _o), c in zip(items, chosen.tolist(), strict=True)
     ]
+
+
+def dump_pending(path: Path, items: list[BatchItem], arch: str) -> None:
+    """Bank unapplied PPO rows: restart resumes them instead of dropping.
+
+    Atomic tmp+rename (old-or-new, never half-written); the arch tag
+    guards shape changes across runs."""
+    tmp = path.with_suffix(".tmp")
+    tmp.parent.mkdir(parents=True, exist_ok=True)
+    torch.save({"arch": arch, "items": list(items)}, tmp)
+    os.replace(tmp, path)
+
+
+def read_pending(path: Path, arch: str) -> list[BatchItem]:
+    """Banked rows for this arch, else []: missing, corrupt, or a
+    shape-changing arch switch all restart clean, never crash."""
+    try:
+        blob = torch.load(path, map_location="cpu", weights_only=True)
+    except Exception:
+        return []
+    if not isinstance(blob, dict) or blob.get("arch") != arch:
+        return []
+    items = blob.get("items")
+    if not isinstance(items, list) or any(
+            not isinstance(it, (list, tuple)) or len(it) != 5
+            for it in items):
+        return []
+    return [tuple(it) for it in items]
 
 
 def make_optimizer(

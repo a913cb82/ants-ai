@@ -197,6 +197,28 @@ def _live_paths(base: Path, learner: str) -> tuple[Path, Path]:
     return d / "weights.json", d / "opt.json"
 
 
+def _pending_path(base: Path, learner: str) -> Path:
+    return learners_dir(base) / learner / "pending.pt"
+
+
+def bank_pending(base: Path, learner: str, items: list,
+                 arch: str) -> None:
+    """Persist unapplied PPO rows (empty clears the bank)."""
+    path = _pending_path(base, learner)
+    if not items:
+        try:
+            path.unlink()
+        except OSError:
+            pass
+        return
+    algorithm.dump_pending(path, items, arch)
+
+
+def load_pending(base: Path, learner: str, arch: str) -> list:
+    """Banked rows for this arch, else [] (clean restart)."""
+    return algorithm.read_pending(_pending_path(base, learner), arch)
+
+
 def store_live(base: Path, learner: str, weights: dict,
                opt_blob: dict | None) -> None:
     """Persist live training weights + Adam (atomic, old-or-new)."""
@@ -330,7 +352,9 @@ def load_live_all(cfg: dict, base: Path) -> dict:
         policy = algorithm.new_policy(weights)
         opt = algorithm.make_optimizer(policy, lr=cfg["lr"])
         algorithm.load_opt_state(opt, opt_blob)
-        live[learner] = {"policy": policy, "opt": opt, "pending": []}
+        live[learner] = {"policy": policy, "opt": opt, "pending":
+                         load_pending(base, learner,
+                                    cfg.get("arch", "base"))}
     return live
 
 
@@ -369,6 +393,7 @@ def reset_learner(base: Path, live: dict, learner: str, g000_w: dict) -> None:
     opt = algorithm.make_optimizer(policy, lr=live["lr"])
     live[learner] = {"policy": policy, "opt": opt, "pending": []}
     store_live(base, learner, copy.deepcopy(g000_w), None)
+    bank_pending(base, learner, [], "")  # batch dropped by design
 
 
 def _window_rate(window: list[float]) -> float:
@@ -515,9 +540,15 @@ def run_tick(cfg: dict, base: Path, live: dict,
         update_stats = train.ppo_update(entry["policy"], entry["opt"],
                                         entry["pending"], cfg)
         entry["pending"] = []
+        bank_pending(base, learner, [], cfg.get("arch", "base"))
         store_live(base, learner,
                    algorithm.policy_weights(entry["policy"]),
                    algorithm.serialize_opt(entry["opt"]))
+    else:
+        # No update this tick: bank the batch so an early exit loses
+        # nothing; the next run resumes it like a continued loop.
+        bank_pending(base, learner, entry["pending"],
+                     cfg.get("arch", "base"))
     # Persist progress before the counter helpers below: they reload the
     # league from disk and would drop unsaved in-memory progress.
     archive.save_league(base, state)

@@ -282,3 +282,56 @@ def test_select_opponent_excludes_live_ids(tmp_path, monkeypatch):
         assert "lea-1" not in cands
         assert "leb-1" not in cands
         assert source in cands  # frozen main snapshot stays
+
+
+def test_pending_bank_roundtrip_and_guards(tmp_path):
+    import torch
+
+    import algorithm
+
+    p = tmp_path / "pending.pt"
+    items = [(torch.zeros(2), 1, 0.5, [True, False], 0.1)]
+    algorithm.dump_pending(p, items, "base")
+    got = algorithm.read_pending(p, "base")
+    assert len(got) == 1 and torch.equal(got[0][0], items[0][0])
+    assert algorithm.read_pending(p, "deep") == []  # arch switch: clean
+    assert algorithm.read_pending(tmp_path / "missing.pt", "base") == []
+    (tmp_path / "junk.pt").write_text("junk")
+    assert algorithm.read_pending(tmp_path / "junk.pt", "base") == []
+
+
+def test_run_tick_banks_pending_and_update_clears(tmp_path, monkeypatch):
+    import torch
+
+    import algorithm
+
+    base, cfg, live = _setup(tmp_path, monkeypatch)
+    item = (torch.zeros(3), 1, 0.5, [True], 0.1)
+    monkeypatch.setattr(algorithm, "collect", lambda *a, **k: [item])
+    seen = []
+    monkeypatch.setattr(train, "ppo_update",
+                        lambda *a, **k: seen.append(a[2]) or {})
+    bank = selfplay._pending_path(base, "main")
+    selfplay.run_tick(cfg, base, live)  # main micro 1: no update
+    assert bank.exists()  # banked, not stranded in memory
+    live2 = selfplay.load_live_all(cfg, base)
+    assert len(live2["main"]["pending"]) == 1  # resume picks it up
+    for _ in range(28):
+        selfplay.run_tick(cfg, base, live)  # main reaches micro 8
+    assert len(seen[-1]) == 8  # all 8 own-games trained, none orphaned
+    assert not bank.exists()  # consumed: bank cleared on update
+
+
+def test_reset_learner_drops_banked_batch(tmp_path, monkeypatch):
+    import torch
+
+    import algorithm
+
+    base, cfg, live = _setup(tmp_path, monkeypatch)
+    selfplay.bank_pending(base, "me", [(torch.zeros(1), 0, 0.0, [], 0.0)],
+                          "base")
+    assert selfplay._pending_path(base, "me").exists()
+    selfplay.reset_learner(base, live, "me",
+                           archive.load_checkpoint(base, "g000"))
+    assert live["me"]["pending"] == []
+    assert not selfplay._pending_path(base, "me").exists()
