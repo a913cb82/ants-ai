@@ -107,60 +107,54 @@ def test_g_allocator_untouched_by_named(tmp_path):
 
 def test_next_family_id_first_free_and_collision_skip(tmp_path):
     base, _, _ = _league_base(tmp_path)
-    assert selfplay._next_family_id(base, "main") == "main-1"
-    archive.save_named_snapshot(base, "main-1", {}, "main-snapshot", None)
-    assert selfplay._next_family_id(base, "main") == "main-2"
+    assert selfplay._next_family_id(base, "main-exploiter") == \
+        "main-exploiter-0"
+    archive.save_named_snapshot(base, "main-exploiter-0", {},
+                                "admitted", None)
+    assert selfplay._next_family_id(base, "main-exploiter") == \
+        "main-exploiter-1"
     # gap reuse: first free wins for the raw allocator.
-    archive.save_named_snapshot(base, "main-3", {}, "main-snapshot", None)
-    assert selfplay._next_family_id(base, "main") == "main-2"
+    archive.save_named_snapshot(base, "main-exploiter-2", {},
+                                "admitted", None)
+    assert selfplay._next_family_id(base, "main-exploiter") == \
+        "main-exploiter-1"
 
 
-# --- maybe_snapshot: main lineage ---
+# --- maybe_snapshot: main keeps a g-id (the live head is bare `main`) ---
 
 
-def test_main_snapshot_continues_lineage_count(tmp_path, monkeypatch):
+def test_main_snapshot_keeps_g_id(tmp_path, monkeypatch):
     base, cfg, live = _setup(tmp_path, monkeypatch)
     monkeypatch.setattr(selfplay, "SNAPSHOT_EVERY", 1)
     state = archive.load_league(base)
     assert state["main_snapshots"] == ["g001"]  # lineage of one
     rep = selfplay.run_tick(cfg, base, live)  # main's 1st own-game
     assert rep["learner"] == "main"
-    assert rep["snapshot"]["id"] == "main-1"
+    sid = rep["snapshot"]["id"]
+    assert sid.startswith("g") and sid != "main"
     rows = {m["id"]: m for m in archive.members(base)}
-    assert rows["main-1"]["role"] == "main-snapshot"
-    assert rows["main-1"]["parent"] == "g001"
+    assert rows[sid]["role"] == "main-snapshot"
+    assert rows[sid]["parent"] == "g001"
     state = archive.load_league(base)
-    assert state["main_id"] == "main-1"
-    assert state["main_snapshots"] == ["g001", "main-1"]
-    rep2 = selfplay.run_tick(cfg, base, live)  # me (no snapshot asserted)
-    assert rep2["learner"] == "me"
-    # next main tick continues the count.
-    selfplay.run_tick(cfg, base, live)  # le-a
-    selfplay.run_tick(cfg, base, live)  # le-b
-    rep3 = selfplay.run_tick(cfg, base, live)  # main's 2nd own-game
-    assert rep3["snapshot"]["id"] == "main-2"
+    assert state["main_id"] == sid
+    assert state["main_snapshots"] == ["g001", sid]
 
 
-def test_main_snapshot_collision_skipped(tmp_path, monkeypatch):
-    base, cfg, live = _setup(tmp_path, monkeypatch)
-    # squat on the next lineage name: the snapshot must skip it.
-    archive.save_named_snapshot(base, "main-1", {}, "main-snapshot", "g001")
-    monkeypatch.setattr(selfplay, "SNAPSHOT_EVERY", 1)
-    rep = selfplay.run_tick(cfg, base, live)
-    assert rep["snapshot"]["id"] == "main-2"
-
-
-def test_main_snapshot_derivation_survives_reload(tmp_path, monkeypatch):
+def test_main_snapshot_g_ids_across_reload(tmp_path, monkeypatch):
     base, cfg, live = _setup(tmp_path, monkeypatch)
     monkeypatch.setattr(selfplay, "SNAPSHOT_EVERY", 1)
-    selfplay.run_tick(cfg, base, live)  # main-1
+    rep1 = selfplay.run_tick(cfg, base, live)  # main, 1st g-snapshot
+    first = rep1["snapshot"]["id"]
     # simulate a restart: fresh live handle, state reloaded from disk.
     live2 = selfplay.load_live_all(cfg, base)
     selfplay.run_tick(cfg, base, live2)  # me
     selfplay.run_tick(cfg, base, live2)  # le-a
     selfplay.run_tick(cfg, base, live2)  # le-b
     rep = selfplay.run_tick(cfg, base, live2)  # main's 2nd own-game
-    assert rep["snapshot"]["id"] == "main-2"  # no counter state needed
+    second = rep["snapshot"]["id"]
+    assert second.startswith("g") and second != first
+    state = archive.load_league(base)
+    assert state["main_snapshots"] == ["g001", first, second]
 
 
 # --- maybe_admit: per-slot family names ---
@@ -183,9 +177,9 @@ def _force_admission(tmp_path, monkeypatch, learner, scores=(5, 1)):
 
 
 def test_admission_names_per_slot(tmp_path, monkeypatch):
-    for slot, want in (("me", "main-exploiter-1"),
-                       ("le-a", "league-exploiter-a-1"),
-                       ("le-b", "league-exploiter-b-1")):
+    for slot, want in (("me", "main-exploiter-0"),
+                       ("le-a", "league-exploiter-a-0"),
+                       ("le-b", "league-exploiter-b-0")):
         sub = tmp_path / slot
         sub.mkdir()
         _, _, _, rep = _force_admission(sub, monkeypatch, slot)
@@ -196,10 +190,10 @@ def test_admission_count_derived_from_log_and_collision_skipped(
         tmp_path, monkeypatch):
     base, cfg, live = _setup(tmp_path, monkeypatch, scores=(5, 1))
     # a prior me admission + a squatter on the next name.
-    archive.save_named_snapshot(base, "main-exploiter-1", {},
+    archive.save_named_snapshot(base, "main-exploiter-0", {},
                                 "admitted", "g000")
-    archive.record_admission(base, "main-exploiter-1", "me", 40, "40W-0D-0L")
-    archive.save_named_snapshot(base, "main-exploiter-2", {},
+    archive.record_admission(base, "main-exploiter-0", "me", 40, "40W-0D-0L")
+    archive.save_named_snapshot(base, "main-exploiter-1", {},
                                 "admitted", "g000")
     state = archive.load_league(base)
     state["exploiters"]["me"].update(
@@ -207,14 +201,14 @@ def test_admission_count_derived_from_log_and_collision_skipped(
     archive.save_league(base, state)
     selfplay.run_tick(cfg, base, live)  # main
     rep = selfplay.run_tick(cfg, base, live)  # me admitted
-    # count says -2 next, but -2 is taken: skip to -3.
-    assert rep["admitted"]["id"] == "main-exploiter-3"
+    # count says -1 next, but -1 is taken: skip to -2.
+    assert rep["admitted"]["id"] == "main-exploiter-2"
 
 
 def test_admitted_copy_in_manifest_and_log(tmp_path, monkeypatch):
     base, cfg, live, rep = _force_admission(tmp_path, monkeypatch, "le-a")
     sid = rep["admitted"]["id"]
-    assert sid == "league-exploiter-a-1"
+    assert sid == "league-exploiter-a-0"
     rows = {m["id"]: m for m in archive.members(base)}
     assert rows[sid]["role"] == "admitted"
     state = archive.load_league(base)
@@ -249,19 +243,19 @@ def test_dashboard_handles_family_ids(tmp_path):
     import dashboard
 
     base, _, _ = _league_base(tmp_path)
-    archive.save_named_snapshot(base, "main-1", {}, "main-snapshot",
+    archive.save_named_snapshot(base, "g009", {}, "main-snapshot",
                                 "g001")
-    archive.save_named_snapshot(base, "main-exploiter-1", {},
+    archive.save_named_snapshot(base, "main-exploiter-0", {},
                                 "admitted", "g005")
-    state = archive.init_league(base, "main-1", ["g000"])
-    state["main_snapshots"] = ["g001", "main-1"]
+    state = archive.init_league(base, "g009", ["g000"])
+    state["main_snapshots"] = ["g001", "g009"]
     archive.save_league(base, state)
     # tracked/panel/anchor-trend/member table all key on opaque strings.
-    assert "main-1" in [m["id"] for m in archive.members(base)]
+    assert "g009" in [m["id"] for m in archive.members(base)]
     assert dashboard.league_panel(base) == ["g000"]
     snap = dashboard.snapshot(base)
     ids = [m["id"] for m in snap["members"]]
-    assert "main-1" in ids and "main-exploiter-1" in ids
-    assert snap["anchor_trend"]["snapshots"][:2] == ["g001", "main-1"]
+    assert "g009" in ids and "main-exploiter-0" in ids
+    assert snap["anchor_trend"]["snapshots"][:2] == ["g001", "g009"]
     # g-allocator still ignores family ids when dashboard is watching.
     assert archive.save_checkpoint(base, {}, "main", None).startswith("g")

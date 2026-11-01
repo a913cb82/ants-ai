@@ -405,20 +405,21 @@ def load_live_all(cfg: dict, base: Path) -> dict:
     return live
 
 
-def _next_family_id(base: Path, prefix: str, start: int = 1) -> str:
+def _next_family_id(base: Path, prefix: str, start: int = 0) -> str:
     """First free family id ``prefix-k`` (k >= start) not in the manifest.
 
-    Scans manifest ids; collision-skips taken names. The default start
-    of 1 returns the first free ``prefix-1, prefix-2, ...``; callers pass
-    a lineage-derived start (len(main_snapshots), slot admissions + 1)
-    so numbering continues the lineage count instead of reusing gaps.
+    Scans manifest ids; collision-skips taken names. Numbering is
+    0-based: the first admitted exploiter of a slot is ``prefix-0``,
+    and the counter moves only on admission (stall resets mint plain
+    g-ids, never family names). Callers pass a log-derived start (slot
+    admissions) so numbering continues instead of reusing gaps.
     Pure except for the manifest read."""
     try:
         k = int(start)
     except (TypeError, ValueError):
-        k = 1
-    if k < 1:
-        k = 1
+        k = 0
+    if k < 0:
+        k = 0
     taken = {m.get("id") for m in archive.members(base)
              if isinstance(m.get("id"), str)}
     while f"{prefix}-{k}" in taken:
@@ -496,7 +497,7 @@ def maybe_admit(base: Path, live: dict, state: dict, learner: str,
     if _window_rate(window) > ADMISSION_RATE:
         weights = algorithm.policy_weights(live[learner]["policy"])
         prefix = ADMISSION_PREFIXES.get(learner, f"{learner}-exploiter")
-        start = _slot_admissions(state, learner) + 1
+        start = _slot_admissions(state, learner)
         sid = archive.save_named_snapshot(
             base, _next_family_id(base, prefix, start),
             weights, "admitted", exp.get("id"))
@@ -555,14 +556,7 @@ def maybe_snapshot(cfg: dict, base: Path, live: dict, state: dict,
     role = train.ROLE_CONFIGS[learner]["snapshot_role"]
     weights = algorithm.policy_weights(live[learner]["policy"])
     parent = state.get("main_id") if learner == "main" else state["exploiters"][learner].get("id")
-    if learner == "main":
-        snaps = state.get("main_snapshots", []) or []
-        start = len(snaps) if len(snaps) >= 1 else 1
-        sid = archive.save_named_snapshot(
-            base, _next_family_id(base, "main", start),
-            weights, role, parent)
-    else:
-        sid = archive.save_league_snapshot(base, weights, role, parent)
+    sid = archive.save_league_snapshot(base, weights, role, parent)
     anchors = None
     if learner == "main":
         state["main_id"] = sid
