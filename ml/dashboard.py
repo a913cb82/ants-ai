@@ -1920,7 +1920,7 @@ def game_replay_label(g: dict) -> str:
 
 
 def game_row_html(g: dict) -> str:
-    """Twin of JS gameRow: dual time · learner · matchup · replay."""
+    """Twin of JS gameRow: tick · learner · matchup · replay."""
     res = g.get("result") or "draw"
     names = " vs ".join(_esc(s) for s in g.get("seats", []) or [])
     return (
@@ -2443,7 +2443,7 @@ def render_page(snap: dict | None = None) -> str:
 </div>
 <div class="tcell span12">
 <div class="section-title">Recent games</div>
-<div class="legend">dual time g1234 · t5678 · learner seats first · replay names the bots</div>
+<div class="legend">tick is the game number · learner seats first · replay names the bots</div>
 <div class="card" id="games-card">
 <div class="toolbar">
 <label for="member">member</label>
