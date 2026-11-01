@@ -378,8 +378,10 @@ def test_second_batch_trains_on_pre_update_weights(tmp_path, monkeypatch):
 def test_bank_shards_per_tick_and_drop_consumed(tmp_path):
     import torch
 
+    def items(v):
+        return [(torch.zeros(2), 1, v, [True, False], 0.1)]
+
     base = tmp_path / "archive"
-    items = lambda v: [(torch.zeros(2), 1, v, [True, False], 0.1)]
     selfplay.bank_pending(base, items(0.5), "base", tick=3)
     selfplay.bank_pending(base, items(1.5), "base", tick=7)
     shards = sorted(p.name for p in selfplay._pending_path(base).glob("*.pt"))

@@ -15,7 +15,9 @@ the distribution the bot acted with.
 
 from __future__ import annotations
 
+import base64
 import os
+import struct
 import sys
 from pathlib import Path
 
@@ -65,20 +67,27 @@ def policy_weights(policy: model.CNNPolicy) -> dict:
 
 
 def compact_records(records: list[dict]) -> list[dict]:
-    """Nested-list windows -> float32 tensors, in place.
+    """Windows -> float32 tensors, in place.
 
-    Records arrive from disk as nested python lists (~60KB/row for a
-    7x15x15 window); the learner only ever stacks them into tensors
-    (~6.3KB/row). Compacting at production keeps a single residency
-    instead of lists + tensors side by side. Values are bit-exact:
-    float32 -> python float -> float32 round-trips losslessly.
-    Non-window keys (action/legal) are untouched; tensor windows pass
-    through unchanged.
+    Records arrive from disk either as nested python lists (legacy) or
+    base64 blobs (features.encode_window: one short string, no
+    intermediate lists). The list form costs ~60KB/row as Python objects
+    and piles GBs in RAM under concurrency, so the bot only writes
+    blobs; both forms decode to the same tensor. Values are bit-exact:
+    float32 -> bytes -> float32 round-trips losslessly. Non-window keys
+    (action/legal) are untouched; tensor windows pass through unchanged.
     """
     for rec in records:
         w = rec.get("window")
         if isinstance(w, list):
             rec["window"] = torch.as_tensor(w, dtype=torch.float32)
+        elif isinstance(w, dict) and isinstance(w.get("b64"), str):
+            raw = base64.b64decode(w["b64"])
+            n = len(raw) // 4
+            vals = struct.unpack(f"<{n}f", raw)
+            rec["window"] = torch.tensor(vals, dtype=torch.float32).reshape(
+                w["shape"]
+            )
     return records
 
 

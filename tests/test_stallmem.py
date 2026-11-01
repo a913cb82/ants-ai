@@ -84,15 +84,13 @@ def _stay_logits():
 
 
 def _windows_by_turn(tmp_path):
-    import torch
-
     rows = []
     for f in tmp_path.glob("*.jsonl"):
         rows += [json.loads(line) for line in f.read_text().splitlines()]
     by_turn: dict = {}
     for r in rows:
         by_turn.setdefault(r["turn"], []).append(
-            torch.tensor(r["window"], dtype=torch.float32)
+            features.decode_window(r["window"])
         )
     return by_turn
 

@@ -7,6 +7,7 @@ state. No policy, no training.
 
 from __future__ import annotations
 
+import base64
 import math
 from typing import TYPE_CHECKING
 
@@ -276,3 +277,25 @@ def local_window(
         if cell in foods and in_circle:
             grid[5, i, j] = 1.0
     return torch.from_numpy(grid)
+
+
+def encode_window(window) -> dict:
+    """Dense window blob for training records: base64 float32 + shape.
+
+    Records arrive as JSON; nested float lists cost ~60KB/row as Python
+    objects (2250 floats x 28B) and pile GBs in RAM under concurrency
+    (OOM-killed a 14-game run at 11GB). The blob is one ~12KB string
+    that decodes straight to a tensor with no intermediate lists.
+    Native byte order: both ends run on this machine."""
+    w = window.to(torch.float32)
+    raw = w.numpy().tobytes()
+    return {"b64": base64.b64encode(raw).decode("ascii"), "shape": list(w.shape)}
+
+
+def decode_window(blob: dict):
+    """Base64 blob from encode_window back to a float32 tensor."""
+    import base64 as _b64
+
+    raw = _b64.b64decode(blob["b64"])
+    arr = _np.frombuffer(raw, dtype=_np.float32).reshape(blob["shape"])
+    return torch.from_numpy(arr)

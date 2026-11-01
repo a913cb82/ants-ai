@@ -280,7 +280,7 @@ class AlphaAntBot:
                         "action": action,
                         "intent": intent,
                         "blocked": sorted(blocked),
-                        "window": windows[i].tolist(),
+                        "window": features.encode_window(windows[i]),
                         "legal": legal.tolist(),
                     }
                 )

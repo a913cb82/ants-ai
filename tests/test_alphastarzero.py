@@ -455,8 +455,8 @@ def test_bot_records_turn_rows_when_env_set(tmp_path, monkeypatch):
     assert row["turn"] == 1
     assert row["action"] in ("n", "e", "s", "w", "stay")
     assert "dest" in row and "legal" in row
-    assert len(row["window"]) == len(features.CHANNELS)
-    assert len(row["window"][0]) == 2 * features.DEFAULT_RADIUS + 1
+    assert features.decode_window(row["window"]).shape[0] == len(features.CHANNELS)
+    assert features.decode_window(row["window"]).shape[1] == 2 * features.DEFAULT_RADIUS + 1
     assert len(row["legal"]) == 5
 
 
@@ -2071,3 +2071,33 @@ def test_run_once_failure_reports_stderr_tail(tmp_path):
         assert "boom" in str(e)
     else:
         raise AssertionError("failing engine must raise")
+
+
+def test_window_b64_roundtrip_is_bit_exact():
+    import algorithm
+    import features
+    import torch
+
+    w = torch.randn(10, 15, 15)
+    blob = features.encode_window(w)
+    assert isinstance(blob, dict) and isinstance(blob["b64"], str)
+    assert len(blob["b64"]) == 12000  # 2250 float32 -> base64, exact
+    import json as _json
+
+    assert len(_json.dumps(w.tolist())) > 30000  # nested lists balloon
+    recs = algorithm.compact_records([{"window": blob, "action": "north"}])
+    assert torch.equal(recs[0]["window"], w.to(torch.float32))
+
+
+def test_compact_records_accepts_both_window_formats():
+    import algorithm
+    import features
+    import torch
+
+    w = torch.zeros(10, 15, 15)
+    recs = algorithm.compact_records(
+        [{"window": w.tolist(), "action": "stay"},
+         {"window": features.encode_window(w), "action": "stay"}]
+    )
+    assert all(isinstance(r["window"], torch.Tensor) for r in recs)
+    assert torch.equal(recs[0]["window"], recs[1]["window"])
