@@ -22,7 +22,7 @@ tuning choice — their compute split is unpublished).
 | Learner | Init | Opponent rule (PFSP, no Nash anywhere) | Objective | Reset |
 |---|---|---|---|---|
 | Main | g1732 weights + banked Adam (main.json head = freshest trained state) | 50% squared-weighted historical (seeks counters); else variance-weighted mean | none (trains forever) | NEVER |
-| ME | g000 weights (+pad to current arch, tested path) + fresh Adam | locked onto main while posterior-mean win-rate > 0.1, else variance-weighted mean historicals | sustained >60% over last 40 vs main → freeze copy in pool (relabel snapshot, no extra copy step)  | to g000 on admission only (no stall rule since 2026-11-02) |
+| ME | g000 weights (+pad to current arch, tested path) + fresh Adam | always the current main (no fallback since 2026-11-02) | sustained >60% over last 40 vs main → freeze copy in pool (relabel snapshot, no extra copy step)  | to g000 on admission only (no stall rule since 2026-11-02) |
 | LE-A/B | same g000 init (independent runs) | linear_capped UCB over all historicals (seeks any hole)  | sustained >60% over last 40 vs pool → freeze + reset | to g000 on admission only (no stall rule since 2026-11-02) |
 
 Invariants (go in LEAGUE.md verbatim):

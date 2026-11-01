@@ -2,8 +2,8 @@
 
 Pins the role-appropriate distributions of ml/pfsp.py on synthetic
 matrices: weighting functions, main/victim-counter behavior, Bayesian UCB
-exploration (replaces unseen=0.5 + newcomer boost), ME 0.1 stick/drop
-boundary, LE spread, seeded determinism.
+exploration (replaces unseen=0.5 + newcomer boost), ME always-on-main,
+LE spread, seeded determinism.
 """
 
 import random
@@ -108,55 +108,25 @@ def test_main_splits_unseen_evenly():
 # ----------------------------------------------------------------------- ME
 
 
-def test_me_sticks_with_main_above_threshold():
-    records = rec("me", "main", 2, 8)  # smoothed (2+1)/12 = 0.25 > 0.1
+def test_me_always_plays_main_when_winning():
+    records = rec("me", "main", 8, 2)
     for seed in range(20):
         rng = random.Random(seed)
-        assert pfsp.me_sample("me", "main", ["main", "hist"], records, rng) == "main"
+        assert pfsp.me_sample("main") == "main"
 
 
-def test_me_fresh_with_no_games_starts_on_main():
-    # no record at all: prior mean 0.5 clears the 0.1 bar.
-    rng = random.Random(7)
-    assert pfsp.me_sample("me", "main", ["main", "hist"], {}, rng) == "main"
-
-
-def test_me_drops_main_below_threshold():
-    records = {}
-    records.update(rec("me", "main", 0, 10))  # my win-rate 0.0
-    records.update(rec("me", "hist", 5, 5))
-    draws = sample_many(
-        pfsp.me_sample, ("me", "main", ["main", "hist"], records), seed=7, n=50
-    )
-    assert all(d == "hist" for d in draws)
-
-
-def test_me_drops_main_at_exact_boundary():
-    records = {}
-    # smoothed (0+1)/(8+2) = exactly 0.1: not > 0.1, so drop.
-    records.update(rec("me", "main", 0, 8))
-    records.update(rec("me", "hist", 5, 5))
-    rng = random.Random(7)
-    assert pfsp.me_sample("me", "main", ["main", "hist"], records, rng) == "hist"
-
-
-def test_me_fallback_prefers_even_matchups():
-    records = {}
-    records.update(rec("me", "main", 0, 10))  # dropped
-    records.update(rec("me", "even", 5, 5))  # variance 0.25
-    records.update(rec("me", "hard", 1, 9))  # variance 0.09
-    records.update(rec("me", "victim", 9, 1))  # variance 0.09
-    cands = ["main", "even", "hard", "victim"]
-    draws = sample_many(pfsp.me_sample, ("me", "main", cands, records), seed=7, n=2000)
-    assert "main" not in draws
-    assert draws.count("even") > draws.count("hard")
-    assert draws.count("even") > draws.count("victim")
-
-
-def test_me_with_no_historicals_falls_back_to_main():
+def test_me_always_plays_main_when_losing():
+    # no fallback: even at 0-10 the ME hammers the main (AlphaStar-exact;
+    # blowout windows are the honest price, not a branch).
     records = rec("me", "main", 0, 10)
-    rng = random.Random(7)
-    assert pfsp.me_sample("me", "main", ["main"], records, rng) == "main"
+    records.update(rec("me", "hist", 10, 0))
+    for seed in range(20):
+        rng = random.Random(seed)
+        assert pfsp.me_sample("main") == "main"
+
+
+def test_me_always_plays_main_with_no_games():
+    assert pfsp.me_sample("main") == "main"
 
 
 # ----------------------------------------------------------------------- LE
@@ -188,22 +158,6 @@ def test_ucb_explores_newcomers_over_known_even():
     assert draws.count("new") > draws.count("vet")
 
 
-def test_ucb_me_fallback_shares_evenly_with_newcomers():
-    # the even branch uses the posterior mean: a stranger (0.5) ties a
-    # known-even veteran, so newcomers get fair share -- never
-    # anti-explored, never force-boosted.
-    records = {}
-    records.update(rec("me", "main", 0, 10))
-    records.update(rec("me", "vet", 50, 50))
-    draws = sample_many(
-        pfsp.me_sample,
-        ("me", "main", ["main", "new", "vet"], records),
-        seed=7,
-        n=1500,
-    )
-    assert abs(draws.count("new") - draws.count("vet")) < 0.12 * len(draws)
-
-
 def test_ucb_le_explores_newcomers():
     records = {}
     records.update(rec("le", "vet", 5, 50))  # known bad: avoided either way
@@ -225,15 +179,12 @@ def test_seeded_determinism():
     records.update(rec("me", "main", 0, 10))
 
     main_args = ("me", ["counter", "victim"], records)
-    me_args = ("me", "main", ["main", "counter", "victim"], records)
     le_args = ("me", ["counter", "victim"], records)
 
     assert sample_many(pfsp.main_sample, main_args, 1234, 30) == sample_many(
         pfsp.main_sample, main_args, 1234, 30
     )
-    assert sample_many(pfsp.me_sample, me_args, 1234, 30) == sample_many(
-        pfsp.me_sample, me_args, 1234, 30
-    )
+    assert pfsp.me_sample("main") == pfsp.me_sample("main") == "main"
     assert sample_many(pfsp.le_sample, le_args, 1234, 30) == sample_many(
         pfsp.le_sample, le_args, 1234, 30
     )

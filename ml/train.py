@@ -160,8 +160,7 @@ def select_opponent(base: Path, learner: str, state: dict,
     if policy == "main":
         return pfsp.main_sample(live, candidates, records, rng)
     if policy == "me":
-        return pfsp.me_sample(live, state["main_id"], candidates,
-                              records, rng)
+        return pfsp.me_sample(state["main_id"])
     return pfsp.le_sample(live, candidates, records, rng)
 
 

@@ -250,9 +250,12 @@ def test_select_opponent_excludes_live_ids(tmp_path, monkeypatch):
 
     def fake(policy):
         def _fake(*args, **kwargs):
-            cands = args[2] if policy == "me" else args[1]
-            seen[policy] = list(cands)
-            return cands[0]
+            if policy == "me":
+                # ME takes only the main id now: no candidate list.
+                seen[policy] = list(args)
+                return args[0]
+            seen[policy] = list(args[1])
+            return args[1][0]
         return _fake
 
     monkeypatch.setattr(pfsp, "main_sample", fake("main"))

@@ -11,9 +11,8 @@ Plan: ml/runs/plan-league.md. Migration: plan §Initialization.
 2. **PFSP only.** Opponent scores are Bayesian UCB (Beta posterior
    mean + 1 std; strangers explored first, bonus decays with games).
    Main: 50% squared-weighted UCB (seeks counters), else
-   variance-weighted posterior mean (even = learning-rich). ME: locked
-   onto current main while posterior-mean win-rate > 0.1, else
-   variance-weighted mean over historicals. LE: linear_capped UCB over
+   variance-weighted posterior mean (even = learning-rich). ME: always
+   the current main (no fallback since 2026-11-02). LE: linear_capped UCB over
    all historicals (seeks any hole). Exploiters weight by own score
    (seek victims). No unseen default, no newcomer boost (both replaced
    2026-11-02: optimism where the objective is monotone, mean where it

@@ -24,10 +24,9 @@ first games resolve it.
 Role policies (mini-AlphaStar league sampling):
 - main: with probability 0.5 squared-weighted by opponent UCB vs
   me (seeks counters), else variance-weighted.
-- ME: locked onto main while my posterior-mean win-rate vs main > 0.1
-  (threshold on the mean, not the UCB -- a bar, not a search), else
-  variance-weighted over historicals by own posterior mean (main is
-  excluded from the fallback pool while other candidates exist).
+- ME: always the current main (no fallback, no threshold -- the ME's
+  whole job is exploiting the main; blowout windows are the honest
+  price).
 - LE: linear_capped over all historicals by own UCB (seeks
   victims/holes without single-opponent domination)."""
 
@@ -40,8 +39,6 @@ import random
 PRIOR_MEAN = 0.5
 # Main policy: probability of the squared (counter-seeking) branch.
 MAIN_SQUARED_PROB = 0.5
-# ME policy: stays on main while its win-rate vs main is above this.
-ME_STICK_THRESHOLD = 0.1
 # UCB exploration strength: score = posterior mean + UCB_C * std.
 UCB_C = 1.0
 
@@ -142,26 +139,9 @@ def main_sample(
     return _weighted_pick(pool, weights, rng)
 
 
-def me_sample(
-    learner_id: str,
-    main_id: str,
-    candidates: list[str],
-    records: Records,
-    rng: random.Random,
-) -> str:
-    """ME opponent: main while my posterior-mean win-rate vs main > 0.1,
-    else variance-weighted over historicals by own posterior mean
-    (best estimate of evenness; newcomers tie known-even at fair
-    share until their first games resolve them). A fresh ME with no
-    main games rates the prior mean 0.5 and therefore starts on main."""
-    if win_fraction(learner_id, main_id, records) > ME_STICK_THRESHOLD:
-        return main_id
-    pool = [c for c in candidates if c not in (learner_id, main_id)]
-    if not pool:
-        return main_id
-    weights = [variance(win_fraction(learner_id, c, records))
-               for c in pool]
-    return _weighted_pick(pool, weights, rng)
+def me_sample(main_id: str) -> str:
+    """ME opponent: always the current main. No fallback, no threshold."""
+    return main_id
 
 
 def le_sample(
