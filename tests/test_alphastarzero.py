@@ -2428,3 +2428,52 @@ def test_cached_grouped_shares_one_grouping_per_poll(tmp_path):
                      "games/g/e1/logs/0.replay", game="g#2")
     second = dashboard.cached_grouped(base)
     assert len(second) == 2  # file change regroups
+
+
+def test_fresh_policy_head_is_small_scale():
+    import torch
+
+    import model
+
+    policy = model.CNNPolicy()
+    std = float(policy.head.weight.std())
+    assert 0.0 < std < 0.03  # near-uniform initial policy, not a bias
+    assert torch.equal(policy.head.bias, torch.zeros_like(policy.head.bias))
+
+
+def test_fresh_trunk_is_orthogonal_gain_sqrt2():
+    import torch
+
+    import model
+
+    policy = model.CNNPolicy()
+    flat = policy.conv1.weight.reshape(policy.conv1.weight.shape[0], -1)
+    gram = flat @ flat.T
+    gain2 = 2.0
+    assert torch.allclose(torch.diag(gram),
+                          torch.full_like(torch.diag(gram), gain2),
+                          atol=0.2)
+    off = gram - torch.diag(torch.diag(gram))
+    assert off.abs().max() < 0.2
+
+
+def test_fresh_value_head_zero():
+    import torch
+
+    import model
+
+    policy = model.CNNPolicy()
+    assert torch.equal(policy.value.weight,
+                       torch.zeros_like(policy.value.weight))
+    assert torch.equal(policy.value.bias,
+                       torch.zeros_like(policy.value.bias))
+
+
+def test_two_fresh_policies_differ():
+    import torch
+
+    import model
+
+    a, b = model.CNNPolicy(), model.CNNPolicy()
+    assert any(not torch.equal(p, q)
+               for p, q in zip(a.parameters(), b.parameters()))

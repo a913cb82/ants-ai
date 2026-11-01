@@ -43,9 +43,11 @@ class CNNPolicy(torch.nn.Module):
     in, 5 logits out. The critic owns a SEPARATE conv stack (same tiny
     shapes, vconv* keys) with the value head on it; values() runs the
     value trunk, so actor gradients never fight critic gradients and
-    vice versa. The value head is zero-initialized so early value
-    estimates start at 0. Fully ant-local: no global inputs, no
-    memory, no communication.
+    vice versa. Fresh nets draw CleanRL-style init (cleanrl/ppo.py
+    layer_init): orthogonal trunk (gain sqrt(2), the ReLU-correct
+    scale), tiny policy head (gain 0.01: near-uniform start, maximum
+    exploration), zero value head (unbiased baseline) and zero biases.
+    Fully ant-local: no global inputs, no memory, no communication.
     """
 
     def __init__(
@@ -75,6 +77,25 @@ class CNNPolicy(torch.nn.Module):
             trunk_dim = 16 * 9
         self.head = torch.nn.Linear(trunk_dim, len(ACTIONS))
         self.value = torch.nn.Linear(trunk_dim, 1)
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        """CleanRL-style init (cleanrl/ppo.py layer_init), adapted.
+
+        Conv trunks (actor and critic): orthogonal, gain sqrt(2) —
+        preserves activation norms through ReLU depth. Policy head:
+        orthogonal, gain 0.01 — near-uniform first policy, so a reset
+        explores instead of committing. Value head: zeros — the
+        baseline starts unbiased (CleanRL uses gain 1.0 here; zero is
+        the safer start for our +-5 reward scale). All biases zero.
+        Every fresh construction draws its own start: resets never
+        reuse g000 verbatim."""
+        for child in self.children():
+            if isinstance(child, torch.nn.Conv2d):
+                torch.nn.init.orthogonal_(child.weight, 2 ** 0.5)
+                torch.nn.init.zeros_(child.bias)
+        torch.nn.init.orthogonal_(self.head.weight, 0.01)
+        torch.nn.init.zeros_(self.head.bias)
         torch.nn.init.zeros_(self.value.weight)
         torch.nn.init.zeros_(self.value.bias)
 

@@ -7,7 +7,8 @@ record, the learner's rows accumulate into its micro-batch, and every
 8th own-game runs a PPO micro-batch update. Every 80th own-game freezes
 a permanent snapshot; main snapshots are measured against the frozen
 anchor ladder (no training). Exploiters are admitted on sustained >60%
-over their last 40, or reset to g000 after a 400-game drought.
+over their last 40, then re-seeded from a freshly constructed net
+(own random start: no two lineages open the same).
 
 Invariants (league plan, verbatim):
 - One game trains exactly one learner; opponents are always frozen snapshots.
@@ -324,11 +325,12 @@ def ensure_roles(base: Path, cfg: dict) -> None:
     """Role init on scheduler start: create missing live weight files.
 
     Main resumes from the existing weights + banked Adam at main_source;
-    exploiters start from g000 (padding to the current arch happens
-    inside algorithm.new_policy on load -- the tested path) with fresh
-    Adam. Existing live files are never clobbered: restarts resume."""
+    exploiters start from a freshly constructed net (own random start:
+    no two lineages open the same) with fresh Adam. Existing live files
+    are never clobbered: restarts resume."""
     source = cfg.get("main_source", "g000")
     g000 = cfg.get("g000", "g000")
+    arch = cfg.get("arch", "base")
     try:
         archive.load_checkpoint(base, source)
     except (FileNotFoundError, ValueError, KeyError):
@@ -337,7 +339,6 @@ def ensure_roles(base: Path, cfg: dict) -> None:
     ensure_league(base, cfg)
     source_w = archive.load_checkpoint(base, source)
     source_opt = archive.load_opt(base, source)
-    g000_w = archive.load_checkpoint(base, g000)
     for learner in LEARNERS:
         wpath, _ = _live_paths(base, learner)
         if wpath.exists():
@@ -347,7 +348,9 @@ def ensure_roles(base: Path, cfg: dict) -> None:
                        copy.deepcopy(source_opt)
                        if source_opt is not None else None)
         else:
-            store_live(base, learner, copy.deepcopy(g000_w), None)
+            fresh = algorithm.new_policy(None, arch)
+            store_live(base, learner, algorithm.policy_weights(fresh),
+                       None)
 
 
 def _claim_tick(base: Path) -> int:
@@ -408,12 +411,13 @@ def _slot_admissions(state: dict, learner: str) -> int:
                if isinstance(a, dict) and a.get("role") == learner)
 
 
-def reset_learner(base: Path, live: dict, learner: str, g000_w: dict) -> None:
-    """Stall/admission reset: g000 weights + fresh Adam, batch dropped."""
-    policy = algorithm.new_policy(copy.deepcopy(g000_w))
+def reset_learner(base: Path, live: dict, learner: str, arch: str) -> None:
+    """Admission reset: a freshly constructed net (own random start) +
+    fresh Adam, batch dropped."""
+    policy = algorithm.new_policy(None, arch)
     opt = algorithm.make_optimizer(policy, lr=live["lr"])
     live[learner] = {"policy": policy, "opt": opt, "pending": []}
-    store_live(base, learner, copy.deepcopy(g000_w), None)
+    store_live(base, learner, algorithm.policy_weights(policy), None)
     bank_pending(base, learner, [], "")  # batch dropped by design
 
 
@@ -429,15 +433,15 @@ def _window_record(window: list[float]) -> str:
 
 
 def maybe_admit(base: Path, live: dict, state: dict, learner: str,
-                g000_w: dict) -> dict | None:
+                arch: str) -> dict | None:
     """Admission check: sustained >60% over the last 40 vs the target.
 
     Freezes the current weights as an admitted pool member under the next
     family id (meN/le-aN/le-bN, 0-based from the admissions log) with the
     live slot as parent, so it seeds from the slot's peak. Logs the
-    admission, then resets the live slot IN PLACE (g000 weights + fresh
-    Adam, same bare id): the family id is the achievement, the slot is
-    the continuing lineage. Returns the entry or None."""
+    admission, then resets the live slot IN PLACE (fresh random net +
+    fresh Adam, same bare id): the family id is the achievement, the slot
+    is the continuing lineage. Returns the entry or None."""
     if learner == "main":
         return None
     exp = state["exploiters"][learner]
@@ -457,7 +461,7 @@ def maybe_admit(base: Path, live: dict, state: dict, learner: str,
         # or the admission entry is clobbered by this stale copy.
         state = archive.load_league(base)
         exp = state["exploiters"][learner]
-        reset_learner(base, live, learner, g000_w)
+        reset_learner(base, live, learner, arch)
         exp["window"] = []
         archive.save_league(base, state)
         return entry
@@ -530,7 +534,6 @@ def run_tick(cfg: dict, base: Path, live: dict,
     learner = learner or archive.current_learner(state)
     lcfg = train.ROLE_CONFIGS[learner]
     entry = live[learner]
-    g000_w = archive.load_checkpoint(base, cfg.get("g000", "g000"))
 
     # Seat identity: bare slot names, forever. The main logs under
     # "main" (it never resets); exploiters log under their slot
@@ -595,7 +598,8 @@ def run_tick(cfg: dict, base: Path, live: dict,
             state = archive.load_league(base)
         archive.save_league(base, state)
 
-        admitted = maybe_admit(base, live, state, learner, g000_w)
+        admitted = maybe_admit(base, live, state, learner,
+                               cfg.get("arch", "base"))
         snapshot = None
         if admitted is not None:
             # maybe_admit reloads internally: refresh or the final save

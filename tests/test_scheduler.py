@@ -120,7 +120,6 @@ def test_admission_trigger_freezes_family_id(tmp_path, monkeypatch):
     assert exp["id"] == "le-a"  # bare slot from the start
     exp.update({"games": 40, "window": [1.0] * 40})
     archive.save_league(base, state)
-    g000_w = archive.load_checkpoint(base, "g000")
     before = len(archive.members(base))
     # advance the scheduler to le-a (main, me first).
     selfplay.run_tick(cfg, base, live)
@@ -135,8 +134,12 @@ def test_admission_trigger_freezes_family_id(tmp_path, monkeypatch):
     assert members[-1] == {"id": "le-a0", "role": "admitted",
                            "parent": "le-a"}  # seeds from slot peak
     assert archive.load_checkpoint(base, "le-a0") is not None
-    assert json.loads(
-        (base / "learners" / "le-a" / "weights.json").read_text()) == g000_w
+    import algorithm
+
+    live_w = algorithm.policy_weights(live["le-a"]["policy"])
+    stored = json.loads(
+        (base / "learners" / "le-a" / "weights.json").read_text())
+    assert stored != {} and set(stored) == set(live_w)  # re-seeded fresh
     assert not (base / "learners" / "le-a" / "opt.json").exists()
     state = archive.load_league(base)
     assert state["exploiters"]["le-a"]["window"] == []
@@ -169,7 +172,9 @@ def test_no_reset_after_drought(tmp_path, monkeypatch):
     assert state.get("resets", []) == []  # nothing logged
 
 
-def test_role_init_main_resumes_exploiters_from_g000(tmp_path):
+def test_role_init_main_resumes_exploiters_fresh(tmp_path):
+    import algorithm
+
     base, g000, source, pool = _league_base(tmp_path)
     cfg = _cfg(tmp_path)
     opt_blob = {"arrays": {}, "params": []}
@@ -178,9 +183,11 @@ def test_role_init_main_resumes_exploiters_from_g000(tmp_path):
     main_w, main_opt = selfplay.load_live(base, "main")
     assert main_w == archive.load_checkpoint(base, source)
     assert main_opt == opt_blob  # banked Adam resumes
+    fresh_keys = set(algorithm.policy_weights(
+        algorithm.new_policy(None, "base")))
     for learner in ("me", "le-a", "le-b"):
         w, opt = selfplay.load_live(base, learner)
-        assert w == archive.load_checkpoint(base, "g000")
+        assert set(w) == fresh_keys and w != {}  # own random start
         assert opt is None  # fresh Adam
     # second start never clobbers training progress.
     marker = {"reshaped": True}
@@ -335,8 +342,7 @@ def test_reset_learner_drops_banked_batch(tmp_path, monkeypatch):
     selfplay.bank_pending(base, "me", [(torch.zeros(1), 0, 0.0, [], 0.0)],
                           "base")
     assert selfplay._pending_path(base, "me").exists()
-    selfplay.reset_learner(base, live, "me",
-                           archive.load_checkpoint(base, "g000"))
+    selfplay.reset_learner(base, live, "me", "base")
     assert live["me"]["pending"] == []
     assert not selfplay._pending_path(base, "me").exists()
 
@@ -474,3 +480,17 @@ def test_crashed_tick_rows_and_bank_survive(tmp_path):
     assert selfplay._claim_tick(base) == 7
     live = selfplay.load_live_all(cfg, base)
     assert len(live["main"]["pending"]) == 1
+
+
+def test_reset_seeds_fresh_random_not_g000(tmp_path, monkeypatch):
+    import algorithm
+
+    base, cfg, live = _setup(tmp_path, monkeypatch)
+    ref = algorithm.policy_weights(algorithm.new_policy(None, "base"))
+    selfplay.reset_learner(base, live, "me", "base")
+    first, _ = selfplay.load_live(base, "me")
+    assert set(first) == set(ref) and first != {}
+    assert any(first[k] != ref[k] for k in first)  # not verbatim
+    selfplay.reset_learner(base, live, "me", "base")
+    second, _ = selfplay.load_live(base, "me")
+    assert any(first[k] != second[k] for k in first)  # each init differs

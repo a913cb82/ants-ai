@@ -32,9 +32,9 @@ Plan: ml/runs/plan-league.md. Migration: plan §Initialization.
    (admitted), reset. Cheap errors by design.
 6. **LE bar.** Sustained >60% over last 40 vs pool → freeze copy, reset.
 7. **Reset = admission only (no stall rule).** An admission freezes the
-   peak under a fresh family id and resets the slot to g000 weights +
-   fresh Adam under the SAME bare id, so peak-inheritance can never
-   happen. A drought simply keeps training under the same id with a
+   peak under a fresh family id and resets the slot to a freshly
+   constructed net (own random start, CleanRL-style init) + fresh Adam
+   under the SAME bare id, so peak-inheritance can never happen. A drought simply keeps training under the same id with a
    rolling window -- no timeout, no reset (removed 2026-11-02: no
    AlphaStar counterpart). Every admission appends {slot, seat, tick}
    to league.json resets (the tick IS the game number); the Elo pass
