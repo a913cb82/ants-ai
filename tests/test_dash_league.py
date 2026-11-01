@@ -485,3 +485,44 @@ def test_reset_cut_keys_on_tick_not_replay_path():
     assert cuts == {"le-a": {1}}  # order 1 of 3 -> cut fires at 1
     assert dashboard.reset_cut_intervals(
         grouped, 2, [{"slot": "le-a", "seat": "le-a", "tick": 99}]) == {}
+
+
+def test_pair_buckets_score_losses_zero_not_draws():
+    import dashboard
+
+    def game(a, b, sa, sb):
+        return {"pairs": [{"a": a, "b": b,
+                            "score_a": sa, "score_b": sb}]}
+    pos = {"x": 0, "y": 1}
+    # Each game lands in its own interval (K=1); input is newest-first,
+    # so per[0] is the oldest game (the win).
+    per = dashboard.interval_pair_buckets(
+        [game("x", "y", 0, 3), game("x", "y", 1, 1),
+         game("x", "y", 3, 0)], 1, pos)
+    assert per[0][(0, 1)] == [1.0, 0.0]  # W=1 from x's view
+    assert per[1][(0, 1)] == [0.5, 0.5]  # D=0.5
+    assert per[2][(0, 1)] == [0.0, 1.0]  # L=0, not a draw
+    per = dashboard.interval_pair_buckets(
+        [game("y", "x", 0, 3)], 1, pos)
+    assert per[0][(0, 1)] == [1.0, 0.0]  # canonical flip keeps x's view
+
+
+def test_elo_ranks_loser_below_splitter():
+    import dashboard
+
+    def game(a, b, sa, sb, tick):
+        return {"tick": tick,
+                "pairs": [{"a": a, "b": b,
+                           "score_a": sa, "score_b": sb}]}
+    # champ beats loser 4-1, splits 1-1 with mid; loser beats mid never.
+    games = [game("champ", "loser", 3, 0, t) for t in range(4)]
+    games += [game("champ", "loser", 0, 3, 4)]
+    games += [game("champ", "mid", 3, 0, 5),
+              game("champ", "mid", 0, 3, 6)]
+    ids = ["champ", "loser", "mid"]
+    pos = {c: i for i, c in enumerate(ids)}
+    per = dashboard.interval_pair_buckets(games, 100, pos)
+    theta = [1.0, 1.0, 1.0]
+    series: dict = {}
+    dashboard._interval_elo_extend(ids, per, ids, 4, 0, theta, series)
+    assert series["loser"][-1] < series["mid"][-1] < series["champ"][-1]

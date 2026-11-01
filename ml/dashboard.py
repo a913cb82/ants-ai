@@ -233,7 +233,7 @@ def interval_pair_buckets(grouped: list[dict], K: int,
                     sa, sb = float(p["score_a"]), float(p["score_b"])
                 except (TypeError, ValueError, KeyError):
                     continue
-                out = 1.0 if sa > sb else (0.0 if sb < sa else 0.5)
+                out = 1.0 if sa > sb else (0.0 if sa < sb else 0.5)
                 key = (i, j) if i < j else (j, i)
                 acc = per[idx].setdefault(key, [0.0, 0.0])
                 if (i, j) == key:
