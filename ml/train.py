@@ -79,7 +79,10 @@ def _is_penalty_game(cfg: dict, g: int, gen_index: int = 0) -> bool:
 
 def _play_one(args) -> dict:
     """One train game: play, price, record. Thread-safe via archive lock."""
-    (cfg, base, chal_id, field, weights, i, role, map_path) = args
+    (cfg, base, chal_id, field, weights, i, role, map_path) = args[:8]
+    # Display names for the replay (bot filenames): live seats show role
+    # names, frozen opponents their member ids. Attribution (records,
+    # logs, matrix) always uses field. Defaults to field when absent.
     try:
         gen_index = int(chal_id[1:])
     except (ValueError, IndexError):
@@ -97,7 +100,7 @@ def _play_one(args) -> dict:
             engine_seed=1000 + i,
         ),
         base / rel,
-        names=field,
+        names=list(args[8]) if len(args) > 8 else field,
     )
     game = out["game"]
     rows = algorithm.compact_records(out["records"][0])  # student seat 0

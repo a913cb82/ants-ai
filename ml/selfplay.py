@@ -444,6 +444,20 @@ def _slot_admissions(state: dict, learner: str) -> int:
                if isinstance(a, dict) and a.get("role") == learner)
 
 
+#: Replay display names for live seats: role names, never ids. The live
+#: main is bare "main"; live exploiters show the role family without a
+#: number (the -N is earned at admission, when the frozen copy takes it).
+#: Frozen opponents display as their member ids (g-ids, main snapshots,
+#: earned family names). Attribution (records/logs/matrix) always uses
+#: the seat/incarnation ids, never these display names.
+DISPLAY_NAMES = {
+    "main": "main",
+    "me": "main-exploiter",
+    "le-a": "league-exploiter-a",
+    "le-b": "league-exploiter-b",
+}
+
+
 def mint_incarnation(base: Path, slot: str, g000_id: str,
                      g000_w: dict) -> str:
     """Fresh per-incarnation member row: the exploiter's live id.
@@ -629,7 +643,8 @@ def run_tick(cfg: dict, base: Path, live: dict,
     map_path = rng.choice(cfg["maps"])
     played = train._play_one(
         (dict(cfg, game_kind="eval"), base, seat_id, [seat_id, opp],
-         [live_w, opp_w], game_no, lcfg["pricing"], map_path))
+         [live_w, opp_w], game_no, lcfg["pricing"], map_path,
+         [DISPLAY_NAMES.get(learner, seat_id), opp]))
     batch = algorithm.collect(entry["policy"], played["rows"],
                               played["rets"])
     entry["pending"].extend(batch)

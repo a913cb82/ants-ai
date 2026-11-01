@@ -1,9 +1,11 @@
 """Family naming for new league members (plan-league.md).
 
-Main snapshots take main-{k} continuing the lineage count; admissions
-take main-exploiter-{k} / league-exploiter-a-{k} / league-exploiter-b-{k}
-derived from the admissions log. Incarnations stay g-numbered
-transients; the g-allocator is untouched. Live head stays bare "main".
+Admissions take main-exploiter-{k} / league-exploiter-a-{k} /
+league-exploiter-b-{k} (0-based, derived from the admissions log).
+Main snapshots keep g-ids; the live head stays bare "main".
+Incarnations stay g-numbered transients; the g-allocator is untouched.
+Replays show role names for live seats (main / main-exploiter /
+league-exploiter-a-b) and member ids for frozen opponents.
 """
 import sys
 from pathlib import Path
@@ -54,7 +56,7 @@ def _setup(tmp_path, monkeypatch, scores=(3, 1), **cfg_over):
     live = selfplay.load_live_all(cfg, base)
 
     def fake_play_one(args):
-        (c, b, chal_id, field, weights, i, role, map_path) = args
+        (c, b, chal_id, field, weights, i, role, map_path) = args[:8]
         archive.record_result(b, field[0], field[1],
                               scores[0], scores[1], kind="eval")
         archive.log_game(b, chal_id, "eval", field[0], field[1],
@@ -220,6 +222,54 @@ def test_admitted_copy_in_manifest_and_log(tmp_path, monkeypatch):
     new_inc = state["exploiters"]["le-a"]["id"]
     assert new_inc.startswith("g")
     assert new_inc not in (sid,)
+
+
+def test_replay_display_names_use_roles_not_incarnations(tmp_path,
+                                                        monkeypatch):
+    import json
+
+    base, cfg, live = _setup(tmp_path, monkeypatch)
+    seen = []
+
+    def rec(args):
+        seen.append(args[8] if len(args) > 8 else None)
+        (c, b, chal_id, field, weights, i, role, map_path) = args[:8]
+        archive.record_result(b, field[0], field[1], 3, 1, kind="eval")
+        return {"rows": [], "rets": [], "scores": [3, 1]}
+
+    monkeypatch.setattr(train, "_play_one", rec)
+    selfplay.run_tick(cfg, base, live)  # main
+    selfplay.run_tick(cfg, base, live)  # me (live incarnation)
+    disp_main, disp_me = seen
+    state = archive.load_league(base)
+    me_inc = state["exploiters"]["me"]["id"]
+    assert me_inc.startswith("g")  # incarnations stay internal
+    assert disp_main[0] == "main"
+    assert disp_me[0] == "main-exploiter"  # role, not incarnation
+    assert disp_me[0] != me_inc
+    # opponents display as their member ids.
+    assert disp_main[1] != "main" and disp_me[1] != "main-exploiter"
+    # attribution still uses incarnation ids, never display names.
+    data = json.loads((base / "matrix.json").read_text())
+    assert "main-exploiter" not in data["ids"]
+    assert me_inc in data["ids"]
+
+
+def test_live_le_display_names_per_slot(tmp_path, monkeypatch):
+    base, cfg, live = _setup(tmp_path, monkeypatch)
+    seen = []
+
+    def rec(args):
+        seen.append(args[8] if len(args) > 8 else None)
+        (c, b, chal_id, field, weights, i, role, map_path) = args[:8]
+        return {"rows": [], "rets": [], "scores": [1, 3]}
+
+    monkeypatch.setattr(train, "_play_one", rec)
+    for _ in range(4):
+        selfplay.run_tick(cfg, base, live)  # main, me, le-a, le-b
+    assert [d[0] for d in seen] == ["main", "main-exploiter",
+                                    "league-exploiter-a",
+                                    "league-exploiter-b"]
 
 
 def test_live_head_stays_bare_main(tmp_path, monkeypatch):

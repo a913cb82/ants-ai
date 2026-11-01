@@ -50,7 +50,7 @@ def _setup(tmp_path, monkeypatch, scores=(3, 1), **cfg_over):
     live = selfplay.load_live_all(cfg, base)
 
     def fake_play_one(args):
-        (c, b, chal_id, field, weights, i, role, map_path) = args
+        (c, b, chal_id, field, weights, i, role, map_path) = args[:8]
         return {"rows": [], "rets": [], "scores": [scores[0], scores[1]]}
 
     monkeypatch.setattr(train, "_play_one", fake_play_one)

@@ -59,7 +59,7 @@ def _setup(tmp_path, monkeypatch, scores=(3, 1), **cfg_over):
     live = selfplay.load_live_all(cfg, base)
 
     def fake_play_one(args):
-        (c, b, chal_id, field, weights, i, role, map_path) = args
+        (c, b, chal_id, field, weights, i, role, map_path) = args[:8]
         # Like the real _play_one: record the canonical game under the
         # seat ids (incarnation ids for exploiters, "main" for main).
         archive.record_result(b, field[0], field[1],
