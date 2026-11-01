@@ -2468,13 +2468,13 @@ def render_page(snap: dict | None = None) -> str:
 </div>
 <div class="tcell span5">
 <div class="section-title">Distance to bar</div>
-<div class="legend">live exploiter window vs its admission bar</div>
+<div class="legend">live exploiter window (own last ≤40 games) vs its admission bar · spark is the cumulative window rate</div>
 <div class="card table-scroll"><table>
 <caption style="display:none">Distance to bar</caption>
 <tr><th scope="col">slot</th><th scope="col">target</th><th scope="col">rate</th><th scope="col" class="num">window</th><th scope="col" class="num">in</th></tr>
 <tbody id="bars-body">{bars}</tbody></table></div>
 <div class="section-title">Standings</div>
-<div class="legend">running Elo, integers · spark is the number's own history · W-D-L over eval games · rows older than 200 ticks gray out</div>
+<div class="legend">running Elo, integers · spark is the number's own history, last 40 games · W-D-L over eval games · rows older than 200 ticks gray out</div>
 <div class="card table-scroll"><table>
 <caption style="display:none">Standings</caption>
 <tr><th scope="col">slot</th><th scope="col">class</th><th scope="col" class="num">elo</th><th scope="col" class="num">w-d-l</th><th scope="col" class="num">n</th><th scope="col" class="num">upd</th><th scope="col" class="num">last</th></tr>
@@ -2491,7 +2491,7 @@ def render_page(snap: dict | None = None) -> str:
 </div>
 <div class="tcell span6">
 <div class="section-title">Behavior</div>
-<div class="legend">per-game means: food · kills · army share · length · games</div>
+<div class="legend">per-game means: food · kills · army share · length · games · sparks cover the member's last 40 games</div>
 <div class="card table-scroll"><table>
 <caption style="display:none">Behavior</caption>
 <tr><th scope="col">id</th><th scope="col" class="num">food</th><th scope="col" class="num">kills</th><th scope="col" class="num">army</th><th scope="col" class="num">len</th><th scope="col" class="num">n</th></tr>
