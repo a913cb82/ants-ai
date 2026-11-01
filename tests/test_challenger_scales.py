@@ -35,4 +35,4 @@ def test_scales_are_base():
     assert s["WIN"] == 5.0 and s["LOSS"] == -5.0
     assert s["HILL_RAZE"] == 10.0 and s["HILL_LOST"] == -10.0
     assert (rewards.KILL, rewards.DEATH, rewards.HILL_APPROACH) == (0.1, -0.2, 0.25)
-    assert {"hill_approach", "kill"} == rewards.GATED
+    assert {"hill_approach"} == rewards.GATED

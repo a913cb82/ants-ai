@@ -281,8 +281,9 @@ def test_one_for_one_trade_nets_negative():
     # Asymmetric death: killing pays +1, dying costs -2. A 1-for-1
     # trade nets -1, so mutual annihilation is no longer free — the
     # learner must preserve material to profit from combat. Pinned
-    # on a win (kills pay); on draws/losses the kill is gated and
-    # only the death lands (-2).
+    # kills pay on every finish now; only the march subsidy stays
+    # gated. Pinned on a win here; the loss case pins in
+    # test_main_kills_paid_on_loss.
     game = _game(score=[2, 0])  # win
     game["replaydata"]["ants"] = [
         [5, 5, 1, 3, 1, "--"],  # enemy dies turn 3
@@ -1790,7 +1791,7 @@ def test_third_seat_gets_own_outcome():
     assert rewards.compute_returns(game, 0, records)[0] == rewards.LOSS
 
 
-def test_main_kills_unpaid_on_loss():
+def test_main_kills_paid_on_loss():
     import rewards
 
     game = _game()
@@ -1800,7 +1801,7 @@ def test_main_kills_unpaid_on_loss():
         {"turn": 3, "loc": [5, 4], "dest": [5, 4], "action": "stay"},
     ]
     main = rewards.compute_returns(game, 0, records)
-    assert main[0] == rewards.LOSS  # useless aggression unpaid
+    assert main[0] == rewards.KILL + rewards.LOSS  # kills always pay now
 
 
 def test_death_still_hurts_on_loss():

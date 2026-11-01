@@ -53,12 +53,12 @@ LOSS = -5.0
 DRAW = 0.0
 GAMMA = 0.97
 
-# Payment follows purpose: dense credit is gated on winning. On a win
-# everything pays; on draw/loss the march subsidy (hill_approach)
-# pays nothing and kills pay nothing (useless aggression unpaid).
-# Dying always hurts and the terminal outcome always lands: defeats
-# must sting, wins must sing.
-GATED = {"hill_approach", "kill"}
+# Payment follows purpose: the march subsidy is gated on winning. On
+# a win everything pays; on draw/loss hill_approach pays nothing.
+# Kills always pay: combat credit is combat credit. Dying always hurts
+# and the terminal outcome always lands: defeats must sting, wins
+# must sing.
+GATED = {"hill_approach"}
 
 
 def scales() -> dict:
@@ -433,11 +433,11 @@ def compute_returns(game, me, records, table=None):
                 if scope == "team" or (keys[i] is not None and keys[j] == keys[i]):
                     arr[j] += share * (GAMMA ** (event_turn - t))
 
-    # outcome gate: marching/killing that doesn't win pays nothing.
-    # The subsidy for suicidal marching lives here; zeroing it on
-    # draws and losses is what kills the Goodhart. Placement-positive
-    # seats (sole-first, upper middles) unlock kill/march pay;
-    # zero and negative seats don't.
+    # outcome gate: marching that doesn't win pays nothing. The
+    # subsidy for suicidal marching lives here; zeroing it on draws
+    # and losses is what kills the Goodhart. Placement-positive seats
+    # (sole-first, upper middles) unlock march pay; zero and negative
+    # seats don't. Kills are ungated: they pay on every finish.
     gated = GATED if end_value <= 0 else set()
     rets = [0.0] * len(records)
     for kind, arr in by_kind.items():
