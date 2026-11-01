@@ -777,63 +777,51 @@ def seat0_outcome(game: dict) -> str | None:
     return member_game_result(game, seats[0].get("id"))
 
 
-FORM_WINDOW = 20  # games per form point
-FORM_POINTS = 40  # points per sparkline (matches SPARK_MAX)
+HISTORY_POINTS = 40  # sparkline points (matches SPARK_MAX)
 
 
-def form_series(grouped: list[dict], resets: list[dict],
-                parents: dict, window: int = FORM_WINDOW,
-                points: int = FORM_POINTS) -> dict[str, list[float]]:
-    """Per-game trailing form: for each of the last `points` game-ends,
-    Elo refitted over the trailing `window` games, oldest end first.
+def headline_ids(base: Path, grouped: list[dict]) -> list[str]:
+    """The id universe the headline pass fits: matrix order when the
+    matrix exists, else pair-sorted. headline_history MUST use these
+    exact ids (same order): Gauss-Seidel sweep order follows absolute
+    indices, so a different order fits different numbers."""
+    try:
+        data = json.loads((base / "matrix.json").read_text())
+        ids = data.get("ids", [])
+        if isinstance(ids, list) and ids:
+            return [str(c) for c in ids]
+    except (OSError, ValueError):
+        pass
+    return sorted({p["a"] for g in grouped for p in g.get("pairs", [])}
+                  | {p["b"] for g in grouped
+                    for p in g.get("pairs", [])})
 
-    Same Bradley-Terry math as the headline pass, but the memory comes
-    from the window, not carried thetas (a converged refit over one
-    game of data would just fit the priors). A reset member's
-    pre-reset games leave the window entirely: asymmetric buckets
-    would break the mirror invariant, and both sides losing one data
-    point is display-grade. Pure; constant cost per poll."""
+
+def headline_history(grouped: list[dict], K: int, ids: list[str],
+                       tracked: list[str],
+                       resets: list[dict], parents: dict,
+                       points: int = HISTORY_POINTS) -> dict[str, list]:
+    """The headline estimator recomputed per prefix: point i is the
+    K-interval Elo fitted over games[0..i], for the last `points`
+    game-ends, oldest first. Same statistic as the standings number
+    (the last point IS it); future resets never touch past points
+    (unknown ticks cut nothing), so every point is causal. Pure;
+    O(points) prefix passes, recomputed per poll."""
     chrono = grouped[::-1]
-    ends = chrono[max(0, len(chrono) - points):]
-    ids = sorted({p["a"] for g in chrono for p in g.get("pairs", [])}
-                 | {p["b"] for g in chrono for p in g.get("pairs", [])})
+    first = max(0, len(chrono) - points)
     pos = {cid: i for i, cid in enumerate(ids)}
-    latest_cut: dict[str, int] = {}
-    for r in resets:
-        if isinstance(r, dict) and isinstance(r.get("seat"), str) \
-                and isinstance(r.get("tick"), int):
-            latest_cut[r["seat"]] = max(latest_cut.get(r["seat"], -1),
-                                          r["tick"])
-    out: dict[str, list[float]] = {cid: [] for cid in ids}
-    for ei in range(len(ends)):
-        win = ends[max(0, ei - window + 1):ei + 1]
-        kept = []
-        for g in win:
-            gt = g.get("tick")
-            drop = False
-            if isinstance(gt, int):
-                for s in g.get("seats", []) or []:
-                    sid = s.get("id") if isinstance(s, dict) else None
-                    if sid in latest_cut and gt < latest_cut[sid]:
-                        drop = True
-                        break
-            if not drop:
-                kept.append(g)
-        if not kept:
-            for cid in ids:
-                out[cid].append(out[cid][-1] if out[cid] else 0.0)
-            continue
-        per = interval_pair_buckets(kept[::-1], len(kept), pos)
+    out: dict[str, list] = {mid: [] for mid in tracked}
+    for ei in range(first, len(chrono)):
+        prefix = chrono[:ei + 1][::-1]
+        per = interval_pair_buckets(prefix, K, pos)
+        cuts = reset_cut_intervals(prefix, K, resets)
         theta = [1.0] * len(ids)
         series: dict = {}
-        _interval_elo_extend(ids, per, ids, _RUN_SWEEPS, 0, theta,
-                             series, parents, set(), set())
-        for cid in ids:
-            vals = series.get(cid) or []
-            out[cid].append(vals[-1]
-                              if vals and isinstance(vals[-1],
-                                                     (int, float))
-                              else (out[cid][-1] if out[cid] else 0.0))
+        _interval_elo_extend(ids, per, tracked, _RUN_SWEEPS, 0, theta,
+                             series, parents, set(), set(), cuts=cuts)
+        for mid in tracked:
+            vals = series.get(mid) or []
+            out[mid].append(vals[-1] if vals else None)
     return out
 
 
@@ -1363,12 +1351,14 @@ def standings_panel(base: Path, grouped: list[dict], K: int,
     except (OSError, ValueError, KeyError, TypeError):
         elo = {s: [] for s in LIVE_SLOTS}
     try:
-        # Sparkline form: trailing-window refits, one point per game
-        # end (memory from the window, not carried thetas). Same scale
-        # as the headline number.
+        # Sparkline: the headline estimator recomputed per prefix -
+        # the standings number's own history, one point per game end.
+        # Same ids or the sweep order differs and so does the fit.
         st = state if isinstance(state, dict) else {}
-        form = form_series(grouped, st.get("resets", []) or [],
-                           _parent_map(base))
+        ids = headline_ids(base, grouped)
+        form = headline_history(grouped, K, ids, list(LIVE_SLOTS),
+                                st.get("resets", []) or [],
+                                _parent_map(base))
     except (OSError, ValueError, KeyError, TypeError):
         form = {s: [] for s in LIVE_SLOTS}
     last: dict[str, float] = {}
@@ -2484,7 +2474,7 @@ def render_page(snap: dict | None = None) -> str:
 <tr><th scope="col">slot</th><th scope="col">target</th><th scope="col">rate</th><th scope="col" class="num">window</th><th scope="col" class="num">in</th></tr>
 <tbody id="bars-body">{bars}</tbody></table></div>
 <div class="section-title">Standings</div>
-<div class="legend">running Elo, integers · spark is per-game running form · W-D-L over eval games · rows older than 200 ticks gray out</div>
+<div class="legend">running Elo, integers · spark is the number's own history · W-D-L over eval games · rows older than 200 ticks gray out</div>
 <div class="card table-scroll"><table>
 <caption style="display:none">Standings</caption>
 <tr><th scope="col">slot</th><th scope="col">class</th><th scope="col" class="num">elo</th><th scope="col" class="num">w-d-l</th><th scope="col" class="num">n</th><th scope="col" class="num">upd</th><th scope="col" class="num">last</th></tr>

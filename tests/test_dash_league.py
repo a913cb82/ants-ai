@@ -252,9 +252,10 @@ def test_standings_spark_tracks_each_game(tmp_path):
     base = _league_base(tmp_path / "a", games=8)
     rows = {r["id"]: r for r in dashboard.snapshot(base)["standings"]}
     sp = rows["main"]["spark"]
-    assert len(sp) == 8  # one trailing-window point per game end
+    assert len(sp) == 8  # one headline-history point per game end
     assert all(isinstance(v, float) for v in sp)
     assert sp[-1] != sp[0]  # the line moves with the games
+    assert int(round(sp[-1])) == rows["main"]["elo"]  # ends at it
     assert all(isinstance(v, (int, float)) for v in sp)
     assert len(sp) <= dashboard.SPARK_MAX
 
@@ -530,37 +531,47 @@ def test_elo_ranks_loser_below_splitter():
     assert series["loser"][-1] < series["mid"][-1] < series["champ"][-1]
 
 
-def test_form_series_tracks_each_game_end(tmp_path):
+def test_headline_history_ends_at_headline(tmp_path):
     import dashboard
 
     from test_curves import _elo_archive
 
-    games = [("champ", "loser", "w")] * 5
+    games = [("champ", "loser", "w")] * 8
     base, mid = _elo_archive(tmp_path, ["g000", "champ", "loser"], games,
-                             K=4, seat="champ", name="elo-form")
+                             K=4, seat="champ", name="elo-hist")
     grouped = dashboard.group_games(dashboard.archive.list_games(base))
-    form = dashboard.form_series(grouped, [], {}, window=20, points=40)
+    ids = dashboard.headline_ids(base, grouped)
+    pair = [mid["champ"], mid["loser"]]
+    hist = dashboard.headline_history(grouped, 4, ids, pair, [], {})
     champ, loser = mid["champ"], mid["loser"]
-    assert len(form[champ]) == 5  # one point per game end
-    assert all(b > a for a, b in zip(form[champ], form[champ][1:]))
-    assert all(b < a for a, b in zip(form[loser], form[loser][1:]))
-    assert all(c > l for c, l in zip(form[champ], form[loser]))
+    assert len(hist[champ]) == 8  # one point per game end
+    # climbs within each K-block (a fresh block starts prior-heavy);
+    # the last point IS the headline number.
+    blk = [hist[champ][i:i + 4] for i in range(0, 8, 4)]
+    assert all(all(b > a for a, b in zip(bk, bk[1:])) for bk in blk)
+    assert all(c > l for c, l in zip(hist[champ], hist[loser]))
+    series = dashboard._interval_elo_cached(
+        base, grouped, 4, [champ, loser])["series"]
+    assert hist[champ][-1] == series[champ][-1]  # last point IS it
+    assert hist[loser][-1] == series[loser][-1]
 
 
-def test_form_series_drops_pre_reset_games(tmp_path):
+def test_headline_history_ignores_future_resets(tmp_path):
     import dashboard
 
     from test_curves import _elo_archive
 
     games = [("champ", "loser", "w")] * 4
     base, mid = _elo_archive(tmp_path, ["g000", "champ", "loser"], games,
-                             K=4, seat="champ", name="elo-cut")
+                             K=4, seat="champ", name="elo-causal")
     grouped = dashboard.group_games(dashboard.archive.list_games(base))
     assert sorted(g["tick"] for g in grouped) == [0, 1, 2, 3]
-    resets = [{"slot": "loser", "seat": mid["loser"], "tick": 3}]
-    form = dashboard.form_series(grouped, resets, {}, window=20,
-                                 points=40)
-    # loser's 0-3 record is severed: only the tick-3 game counts,
-    # so its form sits at the prior, far above a fitted 0-4.
-    plain = dashboard.form_series(grouped, [], {}, window=20, points=40)
-    assert form[mid["loser"]][-1] > plain[mid["loser"]][-1]
+    ids = dashboard.headline_ids(base, grouped)
+    pair = [mid["champ"], mid["loser"]]
+    before = dashboard.headline_history(grouped, 4, ids, pair, [], {})
+    after = dashboard.headline_history(
+        grouped, 4, ids, pair,
+        [{"slot": "loser", "seat": mid["loser"], "tick": 3}], {})
+    # points ending before the reset tick are untouched by it.
+    assert before[pair[0]][:3] == after[pair[0]][:3]
+    assert before[pair[1]][:3] == after[pair[1]][:3]
