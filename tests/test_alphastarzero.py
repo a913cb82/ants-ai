@@ -1522,7 +1522,7 @@ def test_bot_loads_deep_weights(tmp_path):
     assert bot.policy.arch == "deep"
 
 
-def test_default_pool_mixes_two_three_and_four_player_maps():
+def test_default_pool_covers_any_player_count():
     import game_if
     import mapgen
     import selfplay
@@ -1533,26 +1533,35 @@ def test_default_pool_mixes_two_three_and_four_player_maps():
         assert mapgen.is_playable(m), m
         n = game_if.map_player_count(m)
         counts[n] = counts.get(n, 0) + 1
-    assert set(counts) == {2, 3, 4}, counts  # every size trains
-    assert len(pool) >= 200
+    assert 2 in counts and 4 in counts  # small and large tables play
+    assert max(counts) >= 8  # the big multi_hill/cell_maze tables join
+    import glob as _glob
+
+    assert sorted(pool) == sorted(
+        f
+        for d in ("cell_maze", "maze", "multi_hill_maze", "random_walk")
+        for f in _glob.glob(f"tools/maps/{d}/*.map")
+    )  # every map in the four upstream dirs, none odder
 
 
 def test_is_playable_accepts_n_player_maps(tmp_path):
     import mapgen
 
     def tiny(players, hills):
-        grid = ["m " + "." * 8 for _ in range(8)]
+        n = max(8, players)
+        grid = ["m " + "." * 8 for _ in range(n)]
         for i, h in enumerate(hills):
             grid[i] = "m " + h + "." * 7
         p = tmp_path / f"p{players}.map"
-        p.write_text(f"rows 8\ncols 8\nplayers {players}\n" + "\n".join(grid) + "\n")
+        p.write_text(f"rows {n}\ncols 8\nplayers {players}\n" + "\n".join(grid) + "\n")
         return str(p)
 
     assert mapgen.is_playable(tiny(2, "01"))
     assert mapgen.is_playable(tiny(3, "012"))
     assert mapgen.is_playable(tiny(4, "0123"))
+    assert mapgen.is_playable(tiny(5, "01234"))  # any table size plays
+    assert mapgen.is_playable(tiny(10, "0123456789"))  # up to 10 seats
     assert not mapgen.is_playable(tiny(1, "0"))  # solo is not a game
-    assert not mapgen.is_playable(tiny(5, "01234"))  # pool trains 2-4p
     assert not mapgen.is_playable(tiny(3, "01"))  # seat 2 has no hill
 
 

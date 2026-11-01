@@ -9,7 +9,7 @@ right way, PPO stays healthy.
 
 ## The loop
 
-1. **Mirror.** `main` plays `main` (2, 3 or 4 seats, per the map).
+1. **Mirror.** `main` plays `main` (any seat count, per the map).
    Every seat trains the same policy; every seat's records and
    seat-perspective returns accumulate into one batch. One row per
    game; the tick IS the game number

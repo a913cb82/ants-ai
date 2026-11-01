@@ -49,7 +49,7 @@ def _request_shutdown(signum, frame) -> None:
 
 
 def default_map_pool() -> list[str]:
-    """Every playable 2/3/4-player grid under tools/maps, sorted."""
+    """Every map in the four upstream dirs (any seat count), sorted."""
     import mapgen
 
     return mapgen.default_pool()

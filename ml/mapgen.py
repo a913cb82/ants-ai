@@ -2,8 +2,9 @@
 
 Supplements the upstream pool with generated 180-degree symmetric,
 guaranteed-connected grids for rotation variety. Deterministic per seed;
-generated maps live in tools/maps/generated/. The training pool mixes
-2, 3 and 4-player grids: every tick plays one map, so map size is the
+generated maps live in tools/maps/generated/. The training pool is any
+map in the four upstream dirs (cell_maze, maze, multi_hill_maze,
+random_walk): every tick plays one map, so map size is the
 player-count curriculum.
 """
 
@@ -158,7 +159,7 @@ def _seat_has_hill(flat: str, seat: int) -> bool:
 
 
 def is_playable(path: str) -> bool:
-    """A real 2/3/4-player grid: parseable header, full grid, a hill
+    """A real N-player grid: parseable header, full grid, a hill
     per seat.
 
     Comment lines (#) precede headers in most upstream maps, hills are
@@ -169,7 +170,7 @@ digits (0/1/...) or ant+hills (A/B), and hill-only maps are fine — hills
     if parsed is None:
         return False
     _rows, _cols, players, flat = parsed
-    if players not in (2, 3, 4):
+    if players < 2:
         return False
     return all(_seat_has_hill(flat, s) for s in range(players))
 
@@ -181,7 +182,7 @@ def is_playable_2p(path: str) -> bool:
     digits (0/1) or ant+hills (A/B), and hill-only maps are fine — hills
     spawn ants on turn 1, which is why maze_02p_02 plays with no 'a'/'b'.
     Kept for the mapgen scripts' 2p checks; the training pool uses
-    is_playable (2/3/4 players).
+    is_playable (any seat count).
     """
     parsed = _read_grid(path)
     if parsed is None:
@@ -191,10 +192,14 @@ def is_playable_2p(path: str) -> bool:
 
 
 def default_pool() -> list[str]:
-    """Every playable 2/3/4-player grid under tools/maps, sorted."""
+    """Every map in the four upstream dirs, sorted (any seat count)."""
     import glob as _glob
 
-    return sorted(f for f in _glob.glob("tools/maps/*/*.map") if is_playable(f))
+    pool = []
+    for d in ("cell_maze", "maze", "multi_hill_maze", "random_walk"):
+        pool.extend(_glob.glob(f"tools/maps/{d}/*.map"))
+    assert all(is_playable(f) for f in pool), "unplayable map in pool"
+    return sorted(pool)
 
 
 if __name__ == "__main__":

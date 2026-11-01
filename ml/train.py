@@ -1,7 +1,7 @@
 """Mirror self-play: one game, one PPO micro-batch step.
 
 Knows the training loop. Each call plays exactly one latest-vs-latest
-game on the map's player count (2, 3 or 4 seats, all main) and returns
+game on the map's player count (any seat count, all main) and returns
 every seat's records for the batch (AlphaZero trains on every position,
 not one side).
 

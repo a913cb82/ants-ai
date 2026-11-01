@@ -1063,7 +1063,7 @@ def render_page(snap: dict | None = None) -> str:
 <span class="updated" id="updated" title="page refresh time"></span></div>
 <div class="wrap">
 <h1>AlphaAnt mirror self-play</h1>
-<p class="sub">one net · latest vs latest · every 16th game trains · 2-4p maps</p>
+<p class="sub">one net · latest vs latest · every 16th game trains · 2-10p maps</p>
 <div id="error" role="alert" style="display:none"></div>
 <div class="grid12">
 <div class="tcell span12">
@@ -1088,7 +1088,7 @@ def render_page(snap: dict | None = None) -> str:
 </div>
 <div class="tcell span12">
 <div class="section-title">Recent games</div>
-<div class="legend">tick is the game number · all seats run the same net · map mixes 2/3/4 players · per-seat food/kills/army% + game length</div>
+<div class="legend">tick is the game number · all seats run the same net · map mixes 2-10 players · per-seat food/kills/army% + game length</div>
 <div class="card" id="games-card">
 <div class="toolbar">
 <label class="live-toggle"><input type="checkbox" id="live-toggle" checked> <span id="live-label">live</span></label>
