@@ -575,3 +575,25 @@ def test_headline_history_ignores_future_resets(tmp_path):
     # points ending before the reset tick are untouched by it.
     assert before[pair[0]][:3] == after[pair[0]][:3]
     assert before[pair[1]][:3] == after[pair[1]][:3]
+
+
+def test_anchor_trend_carries_snapshot_progress(tmp_path):
+    import dashboard
+
+    base = _league_base(tmp_path / "a", games=0)
+    st = dashboard.archive.load_league(base)
+    st["main_snapshots"] = ["m0"]
+    dashboard.archive.save_league(base, st)
+    trend = dashboard.snapshot(base)["anchors"]
+    assert trend["main_games"] == 0 and trend["snapshot_every"] == 4
+    html = dashboard.ladder_fallback_html(trend)
+    assert "first snapshot at 4 main games" in html
+
+
+def test_ladder_fallback_shows_shares_once_played(tmp_path):
+    import dashboard
+
+    trend = {"snapshots": ["m0"], "series": {"g000": [0.75]},
+             "main_games": 80, "snapshot_every": 80}
+    html = dashboard.ladder_fallback_html(trend)
+    assert "g000 75%" in html

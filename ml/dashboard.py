@@ -1028,7 +1028,10 @@ def anchor_trend(base: Path, state: dict | None) -> dict:
             t = w + lo + d
             line.append((w + 0.5 * d) / t if t else None)
         series[a] = line
-    return {"snapshots": snaps, "series": series}
+    every = (state or {}).get("snapshot_every") or selfplay.SNAPSHOT_EVERY
+    return {"snapshots": snaps, "series": series,
+            "main_games": (state or {}).get("main_games", 0),
+            "snapshot_every": every}
 
 
 def participation(grouped: list[dict]) -> dict[str, int]:
@@ -1866,6 +1869,12 @@ def ladder_fallback_html(trend: dict | None) -> str:
     for aid, line in series.items():
         vals = [v for v in line if isinstance(v, (int, float))]
         bits.append(f"{aid} {vals[-1] * 100:.0f}%" if vals else f"{aid} —")
+    if not any(isinstance(v, (int, float)) for line in series.values()
+               for v in (line or [])):
+        every = trend.get("snapshot_every", 80)
+        return (f'<div class="empty">no anchor games yet — first '
+                f'snapshot at {every} main games '
+                f'({trend.get("main_games", 0)} played)</div>')
     return (f'<div class="fallback">latest of {len(snaps)} snapshots: '
             f"{_esc(' · '.join(bits) if bits else 'no anchors')}</div>")
 
@@ -2204,6 +2213,11 @@ function drawLadder(){
   if(!snaps.length||!ids.length){
     F.ctx.fillStyle="#8A94A0";F.ctx.font="12px system-ui";F.ctx.fillText("no snapshots yet",12,20);return;
   }
+  const any=ids.some(aid=>(series[aid]||[]).some(v=>Number.isFinite(v)));
+  if(!any){
+    F.ctx.fillStyle="#8A94A0";F.ctx.font="12px system-ui";
+    F.ctx.fillText("first snapshot at "+(T.snapshot_every||80)+" main games ("+(T.main_games||0)+" played)",12,20);return;
+  }
   const L=44,R=84,Tp=10,B=22,{ctx,W,H}=F;
   const X=i=>L+(W-L-R)*(snaps.length<2?0.5:i/(snaps.length-1));
   const Y=v=>Tp+(H-Tp-B)*(1-v);
@@ -2238,6 +2252,8 @@ function ladderFallback(){
   const bits=Object.keys(series).map(aid=>{
     const vals=(series[aid]||[]).filter(v=>Number.isFinite(v));
     return aid+" "+(vals.length?Math.round(vals[vals.length-1]*100)+"%":"—");});
+  const any=Object.keys(series).some(aid=>(series[aid]||[]).some(v=>Number.isFinite(v)));
+  if(!any)return '<div class="empty">no anchor games yet — first snapshot at '+(T.snapshot_every||80)+" main games ("+(T.main_games||0)+" played)</div>";
   return '<div class="fallback">latest of '+snaps.length+" snapshots: "+esc(bits.join(" · "))+"</div>";
 }
 function drawPairs(){
