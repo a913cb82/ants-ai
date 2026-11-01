@@ -37,6 +37,7 @@ def _cfg(tmp_path, **over):
         "g000": "g000",
         "anchors": [],
         "archive": str(tmp_path / "archive"),
+        "concurrency": 1,
     })
     cfg.update(over)
     return cfg
@@ -216,6 +217,7 @@ def test_smoke_two_real_engine_games(tmp_path):
         "g000": "g000",
         "anchors": [],
         "archive": str(base),
+        "concurrency": 1,
     })
     selfplay.ensure_roles(base, cfg)
     live = selfplay.load_live_all(cfg, base)
@@ -366,62 +368,111 @@ def test_shutdown_flag_preset_runs_zero_ticks(tmp_path):
         selfplay._SHUTDOWN = False
 
 
-def test_recover_startup_rolls_back_partial_tick(tmp_path, monkeypatch):
+def test_recover_ticks_rolls_back_partial_tick(tmp_path, monkeypatch):
     import torch
-
-    import algorithm
 
     base, _, _, _ = _league_base(tmp_path)
     cfg = _cfg(tmp_path)
     selfplay.ensure_roles(base, cfg)
-    assert selfplay.recover_startup(base) is None  # fresh: baseline only
-    commit = archive.read_commit(base)
-    assert commit["completed"] == -1  # nothing completed yet
+    assert selfplay.recover_ticks(base) == []  # nothing interrupted
 
     # simulate a tick-0 crash after every effect fired:
+    selfplay.begin_tick_marker(base, 0)
     archive.log_game(base, "main", "eval", "main", "g000", 1, 0,
                      "games/x/logs/0.replay", map="m", game="gid-x", tick=0)
     archive.record_result(base, "main", "g000", 1, 0, kind="eval")
     archive.record_anchor(base, "s", "main", "g000", 1, 0, 0, tick=0)
-    orphan = archive.save_checkpoint(base, {}, "main", None)
+    archive.save_checkpoint(base, {}, "main", None)  # manifest orphan: inert
     selfplay.append_history(base, {"tick": 0})
     st = archive.load_league(base)
-    st["tick"] = 1  # mid-tick league save
-    archive.save_league(base, st)
+    st.setdefault("micro", {})["main"] = 1  # mid-tick league save
+    archive.save_league(base, st)  # state["tick"] only advances at tick end
     item = (torch.zeros(2), 1, 0.5, [True], 0.1)
     selfplay.bank_pending(base, "main", [item], "base", tick=0)
 
-    assert selfplay.recover_startup(base) == -1  # rolled back to baseline
-    assert archive.load_league(base)["tick"] == 0
+    assert selfplay.recover_ticks(base) == [0]
+    st = archive.load_league(base)
+    assert st["tick"] == 0  # never advanced: nothing to replay
+    assert st["micro"]["main"] == 1  # counter drift accepted, harmless
     assert archive.list_games(base) == []
     data = __import__("json").loads((base / "matrix.json").read_text())
     assert "main vs g000" not in data["eval"]
     assert archive.list_anchors(base) == []
-    assert orphan not in (base / "manifest.jsonl").read_text()
     assert selfplay.read_history(base) == []
     assert not selfplay._pending_path(base, "main").exists()
+    assert selfplay.recover_ticks(base) == []  # idempotent
 
 
-def test_restore_is_noop_when_clean(tmp_path):
+def test_recover_ticks_skips_completed_tick(tmp_path):
     base, _, _, _ = _league_base(tmp_path)
     cfg = _cfg(tmp_path)
     selfplay.ensure_roles(base, cfg)
-    selfplay.recover_startup(base)
-    before = (base / "league.json").read_bytes()
-    assert selfplay.recover_startup(base) == -1  # commit exists: restore
-    assert (base / "league.json").read_bytes() == before  # nothing moved
+    # crash after the tick applied but before its marker died:
+    selfplay.begin_tick_marker(base, 0)
+    archive.log_game(base, "main", "eval", "main", "g000", 1, 0,
+                     "games/x/logs/0.replay", map="m", game="gid-x", tick=0)
+    st = archive.load_league(base)
+    st["tick"] = 1  # tick fully applied
+    archive.save_league(base, st)
+    assert selfplay.recover_ticks(base) == []  # kept, marker dropped
+    assert len(archive.list_games(base)) == 1  # no strip of good work
+    assert not (tmp_path / "archive" / "tick.0.marker").exists()
 
 
-def test_crashed_bank_shed_only_when_newer(tmp_path):
+def test_bank_shed_only_for_interrupted_tick(tmp_path):
     import torch
 
     base, _, _, _ = _league_base(tmp_path)
     cfg = _cfg(tmp_path)
     selfplay.ensure_roles(base, cfg)
-    archive.write_commit(base, 5)
     item = (torch.zeros(1), 0, 0.0, [], 0.0)
     selfplay.bank_pending(base, "me", [item], "base", tick=6)
     selfplay.bank_pending(base, "le-a", [item], "base", tick=5)
-    selfplay.recover_startup(base)
+    selfplay.begin_tick_marker(base, 6)
+    assert selfplay.recover_ticks(base) == [6]
     assert not selfplay._pending_path(base, "me").exists()  # shed
-    assert selfplay._pending_path(base, "le-a").exists()  # kept
+    assert selfplay._pending_path(base, "le-a").exists()  # older: kept
+
+
+def test_concurrent_ticks_split_learners(tmp_path, monkeypatch):
+    import train
+
+    base, _, _, _ = _league_base(tmp_path)
+    cfg = _cfg(tmp_path, concurrency=2)
+    selfplay.ensure_roles(base, cfg)
+    seen = []
+    guard = __import__("threading").Lock()
+
+    def fake_tick(cfg, base, live, rng=None, learner=None):
+        __import__("time").sleep(0.005)  # force thread interleaving
+        with guard:
+            seen.append(learner)
+        return {"learner": learner}
+
+    monkeypatch.setattr(selfplay, "run_tick", fake_tick)
+    live = selfplay.load_live_all(cfg, base)
+    reports = selfplay.run_loop(cfg, base, ticks=8)
+    assert len(reports) == 8  # every claimed tick ran exactly once
+    assert set(seen) == {"main", "me", "le-a", "le-b"}  # all types fed
+    assert not list(base.glob("tick.*.marker"))  # markers die at tick end
+
+
+def test_pool_worker_cycles_own_learners(tmp_path):
+    base, _, _, _ = _league_base(tmp_path)
+    cfg = _cfg(tmp_path)
+
+    seen = []
+    guard = __import__("threading").Lock()
+
+    def fake_tick(cfg, base, live, rng=None, learner=None):
+        seen.append(learner)
+        return {}
+
+    real = selfplay.run_tick
+    selfplay.run_tick = fake_tick
+    try:
+        selfplay._pool_worker(cfg, base, {}, ["main", "me"], [3],
+                              [], guard)
+    finally:
+        selfplay.run_tick = real
+    assert seen == ["main", "me", "main"]  # local round-robin to empty

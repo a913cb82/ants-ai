@@ -47,6 +47,7 @@ def _cfg(tmp_path, **over):
         "g000": "g000",
         "anchors": [],
         "archive": str(tmp_path / "archive"),
+        "concurrency": 1,
     })
     cfg.update(over)
     return cfg

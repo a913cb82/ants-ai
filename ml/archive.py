@@ -134,8 +134,7 @@ def save_checkpoint(base: Path, weights: dict, role: str, parent: str | None,
     row = {"id": cid, "role": role, "parent": parent}
     if line is not None:
         row["line"] = line
-    with open(p["manifest"], "a") as f:
-        f.write(json.dumps(row) + "\n")
+    append_jsonl(p["manifest"], row)
     return cid
 
 
@@ -144,10 +143,13 @@ def load_checkpoint(base: Path, cid: str) -> dict:
 
 
 def append_jsonl(path: Path, row: dict) -> None:
-    """One JSON line appended. Shared by games index and history log."""
+    """One JSON line appended. Shared by games index and history log.
+
+    Serialized across threads: concurrent appends never interleave."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "a") as f:
-        f.write(json.dumps(row) + "\n")
+    with _APPEND_LOCK:
+        with open(path, "a") as f:
+            f.write(json.dumps(row) + "\n")
 
 
 def read_jsonl(path: Path, valid) -> list[dict]:
@@ -186,108 +188,101 @@ def outcome_of(score_a: float, score_b: float) -> float:
 
 
 _write_lock = threading.Lock()
+_APPEND_LOCK = threading.Lock()
+_LEAGUE_LOCK = threading.RLock()
 
 
-COMMIT_LOGS = ("games.jsonl", "anchor.jsonl", "manifest.jsonl",
-               "history.jsonl")
+def league_lock() -> threading.RLock:
+    """The one league.json guard: hold for read-modify-write sections.
+
+    Games (slow) run lock-free; the fast post-game phase holds this.
+    Reentrant: admit/snapshot paths nest inside the tick's section."""
+    return _LEAGUE_LOCK
 
 
-def _commit_path(base: Path) -> Path:
-    return base / "commit.json"
+def _strip_tick_file(base: Path, name: str, tick: int,
+                    valid) -> list[dict]:
+    """Remove rows stamped with this tick from one archive log.
 
-
-def write_commit(base: Path, completed: int) -> dict:
-    """Snapshot the tick boundary: league+matrix bytes, log sizes.
-
-    One atomic record at tick end (plus a baseline when no commit
-    exists yet, covering the first tick). Crash recovery restores
-    exactly this: completed ticks stay, the interrupted one goes."""
+    Unstamped rows (legacy) are always kept. Returns the removed rows;
+    the file is rewritten atomically only when something was removed."""
     init(base)
-    p = _paths(base)
-    try:
-        league = _league_path(base).read_text()
-    except OSError:
-        league = ""
-    try:
-        matrix = p["matrix"].read_text()
-    except OSError:
-        matrix = ""
-    sizes = {}
-    for name in COMMIT_LOGS:
-        path = p["dir"] / name if name != "manifest.jsonl" else p["manifest"]
-        try:
-            sizes[name] = path.stat().st_size
-        except OSError:
-            sizes[name] = 0  # missing file truncates to empty, not unknown
-    commit = {"completed": completed, "league": league,
-              "matrix": matrix, "sizes": sizes}
-    atomic_write_json(_commit_path(base), commit)
-    return commit
+    path = _paths(base)["dir"] / name
+    rows = read_jsonl(path, valid)
+    removed = [r for r in rows
+               if isinstance(r, dict) and r.get("tick") == tick]
+    if removed:
+        _atomic_rewrite_lines(path, [r for r in rows
+                                     if not (isinstance(r, dict)
+                                             and r.get("tick") == tick)])
+    return removed
 
 
-def read_commit(base: Path) -> dict | None:
-    """Last commit record, else None (fresh archive, never bricks)."""
-    try:
-        commit = json.loads(_commit_path(base).read_text())
-    except (OSError, ValueError):
-        return None
-    return commit if isinstance(commit, dict) else None
+def strip_tick_rows(base: Path, tick: int) -> list[dict]:
+    """Remove games.jsonl rows stamped with this tick (crash rollback).
+
+    Returns the removed rows so the aggregated matrix can shed their
+    contribution."""
+    return _strip_tick_file(base, "games.jsonl", tick, _game_row)
 
 
-def restore_commit(base: Path) -> bool:
-    """Roll back files to the last committed tick boundary. Idempotent.
+def trim_matrix_rows(base: Path, rows: list[dict]) -> None:
+    """Shed removed game rows' contribution from the aggregated matrix.
 
-    League+matrix return to committed bytes; append-only logs truncate
-    to committed sizes. Bank shedding lives in selfplay (torch side).
-    Returns True when anything actually moved. Missing league/matrix
-    aborts the whole restore: something bigger than a crash happened,
-    don't guess."""
-    commit = read_commit(base)
-    if not commit:
-        return False
-    p = _paths(base)
-    league_path = _league_path(base)
-    matrix_path = p["matrix"]
-    if not league_path.exists() or not matrix_path.exists():
-        return False
-    moved = False
-    for path, text in ((league_path, commit.get("league", "")),
-                       (matrix_path, commit.get("matrix", ""))):
-        if not isinstance(text, str) or not text:
-            continue
-        try:
-            if path.read_text() == text:
+    Counters floor at zero; unknown keys/kinds are skipped. Member ids
+    stay registered (a gameless id reads as unknown, never wrong)."""
+    if not rows:
+        return
+    init(base)
+    with _write_lock:
+        p = _paths(base)
+        data = json.loads(p["matrix"].read_text())
+        for r in rows:
+            kind = r.get("kind")
+            if kind not in ("eval", "train"):
                 continue
-            fd, tmp = tempfile.mkstemp(dir=str(path.parent),
-                                        suffix=".tmp")
             try:
-                with os.fdopen(fd, "w") as f:
-                    f.write(text)
-                os.replace(tmp, path)
-            except BaseException:
-                try:
-                    os.unlink(tmp)
-                except OSError:
-                    pass
-                raise
-            moved = True
-        except (OSError, ValueError):
-            continue
-    sizes = commit.get("sizes", {}) or {}
-    for name in COMMIT_LOGS:
-        want = sizes.get(name)
-        if not isinstance(want, int):
-            continue
-        path = p["dir"] / name if name != "manifest.jsonl" else p["manifest"]
-        try:
-            if path.stat().st_size <= want:
+                out = outcome_of(r.get("score_a"), r.get("score_b"))
+            except (TypeError, ValueError):
                 continue
-            with open(path, "r+b") as f:
-                f.truncate(want)
-            moved = True
+            key = _key(r.get("a"), r.get("b"))
+            wins = data[kind].get(key)
+            if not wins:
+                continue
+            wins[0] = max(0.0, wins[0] - out)
+            wins[1] = max(0.0, wins[1] - (1.0 - out))
+            if wins[0] == 0.0 and wins[1] == 0.0:
+                del data[kind][key]  # live keys never zero: no phantom pairs
+            else:
+                data[kind][key] = wins
+        atomic_write_json(p["matrix"], data)
+
+
+def strip_tick_anchors(base: Path, tick: int) -> int:
+    """Remove anchor.jsonl rows stamped with this tick. Returns count."""
+    return len(_strip_tick_file(base, "anchor.jsonl", tick, _anchor_row))
+
+
+def strip_tick_history(base: Path, tick: int) -> int:
+    """Remove history.jsonl rows stamped with this tick. Returns count."""
+    return len(_strip_tick_file(
+        base, "history.jsonl", tick, lambda r: isinstance(r, dict)))
+
+
+def _atomic_rewrite_lines(path: Path, rows: list[dict]) -> None:
+    """Replace a jsonl file's rows atomically (tmp + rename)."""
+    fd, tmp = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            for r in rows:
+                f.write(json.dumps(r) + "\n")
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
         except OSError:
-            continue
-    return moved
+            pass
+        raise
 
 
 def record_result(
@@ -561,8 +556,7 @@ def save_named_snapshot(base: Path, member_id: str, weights: dict, role: str,
     row: dict = {"id": member_id, "role": role, "parent": parent}
     if line is not None:
         row["line"] = line
-    with open(_paths(base)["manifest"], "a") as f:
-        f.write(json.dumps(row) + "\n")
+    append_jsonl(_paths(base)["manifest"], row)
     return member_id
 
 
@@ -581,8 +575,7 @@ def append_member(base: Path, member_id: str, role: str,
         raise ValueError(f"append_member: id {member_id!r} "
                          f"already in manifest")
     row = {"id": member_id, "role": role, "parent": parent}
-    with open(_paths(base)["manifest"], "a") as f:
-        f.write(json.dumps(row) + "\n")
+    append_jsonl(_paths(base)["manifest"], row)
     return member_id
 
 

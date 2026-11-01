@@ -18,10 +18,13 @@ Invariants (league plan, verbatim):
 from __future__ import annotations
 
 import copy
+import itertools
 import json
 import random
 import signal
 import sys
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -76,6 +79,7 @@ def default_config() -> dict:
         "epochs": 3,
         "arch": "base",
         "workers": 8,
+        "concurrency": 4,
         "clip": 0.2,
         "vf_coef": 0.5,
         "entropy_beta": 0.01,
@@ -104,6 +108,9 @@ def parse_args(argv: list[str] | None = None) -> dict:
     p.add_argument("--epochs", type=int, default=defaults["epochs"])
     p.add_argument("--arch", choices=("base", "deep"), default=defaults["arch"])
     p.add_argument("--workers", type=int, default=defaults["workers"])
+    p.add_argument("--concurrency", type=int, default=defaults["concurrency"],
+                   help="parallel tick workers, one disjoint learner set "
+                   "each (1 = legacy synchronous loop, 4 = one per type)")
     p.add_argument("--clip", type=float, default=defaults["clip"])
     p.add_argument("--vf-coef", type=float, default=defaults["vf_coef"])
     p.add_argument("--entropy-beta", type=float, default=defaults["entropy_beta"])
@@ -132,6 +139,7 @@ def parse_args(argv: list[str] | None = None) -> dict:
         "epochs": args.epochs,
         "arch": args.arch,
         "workers": args.workers,
+        "concurrency": args.concurrency,
         "clip": args.clip,
         "vf_coef": args.vf_coef,
         "entropy_beta": args.entropy_beta,
@@ -342,47 +350,95 @@ def ensure_roles(base: Path, cfg: dict) -> None:
             store_live(base, learner, copy.deepcopy(g000_w), None)
 
 
-def shed_crashed_banks(base: Path, completed: int) -> bool:
+def _tick_counters() -> dict:
+    """Per-archive tick counters (tests get fresh tmp dirs, so fresh 0)."""
+    global _TICK_COUNTERS
+    try:
+        return _TICK_COUNTERS
+    except NameError:
+        _TICK_COUNTERS = {}
+        return _TICK_COUNTERS
+
+
+_TICK_COUNTER_GUARD = threading.Lock()
+
+
+def _claim_tick(base: Path) -> int:
+    """Next tick number, unique across threads and restarts.
+
+    Monotonic per archive: rolled-back numbers are never reused, so a
+    replayed tick cannot double-log."""
+    key = str(base.resolve())
+    with _TICK_COUNTER_GUARD:
+        counters = _tick_counters()
+        if key not in counters:
+            state = archive.load_league(base) or {}
+            counters[key] = itertools.count(state.get("tick", 0))
+        return next(counters[key])
+
+
+def _marker_path(base: Path, tick: int) -> Path:
+    return base / f"tick.{tick}.marker"
+
+
+def begin_tick_marker(base: Path, tick: int) -> None:
+    """Mark tick in-flight (atomic): a crash leaves exactly this behind."""
+    archive.atomic_write_json(_marker_path(base, tick), {"tick": tick})
+
+
+def end_tick_marker(base: Path, tick: int) -> None:
+    try:
+        _marker_path(base, tick).unlink()
+    except OSError:
+        pass
+
+
+def recover_ticks(base: Path) -> list[int]:
+    """Roll back every interrupted tick. Idempotent, startup-only.
+
+    League tick past the marker means the tick completed (marker delete
+    never ran): keep everything, drop the marker. Otherwise strip that
+    tick's rows, trim its matrix share, shed its bank, and let the
+    monotonic counter skip the number — replay can never duplicate.
+    Returns the rolled-back ticks."""
+    rolled = []
+    try:
+        markers = sorted(base.glob("tick.*.marker"))
+    except OSError:
+        return rolled
+    for m in markers:
+        try:
+            tick = int(m.stem.split(".")[1])
+        except (IndexError, ValueError):
+            continue
+        try:
+            cur = (archive.load_league(base) or {}).get("tick", 0)
+        except (OSError, ValueError):
+            cur = 0
+        if isinstance(cur, int) and cur > tick:
+            end_tick_marker(base, tick)
+            continue
+        removed = archive.strip_tick_rows(base, tick)
+        archive.trim_matrix_rows(base, removed)
+        archive.strip_tick_anchors(base, tick)
+        archive.strip_tick_history(base, tick)
+        try:
+            dirs = [d for d in learners_dir(base).iterdir()
+                    if d.is_dir()]
+        except OSError:
+            dirs = []
+        for d in dirs:
+            bank = d / "pending.pt"
+            if algorithm.pending_tick(bank) == tick:
+                try:
+                    bank.unlink()
+                except OSError:
+                    pass
+        end_tick_marker(base, tick)
+        rolled.append(tick)
+    return sorted(rolled)
     """Drop banks newer than the last completed tick (only the
     interrupted tick's batch). Returns True when anything was shed."""
-    moved = False
-    try:
-        dirs = [d for d in learners_dir(base).iterdir() if d.is_dir()]
-    except OSError:
-        return False
-    for d in dirs:
-        bank = d / "pending.pt"
-        tick = algorithm.pending_tick(bank)
-        if tick is not None and tick > completed:
-            try:
-                bank.unlink()
-                moved = True
-            except OSError:
-                pass
-    return moved
-
-
-def recover_startup(base: Path) -> int | None:
-    """Restore the last committed tick boundary; baseline when new.
-
-    Unconditional on every startup: clean shutdowns find everything
-    already committed (no-op); crashes roll back the partial tick.
-    Returns the completed tick, or None without a commit."""
-    commit = archive.read_commit(base)
-    if commit is None:
-        state = archive.load_league(base) or {}
-        tick = state.get("tick", 0)
-        archive.write_commit(base, tick - 1)
-        return None
-    moved = archive.restore_commit(base)
-    completed = commit.get("completed")
-    if isinstance(completed, int):
-        moved = shed_crashed_banks(base, completed) or moved
-    if moved:
-        print(f"rolled back to committed tick {completed}")
-    return completed if isinstance(completed, int) else None
-
-
 def load_live_all(cfg: dict, base: Path) -> dict:
     """In-memory training state per learner: policy, Adam, micro-batch."""
     live: dict = {"lr": cfg["lr"]}
@@ -528,22 +584,28 @@ def maybe_snapshot(cfg: dict, base: Path, live: dict, state: dict,
 
 
 def run_tick(cfg: dict, base: Path, live: dict,
-             rng: random.Random | None = None) -> dict:
+             rng: random.Random | None = None,
+             learner: str | None = None) -> dict:
     """One scheduler iteration: play, log, accumulate, maybe train.
 
     Trains exactly one learner (the seat-0 side); the opponent's weights
     are fixed for the game (frozen snapshot, or a live-main copy that
-    learns nothing from it). Returns a report dict."""
+    learns nothing from it). Thread-safe: the slow game runs lock-free,
+    all league mutations hold the league guard. A live-main read racing
+    that learner's own update only shifts opponent staleness, which the
+    ME threshold branch already tolerates. Returns a report dict."""
     import rewards
 
     rewards.GAMMA = cfg.get("gamma", rewards.GAMMA)
-    state = archive.load_league(base)
+    with archive.league_lock():
+        tick = _claim_tick(base)
+        begin_tick_marker(base, tick)
+        state = archive.load_league(base)
     if state is None:
         raise FileNotFoundError(f"no league.json under {base}")
-    tick = state.get("tick", 0)
     if rng is None:
         rng = random.Random(f"{cfg.get('seed', 0)}:{tick}")
-    learner = archive.current_learner(state)
+    learner = learner or archive.current_learner(state)
     lcfg = train.ROLE_CONFIGS[learner]
     entry = live[learner]
     g000_w = archive.load_checkpoint(base, cfg.get("g000", "g000"))
@@ -575,70 +637,74 @@ def run_tick(cfg: dict, base: Path, live: dict,
                               played["rets"])
     entry["pending"].extend(batch)
 
-    micro = state.setdefault("micro", {}).get(learner, 0) + 1
-    state["micro"][learner] = micro
+    with archive.league_lock():
+        state = archive.load_league(base)
+        micro = state.setdefault("micro", {}).get(learner, 0) + 1
+        state["micro"][learner] = micro
+        archive.save_league(base, state)
+        update_due = micro % MICRO_BATCH == 0
     update_stats = None
-    if micro % MICRO_BATCH == 0:
+    if update_due:
         update_stats = train.ppo_update(entry["policy"], entry["opt"],
                                         entry["pending"], cfg)
-        entry["pending"] = []
-        bank_pending(base, learner, [], cfg.get("arch", "base"))
-        store_live(base, learner,
-                   algorithm.policy_weights(entry["policy"]),
-                   algorithm.serialize_opt(entry["opt"]))
-    else:
-        # No update this tick: bank the batch so an early exit loses
-        # nothing; the next run resumes it like a continued loop.
-        bank_pending(base, learner, entry["pending"],
-                     cfg.get("arch", "base"), tick)
-    # Persist progress before the counter helpers below: they reload the
-    # league from disk and would drop unsaved in-memory progress.
-    archive.save_league(base, state)
+    with archive.league_lock():
+        state = archive.load_league(base)
+        if update_due:
+            entry["pending"] = []
+            bank_pending(base, learner, [], cfg.get("arch", "base"))
+            store_live(base, learner,
+                       algorithm.policy_weights(entry["policy"]),
+                       algorithm.serialize_opt(entry["opt"]))
+        else:
+            # No update this tick: bank the batch so an early exit loses
+            # nothing; the next run resumes it like a continued loop.
+            bank_pending(base, learner, entry["pending"],
+                         cfg.get("arch", "base"), tick)
 
-    my_score, opp_score = played["scores"][0], played["scores"][1]
-    outcome = archive.outcome_of(my_score, opp_score)
-    if learner == "main":
-        state["main_games"] = state.get("main_games", 0) + 1
-    else:
-        # Every exploiter game grows its window: ME faces the main
-        # lineage (live main or its snapshots), LEs face the pool.
-        target = state.get("main_id") if learner == "me" else "pool"
-        archive.note_exploiter_game(base, learner, outcome,
-                                    target=target)
-        state = archive.load_league(base)
-    archive.save_league(base, state)
+        my_score, opp_score = played["scores"][0], played["scores"][1]
+        outcome = archive.outcome_of(my_score, opp_score)
+        if learner == "main":
+            state["main_games"] = state.get("main_games", 0) + 1
+        else:
+            # Every exploiter game grows its window: ME faces the main
+            # lineage (live main or its snapshots), LEs face the pool.
+            target = state.get("main_id") if learner == "me" else "pool"
+            archive.note_exploiter_game(base, learner, outcome,
+                                        target=target)
+            state = archive.load_league(base)
+        archive.save_league(base, state)
 
-    admitted = maybe_admit(base, live, state, learner, g000_w)
-    snapshot = None
-    if admitted is not None:
-        # maybe_admit reloads internally: refresh or the final save
-        # clobbers the admission entry and the reset.
-        state = archive.load_league(base)
-        archive.note_reset(base, learner, seat_id, game_no, tick)
-        state = archive.load_league(base)
-    # Behavior stats ride the played game dict into log_game inside
-    # _play_one (parsed once per game); the tick rides this cfg copy.
-    else:
-        # No stall rule: a drought simply keeps training under the same
-        # bare id with a rolling window. The admitted freeze is the
-        # permanent record for that tick; a fresh reset must not
-        # snapshot on the same tick.
-        snapshot = maybe_snapshot(cfg, base, live, state, learner)
-        # maybe_snapshot saves state itself for main/exploiters.
-        state = archive.load_league(base)
+        admitted = maybe_admit(base, live, state, learner, g000_w)
+        snapshot = None
+        if admitted is not None:
+            # maybe_admit reloads internally: refresh or the final save
+            # clobbers the admission entry and the reset.
+            state = archive.load_league(base)
+            archive.note_reset(base, learner, seat_id, game_no, tick)
+            state = archive.load_league(base)
+        # Behavior stats ride the played game dict into log_game inside
+        # _play_one (parsed once per game); the tick rides this cfg copy.
+        else:
+            # No stall rule: a drought simply keeps training under the same
+            # bare id with a rolling window. The admitted freeze is the
+            # permanent record for that tick; a fresh reset must not
+            # snapshot on the same tick.
+            snapshot = maybe_snapshot(cfg, base, live, state, learner)
+            # maybe_snapshot saves state itself for main/exploiters.
+            state = archive.load_league(base)
 
-    state["tick"] = tick + 1
-    archive.save_league(base, state)
-    next_learner = archive.advance_scheduler(base)
-    archive.write_commit(base, tick)  # commit point: tick fully applied
-    archive.write_status(base, {
-        "phase": "league", "learner": learner, "opponent": opp,
-        "tick": tick + 1, "next": next_learner,
-        "own_games": learner_games(state, learner),
-        "micro": state.get("micro", {}).get(learner, 0),
-        "admitted": admitted["id"] if admitted else None,
-        "snapshot": snapshot["id"] if snapshot else None,
-    })
+        state["tick"] = max(state.get("tick", 0), tick + 1)
+        archive.save_league(base, state)
+        next_learner = archive.advance_scheduler(base)
+        end_tick_marker(base, tick)
+        archive.write_status(base, {
+            "phase": "league", "learner": learner, "opponent": opp,
+            "tick": tick + 1, "next": next_learner,
+            "own_games": learner_games(state, learner),
+            "micro": state.get("micro", {}).get(learner, 0),
+            "admitted": admitted["id"] if admitted else None,
+            "snapshot": snapshot["id"] if snapshot else None,
+        })
     return {
         "learner": learner,
         "opponent": opp,
@@ -664,20 +730,64 @@ def _request_shutdown(signum, frame) -> None:
     _SHUTDOWN = True
 
 
+def _pool_worker(cfg: dict, base: Path, live: dict, learners: list[str],
+                 remaining: list, reports: list, guard: threading.Lock) -> None:
+    """One pool thread: own a disjoint learner set, claim ticks tock-free.
+
+    Learners cycle locally (no two threads ever share a learner, so no
+    policy/Adam/bank lock is needed); the global tick counter and the
+    shutdown flag are the only shared atoms."""
+    i = 0
+    while True:
+        with guard:
+            if _SHUTDOWN:
+                return
+            n = remaining[0]
+            if n is not None and n >= 0 and n <= 0:
+                return
+            if n is not None and n >= 0:
+                remaining[0] = n - 1
+            learner = learners[i % len(learners)]
+            i += 1
+        rep = run_tick(cfg, base, live, learner=learner)
+        with guard:
+            reports.append(rep)
+
+
 def run_loop(cfg: dict, base: Path, ticks: int | None = None) -> list[dict]:
-    """Perpetual scheduler: ensure roles, then tick until ticks run out."""
+    """Perpetual scheduler: ensure roles, then tick until ticks run out.
+
+    Concurrency partitions learners across pool threads (default 4 =
+    one per learner; 1 runs the legacy synchronous loop in this
+    thread). In-flight ticks each carry a marker file; startup sweeps
+    interrupted ones before loading state."""
     ensure_roles(base, cfg)
-    recover_startup(base)  # unconditional: no-op when clean
+    rolled = recover_ticks(base)
+    if rolled:
+        print(f"rolled back interrupted ticks {rolled}")
     live = load_live_all(cfg, base)
-    reports = []
+    reports: list = []
     n = cfg.get("ticks", -1) if ticks is None else ticks
-    tick = 0
+    order = list(archive.SCHEDULER_ORDER)
+    workers = max(1, min(int(cfg.get("concurrency", 1)), len(order)))
     old_int = signal.signal(signal.SIGINT, _request_shutdown)
     old_term = signal.signal(signal.SIGTERM, _request_shutdown)
     try:
-        while (n is None or n < 0 or tick < n) and not _SHUTDOWN:
-            reports.append(run_tick(cfg, base, live))
-            tick += 1
+        if workers == 1:
+            tick = 0
+            while (n is None or n < 0 or tick < n) and not _SHUTDOWN:
+                reports.append(run_tick(cfg, base, live))
+                tick += 1
+            return reports
+        guard: threading.Lock = threading.Lock()
+        remaining = [n]
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            futures = [ex.submit(_pool_worker, cfg, base, live,
+                                 order[i::workers], remaining,
+                                 reports, guard)
+                       for i in range(workers)]
+            for f in futures:
+                f.result()
     finally:
         signal.signal(signal.SIGINT, old_int)
         signal.signal(signal.SIGTERM, old_term)
