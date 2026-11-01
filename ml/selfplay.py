@@ -405,6 +405,44 @@ def load_live_all(cfg: dict, base: Path) -> dict:
     return live
 
 
+def _next_family_id(base: Path, prefix: str, start: int = 1) -> str:
+    """First free family id ``prefix-k`` (k >= start) not in the manifest.
+
+    Scans manifest ids; collision-skips taken names. The default start
+    of 1 returns the first free ``prefix-1, prefix-2, ...``; callers pass
+    a lineage-derived start (len(main_snapshots), slot admissions + 1)
+    so numbering continues the lineage count instead of reusing gaps.
+    Pure except for the manifest read."""
+    try:
+        k = int(start)
+    except (TypeError, ValueError):
+        k = 1
+    if k < 1:
+        k = 1
+    taken = {m.get("id") for m in archive.members(base)
+             if isinstance(m.get("id"), str)}
+    while f"{prefix}-{k}" in taken:
+        k += 1
+    return f"{prefix}-{k}"
+
+
+#: Admission family prefixes per exploiter slot.
+ADMISSION_PREFIXES = {
+    "me": "main-exploiter",
+    "le-a": "league-exploiter-a",
+    "le-b": "league-exploiter-b",
+}
+
+
+def _slot_admissions(state: dict, learner: str) -> int:
+    """Existing admissions for a slot, from the league.json log.
+
+    Derived (no counter state, restart-safe, no migration): counts
+    entries whose role is the slot name."""
+    return sum(1 for a in state.get("admissions", []) or []
+               if isinstance(a, dict) and a.get("role") == learner)
+
+
 def mint_incarnation(base: Path, slot: str, g000_id: str,
                      g000_w: dict) -> str:
     """Fresh per-incarnation member row: the exploiter's live id.
@@ -457,8 +495,11 @@ def maybe_admit(base: Path, live: dict, state: dict, learner: str,
         return None
     if _window_rate(window) > ADMISSION_RATE:
         weights = algorithm.policy_weights(live[learner]["policy"])
-        sid = archive.save_league_snapshot(
-            base, weights, "admitted", exp.get("id"))
+        prefix = ADMISSION_PREFIXES.get(learner, f"{learner}-exploiter")
+        start = _slot_admissions(state, learner) + 1
+        sid = archive.save_named_snapshot(
+            base, _next_family_id(base, prefix, start),
+            weights, "admitted", exp.get("id"))
         entry = archive.record_admission(
             base, sid, learner, exp.get("games", 0),
             _window_record(window))
@@ -514,7 +555,14 @@ def maybe_snapshot(cfg: dict, base: Path, live: dict, state: dict,
     role = train.ROLE_CONFIGS[learner]["snapshot_role"]
     weights = algorithm.policy_weights(live[learner]["policy"])
     parent = state.get("main_id") if learner == "main" else state["exploiters"][learner].get("id")
-    sid = archive.save_league_snapshot(base, weights, role, parent)
+    if learner == "main":
+        snaps = state.get("main_snapshots", []) or []
+        start = len(snaps) if len(snaps) >= 1 else 1
+        sid = archive.save_named_snapshot(
+            base, _next_family_id(base, "main", start),
+            weights, role, parent)
+    else:
+        sid = archive.save_league_snapshot(base, weights, role, parent)
     anchors = None
     if learner == "main":
         state["main_id"] = sid

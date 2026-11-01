@@ -470,6 +470,33 @@ def save_league_snapshot(base: Path, weights: dict, role: str,
     return save_checkpoint(base, weights, role, parent)
 
 
+def save_named_snapshot(base: Path, member_id: str, weights: dict, role: str,
+                        parent: str | None, line: int | None = None) -> str:
+    """Freeze a league snapshot under a caller-supplied family id.
+
+    Same role validation + store + manifest-append as save_checkpoint,
+    but the id is caller-supplied (family naming: main-{k},
+    main-exploiter-{k}, league-exploiter-{k}). Raises ValueError for a
+    bad role or when the id is already in the manifest. The g-allocator
+    (_next_id) is untouched: named ids never consume g-numbers."""
+    if role not in LEAGUE_ROLES:
+        raise ValueError(f"save_named_snapshot: bad role {role!r}; "
+                         f"expected one of {list(LEAGUE_ROLES)}")
+    init(base)
+    taken = {m.get("id") for m in members(base)
+             if isinstance(m.get("id"), str)}
+    if member_id in taken:
+        raise ValueError(f"save_named_snapshot: id {member_id!r} "
+                         f"already in manifest")
+    store(base, member_id, weights)
+    row: dict = {"id": member_id, "role": role, "parent": parent}
+    if line is not None:
+        row["line"] = line
+    with open(_paths(base)["manifest"], "a") as f:
+        f.write(json.dumps(row) + "\n")
+    return member_id
+
+
 def _league_path(base: Path) -> Path:
     return base / "league.json"
 
