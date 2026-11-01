@@ -375,8 +375,26 @@ def test_hill_raze_scales_by_distance():
         {"turn": 4, "loc": [5, 7], "dest": [5, 8], "action": "s"},  # d=3
     ]
     rets = rewards.compute_returns(game, 0, records)
-    # 1/(1+d) weights 1.0 vs 0.25: shares 8.0 and 2.0, total conserved.
-    assert rets == [8.0, 2.0]
+    # distance-only: on the tile earns the full +10, d=3 earns 10*exp(-0.5).
+    assert rets[0] == rewards.HILL_RAZE
+    assert rets[1] == pytest.approx(rewards.HILL_RAZE * 0.60653, abs=1e-3)
+
+
+def test_hill_raze_fades_by_twenty_tiles():
+    import rewards
+
+    game = _game()
+    game["replaydata"]["map"] = {"rows": 30, "cols": 30}
+    game["replaydata"]["hills"] = [[5, 5, 1, 4]]  # enemy hill razed turn 4
+    records = [
+        {"turn": 4, "loc": [5, 4], "dest": [5, 5], "action": "s"},  # d=0
+        {"turn": 4, "loc": [5, 14], "dest": [5, 15], "action": "s"},  # d=10
+        {"turn": 4, "loc": [5, 19], "dest": [5, 20], "action": "s"},  # d=15
+    ]
+    rets = rewards.compute_returns(game, 0, records)
+    assert rets[0] == rewards.HILL_RAZE
+    assert rets[1] == pytest.approx(rewards.HILL_RAZE * 0.00384, abs=1e-3)
+    assert rets[2] == pytest.approx(0.0, abs=1e-3)  # basically nothing
 
 
 def test_hill_raze_reaches_far_ants():
@@ -390,7 +408,6 @@ def test_hill_raze_reaches_far_ants():
     ]
     rets = rewards.compute_returns(game, 0, records)
     assert rets[0] > rets[1] > 0.0  # nearer earns more, far still paid
-    assert sum(rets) == rewards.HILL_RAZE
 
 
 def test_hill_loss_scales_by_distance():
@@ -403,8 +420,11 @@ def test_hill_loss_scales_by_distance():
         {"turn": 4, "loc": [5, 4], "dest": [5, 5], "action": "stay"},  # d=0
     ]
     rets = rewards.compute_returns(game, 0, records)
-    # nearer defender eats more blame: -2.0 vs -8.0, total conserved.
-    assert rets == [-2.0, -8.0]
+    # nearer defender eats more blame: full -10 on the tile, -10*exp(-0.5)
+    # at d=3. (No ant is inside combat range of a lost hill — else the
+    # razer would be dead — so blame starts just outside kill distance.)
+    assert rets[1] == rewards.HILL_LOST
+    assert rets[0] == pytest.approx(rewards.HILL_LOST * 0.60653, abs=1e-3)
 
 
 def test_hill_equidistant_ants_split_evenly():
@@ -417,7 +437,11 @@ def test_hill_equidistant_ants_split_evenly():
         {"turn": 4, "loc": [5, 5], "dest": [6, 5], "action": "s"},  # d=1
     ]
     rets = rewards.compute_returns(game, 0, records)
-    assert rets == [rewards.HILL_LOST / 2, rewards.HILL_LOST / 2]
+    # headcount-agnostic: same distance earns the same each, no halving.
+    assert rets == [
+        pytest.approx(rewards.HILL_LOST * 0.94596, abs=1e-3),
+        pytest.approx(rewards.HILL_LOST * 0.94596, abs=1e-3),
+    ]
 
 
 def test_outcome_win_belongs_to_every_move_equally():

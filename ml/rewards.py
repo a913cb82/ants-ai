@@ -154,8 +154,9 @@ def dests_at(turns, dests, turn, pred=None):
 def _awards(game, me, records, scales):
     """Credit events: (awards, end_value, length, turns, keys).
 
-    awards: [(turn, {idx: same-turn share}, scope, kind)]. Shares in one
-    award always sum to the event amount (splits conserve value)."""
+    awards: [(turn, {idx: same-turn share}, scope, kind)]. Food/kill/death
+    shares in one award sum to the event amount (splits conserve value);
+    hill shares are per-ant distance pay, unconserved."""
     replaydata = game["replaydata"]
     length = game.get("length", game.get("game_length"))
     rows = replaydata["map"]["rows"]
@@ -224,12 +225,13 @@ def _awards(game, me, records, scales):
                 (end, {i: scales["KILL"] / len(near) for i in near}, "ant", "kill")
             )
 
-    # hills: razed iff end_turn <= game length. Every ant on the board
-    # shares the event, weighted by proximity: 1/(1+d) on toroidal
-    # Euclidean distance, normalized so shares sum to the amount.
-    # The razer on the tile (d=0) earns the most; far ants earn a
-    # trickle, never zero. Nearby defenders eat most of a lost hill's
-    # blame. Scope is per-ant: each share walks back along its own path.
+    # hills: razed iff end_turn <= game length. Each ant earns its own
+    # distance-scaled share: amount * exp(-d2/18) on toroidal squared
+    # distance (sigma=3: full on the tile, ~0.25 at 5 tiles, ~0.004 at
+    # 10, ~0 at 20). No normalization: credit depends on distance only,
+    # never on headcount. Scope is per-ant: each share walks back along
+    # its own path. Unlike food/kill/death splits, hill shares do NOT
+    # conserve a total — each ant is paid for where IT stood.
     for entry in replaydata.get("hills", []):
         r, c, owner, end = entry
         if end > length:
@@ -237,15 +239,13 @@ def _awards(game, me, records, scales):
         amount = scales["HILL_RAZE"] if owner != me else scales["HILL_LOST"]
         mine = dests_at(turns, dests, end)
         if mine:
-            weights = [
-                1.0 / (1.0 + math.sqrt(dist2(dests[i], (r, c), rows, cols)))
-                for i in mine
-            ]
-            total = sum(weights)
             awards.append(
                 (
                     end,
-                    {i: amount * w / total for i, w in zip(mine, weights)},
+                    {
+                        i: amount * math.exp(-dist2(dests[i], (r, c), rows, cols) / 18.0)
+                        for i in mine
+                    },
                     "ant",
                     "hill",
                 )
