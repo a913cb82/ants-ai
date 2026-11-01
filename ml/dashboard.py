@@ -20,6 +20,7 @@ import html
 import json
 import sys
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -38,7 +39,7 @@ _memo_lock = threading.RLock()
 def _memo(cache: dict, key, thunk):
     """One-slot memo: recompute only when the key changes.
 
-    Lock-guarded (RLock: thunks nest, e.g. grouped build reads the
+    Lock-guarded (RLock: thunks nest, e.g. panel build reads the
     games memo): ThreadingHTTPServer serves polls in threads, and a
     clear-then-fill without a lock lets a concurrent poll read an empty
     cache (KeyError: 'value'). Thunk runs inside the lock so concurrent
@@ -53,7 +54,7 @@ def _memo(cache: dict, key, thunk):
 
 
 _games_cache: dict = {}
-_grouped_cache: dict = {}
+_panel_cache: dict = {}
 
 
 def cached_games(base: Path) -> list[dict]:
@@ -72,18 +73,17 @@ def cached_games(base: Path) -> list[dict]:
     )
 
 
-def cached_grouped(base: Path) -> list[dict]:
-    """Pair rows -> per-game dicts, re-grouped only when games.jsonl
-    changes. Grouping 80k rows costs ~1.5s; snapshot polls every few
-    seconds, so this shares one grouping per file version like
-    cached_games shares one parse."""
+def cached_panel(base: Path) -> list[dict]:
+    """Panel rows, newest first, rebuilt only when games.jsonl changes.
+
+    snapshot() and /api/games share one build per poll cycle."""
     path = base / "games.jsonl"
     try:
         st = path.stat()
     except OSError:
         return []
     return _memo(
-        _grouped_cache,
+        _panel_cache,
         (str(base.resolve()), st.st_mtime_ns, st.st_size),
         lambda: group_games(cached_games(base)),
     )
@@ -117,7 +117,7 @@ def is_fresh(base: Path, since) -> bool:
     return now > 0 and stamp >= now
 
 
-PAGE_SIZE = 100  # client-side table pages (P0-3): no new endpoints
+PAGE_SIZE = 100  # games pager limit (matches /api/games default)
 
 SPARK_MAX = 40  # sparkline points (behavior sparks cover the last 40)
 
@@ -144,307 +144,66 @@ def rank_of(scores: list) -> list[int]:
     return [ordered.index(s) for s in scores]
 
 
-def _fallback_game_key(replay) -> str:
-    """Per-game key for rows logged before the `game` id existed: every
-    pair of one play shares its replay path, so the game directory (or the
-    raw path when it has no /logs/ suffix) groups them back together."""
-    text = replay if isinstance(replay, str) else str(replay)
-    suffix = "/logs/0.replay"
-    return text[: -len(suffix)] if text.endswith(suffix) else text
 
 
-def game_key_of(row: dict) -> str:
-    """Grouping key: the explicit per-play id when present, else the
-    replay-derived fallback (covers all pre-id history)."""
-    return row.get("game") or _fallback_game_key(row.get("replay", ""))
-
-
-def _norm_row(row: dict) -> tuple:
-    """Order-independent pair identity + aligned scores. Self-pairs sort
-    their two scores so (X,X,2,3) and (X,X,3,2) dedupe: one unordered
-    seat-pair, one logical row."""
-    a, b, sa, sb = row["a"], row["b"], row["score_a"], row["score_b"]
-    if a == b:
-        return (a, b, min(sa, sb), max(sa, sb))
-    if a <= b:
-        return (a, b, sa, sb)
-    return (b, a, sb, sa)
-
-
-def _realize(normed: list[tuple]) -> list[list] | None:
-    """Assign pair rows to numbered seat positions, fewest possible.
-
-    Returns [[id, score], ...] in first-seen order, or None when the rows
-    cannot share one game. Members drawn into several seats (mixture
-    sampling is with replacement) get one position each; a repeated
-    unordered seat-pair with different scores forces either extra seats
-    or, failing that, a split by partition_group."""
-    best: list | None = None
-
-    def dfs(k: int, positions: list, used: set) -> None:
-        nonlocal best
-        if best is not None and len(positions) >= len(best):
-            return
-        if k == len(normed):
-            if best is None or len(positions) < len(best):
-                best = [list(p) for p in positions]
-            return
-        lo, hi, slo, shi = normed[k]
-        if lo == hi and slo == shi:
-            pairs = [
-                (i, i)
-                for i, p in enumerate(positions)
-                if p[0] == lo and p[1] in (None, slo)
-            ]
-            pairs.append(("new", "new"))
-        else:
-            pairs = []
-            pa_list = [
-                i for i, p in enumerate(positions) if p[0] == lo and p[1] in (None, slo)
-            ] + ["new"]
-            for pa in pa_list:
-                pb_list = [
-                    i
-                    for i, p in enumerate(positions)
-                    if i != pa and p[0] == hi and p[1] in (None, shi)
-                ] + ["new"]
-                for pb in pb_list:
-                    pairs.append((pa, pb))
-        for pa, pb in pairs:
-            pos = [list(p) for p in positions]
-            if pa == "new":
-                pa = len(pos)
-                pos.append([lo, None])
-            if pb == "new":
-                pb = len(pos)
-                pos.append([hi, None])
-            if pos[pa][1] is None:
-                pos[pa][1] = slo
-            if pos[pb][1] is None:
-                pos[pb][1] = shi
-            key = (min(pa, pb), max(pa, pb))
-            if key in used:
-                continue
-            dfs(k + 1, pos, used | {key})
-
-    dfs(0, [], set())
-    return best
-
-
-def _partition_exact(uniq: list[tuple]) -> list[list[tuple]]:
-    """Best set partition: fewest total seat positions wins; ties split
-    toward more games (a re-run collision costs 2+2 = 4 either way, while
-    a true N-player game always merges strictly cheaper)."""
-    n = len(uniq)
-    realize: dict[int, int] = {}
-
-    def cost(mask_rows: tuple) -> int:
-        key = hash(mask_rows)
-        if key not in realize:
-            got = _realize(list(mask_rows))
-            realize[key] = len(got) if got is not None else 10**9
-        return realize[key]
-
-    best_assign: list[int] | None = None
-    best_cost = (10**9, 0)
-
-    def rec(i: int, cur: list[int], mx: int) -> None:
-        nonlocal best_assign, best_cost
-        if i == n:
-            blocks: dict[int, list] = {}
-            for idx, b in enumerate(cur):
-                blocks.setdefault(b, []).append(uniq[idx])
-            total = sum(cost(tuple(b)) for b in blocks.values())
-            key = (total, -len(blocks))
-            if key < best_cost:
-                best_cost = key
-                best_assign = list(cur)
-            return
-        for b in range(mx + 1):
-            cur.append(b)
-            rec(i + 1, cur, mx)
-            cur.pop()
-        cur.append(mx + 1)
-        rec(i + 1, cur, mx + 1)
-        cur.pop()
-
-    rec(0, [], -1)
-    blocks = {}
-    for idx, b in enumerate(best_assign or []):
-        blocks.setdefault(b, []).append(uniq[idx])
-    return [blocks[b] for b in sorted(blocks)]
-
-
-def _partition_greedy(uniq: list[tuple]) -> list[list[tuple]]:
-    """Best-effort split for pathological groups (>6 rows; all real
-    history is <= 6): earliest block whose seat count would not grow,
-    else a new block. Deterministic."""
-    blocks: list[list[tuple]] = []
-    for r in uniq:
-        for b in blocks:
-            before = _realize(b)
-            after = _realize(b + [r])
-            if after is not None and before is not None and len(after) <= len(before):
-                b.append(r)
-                break
-        else:
-            blocks.append([r])
-    return blocks
-
-
-def partition_group(normed: list[tuple]) -> list[list[tuple]]:
-    """Split normalized pair rows into per-game blocks: exact-duplicate
-    rows merge, conflicting re-runs of one replay path split (see
-    _partition_exact), duplicate-seat games stay whole."""
-    uniq = list(dict.fromkeys(normed))  # dedupe, first-seen order
-    if not uniq:
-        return []
-    if len(uniq) <= 6:
-        return _partition_exact(uniq)
-    return _partition_greedy(uniq)
-
-
-def build_game(
-    gen: str,
-    kind: str,
-    map: str | None,
-    replay: str,
-    items: list[tuple[tuple, dict]],
-    tick: int | None = None,
-) -> dict | None:
-    """One visual game from a consistent block: every seat with score,
-    rank, margin vs field-best, effective points and outcome; the pair
-    rows as detail. None when the block cannot be one game."""
-    pos = _realize([n for n, _ in items])
-    if pos is None:
-        return None
-    # Seat order follows the logged field order (seat 0 first), not the
-    # normalized pair order: eval seats 0/1 are challenger/champion and the
-    # page/tally read the default view off seats[0]. Duplicate-seat
-    # positions share an id, so key on (id, score) by first appearance.
-    seen: dict[tuple, int] = {}
-    for r in [r for _, r in items]:
-        for cid, sc in ((r["a"], r["score_a"]), (r["b"], r["score_b"])):
-            seen.setdefault((cid, sc), len(seen))
-    pos.sort(key=lambda p: seen.get((p[0], p[1]), len(seen)))
-    scores = [s for _, s in pos]
-    ranks = rank_of(scores)
-    top = max(scores)
-    ntop = sum(1 for s in scores if s == top)
-    seats = []
-    buckets: dict[tuple, dict] = {}
-    for r in [r for _, r in items]:
-        food, kills, army = r.get("food"), r.get("kills"), r.get("army")
-        if not (
-            isinstance(food, list)
-            and isinstance(kills, list)
-            and isinstance(army, list)
-        ):
-            continue
-        if len(food) < 2 or len(kills) < 2 or len(army) < 2:
-            continue
-        try:
-            f = (float(food[0]), float(food[1]))
-            k = (float(kills[0]), float(kills[1]))
-            a = (float(army[0]), float(army[1]))
-        except (TypeError, ValueError):
-            continue
-        for cid, sc, fi, ki, ai in (
-            (r["a"], r["score_a"], f[0], k[0], a[0]),
-            (r["b"], r["score_b"], f[1], k[1], a[1]),
-        ):
-            cell = buckets.setdefault((cid, sc), {"food": [], "kills": [], "army": []})
-            cell["food"].append(fi)
-            cell["kills"].append(ki)
-            if a[0] + a[1] > 0:
-                cell["army"].append(100 * ai / (a[0] + a[1]))
-    length = None
-    for r in [r for _, r in items]:
-        if isinstance(r.get("length"), (int, float)):
-            length = r["length"]
-            break
-    for k, (cid, sc) in enumerate(pos):
-        others = [s for j, s in enumerate(scores) if j != k]
-        margin = sc - (max(others) if others else sc)
-        result = "win" if sc == top and ntop == 1 else ("draw" if sc == top else "loss")
-        cell = buckets.get((cid, sc), {"food": [], "kills": [], "army": []})
-
-        def _mean(vals):
-            return sum(vals) / len(vals) if vals else None
-
-        seats.append(
-            {
-                "id": cid,
-                "score": sc,
-                "rank": ranks[k],
-                "margin": margin,
-                "pts": 1.0 if result == "win" else (0.5 if result == "draw" else 0.0),
-                "result": result,
-                "food": _mean(cell["food"]),
-                "kills": _mean(cell["kills"]),
-                "army_pct": int(round(_mean(cell["army"]))) if cell["army"] else None,
-            }
-        )
+def _seat_stats(row: dict, i: int) -> dict:
+    """Per-seat behavior facts from a mirror row: food/kills raw, army
+    as the seat's share of the two living armies. Unknown reads None."""
+    food, kills, army = row.get("food"), row.get("kills"), row.get("army")
+    try:
+        f = float(food[i])
+        k = float(kills[i])
+        a = (float(army[0]), float(army[1]))
+    except (TypeError, ValueError, IndexError):
+        return {"food": None, "kills": None, "army_pct": None}
+    share = 100 * a[i] / (a[0] + a[1]) if a[0] + a[1] > 0 else None
     return {
-        "gen": gen,
-        "kind": kind,
-        "map": map,
-        "replay": replay,
-        "n": len(seats),
-        "seats": seats,
-        "pairs": [
-            {"a": r["a"], "b": r["b"], "score_a": r["score_a"], "score_b": r["score_b"]}
-            for _, r in items
-        ],
-        "tick": tick,
-        "length": length,
+        "food": f,
+        "kills": k,
+        "army_pct": int(round(share)) if share is not None else None,
+    }
+
+
+def build_game(row: dict) -> dict | None:
+    """One row is one game: two mirror seats, seat-0 result.
+
+    None when the row cannot be a game. Behavior facts default to None
+    per seat; the board renders a dash for unknown."""
+    try:
+        scores = [float(row["score_a"]), float(row["score_b"])]
+    except (TypeError, ValueError, KeyError):
+        return None
+    ranks = rank_of(scores)  # engine tie rule: shared top shares rank 0
+    ntop = sum(1 for r in ranks if r == 0)
+
+    def _result(rank):
+        if rank == 0 and ntop == 1:
+            return "win"
+        return "draw" if rank == 0 else "loss"
+
+    length = row.get("length")
+    return {
+        "tick": row.get("tick"),
+        "learner": "main",
+        "seats": [row.get("a"), row.get("b")],
+        "scores": [row.get("score_a"), row.get("score_b")],
+        "stats": [_seat_stats(row, 0), _seat_stats(row, 1)],
+        "length": length if isinstance(length, (int, float)) else None,
+        "result": _result(ranks[0]),
+        "replay": row.get("replay"),
     }
 
 
 def group_games(rows: list[dict]) -> list[dict]:
-    """Pair rows -> per-game dicts, newest game first.
-
-    Rows sharing a `game` id (one play, one id) group exactly; older rows
-    fall back to the replay path, then split on conflicting re-runs and
-    dedupe double-logs. Input newest-first (as from list_games) sets game
-    order; seats/pairs build oldest-first for a stable picture."""
-    keyed: dict[str, list] = {}
-    meta: dict[str, dict] = {}
-    for r in rows:
-        key = game_key_of(r)
-        keyed.setdefault(key, []).append(r)
-        meta.setdefault(key, r)
+    """Rows -> per-game dicts, newest first. One play logs one row, so
+    one row is one game; rows with bad facts drop (list_games already
+    skips malformed lines, this skips bad scores)."""
     games = []
-    for key, rs in keyed.items():
-        oldest = rs[::-1]
-        raws: dict[tuple, dict] = {}
-        for r in oldest:
-            raws.setdefault(_norm_row(r), r)
-        m0 = meta[key]
-        ticks = [
-            r.get("tick") for r in oldest if isinstance(r.get("tick"), (int, float))
-        ]
-        tick = max(ticks) if ticks else None
-        for block in partition_group([_norm_row(r) for r in oldest]):
-            g = build_game(
-                m0.get("gen", "main"),
-                m0.get("kind", "train"),
-                m0.get("map"),
-                m0["replay"],
-                [(n, raws[n]) for n in block],
-                tick=tick,
-            )
-            if g is not None:
-                games.append(g)
+    for r in rows:
+        g = build_game(r)
+        if g is not None:
+            games.append(g)
     return games
-
-
-def member_game_result(game: dict, ref: str) -> str | None:
-    """Ref's per-game outcome: best seat wins when a member holds several
-    (duplicate-seat extras)."""
-    order = {"win": 0, "draw": 1, "loss": 2}
-    outs = [s["result"] for s in game["seats"] if s["id"] == ref]
-    return min(outs, key=order.__getitem__) if outs else None
 
 
 _snapshot_cache: dict = {}
@@ -452,7 +211,7 @@ _snapshot_cache: dict = {}
 
 def _snapshot_key(base: Path) -> tuple:
     """Memo key covering every file snapshot() reads: mtime+size per
-    file, so any writer (scheduler, trainer, status) invalidates."""
+    file, so any writer invalidates."""
     parts = []
     for name in ("games.jsonl", "updates.jsonl", "state.json"):
         try:
@@ -467,7 +226,7 @@ def snapshot(base: Path) -> dict:
     """Everything the page needs, in one JSON-able dict.
 
     Memoized on the file stats: a poll storm between games reuses the
-    last build instead of regrouping the game log."""
+    last build instead of rebuilding the panel from games.jsonl."""
     return _memo(_snapshot_cache, _snapshot_key(base), lambda: _build_snapshot(base))
 
 
@@ -481,17 +240,6 @@ def snapshot(base: Path) -> dict:
 ALERT_IDLE_S = 15 * 60
 
 
-def behavior_ids(base: Path) -> list[str]:
-    """Board row ids: just main. One learner, one row."""
-    return ["main"]
-
-
-def _wall_now() -> float:
-    import time as _time
-
-    return _time.time()
-
-
 def rate_window(base: Path) -> tuple[int | None, float | None]:
     """(games in the last hour, seconds since the last game).
 
@@ -502,30 +250,29 @@ def rate_window(base: Path) -> tuple[int | None, float | None]:
         r["t"] for r in cached_games(base) if isinstance(r.get("t"), (int, float))
     )
     if stamps:
-        now = _wall_now()
+        now = time.time()
         return (sum(1 for t in stamps if t > now - 3600), max(0.0, now - stamps[-1]))
     try:
-        return (None, max(0.0, _wall_now() - (base / "games.jsonl").stat().st_mtime))
+        return (None, max(0.0, time.time() - (base / "games.jsonl").stat().st_mtime))
     except OSError:
         return (None, None)
 
 
 def h0_panel(
-    base: Path, state: dict | None, grouped: list[dict], updates: list[dict]
+    base: Path, state: dict | None, games: list[dict], updates: list[dict]
 ) -> dict:
     """Sticky strip facts: tick · games · updates · micro · last game ·
     decisive rate over the last 40."""
     state = state or {}
     games_per_h, secs = rate_window(base)
-    last = grouped[0] if grouped else None
-    seats = (last or {}).get("seats", []) or []
-    last_result = seats[0].get("result") if seats else None
+    last = games[0] if games else None
+    last_result = (last or {}).get("result")
     last_length = (last or {}).get("length")
-    recent = grouped[:40]
-    dec = [g for g in recent if (g.get("seats", [{}])[0].get("result")) != "draw"]
+    recent = games[:40]
+    dec = [g for g in recent if g.get("result") != "draw"]
     return {
         "tick": state.get("tick", 0),
-        "games": len(grouped),
+        "games": len(games),
         "updates": len(updates),
         "micro": state.get("micro", 0),
         "games_per_h": games_per_h,
@@ -562,11 +309,9 @@ def spark_svg(vals: list, w: int = 90, h: int = 18) -> str:
 
 
 def behavior_panel(base: Path) -> list[dict]:
-    """Per snapshot id + live slots: mean food/kills/army share/length
-    over logged behavior rows. Null when unplayed or unstamped."""
-    acc: dict[str, dict] = {}
-    for cid in behavior_ids(base):
-        acc[cid] = {"food": [], "kills": [], "army": [], "length": [], "n": 0}
+    """Main's means: food/kills/army share/length over logged behavior
+    rows. Null when unplayed or unstamped."""
+    acc = {"main": {"food": [], "kills": [], "army": [], "length": [], "n": 0}}
     for r in reversed(cached_games(base)):
         food, kills, army = r.get("food"), r.get("kills"), r.get("army")
         if not (
@@ -623,35 +368,6 @@ def behavior_panel(base: Path) -> list[dict]:
     return out
 
 
-def games_panel(grouped: list[dict], limit: int = 100) -> tuple[list[dict], int]:
-    """Recent games newest-first: the tick IS the game number."""
-    total = len(grouped)
-    out = []
-    for idx, g in enumerate(grouped[:limit]):
-        seats = g.get("seats", []) or []
-        ref = seats[0].get("id") if seats else None
-        out.append(
-            {
-                "tick": g.get("tick"),
-                "learner": g.get("gen"),
-                "seats": [s.get("id") for s in seats],
-                "scores": [s.get("score") for s in seats],
-                "stats": [
-                    {
-                        "food": s.get("food"),
-                        "kills": s.get("kills"),
-                        "army_pct": s.get("army_pct"),
-                    }
-                    for s in seats
-                ],
-                "length": g.get("length"),
-                "result": member_game_result(g, ref) if ref else None,
-                "replay": g.get("replay"),
-            }
-        )
-    return out, total
-
-
 def _fmt_idle(secs: float) -> str:
     s = int(round(secs))
     if s < 60:
@@ -685,7 +401,7 @@ def training_panel(updates: list[dict], limit: int = 8) -> list[dict]:
     return rows
 
 
-def alerts_panel(base: Path, h0: dict) -> list[dict]:
+def alerts_panel(h0: dict) -> list[dict]:
     """Attention queue: stuck training; else one all-clear line."""
     tick = h0.get("tick", 0)
     secs = h0.get("secs_since_game")
@@ -699,17 +415,16 @@ def alerts_panel(base: Path, h0: dict) -> list[dict]:
 def _build_snapshot(base: Path) -> dict:
     archive.init(base)
     state = archive.load_state(base)
-    grouped = cached_grouped(base)
+    panel = cached_panel(base)
     updates = archive.list_updates(base)
-    h0 = h0_panel(base, state, grouped, updates)
-    games, total = games_panel(grouped)
+    h0 = h0_panel(base, state, panel, updates)
     return {
         "h0": h0,
         "training": training_panel(updates),
         "behavior": behavior_panel(base),
-        "games": games,
-        "game_total": total,
-        "alerts": alerts_panel(base, h0),
+        "games": panel[:100],
+        "game_total": len(panel),
+        "alerts": alerts_panel(h0),
         "mtime": archive_mtime(base),
     }
 
@@ -795,7 +510,7 @@ def make_handler(base: Path):
                         offset = max(int(q.get("offset", ["0"])[0]), 0)
                     except ValueError:
                         offset = 0
-                    rows = cached_grouped(base)
+                    rows = cached_panel(base)
                     total = len(rows)
                     offset = min(offset, total)
                     _json(self, {"total": total, "rows": rows[offset : offset + limit]})
@@ -837,26 +552,21 @@ def make_handler(base: Path):
 # ------------------------------------------------------- SERVER RENDER
 # First-paint helpers: render_page(snapshot) inlines the H0 strip and
 # every table card into the raw HTML, so the first paint is content
-# with zero JS. Canvas cards (ladder, pairs) carry a text fallback with
-# the same numbers. The JS poll takes over from the same JSON; row
+# with zero JS. The JS poll takes over from the same JSON; row
 # markup here mirrors the JS renderers (any visual change needs both
 # sides — search for the twin name).
 
-PAGE_SIZE = 100  # games pager page (matches /api/games default)
-
 EMPTY_GAMES = "no games logged yet \u2014 they appear here as each game finishes"
 
-SLOT_COLORS = {"main": "#1d4ed8"}
-FROZEN_COLOR = "#6b7280"
+MAIN_BLUE = "#1d4ed8"
 
 
 def _esc(x) -> str:
     return html.escape("" if x is None else str(x), quote=True)
 
 
-def slot_color(cid) -> str:
-    """Slot ink: main blue, me amber, le greens, everything else gray."""
-    return SLOT_COLORS.get(cid, FROZEN_COLOR)
+def _dot() -> str:
+    return f'<span aria-hidden="true" style="color:{MAIN_BLUE}">●</span> '
 
 
 def fmt_age(secs) -> str:
@@ -884,19 +594,6 @@ def fmt_tick(t) -> str:
     return f"t{t}" if isinstance(t, (int, float)) else "t—"
 
 
-def is_stale(row_tick, h0_tick) -> bool:
-    """A row older than 200 ticks vs the H0 tick reads grayed out."""
-    return (
-        isinstance(row_tick, (int, float))
-        and isinstance(h0_tick, (int, float))
-        and h0_tick - row_tick > 200
-    )
-
-
-def _dot(cid) -> str:
-    return f'<span aria-hidden="true" style="color:{slot_color(cid)}">●</span> '
-
-
 def h0_strip_html(h0: dict | None) -> str:
     """Twin of JS renderH0."""
     if h0 is None:
@@ -908,7 +605,7 @@ def h0_strip_html(h0: dict | None) -> str:
     dec = f"{dec:.0%}" if isinstance(dec, (int, float)) else "—"
     return (
         f"<span><b>game</b> {_esc(h0.get('tick', 0))}</span>"
-        f"<span>{_dot('main')}main</span>"
+        f"<span>{_dot()}main</span>"
         f"<span><b>updates</b> {_esc(h0.get('updates', 0))}</span>"
         f"<span><b>micro</b> {_esc(h0.get('micro', 0))}/8</span>"
         f"<span><b>decisive÷40</b> {dec}</span>"
@@ -944,7 +641,7 @@ def behavior_rows_html(rows: list | None, h0_tick) -> str:
         kills = r.get("kills")
         sp = r.get("spark") or {}
         out.append(
-            f"<tr><td>{_dot(r.get('id'))}{_esc(r.get('id'))}</td>"
+            f"<tr><td>{_dot()}{_esc(r.get('id'))}</td>"
             f'<td class="num">'
             f"{f'{food:.1f}' if isinstance(food, (int, float)) else '—'}"
             f"{spark_svg(sp.get('food') or [])}</td>"
@@ -997,7 +694,7 @@ def game_row_html(g: dict) -> str:
     length = g.get("length")
     return (
         f'<tr><td class="num">{fmt_tick(g.get("tick"))}</td>'
-        f"<td>{_dot(g.get('learner'))}{_esc(g.get('learner'))}</td>"
+        f"<td>{_dot()}{_esc(g.get('learner'))}</td>"
         f"<td>{game_replay_label(g)}</td>"
         f'<td class="num">{length if isinstance(length, (int, float)) else "—"}</td>'
         f'<td><span class="badge {res}">{res}</span></td>'
@@ -1014,9 +711,8 @@ STYLES = """
 :root{
   --bg:#F6F7F9; --card:#FFFFFF; --border:#E3E6EA; --border-strong:#C9CFD6;
   --ink:#16191D; --secondary:#5B6470; --muted:#67707B;
-  --blue:#1d4ed8; --amber:#b45309; --green1:#047857; --green2:#65a30d;
+  --blue:#1d4ed8; --amber:#b45309; --green1:#047857;
   --gray:#6b7280; --red:#b91c1c;
-  --grid:#E9EDF1; --chart-text:#6B7480;
 }
 *{box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,Roboto,"Helvetica Neue",Arial,sans-serif;
@@ -1026,9 +722,6 @@ h1{font-size:22px; margin:0 0 4px;}
 .sub{color:var(--secondary); font-size:13px; margin:0 0 20px;}
 .h0{position:sticky; top:0; z-index:10; background:var(--card); border-bottom:1px solid var(--border-strong);
   padding:10px max(16px,4vw); display:flex; gap:18px; align-items:center; flex-wrap:wrap; font-size:13px;}
-.h0 .verdict.new-high{color:var(--green1);}
-.h0 .verdict.down{color:var(--red);}
-.h0 .verdict.flat{color:var(--gray);}
 .live-pill{font-size:11px; font-weight:700; padding:2px 10px; border-radius:20px; white-space:nowrap;}
 .live-pill.ok{color:var(--green1); background:#E6F4EC;}
 .live-pill.stale{color:var(--amber); background:#FBF3E2;}
@@ -1040,10 +733,8 @@ h1{font-size:22px; margin:0 0 4px;}
 .span7{grid-column:span 7;} .span5{grid-column:span 5;} .span6{grid-column:span 6;} .span12{grid-column:span 12;}
 .tcell{display:flex; flex-direction:column; min-width:0;}
 .tcell>.card{flex:1 1 auto;}
-canvas{width:100%; display:block;}
 .spk{width:90px;height:18px;vertical-align:middle;margin-left:8px;}
 .spk polyline{fill:none;stroke:#64748b;stroke-width:1.2;}
-.fallback{font-size:11px; color:var(--muted); margin-top:8px;}
 .alert-alert{color:var(--red); font-size:13px; padding:4px 0;}
 .alert-ok{font-size:13px; padding:4px 0;}
 .stale{opacity:.55;}
@@ -1058,9 +749,6 @@ td.truncate,.truncate{max-width:220px; overflow:hidden; text-overflow:ellipsis; 
 .badge.win{color:var(--green1); background:#E6F4EC;}
 .badge.loss{color:var(--red); background:#FBEAE8;}
 .badge.draw{color:var(--blue); background:#EAF0FE;}
-.share-wrap{display:flex; align-items:center; gap:8px;}
-.share-bar{flex:1; min-width:60px; height:6px; background:var(--border); border-radius:3px; overflow:hidden;}
-.share-bar>div{height:100%; background:var(--blue);}
 td.matchup, td.replay{white-space:nowrap;}
 .toolbar{display:flex; gap:10px; align-items:center; margin-bottom:10px; flex-wrap:wrap;}
 .toolbar label{font-size:13px; color:var(--secondary);}
@@ -1098,9 +786,6 @@ SCRIPT = """
 let S=null, seq=0, lastSnap="", lastGames="", live=true, lastTick=0;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const COLORS={main:"#1d4ed8"};
-const GRAY="#6b7280";
-const col=id=>COLORS[id]||GRAY;
 async function fetchJSON(url){
   let r;
   try{r=await fetch(url);}
@@ -1122,7 +807,7 @@ function fmtAge(s){
 function fmtRate(h){return (h===null||h===undefined||!Number.isFinite(+h))?"—":Math.round(h)+"/h";}
 function fmtShare(s){return (s===null||s===undefined||!Number.isFinite(+s))?"—":Math.round(s)+"%";}
 function fmtTick(t){return (t===null||t===undefined)?"t—":"t"+t;}
-function dot(id){return '<span aria-hidden="true" style="color:'+col(id)+'">●</span> ';}
+function dot(){return '<span aria-hidden="true" style="color:#1d4ed8">●</span> ';}
 function tableBusy(id){
   const el=$(id);
   return el.matches(":hover")||el.contains(document.activeElement);
@@ -1139,7 +824,7 @@ function renderH0(){
   const lastLen=(h.last_length===null||h.last_length===undefined)?"—":h.last_length;
   $("h0").innerHTML=
     "<span><b>game</b> "+esc(h.tick)+"</span>"+
-    "<span>"+dot("main")+"main</span>"+
+    "<span>"+dot()+"main</span>"+
     "<span><b>updates</b> "+esc(h.updates)+"</span>"+
     "<span><b>micro</b> "+esc(h.micro)+"/8</span>"+
     "<span><b>decisive÷40</b> "+dec+"</span>"+
@@ -1184,7 +869,7 @@ function renderBehavior(){
   const cell=(v,sp,fmt)=>'<td class="num">'+v+sp+"</td>";
   $("behavior-body").innerHTML=S.behavior.map(r=>{
     const sp=r.spark||{};
-    return "<tr><td>"+dot(r.id)+esc(r.id)+"</td>"+
+    return "<tr><td>"+dot()+esc(r.id)+"</td>"+
     cell(typeof r.food==="number"?r.food.toFixed(1):"—",spark(sp.food))+
     cell(typeof r.kills==="number"?r.kills.toFixed(1):"—",spark(sp.kills))+
     cell(fmtShare(r.army_pct),spark(sp.army))+
@@ -1204,8 +889,8 @@ function gameRow(g){
     const cell=esc(sid)+" "+esc(sc)+" ("+statText(st.food,st.kills,st.army_pct)+")";
     return (res==="win"&&i===0)?"<b>"+cell+"</b>":cell;
   }).join(" · ");
-  const len=(g.len==null?"—":g.len);
-  return "<tr><td class=num>"+fmtTick(g.tick)+"</td><td>"+dot(g.learner)+esc(g.learner)+"</td><td>"+bits+
+  const len=(g.length==null?"—":g.length);
+  return "<tr><td class=num>"+fmtTick(g.tick)+"</td><td>"+dot()+esc(g.learner)+"</td><td>"+bits+
     '</td><td class="num">'+len+'</td><td><span class="badge '+res+'">'+res+"</span></td>"+
     '<td class="replay"><a href="/replay?f='+encodeURIComponent(g.replay)+'" target="_blank" rel="noopener" title="'+esc(names)+' — opens in a new tab">replay<span aria-hidden="true"> ↗</span></a></td></tr>';
 }
@@ -1224,30 +909,16 @@ async function renderGames(my){
   if(h===lastGames)return true;
   lastGames=h;
   keepScroll($("games-scroll"),()=>{
-    $("games-body").innerHTML=data.rows.map(g=>gameRow({
-      tick:g.tick,learner:g.gen,
-      seats:(g.seats||[]).map(s=>s.id),scores:(g.seats||[]).map(s=>s.score),
-      stats:(g.seats||[]).map(s=>({food:s.food,kills:s.kills,army_pct:s.army_pct})),
-      len:g.length,
-      result:gameResult(g),replay:g.replay})).join("")||(data.total
+    $("games-body").innerHTML=data.rows.map(gameRow).join("")||(data.total
       ?'<tr><td colspan="6" class="empty">no games on this page — use the pager above</td></tr>'
       :'<tr><td colspan="6" class="empty">no games logged yet — they appear here as each game finishes</td></tr>');
   });
-  bindClear();
   const pages=Math.max(1,Math.ceil(data.total/100));
   const page=Math.min(Math.floor(gamesOffset/100)+1,pages);
   $("games-count").textContent="showing "+data.rows.length+" of "+data.total+" · page "+page+" of "+pages;
   $("pg-prev").disabled=gamesOffset<=0;
   $("pg-next").disabled=gamesOffset+100>=data.total;
   return true;
-}
-function gameResult(g){
-  const seats=g.seats||[];
-  const ref=seats[0];
-  return (ref&&ref.result)||"draw";
-}
-function bindClear(){
-  /* no-op: the learner filter is gone (one learner, no filter). */
 }
 function renderPill(){
   const el=$("live-pill");

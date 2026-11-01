@@ -152,8 +152,8 @@ def log_game(
     One row is logged per mirror game: a == b == "main", always.
     tick/food/kills/army/length are per-game behavior facts aligned to
     the (a, b) seats; t is the wall-clock stamp. All default to None
-    and are omitted then, so the board renders a dash for unknown.
-    Rows logged before an id existed group by replay path."""
+    and are omitted then, so the board renders a dash for unknown. The
+    game id is informational (one row is one game)."""
     init(base)
     row = {
         "a": a,

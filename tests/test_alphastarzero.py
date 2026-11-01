@@ -979,7 +979,6 @@ def test_legal_mask_blocks_food_tiles():
 
     import model
 
-    policy = model.CNNPolicy()
     w = _cnn_window()
     w[5, 4, 5] = 1.0  # food east of center
     mask = model.legal_mask(w)
@@ -1760,31 +1759,6 @@ def test_3p_game_end_to_end_fixed_seats(tmp_path):
 # game, all N seats, N-way outcomes, for train AND eval.
 
 
-def _np_row(gen, kind, a, b, sa, sb, replay, game=None, map=None):
-    row = {
-        "gen": gen,
-        "kind": kind,
-        "a": a,
-        "b": b,
-        "score_a": sa,
-        "score_b": sb,
-        "replay": replay,
-        "map": map,
-    }
-    if game is not None:
-        row["game"] = game
-    return row
-
-
-def _write_np_rows(base, rows):
-    import archive
-
-    archive.init(base)
-    with open(base / "games.jsonl", "a") as f:
-        for r in rows:
-            f.write(json.dumps(r) + "\n")
-
-
 def test_log_game_carries_game_id(tmp_path):
     import archive
 
@@ -1817,208 +1791,6 @@ def test_rank_of_matches_engine_ties_share_rank():
     assert dashboard.rank_of([5, 3, 3, 1]) == [0, 1, 1, 3]
     assert dashboard.rank_of([10, 10, 5]) == [0, 0, 2]
     assert dashboard.rank_of([2, 2]) == [0, 0]
-
-
-def test_group_4p_pairs_become_one_game(tmp_path):
-    import dashboard
-
-    base = tmp_path / "archive"
-    rep = "games/g9/t0/logs/0.replay"
-    gid = "games/g9/t0#u1"
-    pairs = [
-        ("a", "b", 5, 0),
-        ("a", "c", 5, 2),
-        ("a", "d", 5, 0),
-        ("b", "c", 0, 2),
-        ("b", "d", 0, 0),
-        ("c", "d", 2, 0),
-    ]
-    _write_np_rows(
-        base,
-        [_np_row("g9", "train", a, b, sa, sb, rep, game=gid) for a, b, sa, sb in pairs],
-    )
-    import archive
-
-    games = dashboard.group_games(archive.list_games(base))
-    assert len(games) == 1
-    g = games[0]
-    assert g["n"] == 4
-    assert [(s["id"], s["score"]) for s in g["seats"]] == [
-        ("a", 5),
-        ("b", 0),
-        ("c", 2),
-        ("d", 0),
-    ]
-    assert len(g["pairs"]) == 6
-
-
-def test_group_old_rows_without_game_key_fall_back_to_replay(tmp_path):
-    import dashboard
-
-    base = tmp_path / "archive"
-    rep = "games/g9/t0/logs/0.replay"
-    _write_np_rows(
-        base,
-        [
-            _np_row("g9", "train", "a", "b", 5, 0, rep),
-            _np_row("g9", "train", "a", "c", 5, 2, rep),
-            _np_row("g9", "train", "b", "c", 0, 2, rep),
-        ],
-    )
-    import archive
-
-    games = dashboard.group_games(archive.list_games(base))
-    assert len(games) == 1 and games[0]["n"] == 3
-
-
-def test_group_dedupes_exact_duplicate_rows(tmp_path):
-    import dashboard
-
-    base = tmp_path / "archive"
-    rep = "games/g608/eval6/logs/0.replay"
-    _write_np_rows(
-        base,
-        [
-            _np_row("g608", "eval", "g608", "g513", 3, 0, rep),
-            _np_row("g608", "eval", "g608", "g513", 3, 0, rep),
-        ],
-    )
-    import archive
-
-    games = dashboard.group_games(archive.list_games(base))
-    assert len(games) == 1 and games[0]["n"] == 2
-
-
-def test_group_splits_rerun_collision_into_two_games(tmp_path):
-    import dashboard
-
-    base = tmp_path / "archive"
-    rep = "games/g608/eval0/logs/0.replay"
-    _write_np_rows(
-        base,
-        [
-            _np_row("g608", "eval", "g608", "g513", 0, 3, rep),
-            _np_row("g608", "eval", "g608", "g513", 2, 2, rep),
-        ],
-    )
-    import archive
-
-    games = dashboard.group_games(archive.list_games(base))
-    assert len(games) == 2
-    assert sorted(g["seats"][0]["score"] for g in games) == [0, 2]
-
-
-def test_group_dup_seat_game_stays_one_game(tmp_path):
-    """Real tick5 shape: 3p field [g1732,g1690,g1690], scores [0,2,3]."""
-    import dashboard
-
-    base = tmp_path / "archive"
-    rep = "games/g1732/tick5/logs/0.replay"
-    _write_np_rows(
-        base,
-        [
-            _np_row("g1732", "train", "g1732", "g1690", 0, 2, rep),
-            _np_row("g1732", "train", "g1732", "g1690", 0, 3, rep),
-            _np_row("g1732", "train", "g1690", "g1690", 2, 3, rep),
-        ],
-    )
-    import archive
-
-    games = dashboard.group_games(archive.list_games(base))
-    assert len(games) == 1
-    assert [(s["id"], s["score"]) for s in games[0]["seats"]] == [
-        ("g1732", 0),
-        ("g1690", 2),
-        ("g1690", 3),
-    ]
-
-
-def test_group_dup_seat_4p_game_stays_one_game(tmp_path):
-    """Real tick20 shape: 4p [g1732,g1690,g1657,g1657], scores [5,0,1,0]."""
-    import dashboard
-
-    base = tmp_path / "archive"
-    rep = "games/g1732/tick20/logs/0.replay"
-    _write_np_rows(
-        base,
-        [
-            _np_row("g1732", "train", "g1732", "g1657", 5, 1, rep),
-            _np_row("g1732", "train", "g1732", "g1657", 5, 0, rep),
-            _np_row("g1732", "train", "g1690", "g1657", 0, 1, rep),
-            _np_row("g1732", "train", "g1690", "g1657", 0, 0, rep),
-            _np_row("g1732", "train", "g1657", "g1657", 1, 0, rep),
-        ],
-    )
-    import archive
-
-    games = dashboard.group_games(archive.list_games(base))
-    assert len(games) == 1
-    g = games[0]
-    assert g["n"] == 4
-    assert [s["score"] for s in g["seats"]] == [5, 1, 0, 0]
-
-
-def test_seat_results_win_draw_loss_and_margin(tmp_path):
-    import dashboard
-
-    base = tmp_path / "archive"
-    rep = "games/g9/t0/logs/0.replay"
-    _write_np_rows(
-        base,
-        [
-            _np_row("g9", "eval", "a", "b", 5, 5, rep, game="g#1"),
-            _np_row("g9", "eval", "a", "c", 5, 1, rep, game="g#1"),
-            _np_row("g9", "eval", "b", "c", 5, 1, rep, game="g#1"),
-        ],
-    )
-    import archive
-
-    g = dashboard.group_games(archive.list_games(base))[0]
-    by_id = {s["id"]: s for s in g["seats"]}
-    assert (by_id["a"]["result"], by_id["b"]["result"], by_id["c"]["result"]) == (
-        "draw",
-        "draw",
-        "loss",
-    )
-    assert by_id["c"]["margin"] == 1 - 5
-    assert by_id["a"]["pts"] == 0.5 and by_id["c"]["pts"] == 0.0
-    assert dashboard.member_game_result(g, "c") == "loss"
-    assert dashboard.member_game_result(g, "a") == "draw"
-
-
-def test_api_games_groups_and_filters_by_any_seat(tmp_path):
-    import http.server
-    import threading
-    import urllib.request
-
-    import dashboard
-
-    base = tmp_path / "archive"
-    rep = "games/g/e0/logs/0.replay"
-    _write_np_rows(
-        base,
-        [
-            _np_row("g", "eval", "c", "m", 3, 1, rep, game="g#1"),
-            _np_row("g", "eval", "c", "x", 3, 0, rep, game="g#1"),
-            _np_row("g", "eval", "m", "x", 1, 0, rep, game="g#1"),
-            _np_row(
-                "g", "train", "c", "m", 1, 1, "games/g/t0/logs/0.replay", game="g#2"
-            ),
-        ],
-    )
-    srv = dashboard.make_handler(base)
-    httpd = http.server.ThreadingHTTPServer(("127.0.0.1", 0), srv)
-    threading.Thread(target=httpd.serve_forever, daemon=True).start()
-    try:
-        root = f"http://127.0.0.1:{httpd.server_address[1]}"
-        page = json.load(urllib.request.urlopen(root + "/api/games", timeout=5))
-        assert page["total"] == 2  # games, not the 4 pair rows
-        only = json.load(
-            urllib.request.urlopen(root + "/api/games?learner=g", timeout=5)
-        )
-        assert only["total"] == 2  # both games trained by g
-    finally:
-        httpd.shutdown()
 
 
 def test_train_play_one_tags_pairs_with_one_game_id(tmp_path, monkeypatch):
@@ -2063,18 +1835,22 @@ def _fake_game_out(names, scores, outdir):
     }
 
 
-def test_cached_grouped_shares_one_grouping_per_poll(tmp_path):
+def test_cached_panel_shares_one_build_per_poll(tmp_path):
     import archive
     import dashboard
 
     base = tmp_path / "archive"
     archive.log_game(base, "main", "main", 1, 0, "games/g/e0/logs/0.replay", game="g#1")
-    first = dashboard.cached_grouped(base)
-    assert dashboard.cached_grouped(base) is first  # no regroup on repoll
-    assert len(first) == 1
+    first = dashboard.cached_panel(base)
+    assert dashboard.cached_panel(base) is first  # no rebuild on repoll
+    assert len(first) == 1 and set(first[0]) == {
+        "tick", "learner", "seats", "scores", "stats",
+        "length", "result", "replay"}
+    assert first[0]["result"] == "win"  # seat-0 perspective
     archive.log_game(base, "main", "main", 0, 1, "games/g/e1/logs/0.replay", game="g#2")
-    second = dashboard.cached_grouped(base)
-    assert len(second) == 2  # file change regroups
+    second = dashboard.cached_panel(base)
+    assert len(second) == 2  # file change rebuilds
+    assert second[0]["result"] == "loss"  # newest first, seat-0 lost
 
 
 def test_fresh_policy_head_is_small_scale():

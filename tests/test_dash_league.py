@@ -268,18 +268,19 @@ def test_build_game_carries_per_seat_behavior():
         "army": [2, 4],
         "length": 150,
     }
-    g = dashboard.build_game(
-        "main", "eval", "m", "r", [(dashboard._norm_row(row), row)], tick=9
-    )
-    by_id = {s["id"]: s for s in g["seats"]}
-    assert by_id["main"]["food"] == 8.0
-    assert by_id["main"]["kills"] == 23.0
-    assert by_id["main"]["army_pct"] == 33  # 2 of 2+4 alive
-    assert by_id["main0"]["food"] == 26.0
+    row["tick"] = 9
+    g = dashboard.build_game(row)
+    assert g["learner"] == "main" and g["tick"] == 9
+    assert g["seats"] == ["main", "main0"] and g["scores"] == [5, 3]
+    assert g["result"] == "win"  # seat-0 perspective
+    assert g["stats"][0]["food"] == 8.0
+    assert g["stats"][0]["kills"] == 23.0
+    assert g["stats"][0]["army_pct"] == 33  # 2 of 2+4 alive
+    assert g["stats"][1]["food"] == 26.0
     assert g["length"] == 150
 
 
-def test_games_panel_and_row_show_behavior():
+def test_panel_row_shows_behavior():
     import dashboard
 
     row = {
@@ -298,12 +299,10 @@ def test_games_panel_and_row_show_behavior():
         "game": "gid",
         "tick": 9,
     }
-    grouped = dashboard.group_games([row])
-    games, total = dashboard.games_panel(grouped)
-    assert total == 1
-    assert games[0]["length"] == 150
-    assert games[0]["stats"][0]["food"] == 8.0
-    html = dashboard.game_row_html(games[0])
+    g = dashboard.build_game(row)
+    assert g["length"] == 150
+    assert g["stats"][0]["food"] == 8.0
+    html = dashboard.game_row_html(g)
     assert "12" not in html  # placeholder guard: real numbers below
     assert "8.0f" in html and "23.0k" in html and "33%" in html
     assert "<td>150</td>" in html.replace(' class="num"', "")
@@ -313,11 +312,10 @@ def test_build_game_missing_behavior_reads_unknown():
     import dashboard
 
     row = {"a": "main", "b": "main0", "score_a": 5, "score_b": 3}
-    g = dashboard.build_game(
-        "main", "eval", "m", "r", [(dashboard._norm_row(row), row)], tick=9
-    )
-    assert all(s["food"] is None for s in g["seats"])
-    assert g["length"] is None
+    g = dashboard.build_game(row)
+    assert all(s["food"] is None for s in g["stats"])
+    assert g["length"] is None and g["tick"] is None
+    assert dashboard.build_game({"a": "main"}) is None  # bad facts drop
 
 
 def test_training_panel_reports_latest_updates(tmp_path):

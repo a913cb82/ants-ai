@@ -153,7 +153,6 @@ def _awards(game, me, records, scales):
     attack2 = replaydata.get("attackradius2", 5)
 
     dests = [tuple(rec["dest"]) for rec in records]
-    locs = [tuple(rec["loc"]) for rec in records]
     turns = [rec["turn"] for rec in records]
     keys = record_identities(replaydata, records)
     awards = []
