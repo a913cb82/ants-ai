@@ -296,6 +296,8 @@ def test_pending_bank_roundtrip_and_guards(tmp_path):
     algorithm.dump_pending(p, items, "base")
     got = algorithm.read_pending(p, "base")
     assert len(got) == 1 and torch.equal(got[0][0], items[0][0])
+    algorithm.dump_pending(p, items, "base", tick=7)
+    assert algorithm.pending_tick(p) == 7  # bank names its tick
     assert algorithm.read_pending(p, "deep") == []  # arch switch: clean
     assert algorithm.read_pending(tmp_path / "missing.pt", "base") == []
     (tmp_path / "junk.pt").write_text("junk")
@@ -368,72 +370,6 @@ def test_shutdown_flag_preset_runs_zero_ticks(tmp_path):
         selfplay._SHUTDOWN = False
 
 
-def test_recover_ticks_rolls_back_partial_tick(tmp_path, monkeypatch):
-    import torch
-
-    base, _, _, _ = _league_base(tmp_path)
-    cfg = _cfg(tmp_path)
-    selfplay.ensure_roles(base, cfg)
-    assert selfplay.recover_ticks(base) == []  # nothing interrupted
-
-    # simulate a tick-0 crash after every effect fired:
-    selfplay.begin_tick_marker(base, 0)
-    archive.log_game(base, "main", "eval", "main", "g000", 1, 0,
-                     "games/x/logs/0.replay", map="m", game="gid-x", tick=0)
-    archive.record_result(base, "main", "g000", 1, 0, kind="eval")
-    archive.record_anchor(base, "s", "main", "g000", 1, 0, 0, tick=0)
-    archive.save_checkpoint(base, {}, "main", None)  # manifest orphan: inert
-    selfplay.append_history(base, {"tick": 0})
-    st = archive.load_league(base)
-    st.setdefault("micro", {})["main"] = 1  # mid-tick league save
-    archive.save_league(base, st)  # state["tick"] only advances at tick end
-    item = (torch.zeros(2), 1, 0.5, [True], 0.1)
-    selfplay.bank_pending(base, "main", [item], "base", tick=0)
-
-    assert selfplay.recover_ticks(base) == [0]
-    st = archive.load_league(base)
-    assert st["tick"] == 0  # never advanced: nothing to replay
-    assert st["micro"]["main"] == 1  # counter drift accepted, harmless
-    assert archive.list_games(base) == []
-    data = __import__("json").loads((base / "matrix.json").read_text())
-    assert "main vs g000" not in data["eval"]
-    assert archive.list_anchors(base) == []
-    assert selfplay.read_history(base) == []
-    assert not selfplay._pending_path(base, "main").exists()
-    assert selfplay.recover_ticks(base) == []  # idempotent
-
-
-def test_recover_ticks_skips_completed_tick(tmp_path):
-    base, _, _, _ = _league_base(tmp_path)
-    cfg = _cfg(tmp_path)
-    selfplay.ensure_roles(base, cfg)
-    # crash after the tick applied but before its marker died:
-    selfplay.begin_tick_marker(base, 0)
-    archive.log_game(base, "main", "eval", "main", "g000", 1, 0,
-                     "games/x/logs/0.replay", map="m", game="gid-x", tick=0)
-    st = archive.load_league(base)
-    st["tick"] = 1  # tick fully applied
-    archive.save_league(base, st)
-    assert selfplay.recover_ticks(base) == []  # kept, marker dropped
-    assert len(archive.list_games(base)) == 1  # no strip of good work
-    assert not (tmp_path / "archive" / "tick.0.marker").exists()
-
-
-def test_bank_shed_only_for_interrupted_tick(tmp_path):
-    import torch
-
-    base, _, _, _ = _league_base(tmp_path)
-    cfg = _cfg(tmp_path)
-    selfplay.ensure_roles(base, cfg)
-    item = (torch.zeros(1), 0, 0.0, [], 0.0)
-    selfplay.bank_pending(base, "me", [item], "base", tick=6)
-    selfplay.bank_pending(base, "le-a", [item], "base", tick=5)
-    selfplay.begin_tick_marker(base, 6)
-    assert selfplay.recover_ticks(base) == [6]
-    assert not selfplay._pending_path(base, "me").exists()  # shed
-    assert selfplay._pending_path(base, "le-a").exists()  # older: kept
-
-
 def test_concurrent_ticks_split_learners(tmp_path, monkeypatch):
     import train
 
@@ -501,27 +437,40 @@ def test_pool_worker_drains_through_dispatcher(tmp_path):
     assert in_flight == set()  # released, never wedged
 
 
-def test_recover_keeps_resets_whose_rows_were_stripped(tmp_path):
+def test_claim_tick_never_reuses_across_restarts(tmp_path):
     base, _, _, _ = _league_base(tmp_path)
     cfg = _cfg(tmp_path)
     selfplay.ensure_roles(base, cfg)
-    games = base / "games.jsonl"
-    games.write_text(
-        '{"gen": "main", "kind": "eval", "tick": 7, "map": "m", "n": 2,'
-        ' "replay": "r", "seats": [], "pairs": []}\n')
-    with archive.league_lock():
-        state = archive.load_league(base)
-        state.setdefault("resets", []).append(
-            {"slot": "me", "seat": "me", "tick": 7})
-        state.setdefault("resets", []).append(
-            {"slot": "me", "seat": "me", "tick": 99})
-        archive.save_league(base, state)
-    selfplay.begin_tick_marker(base, 7)
-    selfplay.recover_ticks(base)
-    state = archive.load_league(base)
-    # weights really did re-seed: the log keeps both, unknown ticks
-    # simply cut nothing.
-    assert state.get("resets") == [{"slot": "me", "seat": "me",
-                                      "tick": 7},
-                                     {"slot": "me", "seat": "me",
-                                      "tick": 99}]
+    st = archive.load_league(base)
+    st["tick"] = 6  # completed through tick 5
+    archive.save_league(base, st)
+    assert selfplay._claim_tick(base) == 6
+    # crash before the tick end: league tick never advances, but the
+    # number is spent (persisted at claim). No stripping exists, so
+    # reuse would double-log the orphan rows.
+    assert selfplay._claim_tick(base) == 7
+
+
+def test_crashed_tick_rows_and_bank_survive(tmp_path):
+    import torch
+
+    base, _, _, _ = _league_base(tmp_path)
+    cfg = _cfg(tmp_path)
+    selfplay.ensure_roles(base, cfg)
+    # simulate a tick-6 crash after every effect fired, before tick end:
+    archive.log_game(base, "main", "eval", "main", "g000", 1, 0,
+                     "games/x/logs/0.replay", map="m", game="gid-x",
+                     tick=6)
+    st = archive.load_league(base)
+    st["tick"] = 6
+    st["next_tick"] = 7
+    st.setdefault("micro", {})["main"] = 1
+    archive.save_league(base, st)
+    item = (torch.zeros(2), 1, 0.5, [True], 0.1)
+    selfplay.bank_pending(base, "main", [item], "base", tick=6)
+    # resume = load + schedule. Nothing is stripped, shed, or replayed:
+    # rows stay, the bank reloads, the next tick moves on.
+    assert len(archive.list_games(base)) == 1
+    assert selfplay._claim_tick(base) == 7
+    live = selfplay.load_live_all(cfg, base)
+    assert len(live["main"]["pending"]) == 1

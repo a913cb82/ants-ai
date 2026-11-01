@@ -18,7 +18,6 @@ Invariants (league plan, verbatim):
 from __future__ import annotations
 
 import copy
-import itertools
 import json
 import random
 import signal
@@ -351,97 +350,18 @@ def ensure_roles(base: Path, cfg: dict) -> None:
             store_live(base, learner, copy.deepcopy(g000_w), None)
 
 
-def _tick_counters() -> dict:
-    """Per-archive tick counters (tests get fresh tmp dirs, so fresh 0)."""
-    global _TICK_COUNTERS
-    try:
-        return _TICK_COUNTERS
-    except NameError:
-        _TICK_COUNTERS = {}
-        return _TICK_COUNTERS
-
-
-_TICK_COUNTER_GUARD = threading.Lock()
-
-
 def _claim_tick(base: Path) -> int:
-    """Next tick number, unique across threads and restarts.
-
-    Monotonic per archive: rolled-back numbers are never reused, so a
-    replayed tick cannot double-log."""
-    key = str(base.resolve())
-    with _TICK_COUNTER_GUARD:
-        counters = _tick_counters()
-        if key not in counters:
-            state = archive.load_league(base) or {}
-            counters[key] = itertools.count(state.get("tick", 0))
-        return next(counters[key])
+    """Next tick number, persisted at claim: unique across threads and
+    restarts. A crashed tick's number is never handed out again, so
+    its rows can simply stay logged — no stripping is ever needed."""
+    with archive.league_lock():
+        state = archive.load_league(base) or {}
+        tick = max(state.get("tick", 0), state.get("next_tick", 0))
+        state["next_tick"] = tick + 1
+        archive.save_league(base, state)
+        return tick
 
 
-def _marker_path(base: Path, tick: int) -> Path:
-    return base / f"tick.{tick}.marker"
-
-
-def begin_tick_marker(base: Path, tick: int) -> None:
-    """Mark tick in-flight (atomic): a crash leaves exactly this behind."""
-    archive.atomic_write_json(_marker_path(base, tick), {"tick": tick})
-
-
-def end_tick_marker(base: Path, tick: int) -> None:
-    try:
-        _marker_path(base, tick).unlink()
-    except OSError:
-        pass
-
-
-def recover_ticks(base: Path) -> list[int]:
-    """Roll back every interrupted tick. Idempotent, startup-only.
-
-    League tick past the marker means the tick completed (marker delete
-    never ran): keep everything, drop the marker. Otherwise strip that
-    tick's rows, trim its matrix share, shed its bank, and let the
-    monotonic counter skip the number — replay can never duplicate.
-    Returns the rolled-back ticks."""
-    rolled = []
-    try:
-        markers = sorted(base.glob("tick.*.marker"))
-    except OSError:
-        return rolled
-    for m in markers:
-        try:
-            tick = int(m.stem.split(".")[1])
-        except (IndexError, ValueError):
-            continue
-        try:
-            cur = (archive.load_league(base) or {}).get("tick", 0)
-        except (OSError, ValueError):
-            cur = 0
-        if isinstance(cur, int) and cur > tick:
-            end_tick_marker(base, tick)
-            continue
-        removed = archive.strip_tick_rows(base, tick)
-        archive.trim_matrix_rows(base, removed)
-        archive.strip_tick_anchors(base, tick)
-        archive.strip_tick_history(base, tick)
-        # Reset entries stay even when their rows are gone: the weights
-        # really did re-seed, and unknown ticks map to no cut.
-        try:
-            dirs = [d for d in learners_dir(base).iterdir()
-                    if d.is_dir()]
-        except OSError:
-            dirs = []
-        for d in dirs:
-            bank = d / "pending.pt"
-            if algorithm.pending_tick(bank) == tick:
-                try:
-                    bank.unlink()
-                except OSError:
-                    pass
-        end_tick_marker(base, tick)
-        rolled.append(tick)
-    return sorted(rolled)
-    """Drop banks newer than the last completed tick (only the
-    interrupted tick's batch). Returns True when anything was shed."""
 def load_live_all(cfg: dict, base: Path) -> dict:
     """In-memory training state per learner: policy, Adam, micro-batch."""
     live: dict = {"lr": cfg["lr"]}
@@ -600,9 +520,8 @@ def run_tick(cfg: dict, base: Path, live: dict,
     import rewards
 
     rewards.GAMMA = cfg.get("gamma", rewards.GAMMA)
+    tick = _claim_tick(base)  # persisted: never reused, even by restarts
     with archive.league_lock():
-        tick = _claim_tick(base)
-        begin_tick_marker(base, tick)
         state = archive.load_league(base)
     if state is None:
         raise FileNotFoundError(f"no league.json under {base}")
@@ -698,7 +617,6 @@ def run_tick(cfg: dict, base: Path, live: dict,
         state["tick"] = max(state.get("tick", 0), tick + 1)
         archive.save_league(base, state)
         next_learner = archive.advance_scheduler(base)
-        end_tick_marker(base, tick)
         status = {
             "phase": "league", "learner": learner, "opponent": opp,
             "tick": tick + 1, "next": next_learner,
@@ -789,14 +707,11 @@ def _pool_worker(cfg: dict, base: Path, live: dict, remaining: list,
 def run_loop(cfg: dict, base: Path, ticks: int | None = None) -> list[dict]:
     """Perpetual scheduler: ensure roles, then tick until ticks run out.
 
-    Concurrency partitions learners across pool threads (default 4 =
-    one per learner; 1 runs the legacy synchronous loop in this
-    thread). In-flight ticks each carry a marker file; startup sweeps
+    Concurrency pulls the most-starved idle learner per freed slot
+    (default 4; 1 runs the legacy synchronous loop in this thread).
+    In-flight ticks each carry a marker file; startup sweeps
     interrupted ones before loading state."""
     ensure_roles(base, cfg)
-    rolled = recover_ticks(base)
-    if rolled:
-        print(f"rolled back interrupted ticks {rolled}")
     live = load_live_all(cfg, base)
     reports: list = []
     n = cfg.get("ticks", -1) if ticks is None else ticks
