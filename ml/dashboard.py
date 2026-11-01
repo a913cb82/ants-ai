@@ -2388,7 +2388,7 @@ def render_page(snap: dict | None = None) -> str:
         total = snap.get("game_total", len(snap.get("games", [])))
         game_count = (f"showing {len(snap.get('games', []))} of {total} · "
                       f"page 1 of {max(1, (total + 99) // 100)}")
-        footer_counts = f"{total} games · tick {tick}"
+        footer_counts = f"{total} games"
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
