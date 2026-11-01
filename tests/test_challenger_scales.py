@@ -29,10 +29,10 @@ def test_scales_are_base():
     import rewards
 
     s = rewards.scales()
-    assert s["KILL"] == 1.0
+    assert s["KILL"] == 0.1
     assert s["HILL_APPROACH"] == 0.25
-    assert s["FOOD"] == 1.0 and s["DEATH"] == -2.0
+    assert s["FOOD"] == 0.1 and s["DEATH"] == -0.2
     assert s["WIN"] == 5.0 and s["LOSS"] == -5.0
     assert s["HILL_RAZE"] == 10.0 and s["HILL_LOST"] == -10.0
-    assert (rewards.KILL, rewards.DEATH, rewards.HILL_APPROACH) == (1.0, -2.0, 0.25)
+    assert (rewards.KILL, rewards.DEATH, rewards.HILL_APPROACH) == (0.1, -0.2, 0.25)
     assert {"hill_approach", "kill"} == rewards.GATED

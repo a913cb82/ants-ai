@@ -32,8 +32,8 @@ right way, PPO stays healthy.
    no recovery and no repair — just rerun.
 4. **Fresh starts.** Every net is drawn fresh (`CNNPolicy.reset_parameters`,
    CleanRL init); nothing resumes from g000 or any snapshot.
-5. **The one diet.** `rewards.scales()`: FOOD 1.0, KILL 1.0,
-   HILL_APPROACH 0.25, DEATH −2.0, raze +10 / lost −10, WIN +5 /
+5. **The one diet.** `rewards.scales()`: FOOD 0.1, KILL 0.1,
+   HILL_APPROACH 0.25, DEATH −0.2, raze +10 / lost −10, WIN +5 /
    LOSS −5, terminal linear over placements (sole-first +5, sole-last
    −5, middles graduated; 2p unchanged). Hill-approach and kills pay
    only on positive-placement finishes; death always

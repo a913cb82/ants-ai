@@ -24,15 +24,15 @@ sys.path.insert(0, str(ROOT / "ml"))
 
 from grid import dist2, step
 
-FOOD = 1.0
-KILL = 1.0
-DEATH = -2.0  # asymmetric: dying costs double killing pays, so 1-for-1
-# trades net -1. Mutual annihilation is no longer free; combat must
+FOOD = 0.1
+KILL = 0.1
+DEATH = -0.2  # asymmetric: dying costs double killing pays, so 1-for-1
+# trades net -0.1. Mutual annihilation is no longer free; combat must
 # preserve material to profit. Exploiters keep their own scales.
 HILL_APPROACH = 0.25  # same-turn pay per tile closed toward the enemy
 # hill. Shortens the discount horizon: a +10 raze 100 turns out is
-# worth ~+0.5 after GAMMA walk-back and cannot compete with an
-# immediate -2 death, so hills need paying now, not at arrival.
+# worth ~+0.5 after GAMMA walk-back — real value, but 100 turns late
+# and smeared, so hills need paying now, not at arrival.
 # Unsplit (armies closing together are good) and unconditioned
 # (suicide-watch instead of superiority gates).
 # Ledger note (round 46): HA mass ran ~58/game vs outcome +-5 — the
