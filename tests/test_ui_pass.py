@@ -65,12 +65,11 @@ def test_snapshot_h0_shape(tmp_path):
 
     base = _league_base(tmp_path / "archive")
     h0 = dashboard.snapshot(base)["h0"]
-    assert set(h0) == {"tick", "game_n", "learner", "micro_n",
-                       "micro_size", "games_per_h", "secs_since_game",
+    assert set(h0) == {"tick", "game_n", "learners",
+                       "games_per_h", "secs_since_game",
                        "anchor_verdict"}
     assert h0["game_n"] == 4
-    assert h0["learner"] == "main"
-    assert h0["micro_size"] == 8
+    assert h0["learners"] == ["main"]
     assert h0["anchor_verdict"] in ("new-high", "flat", "down")
 
 
@@ -135,7 +134,7 @@ def test_http_since_shortcircuit_and_member_empty(tmp_path):
         assert tiny == {"unchanged": True, "mtime": snap["mtime"]}
         stale = json.load(urllib.request.urlopen(
             root + "/api/snapshot?since=1", timeout=5))
-        assert stale["h0"]["learner"] == "main"
+        assert stale["h0"]["learners"] == ["main"]
         empty = json.load(urllib.request.urlopen(
             root + "/api/games?member=nobody-here", timeout=5))
         assert empty == {"total": 0, "rows": []}

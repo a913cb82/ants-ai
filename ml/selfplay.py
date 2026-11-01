@@ -698,14 +698,16 @@ def run_tick(cfg: dict, base: Path, live: dict,
         archive.save_league(base, state)
         next_learner = archive.advance_scheduler(base)
         end_tick_marker(base, tick)
-        archive.write_status(base, {
+        status = {
             "phase": "league", "learner": learner, "opponent": opp,
             "tick": tick + 1, "next": next_learner,
             "own_games": learner_games(state, learner),
             "micro": state.get("micro", {}).get(learner, 0),
             "admitted": admitted["id"] if admitted else None,
             "snapshot": snapshot["id"] if snapshot else None,
-        })
+        }
+        archive.write_status(base, status)
+        archive.write_status(base, status, learner=learner)
     return {
         "learner": learner,
         "opponent": opp,

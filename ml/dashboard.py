@@ -1255,32 +1255,54 @@ def anchor_verdict(trend: dict) -> str:
     return "flat"
 
 
+def active_learners(base: Path, state: dict | None,
+                    now: float | None = None,
+                    fresh_secs: float = 45) -> list[str]:
+    """Slots with a fresh per-learner status file (who runs right now).
+
+    Falls back to the aggregate status writer, then to the scheduler
+    slot (legacy archives without sharded files). Pure given mtimes."""
+    import time as _time
+
+    now = now if now is not None else _time.time()
+    live = []
+    for sid in LIVE_SLOTS:
+        try:
+            age = now - archive.status_path(base, sid).stat().st_mtime
+        except OSError:
+            continue
+        if age < fresh_secs:
+            live.append(sid)
+    if live:
+        return live
+    agg = archive.read_status(base)
+    if isinstance(agg.get("learner"), str):
+        return [agg["learner"]]
+    order = list(archive.SCHEDULER_ORDER)
+    return [order[(state or {}).get("scheduler_pos", 0) % len(order)]]
+
+
 def h0_panel(base: Path, state: dict | None, grouped: list[dict],
              trend: dict) -> dict:
-    """Sticky strip facts: tick · game# · learner · micro · rate ·
-    recency · anchor verdict."""
+    """Sticky strip facts: tick · game# · active learners · rate ·
+    recency · anchor verdict (micro lives per-learner in standings)."""
     state = state or {}
-    order = list(archive.SCHEDULER_ORDER)
-    learner = order[state.get("scheduler_pos", 0) % len(order)]
-    micro = (state.get("micro", {}) or {}).get(learner, 0)
-    micro_size = state.get("micro_batch_size",
-                           archive.MICRO_BATCH_SIZE) or 8
     games_per_h, secs = rate_window(base)
     return {
         "tick": state.get("tick", 0),
         "game_n": len(grouped),
-        "learner": learner,
-        "micro_n": micro % micro_size,
-        "micro_size": micro_size,
+        "learners": active_learners(base, state),
         "games_per_h": games_per_h,
         "secs_since_game": secs,
         "anchor_verdict": anchor_verdict(trend),
     }
 
 
-def standings_panel(base: Path, grouped: list[dict], K: int) -> list[dict]:
-    """Four live rows: running-Elo math (untouched) plus W-D-L and the
-    last tick each slot played. Unplayed slots read null, never zero."""
+def standings_panel(base: Path, grouped: list[dict], K: int,
+                    state: dict | None = None) -> list[dict]:
+    """Four live rows: running-Elo math (untouched) plus W-D-L, the
+    last tick each slot played, and micro progress to the next update.
+    Unplayed slots read null, never zero."""
     tally = tally_eval(grouped)
     try:
         elo = _interval_elo_cached(
@@ -1297,6 +1319,7 @@ def standings_panel(base: Path, grouped: list[dict], K: int) -> list[dict]:
             if isinstance(sid, str) and sid in LIVE_SLOTS:
                 last[sid] = max(last.get(sid, tick), tick)
     rows = []
+    micro = ((state or {}).get("micro", {}) or {})
     for sid in LIVE_SLOTS:
         w, d, lo = tally.get(sid, [0, 0, 0])
         raw = elo.get(sid) or []
@@ -1308,6 +1331,7 @@ def standings_panel(base: Path, grouped: list[dict], K: int) -> list[dict]:
                         if isinstance(v, (int, float))],
             "w": w, "d": d, "l": lo, "n": w + d + lo,
             "last_tick": last.get(sid),
+            "micro": micro.get(sid, 0),
         })
     return rows
 
@@ -1570,7 +1594,7 @@ def _build_snapshot(base: Path) -> dict:
     return {
         "h0": h0,
         "anchors": trend,
-        "standings": standings_panel(base, grouped, K),
+        "standings": standings_panel(base, grouped, K, state),
         "bars": bars_panel(state),
         "pairs": pairs_panel(base, grouped),
         "behavior": behavior_panel(base),
@@ -1772,13 +1796,13 @@ def h0_strip_html(h0: dict | None) -> str:
     if h0 is None:
         return '<span class="stat-label">loading…</span>'
     verdict = h0.get("anchor_verdict", "flat")
+    who = h0.get("learners") or ([h0["learner"]] if h0.get("learner")
+                                   else ["—"])
+    dots = "".join(f"{_dot(l)}{_esc(l)}" for l in who)
     return (
         f"<span><b>tick</b> {_esc(h0.get('tick', 0))}</span>"
         f"<span><b>game</b> {_esc(h0.get('game_n', 0))}</span>"
-        f"<span>{_dot(h0.get('learner'))}<b>{_esc(h0.get('learner'))}</b>"
-        "</span>"
-        f"<span><b>micro</b> {_esc(h0.get('micro_n'))}"
-        f"/{_esc(h0.get('micro_size'))}</span>"
+        f"<span>{dots}</span>"
         f"<span><b>rate</b> {fmt_rate(h0.get('games_per_h'))}</span>"
         f"<span><b>last game</b> {fmt_age(h0.get('secs_since_game'))}</span>"
         f'<span class="verdict {verdict}"><b>{_esc(verdict)}</b></span>')
@@ -1826,7 +1850,7 @@ def bars_rows_html(bars: list | None) -> str:
 def standings_rows_html(rows: list | None, h0_tick) -> str:
     """Twin of JS standingsRow."""
     if not rows:
-        return ('<tr><td colspan="6" class="empty">no standings yet</td></tr>')
+        return ('<tr><td colspan="7" class="empty">no standings yet</td></tr>')
     out = []
     for r in rows:
         stale = ' class="stale"' if is_stale(r.get("last_tick"),
@@ -1839,6 +1863,7 @@ def standings_rows_html(rows: list | None, h0_tick) -> str:
             f"{spark_svg(r.get('spark') or [])}</td>"
             f"<td class=\"num\">{wdl}</td>"
             f"<td class=\"num\">{_esc(r.get('n'))}</td>"
+            f"<td class=\"num\">{_esc(r.get('micro', 0))}/8</td>"
             f"<td class=\"num\">{fmt_tick(r.get('last_tick'))}</td></tr>")
     return "".join(out)
 
@@ -2052,11 +2077,12 @@ function keepScroll(scroller,fn){
 }
 function renderH0(){
   const h=S.h0;
+  const who=h.learners&&h.learners.length?h.learners:(h.learner?[h.learner]:["—"]);
+  const dots=who.map(id=>dot(id)+esc(id)).join(" ");
   $("h0").innerHTML=
     "<span><b>tick</b> "+esc(h.tick)+"</span>"+
     "<span><b>game</b> "+esc(h.game_n)+"</span>"+
-    "<span>"+dot(h.learner)+"<b>"+esc(h.learner)+"</b></span>"+
-    "<span><b>micro</b> "+esc(h.micro_n)+"/"+esc(h.micro_size)+"</span>"+
+    "<span>"+dots+"</span>"+
     "<span><b>rate</b> "+fmtRate(h.games_per_h)+"</span>"+
     "<span><b>last game</b> "+fmtAge(h.secs_since_game)+"</span>"+
     '<span class="verdict '+esc(h.anchor_verdict)+'"><b>'+esc(h.anchor_verdict)+"</b></span>";
@@ -2082,7 +2108,7 @@ function renderStandings(){
   $("standings-body").innerHTML=S.standings.map(r=>
     "<tr"+staleCls(r.last_tick,S.h0.tick)+"><td>"+dot(r.id)+esc(r.id)+"</td><td>"+esc(r.class)+
     '</td><td class="num">'+fmtElo(r.elo)+spark(r.spark||[])+'</td><td class="num">'+r.w+"-"+r.d+"-"+r.l+
-    '</td><td class="num">'+esc(r.n)+'</td><td class="num">'+fmtTick(r.last_tick)+"</td></tr>"
+    '</td><td class="num">'+esc(r.n)+'</td><td class="num">'+esc(r.micro)+"/8</td><td class="num">"+fmtTick(r.last_tick)+"</td></tr>"
   ).join("");
 }
 function renderAlerts(){
@@ -2408,7 +2434,7 @@ def render_page(snap: dict | None = None) -> str:
 <div class="legend">running Elo, integers · W-D-L over eval games · rows older than 200 ticks gray out</div>
 <div class="card table-scroll"><table>
 <caption style="display:none">Standings</caption>
-<tr><th scope="col">slot</th><th scope="col">class</th><th scope="col" class="num">elo</th><th scope="col" class="num">w-d-l</th><th scope="col" class="num">n</th><th scope="col" class="num">last</th></tr>
+<tr><th scope="col">slot</th><th scope="col">class</th><th scope="col" class="num">elo</th><th scope="col" class="num">w-d-l</th><th scope="col" class="num">n</th><th scope="col" class="num">upd</th><th scope="col" class="num">last</th></tr>
 <tbody id="standings-body">{standings}</tbody></table></div>
 </div>
 <div class="tcell span12">

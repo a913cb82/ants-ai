@@ -418,10 +418,21 @@ def log_game(
     append_jsonl(_paths(base)["dir"] / "games.jsonl", row)
 
 
-def write_status(base: Path, status: dict) -> None:
+def status_path(base: Path, learner: str | None = None) -> Path:
+    """Aggregate status.json, or one per learner under concurrency.
+
+    Four workers overwrite one file with last-writer-wins blur; sharded
+    files keep an exact who-is-running-now picture."""
+    if learner is None:
+        return _paths(base)["dir"] / "status.json"
+    return _paths(base)["dir"] / f"status-{learner}.json"
+
+
+def write_status(base: Path, status: dict,
+                 learner: str | None = None) -> None:
     """Live progress for the dashboard (overwritten as a generation runs)."""
     init(base)
-    atomic_write_json(_paths(base)["dir"] / "status.json", status)
+    atomic_write_json(status_path(base, learner), status)
 
 
 def read_status(base: Path) -> dict:

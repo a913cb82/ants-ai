@@ -315,8 +315,7 @@ def test_snapshot_contract_new_keys_only(tmp_path):
     assert set(rows) == {"main", "me", "le-a", "le-b"}
     assert isinstance(rows["main"]["elo"], int)
     h0 = snap["h0"]
-    assert (h0["tick"], h0["game_n"], h0["learner"]) == (0, 12, "main")
-    assert (h0["micro_n"], h0["micro_size"]) == (0, 8)
+    assert (h0["tick"], h0["game_n"], h0["learners"]) == (0, 12, ["main"])
     assert h0["games_per_h"] is None  # no wall-clock stamps logged
     assert h0["secs_since_game"] is not None and h0["secs_since_game"] >= 0
     assert h0["anchor_verdict"] == "flat"  # no anchor rows yet

@@ -215,7 +215,7 @@ def test_standings_four_live_rows(tmp_path):
     assert rows["le-a"]["class"] == "le"
     for r in rows.values():
         assert set(r) == {"id", "class", "elo", "w", "d", "l", "n",
-                          "last_tick", "spark"}
+                          "last_tick", "spark", "micro"}
     assert rows["main"]["n"] == 4 and rows["me"]["n"] == 4
     assert rows["le-a"]["n"] == 0  # never played: unknown, not zero-elo lie
     assert rows["le-a"]["elo"] is None
@@ -418,3 +418,58 @@ def test_alerts_anchor_drop(tmp_path):
     archive.record_anchor(base, "s2", "m", "g000", 0, 2, 0, tick=2)
     snap = dashboard.snapshot(base)
     assert any("g000" in a["msg"] for a in snap["alerts"])
+
+
+def test_active_learners_prefers_fresh_sharded_status(tmp_path):
+    import os
+    import time
+
+    import archive
+    import dashboard
+
+    base = _league_base(tmp_path / "a", games=0)
+    now = time.time()
+    archive.write_status(base, {"learner": "main"}, learner="main")
+    archive.write_status(base, {"learner": "me"}, learner="me")
+    stale = archive.status_path(base, "le-a")
+    archive.write_status(base, {"learner": "le-a"}, learner="le-a")
+    os.utime(stale, (now - 999, now - 999))
+    assert dashboard.active_learners(base, {}, now=now) == ["main", "me"]
+
+
+def test_active_learners_falls_back_to_aggregate(tmp_path):
+    import dashboard
+
+    import archive
+
+    base = _league_base(tmp_path / "a", games=0)
+    archive.write_status(base, {"learner": "me"})
+    assert dashboard.active_learners(base, {}, now=1e12) == ["me"]
+    (base / "status.json").unlink()
+    assert dashboard.active_learners(
+        base, {"scheduler_pos": 7}, now=1e12) == ["le-b"]  # legacy slot
+
+
+def test_h0_strip_joins_learners():
+    import dashboard
+
+    html = dashboard.h0_strip_html({"tick": 3, "game_n": 9,
+                                    "learners": ["main", "me"],
+                                    "games_per_h": None,
+                                    "secs_since_game": 4,
+                                    "anchor_verdict": "flat"})
+    assert html.count("●") == 2 and "main" in html and "me" in html
+    assert "micro" not in html  # micro lives per-learner in standings
+
+
+def test_standings_carries_micro_progress(tmp_path):
+    import dashboard
+
+    import archive
+
+    base = _league_base(tmp_path / "a", games=0)
+    st = archive.load_league(base)
+    st.setdefault("micro", {})["me"] = 5
+    archive.save_league(base, st)
+    rows = {r["id"]: r for r in dashboard.snapshot(base)["standings"]}
+    assert rows["me"]["micro"] == 5 and rows["main"]["micro"] == 0

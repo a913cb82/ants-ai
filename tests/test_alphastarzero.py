@@ -1299,8 +1299,7 @@ def test_snapshot_h0_tracks_scheduler_state(tmp_path):
     archive.note_exploiter_game(base, "me", 1.0, target="live-main")
     snap = dashboard.snapshot(base)
     h0 = snap["h0"]
-    assert (h0["tick"], h0["learner"]) == (0, "main")
-    assert (h0["micro_n"], h0["micro_size"]) == (0, 8)
+    assert (h0["tick"], h0["learners"]) == (0, ["main"])
     bar = next(b for b in snap["bars"] if b["id"] == "me")
     assert bar["record_wdl"] == "1-0-0" and bar["eligible_in"] == 39
 
@@ -1334,8 +1333,8 @@ def test_snapshot_retires_status_and_members(tmp_path):
     archive.write_status(base, {"phase": "eval", "done": 3, "total": 20})
     snap = dashboard.snapshot(base)
     assert "status" not in snap and "members" not in snap
-    assert set(snap["h0"]) == {"tick", "game_n", "learner",
-                                "micro_n", "micro_size", "games_per_h",
+    assert set(snap["h0"]) == {"tick", "game_n", "learners",
+                                "games_per_h",
                                 "secs_since_game", "anchor_verdict"}
 
 
@@ -1358,7 +1357,7 @@ def test_dashboard_http_api(tmp_path):
     try:
         root = f"http://127.0.0.1:{httpd.server_address[1]}"
         snap = json.load(urllib.request.urlopen(root + "/api/snapshot", timeout=5))
-        assert snap["h0"]["learner"] == "main" and snap["game_total"] == 0
+        assert snap["h0"]["learners"] == ["main"] and snap["game_total"] == 0
         assert "history" not in snap and "status" not in snap
         archive.log_game(base, a, "eval", a, a, 1, 1, "games/g/e/logs/0.replay")
         page = json.load(urllib.request.urlopen(root + "/api/games?limit=1", timeout=5))
