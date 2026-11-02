@@ -43,11 +43,14 @@ MICRO_BATCH = 16
 # boundaries, oldest first, so nothing is ever shed.
 SEAT_BUDGET = 16
 BATCH_CAP_ROWS = 65536
-# Resting backlog cap: unlanded rows waiting on disk and in RAM. The
-# dispatcher stalls past it (no data shed, just timing), so resting
-# memory is bounded no matter how far behind the learner falls; the
-# stall force-starts a drain update when the learner is idle.
-PENDING_CAP_ROWS = 150000
+# Resting backlog cap: 250k rows (~2.3GB, ~60 max-size games).
+# Steady state sits at 10-40k rows, so this is a firebreak, not a
+# regulator: it binds only on restart-inherited backlogs or a
+# stalled learner (the 1GB board alert fires first). The dispatcher
+# stalls past it (timing, never shedding) and the stall force-starts
+# a drain update when the learner is idle. Sized for the 15GB WSL
+# guest; scale to 400k+ when the guest sees the full 32GB.
+PENDING_CAP_ROWS = 250000
 
 #: Serializes tick claims: load/compute/save must not interleave,
 #: or two threads play the same tick number.
