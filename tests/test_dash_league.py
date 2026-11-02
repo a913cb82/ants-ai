@@ -346,6 +346,7 @@ def test_snapshot_contract_is_pure_az(tmp_path):
         "games",
         "h0",
         "mtime",
+        "pending_gb",
         "trace_miss",
         "training",
     ]
@@ -437,3 +438,14 @@ def test_alerts_fire_on_trace_miss():
     assert dashboard.alerts_panel(h0) == [
         {"level": "ok", "msg": "all clear", "tick": 9}
     ]
+
+
+def test_pending_backlog_raises_alert():
+    import dashboard
+
+    rows = dashboard.alerts_panel({"tick": 1}, pending_gb=2.5)
+    assert any(
+        r["level"] == "alert" and "backlog" in r["msg"] for r in rows
+    )
+    calm = dashboard.alerts_panel({"tick": 1}, pending_gb=0.5)
+    assert all("backlog" not in r["msg"] for r in calm)

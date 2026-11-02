@@ -434,8 +434,33 @@ def trace_miss_mean(games: list[dict], window: int = 40) -> float | None:
     return sum(vals) / len(vals)
 
 
-def alerts_panel(h0: dict, trace_miss: float | None = None) -> list[dict]:
-    """Attention queue: stuck training, trace-miss breach; else all-clear."""
+PENDING_ALERT_GB = 2.0
+
+
+def pending_gb(base: Path) -> float:
+    """Untrained bank on disk: shard files plus the legacy bank."""
+    base = Path(base)
+    total = 0
+    for name in ("pending.pt",):
+        try:
+            total += (base / "live" / name).stat().st_size
+        except OSError:
+            pass
+    try:
+        for shard in (base / "live" / "pending").glob("tick*.pt"):
+            total += shard.stat().st_size
+    except OSError:
+        pass
+    return total / 1e9
+
+
+def alerts_panel(
+    h0: dict,
+    trace_miss: float | None = None,
+    pending_gb: float | None = None,
+) -> list[dict]:
+    """Attention queue: stuck training, trace-miss breach, backlog;
+    else all-clear."""
     tick = h0.get("tick", 0)
     secs = h0.get("secs_since_game")
     rows = []
@@ -448,6 +473,14 @@ def alerts_panel(h0: dict, trace_miss: float | None = None) -> list[dict]:
             {
                 "level": "alert",
                 "msg": f"trace miss {trace_miss:.0%} over recent games — decisions the replay cannot explain",
+                "tick": tick,
+            }
+        )
+    if isinstance(pending_gb, (int, float)) and pending_gb > PENDING_ALERT_GB:
+        rows.append(
+            {
+                "level": "alert",
+                "msg": f"pending backlog {pending_gb:.1f}GB — learner behind the games; watch RAM",
                 "tick": tick,
             }
         )
@@ -470,7 +503,8 @@ def _build_snapshot(base: Path) -> dict:
         "games": panel[:100],
         "game_total": len(panel),
         "trace_miss": miss,
-        "alerts": alerts_panel(h0, miss),
+        "pending_gb": (pgb := pending_gb(base)),
+        "alerts": alerts_panel(h0, miss, pgb),
         "mtime": archive_mtime(base),
     }
 

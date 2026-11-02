@@ -56,6 +56,15 @@ right way, PPO stays healthy.
    baseline, standardized over the whole micro-batch; clipped
    surrogate + shared-trunk value head. Stats logged per update:
    loss, pg, value, entropy, KL, clipfrac, explained variance.
+8. **Memory budgets.** Two caps, both structural. The bot fan-out
+   is concurrency x seats x ~240MB (a full torch per seat), so
+   seats in flight are capped at 16 (~3.8GB worst case instead of
+   4 x 10 x 240MB) — over budget the tick waits unclaimed. Each
+   background update trains the oldest whole games up to 65536
+   rows (~1.5GB transient); the remainder stays banked for later
+   boundaries, so nothing is ever shed and no update can grow with
+   the backlog. A pending backlog over 2GB raises a board alert:
+   the learner is behind the games and RAM is next.
 
 ## What to watch (the board)
 

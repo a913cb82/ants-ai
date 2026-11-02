@@ -2475,3 +2475,28 @@ def test_trace_report_excuses_mass_timeout_turn():
     recs = [{"turn": 140, "loc": [0, 20], "dest": [47, 20], "action": "n"}]
     miss, problems = rewards.trace_report(game, 1, recs)
     assert miss == 1.0 and problems == []  # tick635: survived seat, cutoff turn
+
+
+def test_take_batch_caps_at_whole_games():
+    import selfplay
+
+    assert selfplay._take_batch([4000, 4096, 100], 8192) == (2, 8096)
+    assert selfplay._take_batch([9000], 8192) == (1, 9000)  # at least one
+    assert selfplay._take_batch([], 8192) == (0, 0)
+    assert selfplay._take_batch([100, 200], 10000) == (2, 300)
+
+
+def test_select_dispatch_holds_when_seats_full(tmp_path):
+    import archive
+    import selfplay
+
+    base = tmp_path / "archive"
+    archive.init(base)
+    archive.save_state(base, {"tick": 0, "next_tick": 0, "micro": 0})
+    four = tmp_path / "four.map"
+    four.write_text("players 4\nrows 3\ncols 3\n" + "...\n" * 3)
+    cfg = {"seed": 0, "maps": [str(four)], "seat_budget": 16}
+    assert selfplay._select_dispatch(base, cfg, 16) is None
+    assert selfplay._select_dispatch(base, cfg, 15) is None  # 15+4 overflows
+    tick, _map, seats = selfplay._select_dispatch(base, cfg, 12)
+    assert (tick, seats) == (0, 4)

@@ -35,6 +35,14 @@ import archive
 import train
 
 MICRO_BATCH = 16
+# Memory budgets: the bot fan-out is concurrency x seats x ~240MB (a
+# full torch per seat), so seats in flight are capped (~16 = ~3.8GB
+# worst case instead of 4 x 10 x 240MB ~= 9.5GB). The background
+# update trains the oldest whole games up to the row cap (~0.6GB of
+# window tensors per full stack); the remainder stays banked for later
+# boundaries, oldest first, so nothing is ever shed.
+SEAT_BUDGET = 16
+BATCH_CAP_ROWS = 65536
 
 #: Serializes tick claims: load/compute/save must not interleave,
 #: or two threads play the same tick number.
@@ -188,15 +196,40 @@ def _drop_banked(base: Path, entries: list) -> None:
         _pending_path(base).rmdir()
 
 
-def load_pending(base: Path, arch: str) -> list:
-    """Banked rows: legacy file first, then shards in tick order.
+def _take_batch(counts: list[int], cap_rows: int) -> tuple[int, int]:
+    """Leading whole games up to cap_rows: (games_taken, rows_taken).
 
-    Order across shards is tick-number, not completion, order; PPO
-    shuffles minibatches anyway, so training cannot tell."""
+    At least one game always trains, so a lone monster game still
+    updates instead of stalling the boundary forever."""
+    taken = rows = 0
+    for n in counts:
+        if taken and rows + n > cap_rows:
+            break
+        taken += 1
+        rows += n
+    return (taken, rows)
+
+
+def load_banked(base: Path, arch: str) -> tuple[list, list]:
+    """(rows, banked): banked is (tick|None, nrows), oldest first.
+
+    Shard order is tick-number, not completion, order; PPO shuffles
+    minibatches anyway, so training cannot tell."""
+    banked = []
     rows = algorithm.read_pending(_legacy_pending_path(base), arch)
+    if rows:
+        banked.append((None, len(rows)))
     for shard in _pending_shards(base):
-        rows.extend(algorithm.read_pending(shard, arch))
-    return rows
+        part = algorithm.read_pending(shard, arch)
+        rows.extend(part)
+        if part:
+            banked.append((_shard_tick(shard), len(part)))
+    return rows, banked
+
+
+def load_pending(base: Path, arch: str) -> list:
+    """Banked rows: legacy file first, then shards in tick order."""
+    return load_banked(base, arch)[0]
 
 
 def store_live(base: Path, weights: dict, opt_blob: dict | None) -> None:
@@ -222,17 +255,6 @@ def load_live(base: Path) -> tuple[dict, dict | None]:
     except (OSError, ValueError):
         return weights, None
     return weights, blob
-
-
-def _banked_manifest(base: Path) -> list:
-    """In-memory manifest of banked rows, oldest first: None for the
-    legacy file, tick ints for shards. Crash orphans simply reload (at
-    most one batch retrains, as before) and rejoin the manifest."""
-    manifest = []
-    if _legacy_pending_path(base).exists():
-        manifest.append(None)
-    manifest.extend(_shard_tick(s) for s in _pending_shards(base))
-    return manifest
 
 
 def _claim_tick(base: Path) -> int:
@@ -273,11 +295,12 @@ def ensure(base: Path, cfg: dict) -> dict:
         store_live(base, copy.deepcopy(weights), None)
     opt = algorithm.make_optimizer(policy, lr=cfg["lr"])
     algorithm.load_opt_state(opt, opt_blob)
+    pending, banked = load_banked(base, cfg.get("arch", "base"))
     return {
         "policy": policy,
         "opt": opt,
-        "pending": load_pending(base, cfg.get("arch", "base")),
-        "banked": _banked_manifest(base),
+        "pending": pending,
+        "banked": banked,
         "lr": cfg["lr"],
         "bg": None,  # background update slot; None until first boundary
     }
@@ -305,7 +328,7 @@ def _finish_tick(cfg: dict, base: Path, live: dict, result: dict) -> dict:
     batch = algorithm.collect(live["policy"], played["rows"], played["rets"])
     live["pending"].extend(batch)
     bank_pending(base, batch, cfg.get("arch", "base"), tick)
-    live["banked"].append(tick)
+    live["banked"].append((tick, len(batch)))
     state = archive.load_state(base)
     micro = state.get("micro", 0) + 1
     _bg_swap(cfg, base, live, block=False)  # land a finished update, if any
@@ -344,14 +367,22 @@ def _bg_start(cfg: dict, live: dict, tick: int) -> None:
         bg["opt"] = algorithm.make_optimizer(bg["policy"], lr=live["lr"])
     bg["policy"].load_state_dict(live["policy"].state_dict())
     bg["opt"].load_state_dict(live["opt"].state_dict())
-    n0 = len(live["pending"])
+    if live["banked"]:
+        taken, n0 = _take_batch(
+            [n for _t, n in live["banked"]], BATCH_CAP_ROWS
+        )
+        consumed = [t for t, _n in live["banked"][:taken]]
+        live["banked"] = live["banked"][taken:]
+    else:
+        # Untracked rows (should not happen: bank and manifest grow
+        # together): train everything, drop nothing.
+        n0, consumed = len(live["pending"]), []
     batch = live["pending"][:n0]
     bg.update(
         n0=n0, tick=tick, started=time.perf_counter(),
         stats=None, seconds=None, busy=True, done=threading.Event(),
-        banked=list(live["banked"]),
+        banked=consumed,
     )
-    live["banked"] = []
 
     def _run() -> None:
         try:
@@ -429,12 +460,34 @@ def run_tick(cfg: dict, base: Path, live: dict) -> dict:
     return rep
 
 
-def _dispatch_tick(cfg: dict, base: Path, live: dict, pool) -> object:
-    """Claim a tick and submit its game: map and weights snapshot are
-    per-tick deterministic (seed:tick), so dispatch order never matters."""
-    tick = _claim_tick(base)  # persisted: never reused, even by restarts
+def _select_dispatch(
+    base: Path, cfg: dict, in_flight_seats: int
+) -> tuple[int, str, int] | None:
+    """(tick, map, seats) fitting the seat budget, else None.
+
+    Over budget the tick waits UNCLAIMED, so the seed:tick map sequence
+    never shifts, only its timing. The budget must cover the largest
+    map (10 seats); in-flight games always drain, so a held tick always
+    dispatches eventually."""
+    from game_if import map_player_count
+
+    budget = cfg.get("seat_budget", SEAT_BUDGET)
+    state = archive.load_state(base) or {}
+    tick = max(state.get("tick", 0), state.get("next_tick", 0))
     rng = random.Random(f"{cfg.get('seed', 0)}:{tick}")
     map_path = rng.choice(cfg["maps"])
+    seats = map_player_count(map_path)
+    if in_flight_seats + seats > budget:
+        return None
+    return (tick, map_path, seats)
+
+
+def _dispatch_tick(
+    cfg: dict, base: Path, live: dict, pool, tick: int, map_path: str
+) -> object:
+    """Claim a tick and submit its game: the weights snapshot is live,
+    so training progress reaches games even mid-update."""
+    _claim_tick(base)  # persisted: never reused, even by restarts
     weights = algorithm.policy_weights(live["policy"])
     return pool.submit(_play_tick, cfg, base, weights, tick, map_path)
 
@@ -455,7 +508,11 @@ def run_loop(cfg: dict, base: Path, ticks: int) -> None:
                 and (ticks < 0 or dispatched < ticks)
                 and not _SHUTDOWN
             ):
-                in_flight[_dispatch_tick(cfg, base, live, pool)] = True
+                sel = _select_dispatch(base, cfg, sum(in_flight.values()))
+                if sel is None:
+                    break  # seat budget: wait for room
+                tick, map_path, seats = sel
+                in_flight[_dispatch_tick(cfg, base, live, pool, tick, map_path)] = seats
                 dispatched += 1
             if not in_flight:
                 break

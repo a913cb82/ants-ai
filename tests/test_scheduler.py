@@ -10,11 +10,21 @@ import selfplay
 import train
 
 
+def _maps(tmp_path, *names, players=2):
+    """Real map files for the dispatcher: seats come from headers."""
+    out = []
+    for name in names:
+        path = tmp_path / name
+        path.write_text(f"players {players}\nrows 3\ncols 3\n" + "...\n" * 3)
+        out.append(str(path))
+    return out
+
+
 def _cfg(tmp_path, **over):
     cfg = selfplay.default_config()
     cfg.update(
         {
-            "maps": ["m.map"],
+            "maps": _maps(tmp_path, "m.map"),
             "turns": 2,
             "seed": 0,
             "lr": 1e-3,
@@ -185,7 +195,7 @@ def _par_setup(tmp_path, monkeypatch, nmaps=3, concurrency=3, ticks=6):
     base = tmp_path / "archive"
     cfg = _cfg(
         tmp_path,
-        maps=[f"m{i}.map" for i in range(nmaps)],
+        maps=_maps(tmp_path, *[f"m{i}.map" for i in range(nmaps)]),
         concurrency=concurrency,
         epochs=1,
     )
@@ -247,7 +257,7 @@ def test_parallel_ticks_claim_unique_ticks_on_threads(tmp_path, monkeypatch):
 def test_parallel_completions_fire_update_every_sixteen(tmp_path, monkeypatch):
     base, cfg, live, seen = _par_setup(
         tmp_path, monkeypatch, concurrency=2, ticks=16)
-    cfg["maps"] = ["m0.map"]
+    cfg["maps"] = _maps(tmp_path, "m0.map")
     selfplay.run_loop(cfg, base, ticks=16)
     updates = archive.list_updates(base)
     assert len(updates) == 1  # 16 completions, one update
@@ -264,7 +274,8 @@ def test_parallel_matches_serial_results(tmp_path, monkeypatch):
         d = tmp_path / sub
         d.mkdir()
         base = d / "archive"
-        cfg = _cfg(d, maps=["m0.map", "m1.map"], concurrency=conc, epochs=1)
+        cfg = _cfg(d, maps=_maps(d, "m0.map", "m1.map"),
+                     concurrency=conc, epochs=1)
         selfplay.ensure(base, cfg)
         import time as _time
 
@@ -404,3 +415,42 @@ def test_load_pending_reads_legacy_bank_file(tmp_path):
     selfplay.bank_pending(base, items, "base", tick=9)
     got = selfplay.load_pending(base, "base")
     assert len(got) == 2  # legacy rows first, then shards
+
+
+def test_bg_start_trains_capped_oldest_prefix(tmp_path, monkeypatch):
+    import train as _train
+
+    import selfplay
+
+    base = tmp_path / "archive"
+    cfg = _cfg(tmp_path)
+    live = selfplay.ensure(base, cfg)
+    seen = {}
+
+    def fake_ppo(policy, opt, batch, cfg):
+        seen["rows"] = len(batch)
+        return {
+            "rows": len(batch),
+            "mean_return": 0.0,
+            "explained_var": 0.0,
+            "losses": [0.0],
+            "entropies": [0.0],
+            "kl": [0.0],
+            "clipfrac": [0.0],
+            "pg_loss": 0.0,
+            "v_loss": 0.0,
+        }
+
+    monkeypatch.setattr(_train, "ppo_update", fake_ppo)
+    row = ([[0.0]], 0, 1.0, [True] * 5, 0.0)
+    live["pending"] = [row] * 70000
+    live["banked"] = [(100, 40000), (101, 30000)]
+    selfplay._bg_start(cfg, live, 101)
+    assert seen["rows"] == 40000  # oldest whole games up to the cap
+    assert live["banked"] == [(101, 30000)]  # remainder stays banked
+    assert selfplay._bg_swap(cfg, base, live, block=True) is True
+    assert len(live["pending"]) == 30000  # consumed prefix dropped
+    import archive
+
+    (upd,) = archive.list_updates(base)
+    assert upd["rows"] == 40000
