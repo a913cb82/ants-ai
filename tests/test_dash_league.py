@@ -193,7 +193,8 @@ def test_games_newest_first_with_tick_ids(tmp_path):
     assert all(
         set(g)
         == {"tick", "learner", "map", "seats", "scores", "stats",
-            "length", "trace_miss", "result", "replay"}
+            "length", "trace_miss", "timeouts", "breaks",
+            "result", "replay"}
         for g in gs
     )
     assert gs[0]["learner"] == "main" and gs[0]["seats"] == ["main", "main"]
@@ -449,3 +450,28 @@ def test_pending_backlog_raises_alert():
     )
     calm = dashboard.alerts_panel({"tick": 1}, pending_gb=0.5)
     assert all("backlog" not in r["msg"] for r in calm)
+
+
+def test_limit_hits_sum_time_limit_hits_over_window():
+    import dashboard
+
+    panel = [
+        {"timeouts": 2, "breaks": 1},
+        {"timeouts": 0, "breaks": 0},
+        {},
+        {"timeouts": 1},
+    ]
+    assert dashboard.limit_hits(panel, window=40) == (3, 1)
+    assert dashboard.limit_hits([], window=40) == (0, 0)
+
+
+def test_limit_hits_alert_on_any_occurrence():
+    import dashboard
+
+    rows = dashboard.alerts_panel({"tick": 9}, limit=(2, 0))
+    assert any("timeout" in r["msg"] for r in rows if r["level"] == "alert")
+    rows = dashboard.alerts_panel({"tick": 9}, limit=(0, 3))
+    assert any("BREAK" in r["msg"] for r in rows if r["level"] == "alert")
+    assert dashboard.alerts_panel({"tick": 9}, limit=(0, 0)) == [
+        {"level": "ok", "msg": "all clear", "tick": 9}
+    ]

@@ -164,7 +164,12 @@ def play(
     with open(log_dir / "breaks.jsonl", "a") as f:
         for i, br in enumerate(attempts):
             f.write(json.dumps({"attempt": i, "breaks": br}) + "\n")
-    return {"game": game, "records": records, "retried": retried}
+    return {
+        "game": game,
+        "records": records,
+        "retried": retried,
+        "breaks": sum(len(br) for br in attempts),
+    }
 
 
 def _parse_breaks(stderr: bytes) -> list[dict]:

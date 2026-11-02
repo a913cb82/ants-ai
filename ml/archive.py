@@ -152,6 +152,8 @@ def log_game(
     length=None,
     t=None,
     trace_miss=None,
+    timeouts=None,
+    breaks=None,
 ) -> None:
     """Append one game to the dashboard index (replay path archive-relative).
 
@@ -181,6 +183,10 @@ def log_game(
         row["length"] = length
     if trace_miss is not None:
         row["trace_miss"] = trace_miss
+    if timeouts is not None:
+        row["timeouts"] = timeouts
+    if breaks is not None:
+        row["breaks"] = breaks
     if t is not None:
         row["t"] = t
     append_jsonl(base / "games.jsonl", row)

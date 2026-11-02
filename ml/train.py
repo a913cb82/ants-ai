@@ -115,6 +115,13 @@ def _play_one(cfg: dict, base: Path, weights: dict, map_path: str) -> dict:
         kw["army"] = list(behavior["army"][:n])
         kw["length"] = behavior["length"]
     kw["trace_miss"] = sum(misses) / len(misses) if misses else 0.0
+    status = game.get("status") if isinstance(game, dict) else None
+    kw["timeouts"] = (
+        sum(1 for x in status if x == "timeout")
+        if isinstance(status, list)
+        else None
+    )
+    kw["breaks"] = out.get("breaks")
     archive.log_game(
         base,
         field,

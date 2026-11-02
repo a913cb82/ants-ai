@@ -1179,7 +1179,8 @@ def test_snapshot_games_carry_dual_time(tmp_path):
     assert all(
         set(g)
         == {"tick", "learner", "map", "seats", "scores", "stats",
-            "length", "trace_miss", "result", "replay"}
+            "length", "trace_miss", "timeouts", "breaks",
+            "result", "replay"}
         for g in snap["games"]
     )
 
@@ -2022,7 +2023,8 @@ def test_cached_panel_shares_one_build_per_poll(tmp_path):
     assert dashboard.cached_panel(base) is first  # no rebuild on repoll
     assert len(first) == 1 and set(first[0]) == {
         "tick", "learner", "map", "seats", "scores", "stats",
-        "length", "trace_miss", "result", "replay"}
+        "length", "trace_miss", "timeouts", "breaks",
+        "result", "replay"}
     assert first[0]["result"] == "win"  # seat-0 perspective
     archive.log_game(base, ["main", "main"], [0, 1], "games/g/e1/logs/0.replay", game="g#2")
     second = dashboard.cached_panel(base)
@@ -2385,6 +2387,12 @@ def test_trace_report_needs_status_for_lost():
         rewards.trace_report(game, 0, recs)
 
 
+def _trace_game_status(status):
+    game = _trace_game()
+    game["status"] = status
+    return game
+
+
 def _timeout_game():
     game = _trace_game()
     game["status"] = ["timeout", "timeout"]
@@ -2604,3 +2612,59 @@ def test_play_persists_break_lines_to_logs(tmp_path, monkeypatch):
             {"side": "side_1", "turn": 1, "decided": 0, "live": 2}
         ]}
     ]
+
+
+def test_log_game_stores_time_limit_hits(tmp_path):
+    import archive
+
+    base = tmp_path / "archive"
+    archive.log_game(
+        base, ["main", "main"], [1, 0], "g/e/logs/0.replay",
+        game="g#1", tick=0, timeouts=2, breaks=1,
+    )
+    (row,) = archive.list_games(base)
+    assert row["timeouts"] == 2 and row["breaks"] == 1
+    archive.log_game(base, ["main", "main"], [1, 0], "g/e/logs/0.replay", game="g#2")
+    assert "timeouts" not in archive.list_games(base)[0]  # unknown, not zero
+
+
+def test_play_one_logs_timeout_seats(tmp_path, monkeypatch):
+    import archive
+    import game_if
+    import train
+
+    base = tmp_path / "archive"
+    cfg = {"seed": 0, "turns": 5, "temperature": 0.0, "tick": 7}
+
+    def fake_play(*a, **k):
+        return {
+            "game": _trace_game_status(["timeout", "survived"]),
+            "records": [[], []],
+        }
+
+    monkeypatch.setattr(game_if, "play", fake_play)
+    train._play_one(cfg, base, {}, _tmp_2p_map(tmp_path))
+    (row,) = archive.list_games(base)
+    assert row["timeouts"] == 1
+
+
+def test_play_returns_break_total(tmp_path, monkeypatch):
+    import game_if
+
+    outdir = tmp_path / "tick0"
+
+    def fake_run(cmd, root, env, timeout):
+        log_dir = Path(cmd[cmd.index("--log_dir") + 1])
+        log_dir.mkdir(parents=True, exist_ok=True)
+        (log_dir / "0.replay").write_text(
+            '{"game_length": 1, "score": [0, 0], "replaydata": {}}'
+        )
+        return b"BREAK side=side_0 turn=3 decided=5/9\nBREAK side=side_0 turn=4 decided=2/9\n"
+
+    monkeypatch.setattr(game_if, "_run_once", fake_run)
+    cfg = game_if.GameConfig(map="m.map", turns=1)
+    out = game_if.play(
+        Path("."), sys.executable, [{}, {}], cfg, outdir,
+        names=["side_0", "side_1"],
+    )
+    assert out["breaks"] == 2

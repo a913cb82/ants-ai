@@ -192,6 +192,11 @@ def build_game(row: dict) -> dict | None:
 
     length = row.get("length")
     miss = row.get("trace_miss")
+
+    def _count(key):
+        v = row.get(key)
+        return v if isinstance(v, int) and v >= 0 else None
+
     return {
         "tick": row.get("tick"),
         "learner": "main",
@@ -201,6 +206,8 @@ def build_game(row: dict) -> dict | None:
         "stats": [_seat_stats(row, i) for i in range(len(seats))],
         "length": length if isinstance(length, (int, float)) else None,
         "trace_miss": miss if isinstance(miss, (int, float)) else None,
+        "timeouts": _count("timeouts"),
+        "breaks": _count("breaks"),
         "result": _result(ranks[0]),
         "replay": row.get("replay"),
     }
@@ -454,10 +461,27 @@ def pending_gb(base: Path) -> float:
     return total / 1e9
 
 
+def limit_hits(games: list[dict], window: int = 40) -> tuple[int, int]:
+    """(timeout seats, BREAK turns) over the most recent window.
+
+    Rows that predate either fact are unknown, not zero: only numeric
+    entries count. Both signals are bounded at zero in a healthy run
+    (cutoffs need box-scale load, breaks need 1000+ ant-turns), so any
+    occurrence in the window pages."""
+    recent = games or []
+    def _sum(key):
+        return sum(
+            g.get(key) for g in recent[:window]
+            if isinstance(g.get(key), int)
+        )
+    return (_sum("timeouts"), _sum("breaks"))
+
+
 def alerts_panel(
     h0: dict,
     trace_miss: float | None = None,
     pending_gb: float | None = None,
+    limit: tuple[int, int] | None = None,
 ) -> list[dict]:
     """Attention queue: stuck training, trace-miss breach, backlog;
     else all-clear."""
@@ -476,6 +500,24 @@ def alerts_panel(
                 "tick": tick,
             }
         )
+    if limit is not None:
+        nto, nbr = limit
+        if isinstance(nto, int) and nto > 0:
+            rows.append(
+                {
+                    "level": "alert",
+                    "msg": f"{nto} engine timeouts over recent games — whole turns cut off; watch box load",
+                    "tick": tick,
+                }
+            )
+        if isinstance(nbr, int) and nbr > 0:
+            rows.append(
+                {
+                    "level": "alert",
+                    "msg": f"{nbr} BREAK turns over recent games — the decide guard fired; the bot is starved for time",
+                    "tick": tick,
+                }
+            )
     if isinstance(pending_gb, (int, float)) and pending_gb > PENDING_ALERT_GB:
         rows.append(
             {
@@ -504,7 +546,7 @@ def _build_snapshot(base: Path) -> dict:
         "game_total": len(panel),
         "trace_miss": miss,
         "pending_gb": (pgb := pending_gb(base)),
-        "alerts": alerts_panel(h0, miss, pgb),
+        "alerts": alerts_panel(h0, miss, pgb, limit_hits(panel)),
         "mtime": archive_mtime(base),
     }
 
