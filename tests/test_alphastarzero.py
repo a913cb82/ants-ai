@@ -2668,3 +2668,10 @@ def test_play_returns_break_total(tmp_path, monkeypatch):
         names=["side_0", "side_1"],
     )
     assert out["breaks"] == 2
+
+
+def test_rotation_constants_stay_mirrored():
+    import algorithm
+    import model
+
+    assert model.ROT_PERM == algorithm.ROT_PERM  # duplicated on purpose
