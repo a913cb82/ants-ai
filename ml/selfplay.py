@@ -43,6 +43,11 @@ MICRO_BATCH = 16
 # boundaries, oldest first, so nothing is ever shed.
 SEAT_BUDGET = 16
 BATCH_CAP_ROWS = 65536
+# Resting backlog cap: unlanded rows waiting on disk and in RAM. The
+# dispatcher stalls past it (no data shed, just timing), so resting
+# memory is bounded no matter how far behind the learner falls; the
+# stall force-starts a drain update when the learner is idle.
+PENDING_CAP_ROWS = 150000
 
 #: Serializes tick claims: load/compute/save must not interleave,
 #: or two threads play the same tick number.
@@ -460,20 +465,38 @@ def run_tick(cfg: dict, base: Path, live: dict) -> dict:
     return rep
 
 
-def _select_dispatch(
-    base: Path, cfg: dict, in_flight_seats: int
-) -> tuple[int, str, int] | None:
-    """(tick, map, seats) fitting the seat budget, else None.
+def _prospective_tick(base: Path) -> int:
+    """Next tick without claiming it: dispatch may wait, never consume."""
+    state = archive.load_state(base) or {}
+    return max(state.get("tick", 0), state.get("next_tick", 0))
 
-    Over budget the tick waits UNCLAIMED, so the seed:tick map sequence
-    never shifts, only its timing. The budget must cover the largest
-    map (10 seats); in-flight games always drain, so a held tick always
-    dispatches eventually."""
+
+def _pending_stalled(cfg: dict, pending_rows: int) -> bool:
+    """Resting backlog past the cap: hold dispatch until it drains."""
+    return pending_rows >= cfg.get("pending_cap_rows", PENDING_CAP_ROWS)
+
+
+def _bg_busy(live: dict) -> bool:
+    """A background update is training (or landing) right now."""
+    bg = live.get("bg")
+    return bool(bg is not None and bg.get("busy"))
+
+
+def _select_dispatch(
+    base: Path, cfg: dict, in_flight_seats: int, pending_rows: int = 0
+) -> tuple[int, str, int] | None:
+    """(tick, map, seats) fitting seats and backlog, else None.
+
+    Over either budget the tick waits UNCLAIMED, so the seed:tick map
+    sequence never shifts, only its timing. The seat budget must cover
+    the largest map (10 seats); in-flight games always drain and the
+    backlog always trains down, so a held tick always dispatches."""
     from game_if import map_player_count
 
+    if _pending_stalled(cfg, pending_rows):
+        return None
     budget = cfg.get("seat_budget", SEAT_BUDGET)
-    state = archive.load_state(base) or {}
-    tick = max(state.get("tick", 0), state.get("next_tick", 0))
+    tick = _prospective_tick(base)
     rng = random.Random(f"{cfg.get('seed', 0)}:{tick}")
     map_path = rng.choice(cfg["maps"])
     seats = map_player_count(map_path)
@@ -508,17 +531,29 @@ def run_loop(cfg: dict, base: Path, ticks: int) -> None:
                 and (ticks < 0 or dispatched < ticks)
                 and not _SHUTDOWN
             ):
-                sel = _select_dispatch(base, cfg, sum(in_flight.values()))
+                sel = _select_dispatch(
+                    base, cfg, sum(in_flight.values()), len(live["pending"])
+                )
                 if sel is None:
-                    break  # seat budget: wait for room
+                    break  # over budget: wait for room, then retry
                 tick, map_path, seats = sel
                 in_flight[_dispatch_tick(cfg, base, live, pool, tick, map_path)] = seats
                 dispatched += 1
             if not in_flight:
-                break
+                if ticks >= 0 and done >= ticks:
+                    break
+                # Stalled with nothing running: land any finished update
+                # and force-start a drain when backlogged and idle, so
+                # the backlog gate can never deadlock the loop.
+                _bg_swap(cfg, base, live, block=False)
+                if _pending_stalled(cfg, len(live["pending"])) and not _bg_busy(live):
+                    _bg_start(cfg, live, _prospective_tick(base))
+                time.sleep(1)
+                continue
             finished, _ = wait(
                 in_flight, timeout=5, return_when=FIRST_COMPLETED
             )
+            _bg_swap(cfg, base, live, block=False)  # land between games
             for fut in finished:
                 del in_flight[fut]
                 # A failed game propagates, as in the serial loop; its

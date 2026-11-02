@@ -63,8 +63,11 @@ right way, PPO stays healthy.
    background update trains the oldest whole games up to 65536
    rows (~1.5GB transient); the remainder stays banked for later
    boundaries, so nothing is ever shed and no update can grow with
-   the backlog. A pending backlog over 2GB raises a board alert:
-   the learner is behind the games and RAM is next.
+   the backlog. Resting backlog is capped too: past 150k unlanded
+   rows the dispatcher stalls (timing, not shedding) while the stall
+   force-starts a drain update, so resting memory is bounded however
+   far behind the learner falls. A backlog over 1GB raises a board
+   alert long before any cap binds.
 
 ## What to watch (the board)
 

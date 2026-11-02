@@ -2500,3 +2500,17 @@ def test_select_dispatch_holds_when_seats_full(tmp_path):
     assert selfplay._select_dispatch(base, cfg, 15) is None  # 15+4 overflows
     tick, _map, seats = selfplay._select_dispatch(base, cfg, 12)
     assert (tick, seats) == (0, 4)
+
+
+def test_select_dispatch_holds_when_backlog_full(tmp_path):
+    import archive
+    import selfplay
+
+    base = tmp_path / "archive"
+    archive.init(base)
+    archive.save_state(base, {"tick": 0, "next_tick": 0, "micro": 0})
+    two = tmp_path / "two.map"
+    two.write_text("players 2\nrows 3\ncols 3\n" + "...\n" * 3)
+    cfg = {"seed": 0, "maps": [str(two)], "pending_cap_rows": 4}
+    assert selfplay._select_dispatch(base, cfg, 0, pending_rows=4) is None
+    assert selfplay._select_dispatch(base, cfg, 0, pending_rows=3) is not None

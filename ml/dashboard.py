@@ -434,7 +434,7 @@ def trace_miss_mean(games: list[dict], window: int = 40) -> float | None:
     return sum(vals) / len(vals)
 
 
-PENDING_ALERT_GB = 2.0
+PENDING_ALERT_GB = 1.0
 
 
 def pending_gb(base: Path) -> float:

@@ -454,3 +454,38 @@ def test_bg_start_trains_capped_oldest_prefix(tmp_path, monkeypatch):
 
     (upd,) = archive.list_updates(base)
     assert upd["rows"] == 40000
+
+
+def test_backlogged_loop_drains_and_completes(tmp_path, monkeypatch):
+    import archive
+    import train as _train
+
+    import selfplay
+
+    base = tmp_path / "archive"
+    cfg = _cfg(
+        tmp_path,
+        maps=_maps(tmp_path, "m0.map"),
+        concurrency=1,
+        epochs=1,
+        pending_cap_rows=5,
+    )
+    live = selfplay.ensure(base, cfg)
+
+    def fake_play_one(c, b, weights, map_path):
+        tick = c["tick"]
+        archive.log_game(
+            b, ["main", "main"], [3, 1],
+            f"games/main/tick{tick}/logs/0.replay",
+            map="m0.map", game=f"gid-{tick}", tick=tick,
+        )
+        return {
+            "rows": [{"window": [[[0.0] * 9] * 9] * 10, "action": "stay"}] * 2,
+            "rets": [1.0, 1.0],
+            "scores": [3, 1],
+        }
+
+    monkeypatch.setattr(_train, "_play_one", fake_play_one)
+    selfplay.run_loop(cfg, base, ticks=4)
+    assert len(archive.list_games(base)) == 4  # stalled, drained, finished
+    assert len(archive.list_updates(base)) >= 1  # forced drain landed
