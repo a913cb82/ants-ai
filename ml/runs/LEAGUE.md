@@ -47,7 +47,9 @@ right way, PPO stays healthy.
    passable-stay loss off the timeout turn fails it too (the engine
    applies every order it receives; playerturns pins the cutoff turn).
    Timeout-turn stranded orders resolve to stays instead of counting
-   as misses (unsent ≡ stay; intent stays honest), and trace-miss over
+   as misses (unsent ≡ stay; intent stays honest). Cutoff evidence is
+   turn-level: any seat timing out on turn t explains any stranded
+   miss on t — per-seat status proved racy at game end (tick635), and trace-miss over
    5% raises a board alert. Silent fallbacks hid
    a dead water channel all game; never again.
 7. **PPO baseline (frozen).** Advantages from one frozen pre-update

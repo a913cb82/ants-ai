@@ -2461,3 +2461,17 @@ def test_play_one_resolves_stranded_orders_on_timeout_turns(tmp_path, monkeypatc
     assert out["rows"][1]["dest"] == [6, 6]
     (row,) = archive.list_games(base)
     assert row["trace_miss"] == 0.0  # resolved before audit, not tolerated
+
+
+def test_trace_report_excuses_mass_timeout_turn():
+    import rewards
+
+    game = _game()
+    game["status"] = ["timeout", "survived", "timeout", "timeout"]
+    game["playerturns"] = [140, 140, 140, 140]
+    land = ["." * 24 for _ in range(48)]
+    game["replaydata"]["map"] = {"rows": 48, "cols": 24, "data": land}
+    game["replaydata"]["ants"] = [[0, 20, 130, 145, 1, "-" * 11]]
+    recs = [{"turn": 140, "loc": [0, 20], "dest": [47, 20], "action": "n"}]
+    miss, problems = rewards.trace_report(game, 1, recs)
+    assert miss == 1.0 and problems == []  # tick635: survived seat, cutoff turn

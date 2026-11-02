@@ -288,12 +288,13 @@ def trace_report(game, seat, records):
     miss_rate counts records no replay ant explains. problems lists the
     ones that should be impossible: dest on water or live food (the
     legal mask forbids both — a mask breach), no stayed step at all
-    (ghost), or a lost order off any timeout turn (the engine applies
-    every order it receives; sends flush per ant, so a cutoff strands
-    decided-but-unsent orders and marks seat and turn). Only loss on
-    the timeout turn itself is infra noise: counted, never raised.
-    Missing map data, status, or playerturns raises: the engine always
-    logs all three."""
+    (ghost), or a lost order off every timeout turn (the engine
+    applies every order it receives; sends flush per ant, so a cutoff
+    strands decided-but-unsent orders. Cutoff evidence is turn-level:
+    any seat timing out on turn t explains any stranded miss on t,
+    since per-seat status is racy at game end. Other turns' losses
+    are bugs, not noise. Missing map data, status, or playerturns
+    raises: the engine always logs all three."""
     if not records:
         return (0.0, [])  # nothing to audit: vacuous, not silent
     rd = game["replaydata"]
@@ -361,10 +362,15 @@ def _classify_miss(game, seat, rec, stayed, grid, foods):
     status = game.get("status")
     turns = game.get("playerturns")
     try:
-        cutoff_here = status[seat] == "timeout" and turns[seat] == t
-    except (TypeError, IndexError):
+        # Turn-level, not seat-level: a cutoff hits reads globally
+        # (order shuffled, shared deadline), but per-seat status is
+        # racy — a final-turn timeout can read back as survived after
+        # end-of-game bookkeeping. Any timeout on this turn explains
+        # any stranded miss on it.
+        timeout_turns = {tt for s, tt in zip(status, turns) if s == "timeout"}
+    except TypeError:
         raise ValueError("trace_report needs game.status/playerturns")
-    return ("stranded", None) if cutoff_here else ("lost", None)
+    return ("stranded", None) if t in timeout_turns else ("lost", None)
 
 
 def resolve_stranded(game, seat, records):
