@@ -301,7 +301,14 @@ class AlphaAntBot:
             if ants.time_remaining() < 10:
                 # Time ran out: undecided ants leave no rows. Logging
                 # them as stays forged supervision they never chose
-                # and starved late-order ants of real credit.
+                # and starved late-order ants of real credit. One
+                # stderr line per stopped turn keeps the rate audible.
+                print(
+                    f"BREAK side={Path(__file__).stem} turn={self._turn} "
+                    f"decided={len(moves)}/{len(mine)}",
+                    file=sys.stderr,
+                    flush=True,
+                )
                 break
         moves.extend([None] * (len(mine) - len(moves)))
         self._resolve(ants, mine, moves, logits, windows)

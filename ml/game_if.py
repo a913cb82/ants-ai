@@ -132,8 +132,9 @@ def play(
     ]
     for i, side in enumerate(sides):
         cmd.append(f"{python} {side / (_safe_name(names[i]) + '.py')}")
+    attempts = []
     try:
-        _run_once(cmd, root, env, cfg.timeout)
+        attempts.append(_parse_breaks(_run_once(cmd, root, env, cfg.timeout)))
     finally:
         records = [_read_records(side) for side in sides]
         cleanup(outdir)
@@ -152,30 +153,61 @@ def play(
         at = cmd.index("--engine_seed") + 1
         cmd_retry = cmd[:at] + [str(cfg.engine_seed + 7919)] + cmd[at + 1 :]
         try:
-            _run_once(cmd_retry, root, env, cfg.timeout)
+            attempts.append(
+                _parse_breaks(_run_once(cmd_retry, root, env, cfg.timeout))
+            )
         finally:
             records = [_read_records(side) for side in sides]
             cleanup(outdir)
         game = json.loads((log_dir / "0.replay").read_text())
         retried = True
+    with open(log_dir / "breaks.jsonl", "a") as f:
+        for i, br in enumerate(attempts):
+            f.write(json.dumps({"attempt": i, "breaks": br}) + "\n")
     return {"game": game, "records": records, "retried": retried}
 
 
-def _run_once(cmd: list, root: Path, env: dict, timeout: int) -> None:
-    """One engine invocation; raises TimeoutError/RuntimeError.
+def _parse_breaks(stderr: bytes) -> list[dict]:
+    """Bot early-stop lines: BREAK side=<seat> turn=<t> decided=<d>/<m>.
+
+    Anything else on the stream (orders, tracebacks) is ignored here."""
+    out = []
+    for line in (stderr or b"").decode(errors="replace").splitlines():
+        if not line.startswith("BREAK "):
+            continue
+        try:
+            parts = dict(p.split("=", 1) for p in line.split()[1:])
+            dec, live = parts["decided"].split("/")
+            out.append(
+                {
+                    "side": parts["side"],
+                    "turn": int(parts["turn"]),
+                    "decided": int(dec),
+                    "live": int(live),
+                }
+            )
+        except (KeyError, ValueError):
+            continue
+    return out
+
+
+def _run_once(cmd: list, root: Path, env: dict, timeout: int) -> bytes:
+    """One engine invocation; returns stderr. Raises
+    TimeoutError/RuntimeError.
 
     Engine stdout (the turn-by-turn visualizer stream, hundreds of MB
     on 250-turn 10-seat games) goes straight to DEVNULL: buffering it
     with capture_output=True piles GBs in RAM under concurrency and
     OOM-kills the trainer. Nothing reads stdout (replay and records
     come from log_dir/side dirs); stderr stays piped so failures still
-    report their tail."""
+    report their tail, and bot BREAK lines ride it to the logs dir."""
     try:
         proc = subprocess.run(
             cmd, cwd=root, stdout=subprocess.DEVNULL,
             stderr=subprocess.PIPE, env=env, timeout=timeout,
         )
         proc.check_returncode()
+        return proc.stderr
     except subprocess.TimeoutExpired as exc:
         raise TimeoutError(f"engine game timed out after {timeout}s") from exc
     except subprocess.CalledProcessError as exc:

@@ -2514,3 +2514,93 @@ def test_select_dispatch_holds_when_backlog_full(tmp_path):
     cfg = {"seed": 0, "maps": [str(two)], "pending_cap_rows": 4}
     assert selfplay._select_dispatch(base, cfg, 0, pending_rows=4) is None
     assert selfplay._select_dispatch(base, cfg, 0, pending_rows=3) is not None
+
+
+def test_bot_break_logs_decided_counts_to_stderr(tmp_path, monkeypatch, capsys):
+    import AlphaAnt
+
+    monkeypatch.setenv("AA_RECORD_DIR", str(tmp_path))
+
+    class SlowAnts:
+        rows, cols = 10, 10
+        viewradius2 = 77
+        _t = [0]
+
+        def my_ants(self):
+            return [(4, 4), (4, 5), (4, 6)]
+
+        def enemy_ants(self):
+            return []
+
+        def food(self):
+            return []
+
+        def my_hills(self):
+            return []
+
+        def enemy_hills(self):
+            return []
+
+        def destination(self, loc, d):
+            return (loc[0] + 1, loc[1])
+
+        def passable(self, loc):
+            return True
+
+        def distance(self, a, b):
+            return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
+        def issue_order(self, order):
+            pass
+
+        def time_remaining(self):
+            return self._t.pop(0) if self._t else 0
+
+    bot = AlphaAnt.AlphaAntBot()
+    bot.do_setup(SlowAnts())
+    bot.do_turn(SlowAnts())
+    err = capsys.readouterr().err
+    assert "BREAK" in err and "decided=1/3" in err
+
+
+def test_parse_breaks_reads_bot_break_lines():
+    import game_if
+
+    raw = b"o 1 2 n\nBREAK side=side_0 turn=3 decided=5/9\ngarbage\n"
+    assert game_if._parse_breaks(raw) == [
+        {"side": "side_0", "turn": 3, "decided": 5, "live": 9}
+    ]
+    assert game_if._parse_breaks(b"no breaks here\n") == []
+
+
+def test_play_persists_break_lines_to_logs(tmp_path, monkeypatch):
+    import game_if
+
+    base = tmp_path / "archive"
+    outdir = tmp_path / "tick0"
+
+    def fake_run(cmd, root, env, timeout):
+        log_dir = Path(cmd[cmd.index("--log_dir") + 1])
+        log_dir.mkdir(parents=True, exist_ok=True)
+        (log_dir / "0.replay").write_text(
+            '{"game_length": 1, "score": [0, 0], "status": ["survived", "survived"],'
+            ' "playerturns": [1, 1], "replaydata": {"map": {"rows": 3, "cols": 3,'
+            ' "data": ["...", "...", "..."]}, "viewradius2": 77,'
+            ' "attackradius2": 5, "food": [], "ants": [], "hills": []}}'
+        )
+        return b"BREAK side=side_1 turn=1 decided=0/2\n"
+
+    monkeypatch.setattr(game_if, "_run_once", fake_run)
+    cfg = game_if.GameConfig(map="m.map", turns=1)
+    game_if.play(
+        Path("."), sys.executable,
+        [{}, {}], cfg, outdir, names=["side_0", "side_1"],
+    )
+    import json
+
+    lines = (outdir / "logs" / "breaks.jsonl").read_text().strip().splitlines()
+    assert [json.loads(l) for l in lines] == [
+        {"attempt": 0, "breaks": [
+            {"side": "side_1", "turn": 1, "decided": 0, "live": 2}
+        ]}
+    ]
