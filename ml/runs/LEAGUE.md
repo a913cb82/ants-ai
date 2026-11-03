@@ -40,7 +40,14 @@ right way, PPO stays healthy.
    ledger charges (flat loss teaches defense, scaled loss taught
    hill-avoidance). Windows see team vision: channel 6 (own_sight)
    and the entity fill cover cells ANY allied ant sees, computed once
-   per turn up front. Hill-approach pays
+   per turn up front. Input is 13 channels: the 10 current plus T-1
+   memory (prev_own_ant, prev_enemy_ant re-centered on this turn's ant,
+   prev_self marking where it stood; first sight reads zeros). The width
+   change rode in by surgery, not reset: port_weights copies every old
+   weight verbatim and grows only the two first-conv layers with
+   small-nonzero slices (100x below trunk scale), so the ported policy
+   opens within a whisper of the original (argmax agreement on real
+   rows, KL ~1e-6). Hill-approach pays
    only on positive-placement finishes; kills pay on every finish;
    death always
    hurts. Each game's priced rows enter the batch whole up to
