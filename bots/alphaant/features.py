@@ -73,6 +73,34 @@ def _offsets_for(radius: int, sight2: int) -> list[tuple[int, int, int, int, boo
     return _sight_offsets[key]
 
 
+_sight_circle: dict[int, list[tuple[int, int]]] = {}
+
+
+def _sight_circle_offsets(sight2: int) -> list[tuple[int, int]]:
+    """(dr, dc) with dr*dr+dc*dc <= sight2: one ant's sight disc."""
+    if sight2 not in _sight_circle:
+        r = int(math.sqrt(sight2)) + 1 if sight2 > 0 else 0
+        _sight_circle[sight2] = [
+            (dr, dc)
+            for dr in range(-r, r + 1)
+            for dc in range(-r, r + 1)
+            if dr * dr + dc * dc <= sight2
+        ]
+    return _sight_circle[sight2]
+
+
+def _team_seen_cells(
+    own_ants: set, rows: int, cols: int, sight2: int
+) -> set[tuple[int, int]]:
+    """Map cells within sight of ANY allied ant (toroidal)."""
+    disc = _sight_circle_offsets(sight2)
+    return {
+        ((r + dr) % rows, (c + dc) % cols)
+        for r, c in own_ants
+        for dr, dc in disc
+    }
+
+
 class View:
     """One turn's board state, read once instead of once per ant.
 
@@ -94,6 +122,7 @@ class View:
         "enemy_hills",
         "foods",
         "water",
+        "team_seen",
     )
 
     def __init__(self, ants, water=None):
@@ -107,6 +136,13 @@ class View:
         self.enemy_hills = {pos for pos, _owner in ants.enemy_hills()}
         self.foods = set(ants.food())
         self.water = water
+        # Team vision, computed once per turn up front: every map cell
+        # within sight of ANY allied ant. The window mask and entity
+        # fill read this set, so allies extend what an ant knows — the
+        # mask is honest about shared vision, not the focal ant alone.
+        self.team_seen = _team_seen_cells(
+            self.own_ants, self.rows, self.cols, self.sight2
+        )
 
 
 def snapshot(ants, water=None) -> View:
@@ -115,8 +151,9 @@ def snapshot(ants, water=None) -> View:
 
 
 # Default view radius in tiles: 15x15 window. Corners (d2=98) sit
-# outside the sight circle (77), so they read 0=empty-unseen on the
-# entity channels, with the own_sight channel as the mask.
+# outside one ant's sight circle (77), so they read 0=empty-unseen on
+# the entity channels unless a teammate's circle covers them — the
+# own_sight channel (team vision) is the mask.
 DEFAULT_RADIUS = 7
 
 
@@ -167,11 +204,11 @@ def local_window(
     CHANNELS. Water is authoritative: a water tile never carries an ant,
     hill, or food mark.
 
-    Two vision tiers: cells inside the ant's own sight circle
-    (dr*dr+dc*dc <= viewradius2) are filled authoritatively, including
-    water. Cells outside the circle but inside the window read
+    Two vision tiers: cells inside ANY allied ant's sight circle are
+    filled authoritatively, including water. Cells no ally sees read
     0=empty-unseen on the entity channels (ch1-ch5); the own_sight
-    channel (1/0) marks the tiers. viewradius2 comes from
+    channel (1/0) marks the tiers. Team vision is computed once per
+    turn up front (one board read); viewradius2 comes from
     the game settings and defaults to 77 when the wrapper does not
     provide it.
 
@@ -211,6 +248,10 @@ def local_window(
     # getattr: ml/bc.py rebuilds pre-force-ratio view-likes (a plain
     # namespace) to replay archived windows; they carry no attack2.
     attack2 = getattr(view, "attack2", 5) or 5
+    # getattr: ml/bc.py rebuilds pre-force-ratio view-likes (a plain
+    # namespace) to replay archived windows; they carry no team_seen,
+    # so they keep the old own-circle mask.
+    team_seen = getattr(view, "team_seen", None)
     reach = set(_offsets_in(attack2))
     max_d = radius * math.sqrt(2)
     # Candidates near the window: exact, not approximate. An ant
@@ -239,9 +280,10 @@ def local_window(
         and abs(_tdelta(p[1], c0, cols)) <= ed_box
     ]
     for dr, dc, i, j, in_circle in _offsets_for(radius, view.sight2):
-        if in_circle:
-            grid[OWN_SIGHT_CHANNEL, i, j] = 1.0
         cell = ((r0 + dr) % rows, (c0 + dc) % cols)
+        seen = in_circle if team_seen is None else cell in team_seen
+        if seen:
+            grid[OWN_SIGHT_CHANNEL, i, j] = 1.0
         foes_n = sum(
             1
             for q in foes
@@ -261,20 +303,20 @@ def local_window(
             grid[ENEMY_DIST_CHANNEL, i, j] = min(1.0, math.sqrt(best) / max_d)
         else:
             grid[ENEMY_DIST_CHANNEL, i, j] = 1.0
-        if in_circle and (
+        if seen and (
             (cell in water) if water is not None else (not ants.passable(cell))
         ):
             grid[0, i, j] = 1.0
             continue
-        if cell in own_ants and in_circle:
+        if cell in own_ants and seen:
             grid[1, i, j] = 1.0
-        if cell in own_hills and in_circle:
+        if cell in own_hills and seen:
             grid[2, i, j] = 1.0
-        if cell in enemy_ants and in_circle:
+        if cell in enemy_ants and seen:
             grid[3, i, j] = 1.0
-        if cell in enemy_hills and in_circle:
+        if cell in enemy_hills and seen:
             grid[4, i, j] = 1.0
-        if cell in foods and in_circle:
+        if cell in foods and seen:
             grid[5, i, j] = 1.0
     return torch.from_numpy(grid)
 

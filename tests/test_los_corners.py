@@ -1,12 +1,9 @@
-"""LOS F1: B-tier corner entities zero-filled (fleet losfix#1).
+"""LOS F1: B-tier corner entities zero-filled unless a teammate sees them.
 
-B-tier = window cells outside the own-sight circle (dr*dr+dc*dc >
-viewradius2, e.g. the (7,7) corner at d2=98 > 77). Before the fix the
-ch1-ch5 entity fills had no in_circle guard, so teammate-seen marks in
-corners read exactly like own-visible except ch6=0 — a flag the net
-cannot use (all 5 decision cells always ch6=1). After the fix the
-L226-235 fills are gated on in_circle: corners read 0=empty-unseen,
-ch6 stays the mask.
+B-tier = window cells outside one ant's own sight circle (dr*dr+dc*dc >
+viewradius2, e.g. the (7,7) corner at d2=98 > 77). Cells no ally sees
+read 0=empty-unseen with ch6=0. Cells a teammate covers read filled
+with ch6=1 (team vision): a corner ant sees itself, so it shows.
 """
 
 import sys
@@ -88,10 +85,13 @@ def test_corner_enemy_reads_zero_on_ch3():
     assert w[3, _R + 7, _R + 7].item() == 0.0
 
 
-def test_corner_own_ant_reads_zero_on_ch1():
+def test_corner_teammate_reads_one_through_team_sight():
+    # Teammate standing on the corner sees itself (d2=0): team sight
+    # covers the cell, so it fills with the mask set.
     corner = (15 + 7, 15 + 7)
     w, _, _ = _corner_probe(own_at=corner)
-    assert w[1, _R + 7, _R + 7].item() == 0.0
+    assert w[1, _R + 7, _R + 7].item() == 1.0
+    assert w[features.OWN_SIGHT_CHANNEL, _R + 7, _R + 7].item() == 1.0
 
 
 def test_corner_food_reads_zero_on_ch5():

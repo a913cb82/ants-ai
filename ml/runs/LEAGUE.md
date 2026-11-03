@@ -38,7 +38,9 @@ right way, PPO stays healthy.
    −5, middles graduated; 2p unchanged). Raze pays distance-scaled per
    ant; loss charges flat per ant — fleeing must not shrink what the
    ledger charges (flat loss teaches defense, scaled loss taught
-   hill-avoidance). Hill-approach pays
+   hill-avoidance). Windows see team vision: channel 6 (own_sight)
+   and the entity fill cover cells ANY allied ant sees, computed once
+   per turn up front. Hill-approach pays
    only on positive-placement finishes; kills pay on every finish;
    death always
    hurts. Each game's priced rows enter the batch whole up to

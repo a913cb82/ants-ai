@@ -548,6 +548,8 @@ def test_live_perception_sees_all_channels(tmp_path, monkeypatch):
     assert grid[4, r - 3, r + 3] == 1.0, "enemy hill (4,8)"
     assert grid[5, r + 1, r + 1] == 1.0, "food (8,6)"
     assert grid[features.OWN_SIGHT_CHANNEL, r, r] == 1.0, "own cell in sight"
-    assert grid[features.OWN_SIGHT_CHANNEL, 0, 0] == 0.0, (
-        "window corners fall outside the sight circle"
-    )
+    # Wrap-consistent team sight: offset (-7,-7) and (+6,+6) are the same
+    # map cell on this 13x13 board, genuinely inside A1's circle
+    # (toroidal d2=72 <= 77) — both occurrences read seen.
+    assert grid[features.OWN_SIGHT_CHANNEL, 0, 0] == 1.0
+    assert grid[features.OWN_SIGHT_CHANNEL, 13, 13] == 1.0

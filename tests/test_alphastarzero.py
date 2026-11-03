@@ -179,7 +179,10 @@ def test_window_los_boundary_is_inclusive():
     assert w[features.CHANNELS.index("food")][5][5] == 1.0
 
 
-def test_window_shows_far_teammate_with_sight_flag():
+def test_window_shows_teammate_through_team_sight():
+    # Team sight: a cell any allied ant sees reads as seen. The
+    # teammate at (7,4) is outside my own circle (d2=9 > 8) but sits
+    # inside its own — so it (and the sight flag) now show.
     import features
 
     ants = FakeAnts()
@@ -189,8 +192,30 @@ def test_window_shows_far_teammate_with_sight_flag():
     own = w[features.CHANNELS.index("own_ant")]
     sight = w[features.CHANNELS.index("own_sight")]
     assert own[3][3] == 1.0  # self still marked
-    assert own[6][3] == 0.0  # F1: B-tier teammate zero-filled ...
-    assert sight[6][3] == 0.0  # ... mask intact
+    assert own[6][3] == 1.0  # teammate seen by itself: filled ...
+    assert sight[6][3] == 1.0  # ... mask honest
+
+
+def test_window_team_sight_union_covers_ally_seen_corners():
+    # Me (4,4), ally (6,7), sight2=8. Corner cell (7,7) is outside my
+    # circle (d2=18) but inside the ally's (d2=1): team sight fills it.
+    # Cell (1,1) is outside both circles (d2=18 / d2=41): stays fogged.
+    import features
+
+    ants = FakeAnts()
+    ants.viewradius2 = 8
+    ants._mine = [(4, 4), (6, 7)]
+    ants._my_hills = []
+    ants._enemy_hills = []
+    ants._food = []
+    ants._enemy = [((7, 7), 1), ((1, 1), 1)]
+    w = features.local_window(ants, (4, 4), radius=3)
+    foe = w[features.CHANNELS.index("enemy_ant")]
+    sight = w[features.CHANNELS.index("own_sight")]
+    assert foe[6][6] == 1.0  # ally-covered corner: filled ...
+    assert sight[6][6] == 1.0  # ... mask honest
+    assert foe[0][0] == 0.0  # nobody sees (1,1): fog preserved ...
+    assert sight[0][0] == 0.0  # ... mask honest
 
 
 def test_window_full_radius_inside_default_sight():
