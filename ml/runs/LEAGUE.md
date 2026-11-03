@@ -35,7 +35,10 @@ right way, PPO stays healthy.
 5. **The one diet.** `rewards.scales()`: FOOD 0.1, KILL 0.1,
    HILL_APPROACH 0.25, DEATH −0.2, raze +10 / lost −10, WIN +5 /
    LOSS −5, terminal linear over placements (sole-first +5, sole-last
-   −5, middles graduated; 2p unchanged). Hill-approach pays
+   −5, middles graduated; 2p unchanged). Raze pays distance-scaled per
+   ant; loss charges flat per ant — fleeing must not shrink what the
+   ledger charges (flat loss teaches defense, scaled loss taught
+   hill-avoidance). Hill-approach pays
    only on positive-placement finishes; kills pay on every finish;
    death always
    hurts. Each game's priced rows enter the batch whole up to

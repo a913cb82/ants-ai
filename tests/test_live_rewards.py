@@ -324,20 +324,21 @@ def test_live_loss_game_gates_approach_but_not_kills():
     assert "kill" in kinds, "E1 died T1"
     rets = rewards.compute_returns(gdict, 0, records)
     by_turn = {(r["turn"], tuple(r["loc"])): v for r, v in zip(records, rets)}
-    # Both T1 rows closed a full tile (marches 3->2 and 2->1) but the
-    # loss gates approach to exactly 0. Kills pay anyway (+0.05 split).
-    # Hill loss: d2=25 -> -5.6234 / d2=32 -> -4.7863, walked back at GAMMA.
+    # Both T1 rows marched a full tile but the loss gates approach to
+    # exactly 0. Kills pay anyway (+0.05 split). The hill loss is FLAT:
+    # every raze-turn row eats the full -10 (fleeing must not shrink it),
+    # walked back at GAMMA along each ant's own path.
     assert by_turn[(1, (4, 6))] == pytest.approx(
-        0.05 + 0.0 - 5.623413251903491 * 0.97 - 5, **APPROX
+        0.05 + 0.0 - 10 * 0.97 - 5, **APPROX
     )
     assert by_turn[(1, (4, 7))] == pytest.approx(
-        0.05 + 0.0 - 4.786300923226383 * 0.97 - 5, **APPROX
+        0.05 + 0.0 - 10 * 0.97 - 5, **APPROX
     )
     assert by_turn[(2, (4, 7))] == pytest.approx(
-        -5.623413251903491 - 5, **APPROX
+        -10.0 - 5, **APPROX
     )
     assert by_turn[(2, (4, 8))] == pytest.approx(
-        -4.786300923226383 - 5, **APPROX
+        -10.0 - 5, **APPROX
     )
 
 
@@ -475,12 +476,14 @@ def test_live_flee_lets_hill_burn_and_loss_follows():
     _join_ok(gdict["replaydata"], records)
     rets = rewards.compute_returns(gdict, 0, records)
     # Fleeing marches AWAY from the enemy hill: approach 0 everywhere.
-    # The raze still reaches back: d2=8 -> -8.3176, d2=9 -> -8.1283,
-    # walked back at GAMMA to the fleeing rows. Plus the loss.
-    assert rets[0] == pytest.approx(-8.317637711026709 * 0.97 - 5, **APPROX)
-    assert rets[1] == pytest.approx(-8.128305161640991 * 0.97 - 5, **APPROX)
-    assert rets[2] == pytest.approx(-8.317637711026709 - 5, **APPROX)
-    assert rets[3] == pytest.approx(-8.128305161640991 - 5, **APPROX)
+    # The raze still reaches back at the FULL flat -10 (distance no
+    # longer shrinks it), walked back at GAMMA to the fleeing rows.
+    # Plus the loss. Fleeing now pays -15 on the raze rows: strictly
+    # worse than standing and fighting.
+    assert rets[0] == pytest.approx(-10 * 0.97 - 5, **APPROX)
+    assert rets[1] == pytest.approx(-10 * 0.97 - 5, **APPROX)
+    assert rets[2] == pytest.approx(-10.0 - 5, **APPROX)
+    assert rets[3] == pytest.approx(-10.0 - 5, **APPROX)
 
 
 # --------------------------------------------------------------------------

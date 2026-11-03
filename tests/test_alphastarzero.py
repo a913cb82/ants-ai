@@ -411,7 +411,7 @@ def test_hill_raze_reaches_far_ants():
     assert rets[0] > rets[1] > 0.0  # nearer earns more, far still paid
 
 
-def test_hill_loss_scales_by_distance():
+def test_hill_loss_is_flat_regardless_of_distance():
     import rewards
 
     game = _game()
@@ -421,14 +421,12 @@ def test_hill_loss_scales_by_distance():
         {"turn": 4, "loc": [5, 4], "dest": [5, 5], "action": "stay"},  # d=0
     ]
     rets = rewards.compute_returns(game, 0, records)
-    # nearer defender eats more blame: full -10 on the tile, -10*exp(-0.5)
-    # at d=3. (No ant is inside combat range of a lost hill — else the
-    # razer would be dead — so blame starts just outside kill distance.)
-    assert rets[1] == rewards.HILL_LOST
-    assert rets[0] == pytest.approx(rewards.HILL_LOST * 0.81283, abs=1e-3)
+    # Flat: fleeing must not shrink the loss, or the ledger teaches
+    # hill-avoidance instead of hill-defense. Same -10 everywhere.
+    assert rets == [rewards.HILL_LOST, rewards.HILL_LOST]
 
 
-def test_hill_equidistant_ants_split_evenly():
+def test_hill_loss_flat_for_equidistant_ants():
     import rewards
 
     game = _game()
@@ -438,11 +436,8 @@ def test_hill_equidistant_ants_split_evenly():
         {"turn": 4, "loc": [5, 5], "dest": [6, 5], "action": "s"},  # d=1
     ]
     rets = rewards.compute_returns(game, 0, records)
-    # headcount-agnostic: same distance earns the same each, no halving.
-    assert rets == [
-        pytest.approx(rewards.HILL_LOST * 0.97724, abs=1e-3),
-        pytest.approx(rewards.HILL_LOST * 0.97724, abs=1e-3),
-    ]
+    # headcount-agnostic and distance-agnostic: full -10 each, no halving.
+    assert rets == [rewards.HILL_LOST, rewards.HILL_LOST]
 
 
 def test_outcome_win_belongs_to_every_move_equally():

@@ -156,7 +156,8 @@ def _awards(game, me, records, scales):
 
     awards: [(turn, {idx: same-turn share}, scope, kind)]. Food/kill/death
     shares in one award sum to the event amount (splits conserve value);
-    hill shares are per-ant distance pay, unconserved."""
+    hill raze shares are per-ant distance pay and hill loss shares flat
+    per ant (both unconserved)."""
     replaydata = game["replaydata"]
     length = game.get("length", game.get("game_length"))
     rows = replaydata["map"]["rows"]
@@ -225,32 +226,31 @@ def _awards(game, me, records, scales):
                 (end, {i: scales["KILL"] / len(near) for i in near}, "ant", "kill")
             )
 
-    # hills: razed iff end_turn <= game length. Each ant earns its own
-    # distance-scaled share: amount * exp(-d2*ln10/100) on toroidal
-    # squared distance — calibrated so 10 tiles out pays exactly a
-    # tenth (full on the tile, ~0.56 at 5, ~0.006 at 15, ~0.0001 at
-    # 20). No normalization: credit depends on distance only, never on
-    # headcount. Scope is per-ant: each share walks back along
-    # its own path. Unlike food/kill/death splits, hill shares do NOT
-    # conserve a total — each ant is paid for where IT stood.
+    # hills: razed iff end_turn <= game length. Razing pays per-ant
+    # distance-scaled (amount * exp(-d2*ln10/100) on toroidal squared
+    # distance — full on the tile, a tenth 10 out): proximity IS the
+    # achievement, so the achiever earns the pay. Losing charges FLAT
+    # per ant (full amount wherever it stood): scaling the loss by
+    # distance teaches hill-avoidance instead of hill-defense — fleeing
+    # must not shrink what the ledger charges. Scope stays per-ant for
+    # both: each share walks back along its own path. Unlike
+    # food/kill/death splits, hill shares do NOT conserve a total.
     for entry in replaydata.get("hills", []):
         r, c, owner, end = entry
         if end > length:
             continue
         amount = scales["HILL_RAZE"] if owner != me else scales["HILL_LOST"]
         mine = dests_at(turns, dests, end)
-        if mine:
-            awards.append(
-                (
-                    end,
-                    {
-                        i: amount * math.exp(-dist2(dests[i], (r, c), rows, cols) * math.log(10) / 100.0)
-                        for i in mine
-                    },
-                    "ant",
-                    "hill",
-                )
-            )
+        if not mine:
+            continue
+        if owner != me:
+            shares = {
+                i: amount * math.exp(-dist2(dests[i], (r, c), rows, cols) * math.log(10) / 100.0)
+                for i in mine
+            }
+        else:
+            shares = {i: amount for i in mine}
+        awards.append((end, shares, "ant", "hill"))
 
     # hill approach: same-turn pay for closing distance to the nearest
     # enemy hill (toroidal tiles). Marching toward hills must pay NOW:
