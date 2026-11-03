@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT / "ml"))
 
 import features
 
-_C = len(features.CHANNELS)
+_C = features.INPUT_CHANNELS
 _S = 2 * features.DEFAULT_RADIUS + 1
 
 
@@ -67,7 +67,7 @@ def test_window_shape_channels_dtype():
 
     ants = FakeAnts()
     w = features.local_window(ants, (4, 4), radius=2)
-    assert list(w.shape) == [_C, 5, 5]
+    assert list(w.shape) == [len(features.CHANNELS), 5, 5]
     assert features.CHANNELS == (
         "water",
         "own_ant",
@@ -529,7 +529,7 @@ def test_bot_records_turn_rows_when_env_set(tmp_path, monkeypatch):
     assert row["turn"] == 1
     assert row["action"] in ("n", "e", "s", "w", "stay")
     assert "dest" in row and "legal" in row
-    assert features.decode_window(row["window"]).shape[0] == len(features.CHANNELS)
+    assert features.decode_window(row["window"]).shape[0] == features.INPUT_CHANNELS
     assert features.decode_window(row["window"]).shape[1] == 2 * features.DEFAULT_RADIUS + 1
     assert len(row["legal"]) == 5
 
@@ -1429,14 +1429,19 @@ def test_masked_logits_batch_matches_serial():
     policy = model.CNNPolicy()
     ants = FakeAnts()
     windows = torch.stack(
-        [features.local_window(ants, loc) for loc in [(4, 4), (0, 0), (9, 9)]]
+        [
+            features.with_history(features.local_window(ants, loc), None)
+            for loc in [(4, 4), (0, 0), (9, 9)]
+        ]
     )
     blockeds = [frozenset(), frozenset({"n"}), frozenset({"n", "e", "s", "w"})]
     batched = model.masked_logits_batch(policy, windows, blockeds)
     assert batched.shape == (3, 5)
     for i, loc in enumerate([(4, 4), (0, 0), (9, 9)]):
         single = model.masked_logits(
-            policy, features.local_window(ants, loc), blockeds[i]
+            policy,
+            features.with_history(features.local_window(ants, loc), None),
+            blockeds[i],
         )
         # allclose, not equal: batched GEMM accumulates in a different
         # order, so the last ulp may differ. Same math, same decisions.
@@ -1451,7 +1456,9 @@ def test_batch_stay_fallback_when_nothing_legal():
     torch.manual_seed(0)
     policy = model.CNNPolicy()
     ants = FakeAnts()
-    windows = torch.stack([features.local_window(ants, (4, 4))])
+    windows = torch.stack(
+        [features.with_history(features.local_window(ants, (4, 4)), None)]
+    )
     logits = model.masked_logits_batch(policy, windows, [frozenset(features.ACTIONS)])
     assert model.act_greedy_batch(logits) == ["stay"]
     assert model.sample_batch(logits, 1.0) == ["stay"]
@@ -1466,7 +1473,10 @@ def test_batch_act_shapes_and_greedy_agreement():
     policy = model.CNNPolicy()
     ants = FakeAnts()
     windows = torch.stack(
-        [features.local_window(ants, loc) for loc in [(4, 4), (0, 0)]]
+        [
+            features.with_history(features.local_window(ants, loc), None)
+            for loc in [(4, 4), (0, 0)]
+        ]
     )
     logits = model.masked_logits_batch(policy, windows, [frozenset(), frozenset()])
     assert model.act_greedy_batch(logits) == [
@@ -1531,7 +1541,7 @@ def test_deep_arch_stays_in_param_budget():
 
     base = _count_params(model.CNNPolicy(arch="base"))
     deep = _count_params(model.CNNPolicy(arch="deep"))
-    assert base == 12966  # +3 channels: force_ratio/enemy_dist/stall widen conv1/vconv1
+    assert base == 13830  # +3 memory channels widen conv1/vconv1 (was 12966)
     assert 9000 < deep < 14000  # same order, no budget blowout
 
 

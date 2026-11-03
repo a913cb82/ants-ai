@@ -21,7 +21,7 @@ sys.path.insert(0, str(ROOT / "ml"))
 import algorithm  # noqa: E402
 import features  # noqa: E402
 
-_C = len(features.CHANNELS)
+_C = features.INPUT_CHANNELS
 _S = 2 * features.DEFAULT_RADIUS + 1
 
 

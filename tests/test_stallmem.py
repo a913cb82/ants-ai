@@ -196,7 +196,7 @@ def test_d4_equivariance_with_nonzero_stall():
     torch.manual_seed(0)
     policy = model.CNNPolicy()
     policy.eval()
-    w = torch.rand(1, 10, 15, 15)
+    w = torch.rand(1, 13, 15, 15)
     w[:, 9, :, :] = 3 / K  # nonzero constant stall, as the bot emits
     with torch.no_grad():
         a = policy(w)
@@ -212,17 +212,17 @@ def test_9ch_checkpoint_loads_zero_padded_with_identical_logits():
     torch.manual_seed(1)
     old = model.CNNPolicy(channels=9)
     raw = model.state_dict_to_lists(old)
-    new = model.CNNPolicy()  # 10 channels now
+    new = model.CNNPolicy()  # 13 channels now
     state = model.pad_in_channels(model.lists_to_state_dict(raw), new)
     new.load_state_dict(state, strict=True)
-    assert torch.all(new.conv1.weight[:, 9, :, :] == 0).item()
-    assert torch.all(new.vconv1.weight[:, 9, :, :] == 0).item()
+    assert torch.all(new.conv1.weight[:, 9:, :, :] == 0).item()
+    assert torch.all(new.vconv1.weight[:, 9:, :, :] == 0).item()
     new.eval()
     old.eval()
     w9 = torch.rand(2, 9, 15, 15)
-    w10 = torch.zeros(2, 10, 15, 15)
-    w10[:, :9] = w9
+    w13 = torch.zeros(2, 13, 15, 15)
+    w13[:, :9] = w9
     with torch.no_grad():
         a = old(w9)
-        b = new(w10)
+        b = new(w13)
     torch.testing.assert_close(b, a, atol=0.0, rtol=0.0)

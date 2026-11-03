@@ -54,8 +54,8 @@ def _setup(tmp_path, monkeypatch, scores=(3, 1), **cfg_over):
         )
         return {
             "rows": [
-                {"window": [[[0.0] * 9] * 9] * 10, "action": "stay"},
-                {"window": [[[0.0] * 9] * 9] * 10, "action": "stay"},
+                {"window": [[[0.0] * 9] * 9] * 13, "action": "stay"},
+                {"window": [[[0.0] * 9] * 9] * 13, "action": "stay"},
             ],
             "rets": [1.0, 1.0],
             "scores": [scores[0], scores[1]],
@@ -221,7 +221,7 @@ def _par_setup(tmp_path, monkeypatch, nmaps=3, concurrency=3, ticks=6):
             t=_time.time(),
         )
         return {
-            "rows": [{"window": [[[0.0] * 9] * 9] * 10, "action": "stay"}],
+            "rows": [{"window": [[[0.0] * 9] * 9] * 13, "action": "stay"}],
             "rets": [1.0],
             "scores": [3, 1],
         }
@@ -292,7 +292,7 @@ def test_parallel_matches_serial_results(tmp_path, monkeypatch):
                 map=Path(map_path).name, game=f"gid-{tick}", tick=tick,
                 t=_time.time())
             return {
-                "rows": [{"window": [[[0.0] * 9] * 9] * 10, "action": "stay"}],
+                "rows": [{"window": [[[0.0] * 9] * 9] * 13, "action": "stay"}],
                 "rets": [1.0],
                 "scores": [3, 1],
             }
@@ -480,7 +480,7 @@ def test_backlogged_loop_drains_and_completes(tmp_path, monkeypatch):
             map="m0.map", game=f"gid-{tick}", tick=tick,
         )
         return {
-            "rows": [{"window": [[[0.0] * 9] * 9] * 10, "action": "stay"}] * 2,
+            "rows": [{"window": [[[0.0] * 9] * 9] * 13, "action": "stay"}] * 2,
             "rets": [1.0, 1.0],
             "scores": [3, 1],
         }

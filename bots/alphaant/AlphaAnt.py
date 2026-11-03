@@ -120,6 +120,12 @@ class AlphaAntBot:
         # where each ant ends up, so intent-blocked moves carry their
         # hysteresis to the fallback cell while free moves reset to 0.
         self._stall: dict = {}
+        self._hist: dict = {}
+        # History memory: end cell -> (previous 10-ch grid, previous
+        # loc). Same identity proxy as stall (no ant ids): the grid an
+        # ant saw last turn, re-centered on where it stands now. A cell
+        # never seen (spawn, or a move the bot did not decide) reads
+        # first-sight zeros and self-corrects next turn.
         record_dir = os.environ.get(RECORD_ENV)
         self._record_path = (
             Path(record_dir) / f"aa-{os.getpid()}.jsonl" if record_dir else None
@@ -202,6 +208,26 @@ class AlphaAntBot:
             if not revoked:
                 return
 
+    def _update_hist(self, mine, moves, bases) -> None:
+        """Roll the history memory forward, keyed exactly like stall.
+
+        Decided moves store this turn's 10-ch grid under the end cell,
+        so next turn's lookup finds the grid the ant now standing there
+        saw last turn. Undecided (timeout, move None) keeps the current
+        record without advancing. New cells default to first-sight
+        zeros via dict miss. Grids are tiny (2250 floats); copies keep
+        the memory independent of the per-turn tensors."""
+        nxt: dict = {}
+        for i, ant_loc in enumerate(mine):
+            origin = tuple(ant_loc)
+            if moves[i] is None:
+                if origin in self._hist:
+                    nxt.setdefault(origin, self._hist[origin])
+                continue
+            dest = tuple(moves[i]["dest"])
+            nxt[dest] = (bases[i].detach().cpu().numpy().copy(), origin)
+        self._hist = nxt
+
     def _update_stall(self, mine, moves) -> None:
         """Roll the stall memory forward one turn, keyed by end cells.
 
@@ -238,7 +264,7 @@ class AlphaAntBot:
         # stays sequential (ant i's blocked set needs ants 0..i-1's
         # destinations), but masking applies to precomputed logit rows.
         view = features.snapshot(ants, water=self._water)
-        windows = [
+        bases = [
             features.local_window(
                 ants,
                 loc,
@@ -246,6 +272,19 @@ class AlphaAntBot:
                 stall=min(self._stall.get(tuple(loc), 0) / STALL_K, 1.0),
             )
             for loc in mine
+        ]
+        # T-1 memory rides along: the grid this cell's ant saw last
+        # turn, re-centered on where it stands now (first sight: zeros).
+        # Masks read channels 0/5 by index, so the 13-ch rows below mask
+        # exactly like the 10-ch bases.
+        windows = [
+            features.with_history(
+                base,
+                None
+                if (mem := self._hist.get(tuple(loc))) is None
+                else (mem[0], mem[1], tuple(loc), ants.rows, ants.cols),
+            )
+            for base, loc in zip(bases, mine)
         ]
         with torch.no_grad():
             logits = self.policy(torch.stack(windows))
@@ -313,6 +352,7 @@ class AlphaAntBot:
         moves.extend([None] * (len(mine) - len(moves)))
         self._resolve(ants, mine, moves, logits, windows)
         self._update_stall(mine, moves)
+        self._update_hist(mine, moves, bases)
         for i, ant_loc in enumerate(mine):
             if moves[i] is None:
                 continue

@@ -187,7 +187,9 @@ def test_logits_d4_equivariant_with_new_channels():
     torch.manual_seed(0)
     policy = model.CNNPolicy()
     policy.eval()
-    w = _window(_combat(), (10, 10))
+    import features
+
+    w = features.with_history(_window(_combat(), (10, 10)), None)
     with torch.no_grad():
         a = policy(w.unsqueeze(0))
         b = policy(torch.rot90(w.unsqueeze(0), 1, (2, 3)))
@@ -201,12 +203,16 @@ def test_old_7ch_weights_still_load():
     torch.manual_seed(1)
     old = model.CNNPolicy(channels=7)
     raw = model.state_dict_to_lists(old)
-    new = model.CNNPolicy()  # 9 channels now
+    new = model.CNNPolicy()  # 13 channels now
     state = model.pad_in_channels(model.lists_to_state_dict(raw), new)
     new.load_state_dict(state, strict=True)
     new.eval()
     old.eval()
-    w = _window(_combat(), (10, 10))
+    import torch as _t
+
+    w = _t.cat(
+        [_window(_combat(), (10, 10)), _t.zeros(3, 15, 15)], dim=0
+    )
     with torch.no_grad():
         a = old(w[:, :7] if False else w[:7].unsqueeze(0))
         b = new(w.unsqueeze(0))
@@ -222,11 +228,12 @@ def test_ablation_new_channels_carry_signal():
     with torch.no_grad():
         for key in ("conv1.weight", "vconv1.weight"):
             p = dict(policy.named_parameters())[key]
-            p[:, 7:9] *= 20.0
+            p[:, 10:13] *= 20.0
     policy.eval()
-    w = _window(_combat(), (10, 10))
+    w = features.with_history(_window(_combat(), (10, 10)), None)
+    w[10:13] = torch.rand(3, 15, 15)  # the net must see real memory to miss it
     z = w.clone()
-    z[7:9] = 0
+    z[10:13] = 0
     with torch.no_grad():
         full = policy(w.unsqueeze(0)).flatten()
         zeroed = policy(z.unsqueeze(0)).flatten()

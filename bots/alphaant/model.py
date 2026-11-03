@@ -53,7 +53,9 @@ class CNNPolicy(torch.nn.Module):
         super().__init__()
         assert arch in ("base", "deep"), arch
         self.arch = arch
-        channels = len(features.CHANNELS) if channels is None else channels
+        # Default is the full input: 10 current + 3 T-1 memory channels.
+        # Narrower nets (old checkpoints, unit tests) pass explicitly.
+        channels = features.INPUT_CHANNELS if channels is None else channels
         if arch == "base":
             self.conv1 = torch.nn.Conv2d(channels, 16, kernel_size=3, padding=1)
             self.conv2 = torch.nn.Conv2d(16, 32, kernel_size=3, padding=1)
@@ -184,6 +186,30 @@ def infer_arch(weights: dict) -> str:
 
 
 _action_index: dict[int, tuple[torch.Tensor, torch.Tensor]] = {}
+
+
+def port_weights(
+    state: dict[str, torch.Tensor], hist_scale: float = 0.01
+) -> dict[str, torch.Tensor]:
+    """10-ch checkpoint -> 13-ch: old weights verbatim, memory small.
+
+    Every old slice copies exactly (same keys, same values); only the
+    two first-conv layers grow, with 3 new input channels drawn from
+    the trunk's own init family (orthogonal, gain sqrt2) shrunk 100x.
+    Nonzero so memory learns from step one, tiny so the ported policy
+    starts within a whisper of the original (the drift tests pin it).
+    Both actor (conv1) and critic (vconv1) first layers port together:
+    the whole state dict is one lineage."""
+    out = {k: v.clone() for k, v in state.items()}
+    for key in ("conv1.weight", "vconv1.weight"):
+        old = out[key]
+        grown = torch.empty(
+            old.shape[0], len(features.HIST_CHANNELS), *old.shape[2:]
+        )
+        torch.nn.init.orthogonal_(grown, 2**0.5)
+        grown.mul_(hist_scale)
+        out[key] = torch.cat([old, grown], dim=1)
+    return out
 
 
 def pad_in_channels(

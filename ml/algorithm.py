@@ -204,7 +204,18 @@ def read_pending(path: Path, arch: str) -> list[BatchItem]:
         not isinstance(it, (list, tuple)) or len(it) != 5 for it in items
     ):
         return []
-    return [tuple(it) for it in items]
+    # Pre-memory rows are 10-ch: zero-pad the history channels. Zeros
+    # are exactly first-sight semantics, so old data trains the new net
+    # as ported behavior instead of being dropped.
+    want = model.features.INPUT_CHANNELS
+    padded = []
+    for it in items:
+        w, a, r, m, o = it
+        if isinstance(w, torch.Tensor) and w.dim() == 3 and w.shape[0] < want:
+            pad = torch.zeros(want - w.shape[0], *w.shape[1:])
+            w = torch.cat([w, pad], dim=0)
+        padded.append((w, a, r, m, o))
+    return padded
 
 
 def make_optimizer(policy: model.CNNPolicy, lr: float = 1e-3) -> torch.optim.Optimizer:

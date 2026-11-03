@@ -557,7 +557,8 @@ def test_live_perception_sees_all_channels(tmp_path, monkeypatch):
     mine = [r for r in rows if r["loc"] == [12, 12]]
     assert len(mine) == 1
     grid = features.decode_window(mine[0]["window"])
-    assert grid.shape == (len(features.CHANNELS), 15, 15)
+    assert grid.shape == (features.INPUT_CHANNELS, 15, 15)
+    assert grid[10:].sum() == 0.0, "first sight has no past"
     r = features.DEFAULT_RADIUS
     # Own cell, ally (offset (+7,0)), hills, water, visible food.
     assert grid[features.WATER_CHANNEL, r - 1, r + 1] == 1.0, "water"

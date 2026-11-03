@@ -14,7 +14,7 @@ sys.path.insert(0, str(ROOT / "ml"))
 
 import features
 
-_C = len(features.CHANNELS)
+_C = features.INPUT_CHANNELS
 _S = 2 * features.DEFAULT_RADIUS + 1
 
 

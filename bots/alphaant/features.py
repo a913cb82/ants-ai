@@ -44,6 +44,15 @@ FORCE_RATIO_CHANNEL = 7
 ENEMY_DIST_CHANNEL = 8
 STALL_CHANNEL = 9
 
+# T-1 memory channels, appended after the current frame: the previous
+# turn's own_ant/enemy_ant grids re-centered on this turn's ant, plus a
+# marker where this ant was last turn. First sight reads all zeros.
+HIST_CHANNELS = ("prev_own_ant", "prev_enemy_ant", "prev_self")
+PREV_OWN_CHANNEL = 10
+PREV_ENEMY_CHANNEL = 11
+PREV_SELF_CHANNEL = 12
+INPUT_CHANNELS = len(CHANNELS) + len(HIST_CHANNELS)
+
 # Same-cell/blocked hysteresis gain: ch9 = clip(streak / STALL_K, 0, 1).
 # K=8 turns saturates: a week-long hold reads 1.0, a fresh ant 0.0.
 STALL_K = 8
@@ -319,6 +328,61 @@ def local_window(
         if cell in foods and seen:
             grid[5, i, j] = 1.0
     return torch.from_numpy(grid)
+
+
+def shift_frame(prev, prev_loc, cur_loc, rows, cols):
+    """Re-center a past (..., H, W) window on the current ant.
+
+    prev was centered on prev_loc; the ant now stands on cur_loc.
+    Returns (rolled, self_marker): rolled is prev re-centered on
+    cur_loc (cells that fall out of frame read 0), self_marker is 1.0
+    at prev_loc in the new frame (all 0 if prev_loc lies outside it,
+    e.g. a spawn with no past). Pure numpy, no game objects."""
+    h, w = prev.shape[-2], prev.shape[-1]
+    radius = (h - 1) // 2
+    dr = _tdelta(cur_loc[0], prev_loc[0], rows)
+    dc = _tdelta(cur_loc[1], prev_loc[1], cols)
+    rolled = _np.roll(prev, shift=(-dr, -dc), axis=(-2, -1)).copy()
+    # The roll wraps stale far-side content into the frame: zero the
+    # edge it came from (content moved down -> stale top rows, etc.).
+    sr, sc = -dr, -dc
+    if sr > 0:
+        rolled[..., : min(sr, h), :] = 0
+    elif sr < 0:
+        rolled[..., max(h + sr, 0) :, :] = 0
+    if sc > 0:
+        rolled[..., :, : min(sc, w)] = 0
+    elif sc < 0:
+        rolled[..., :, max(w + sc, 0) :] = 0
+    self_marker = _np.zeros((h, w), dtype=_np.float32)
+    si, sj = radius - dr, radius - dc
+    if 0 <= si < h and 0 <= sj < w:
+        self_marker[si, sj] = 1.0
+    return rolled, self_marker
+
+
+def with_history(grid, prev=None):
+    """Attach the T-1 memory channels to a current 10-ch grid.
+
+    grid: (10, H, W) tensor. prev is None (first sight: three zero
+    channels) or (prev_grid10, prev_loc, cur_loc, rows, cols), where
+    prev_grid10 is the previous turn's recorded grid (numpy or tensor)
+    and the locs are the map cells it was / is centered on. Returns a
+    (13, H, W) tensor: 10 current + prev_own + prev_enemy + prev_self."""
+    import torch as _torch
+
+    if prev is None:
+        hist = _torch.zeros(3, grid.shape[-2], grid.shape[-1])
+    else:
+        prev_grid, prev_loc, cur_loc, rows, cols = prev
+        rolled, self_marker = shift_frame(
+            _np.asarray(prev_grid), prev_loc, cur_loc, rows, cols
+        )
+        hist = _torch.as_tensor(
+            _np.stack([rolled[1], rolled[3], self_marker]).astype(_np.float32)
+        )
+    current = grid if isinstance(grid, _torch.Tensor) else _torch.as_tensor(grid)
+    return _torch.cat([current.to(_torch.float32), hist], dim=0)
 
 
 def encode_window(window) -> dict:
