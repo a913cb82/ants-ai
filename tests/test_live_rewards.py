@@ -362,8 +362,8 @@ def test_live_loss_game_pays_only_hill_loss():
 
 
 # --------------------------------------------------------------------------
-# Food game: gather on T2, draw. Pins that FOOD pays nothing and the
-# draw terminal pays nothing.
+# Food game: gather on T2, draw. Pins the 0.01 FOOD trickle and that
+# the draw terminal pays nothing.
 # --------------------------------------------------------------------------
 MAP_FOOD = """\
 rows 13
@@ -393,7 +393,7 @@ def _play_food():
     return game
 
 
-def test_live_food_pays_nothing():
+def test_live_food_pays_tiny_and_decays():
     game = _play_food()
     food = [f for f in game.get_replay()["food"]]
     assert food == [[7, 7, 0, 2, 0]], "gathered end of turn 2 by P0"
@@ -407,9 +407,10 @@ def test_live_food_pays_nothing():
     )
     _join_ok(gdict["replaydata"], records)
     rets = rewards.compute_returns(gdict, 0, records)
-    # Gathered and drawn: food pays nothing now, terminal pays nothing.
-    assert rets[1] == pytest.approx(0.0, **APPROX)
-    assert rets[0] == pytest.approx(0.0, **APPROX)
+    # Gathered: full 0.01 on the gathering row, 0.01*GAMMA walked back.
+    # The draw terminal still pays nothing.
+    assert rets[1] == pytest.approx(0.01 + 0.0, **APPROX)
+    assert rets[0] == pytest.approx(0.01 * 0.97 + 0.0, **APPROX)
 
 
 # --------------------------------------------------------------------------

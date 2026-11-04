@@ -31,7 +31,7 @@ def test_scales_are_base():
     s = rewards.scales()
     assert s["KILL"] == 0.0
     assert s["HILL_APPROACH"] == 0.0
-    assert s["FOOD"] == 0.0 and s["DEATH"] == 0.0
+    assert s["FOOD"] == 0.01 and s["DEATH"] == 0.0
     assert s["WIN"] == 0.0 and s["LOSS"] == 0.0
     assert s["HILL_RAZE"] == 10.0 and s["HILL_LOST"] == -10.0
     assert (rewards.KILL, rewards.DEATH, rewards.HILL_APPROACH) == (0.0, 0.0, 0.0)

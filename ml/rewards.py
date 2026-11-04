@@ -11,10 +11,11 @@ special case GAMMA**0 = 1. Dense events walk back along the credited
 ant's own path (records joined to replay trajectories by consecutive
 pre/post-move tiles); team events walk back to every earlier decision.
 Magnitudes are starting points, not tuned values. Hills-only diet:
-only HILL_RAZE / HILL_LOST pay; food, kill, death, approach, and
-terminal are zero, so draw games carry no signal and only hill
-games teach. The mechanism comments below describe what the code
-computes when paid (mechanism tests run explicit classic tables).
+only HILL_RAZE / HILL_LOST pay in full, plus a 0.01 food trickle so
+gathering games still carry signal. Kills, deaths, approach, and
+terminal are zero. The mechanism comments below describe what the
+code computes when paid (mechanism tests run explicit classic
+tables).
 """
 
 from __future__ import annotations
@@ -28,7 +29,7 @@ sys.path.insert(0, str(ROOT / "ml"))
 
 from grid import dist2, step
 
-FOOD = 0.0
+FOOD = 0.01  # tiny trickle: food games still teach gathering
 KILL = 0.0
 DEATH = 0.0  # was -0.2: 1-for-1 trades used to net -0.1. Zeroed.
 HILL_APPROACH = 0.0  # was 0.25 same-turn march subsidy. Zeroed.

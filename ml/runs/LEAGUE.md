@@ -36,9 +36,10 @@ right way, PPO stays healthy.
    no recovery and no repair — just rerun.
 4. **Fresh starts.** Every net is drawn fresh (`CNNPolicy.reset_parameters`,
    CleanRL init); nothing resumes from g000 or any snapshot.
-5. **The one diet.** `rewards.scales()`: hills only — raze +10 /
-   lost −10, everything else 0 (food, kill, death, approach,
-   terminal). Draw games carry no signal; only hill games teach.
+5. **The one diet.** `rewards.scales()`: hills pay in full (raze +10 /
+   lost −10), food pays a 0.01 trickle so gathering games still teach;
+   kills, deaths, approach, and terminal are zero. Scoreless means no
+   hill event and no food: those games log but bank nothing.
    Raze pays distance-scaled per
    ant; loss charges flat per ant — fleeing must not shrink what the
    ledger charges (flat loss teaches defense, scaled loss taught
