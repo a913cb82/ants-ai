@@ -204,16 +204,30 @@ def test_port_drift_is_a_whisper_on_synthetic_states():
     _assert_whisper(old_net, new_net, cur, hist)
 
 
-def test_port_drift_is_a_whisper_on_the_live_champion():
-    """The deploy gate: the real lineage, real scripted-game frames."""
+def test_live_weights_load_strict_and_run_real_rows():
+    """Live smoke: the ported 13-ch champion loads strict and scores
+    real banked rows finite. The port-drift gate ran at deploy time;
+    this pins the weights stay loadable and the pipeline fed."""
+    import algorithm
+
     live = json.loads((ROOT / "ml" / "archive" / "live" / "weights.json").read_text())
     old_sd = model.lists_to_state_dict(live)
-    old_net = model.CNNPolicy(channels=10, arch=model.infer_arch(old_sd))
-    old_net.load_state_dict(old_sd, strict=True)
-    new_net = model.CNNPolicy(arch=model.infer_arch(old_sd))
-    new_net.load_state_dict(model.port_weights(old_sd), strict=True)
-    cur, hist = _drift_battery(n=256, seed=1234)
-    _assert_whisper(old_net, new_net, cur, hist)
+    assert old_sd["conv1.weight"].shape[1] == 13
+    net = model.CNNPolicy(arch=model.infer_arch(old_sd))
+    net.load_state_dict(old_sd, strict=True)
+    net.eval()
+    import selfplay
+
+    seen = 0
+    with torch.no_grad():
+        for sh in sorted(selfplay._pending_shards(ROOT / "ml" / "archive"))[:3]:
+            for it in algorithm.read_pending(sh, "base"):
+                w = it[0]
+                assert tuple(w.shape) == (13, 15, 15)
+                out = net(w.unsqueeze(0))
+                assert torch.isfinite(out).all()
+                seen += 1
+    assert seen > 0, "bank must hold rows to smoke-test"
 
 
 def _run_history_game(tmp_path, monkeypatch):

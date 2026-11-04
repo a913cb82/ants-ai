@@ -32,10 +32,10 @@ right way, PPO stays healthy.
    no recovery and no repair — just rerun.
 4. **Fresh starts.** Every net is drawn fresh (`CNNPolicy.reset_parameters`,
    CleanRL init); nothing resumes from g000 or any snapshot.
-5. **The one diet.** `rewards.scales()`: FOOD 0.1, KILL 0.1,
-   HILL_APPROACH 0.25, DEATH −0.2, raze +10 / lost −10, WIN +5 /
-   LOSS −5, terminal linear over placements (sole-first +5, sole-last
-   −5, middles graduated; 2p unchanged). Raze pays distance-scaled per
+5. **The one diet.** `rewards.scales()`: hills only — raze +10 /
+   lost −10, everything else 0 (food, kill, death, approach,
+   terminal). Draw games carry no signal; only hill games teach.
+   Raze pays distance-scaled per
    ant; loss charges flat per ant — fleeing must not shrink what the
    ledger charges (flat loss teaches defense, scaled loss taught
    hill-avoidance). Windows see team vision: channel 6 (own_sight)

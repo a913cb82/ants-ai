@@ -10,7 +10,11 @@ at turn T >= t receives amount * GAMMA**(T-t). Same-turn credit is the
 special case GAMMA**0 = 1. Dense events walk back along the credited
 ant's own path (records joined to replay trajectories by consecutive
 pre/post-move tiles); team events walk back to every earlier decision.
-Magnitudes are starting points, not tuned values.
+Magnitudes are starting points, not tuned values. Hills-only diet:
+only HILL_RAZE / HILL_LOST pay; food, kill, death, approach, and
+terminal are zero, so draw games carry no signal and only hill
+games teach. The mechanism comments below describe what the code
+computes when paid (mechanism tests run explicit classic tables).
 """
 
 from __future__ import annotations
@@ -24,15 +28,12 @@ sys.path.insert(0, str(ROOT / "ml"))
 
 from grid import dist2, step
 
-FOOD = 0.1
-KILL = 0.1
-DEATH = -0.2  # asymmetric: dying costs double killing pays, so 1-for-1
-# trades net -0.1. Mutual annihilation is no longer free; combat must
-# preserve material to profit. Exploiters keep their own scales.
-HILL_APPROACH = 0.25  # same-turn pay per tile closed toward the enemy
-# hill. Shortens the discount horizon: a +10 raze 100 turns out is
-# worth ~+0.5 after GAMMA walk-back — real value, but 100 turns late
-# and smeared, so hills need paying now, not at arrival.
+FOOD = 0.0
+KILL = 0.0
+DEATH = 0.0  # was -0.2: 1-for-1 trades used to net -0.1. Zeroed.
+HILL_APPROACH = 0.0  # was 0.25 same-turn march subsidy. Zeroed.
+# Marching toward hills used to pay now because the discounted raze
+# could not compete with immediate death costs (see history).
 # Unsplit (armies closing together are good) and unconditioned
 # (suicide-watch instead of superiority gates).
 # Ledger note (round 46): HA mass ran ~58/game vs outcome +-5 — the
@@ -48,16 +49,15 @@ HILL_APPROACH = 0.25  # same-turn pay per tile closed toward the enemy
 # only if the rival's board play ever looks suicidal (it doesn't).
 HILL_RAZE = 10.0
 HILL_LOST = -10.0
-WIN = 5.0
-LOSS = -5.0
+WIN = 0.0
+LOSS = 0.0
 DRAW = 0.0
 GAMMA = 0.97
 
-# Payment follows purpose: the march subsidy is gated on winning. On
-# a win everything pays; on draw/loss hill_approach pays nothing.
-# Kills always pay: combat credit is combat credit. Dying always hurts
-# and the terminal outcome always lands: defeats must sting, wins
-# must sing.
+# Payment follows purpose (historical: the march subsidy was gated on
+# winning; kills always paid; defeats stung). Under the hills-only
+# diet every amount here is zero except the hills, so the gate is moot
+# but kept: re-enabling approach re-arms the win-only gate for free.
 GATED = {"hill_approach"}
 
 

@@ -212,22 +212,41 @@ def test_live_kill_splits_and_decays():
     assert gdict["score"] == [3, 0], "raze points decide: P0 wins"
     records = _records(MAIN_ROWS)
     _join_ok(gdict["replaydata"], records)
-    rets = rewards.compute_returns(gdict, 0, records)
-    by_turn = {(r["turn"], tuple(r["loc"])): v for r, v in zip(records, rets)}
-    # Kill: E1 died T2 at (8,8); A1T2 d2=5 and A2T2 d2=2 split 0.1.
-    # Walk-back one turn at GAMMA to the same ants' T1 rows.
-    # Hill walk-back (k = 6 - t): A1's own share 9.7723, A2's 10.
-    assert by_turn[(2, (7, 5))] == pytest.approx(
+    # The split mechanism still works when paid: the full classic table
+    # recovers the old 0.05/0.05 kill shares exactly.
+    classic = {
+        "FOOD": 0.1, "KILL": 0.1, "DEATH": -0.2, "HILL_RAZE": 10.0,
+        "HILL_LOST": -10.0, "WIN": 5.0, "LOSS": -5.0, "HILL_APPROACH": 0.25,
+    }
+    classic_rets = rewards.compute_returns(gdict, 0, records, classic)
+    classic_by_turn = {
+        (r["turn"], tuple(r["loc"])): v
+        for r, v in zip(records, classic_rets)
+    }
+    assert classic_by_turn[(2, (7, 5))] == pytest.approx(
         0.05 + 8.651410853765604 + 0.1592723529138239 + 5, **APPROX
     )
-    assert by_turn[(2, (7, 6))] == pytest.approx(
+    assert classic_by_turn[(2, (7, 6))] == pytest.approx(
         0.05 + 8.8529281 + 0.1108184038239024 + 5, **APPROX
     )
+    # Live diet: kills pay nothing. Only the hill walk-back remains
+    # (win +5 is gone too).
+    rets = rewards.compute_returns(gdict, 0, records)
+    by_turn = {(r["turn"], tuple(r["loc"])): v for r, v in zip(records, rets)}
+    # Kill: E1 died T2 at (8,8) — now unpaid. A1T2/A2T2 keep only their
+    # hill shares; the T1 rows keep the GAMMA walk-back of those shares.
+    # Hill walk-back (k = 6 - t): A1's own share 9.7723, A2's 10.
+    assert by_turn[(2, (7, 5))] == pytest.approx(
+        0.0 + 8.651410853765604 + 0.0 + 0, **APPROX
+    )
+    assert by_turn[(2, (7, 6))] == pytest.approx(
+        0.0 + 8.8529281 + 0.0 + 0, **APPROX
+    )
     assert by_turn[(1, (7, 4))] == pytest.approx(
-        0.0485 + 8.391868528152637 + 0.1893398282201788 + 5, **APPROX
+        0.0 + 8.391868528152637 + 0.0 + 0, **APPROX
     )
     assert by_turn[(1, (7, 6))] == pytest.approx(
-        0.0485 + 8.587340257 + 0.0 + 5, **APPROX
+        0.0 + 8.587340257 + 0.0 + 0, **APPROX
     )
 
 
@@ -239,24 +258,24 @@ def test_live_hill_raze_pays_distance_scaled():
     rets = rewards.compute_returns(gdict, 0, records)
     by_turn = {(r["turn"], tuple(r["loc"])): v for r, v in zip(records, rets)}
     # A2 stands on H1: full 10. A1 one tile off: 10*exp(-ln10/100).
-    # WIN +5 on top; A2's arrival pays no approach (on-hill skip).
-    assert by_turn[(6, (4, 7))] == pytest.approx(10.0 + 0.0 + 5, **APPROX)
+    # Terminal is gone; A2's arrival pays no approach (on-hill skip).
+    assert by_turn[(6, (4, 7))] == pytest.approx(10.0 + 0.0 + 0, **APPROX)
     assert by_turn[(6, (5, 7))] == pytest.approx(
-        9.772372209558107 + 0.10355339059327379 + 5, **APPROX
+        9.772372209558107 + 0.0 + 0, **APPROX
     )
     # Walk-back: each ant's own earlier rows earn share * GAMMA^(6-t).
     assert by_turn[(5, (5, 7))] == pytest.approx(
-        9.7 + 0.10355339059327379 + 5, **APPROX
+        9.7 + 0.0 + 0, **APPROX
     )
     assert by_turn[(5, (6, 7))] == pytest.approx(
-        9.479201043271363 + 0.20546360378167366 + 5, **APPROX
+        9.479201043271363 + 0.0 + 0, **APPROX
     )
     assert by_turn[(3, (7, 6))] == pytest.approx(
-        8.918980261614026 + 0.1108184038239024 + 5, **APPROX
+        8.918980261614026 + 0.0 + 0, **APPROX
     )
 
 
-def test_live_approach_pays_closing_only():
+def test_live_approach_detected_but_unpaid():
     game, _, _ = _play_main()
     gdict = _game_dict(game)
     records = _records(MAIN_ROWS)
@@ -265,15 +284,15 @@ def test_live_approach_pays_closing_only():
     assert "hill_approach" in kinds
     rets = rewards.compute_returns(gdict, 0, records)
     by_turn = {(r["turn"], tuple(r["loc"])): v for r, v in zip(records, rets)}
-    # A1's T4 march: hill walk-back k=2 + approach + win.
+    # A1's T4 march: hill walk-back k=2 survives; approach and win pay 0.
     assert by_turn[(4, (7, 7))] == pytest.approx(
-        9.194825011973222 + 0.23155242066714743 + 5, **APPROX
+        9.194825011973222 + 0.0 + 0, **APPROX
     )
 
 
 # --------------------------------------------------------------------------
-# Loss game: clean 2v1 kill (T1) that still pays, approach gated off,
-# own hill razed (T2), P0 loses.
+# Loss game: clean 2v1 kill (T1, unpaid), own hill razed (T2), P0
+# loses. Only the flat hill loss pays.
 # --------------------------------------------------------------------------
 MAP_LOSS = """\
 rows 13
@@ -302,7 +321,7 @@ def _play_loss():
     return game
 
 
-def test_live_loss_game_gates_approach_but_not_kills():
+def test_live_loss_game_pays_only_hill_loss():
     game = _play_loss()
     hills = {(h[0], h[1]): (h[2], h[3]) for h in game.get_replay()["hills"]}
     assert hills[(8, 4)] == (0, 2), "H0 razed on turn 2"
@@ -324,26 +343,27 @@ def test_live_loss_game_gates_approach_but_not_kills():
     assert "kill" in kinds, "E1 died T1"
     rets = rewards.compute_returns(gdict, 0, records)
     by_turn = {(r["turn"], tuple(r["loc"])): v for r, v in zip(records, rets)}
-    # Both T1 rows marched a full tile but the loss gates approach to
-    # exactly 0. Kills pay anyway (+0.05 split). The hill loss is FLAT:
-    # every raze-turn row eats the full -10 (fleeing must not shrink it),
-    # walked back at GAMMA along each ant's own path.
+    # Both T1 rows marched a full tile; approach and kills pay 0 now.
+    # The hill loss is FLAT: every raze-turn row eats the full -10
+    # (fleeing must not shrink it), walked back at GAMMA along each
+    # ant's own path. Terminal is gone.
     assert by_turn[(1, (4, 6))] == pytest.approx(
-        0.05 + 0.0 - 10 * 0.97 - 5, **APPROX
+        0.0 + 0.0 - 10 * 0.97 + 0, **APPROX
     )
     assert by_turn[(1, (4, 7))] == pytest.approx(
-        0.05 + 0.0 - 10 * 0.97 - 5, **APPROX
+        0.0 + 0.0 - 10 * 0.97 + 0, **APPROX
     )
     assert by_turn[(2, (4, 7))] == pytest.approx(
-        -10.0 - 5, **APPROX
+        -10.0 + 0, **APPROX
     )
     assert by_turn[(2, (4, 8))] == pytest.approx(
-        -10.0 - 5, **APPROX
+        -10.0 + 0, **APPROX
     )
 
 
 # --------------------------------------------------------------------------
-# Food game: gather on T2, draw. Pins FOOD pay and GAMMA walk-back decay.
+# Food game: gather on T2, draw. Pins that FOOD pays nothing and the
+# draw terminal pays nothing.
 # --------------------------------------------------------------------------
 MAP_FOOD = """\
 rows 13
@@ -373,7 +393,7 @@ def _play_food():
     return game
 
 
-def test_live_food_pays_and_decays():
+def test_live_food_pays_nothing():
     game = _play_food()
     food = [f for f in game.get_replay()["food"]]
     assert food == [[7, 7, 0, 2, 0]], "gathered end of turn 2 by P0"
@@ -387,9 +407,9 @@ def test_live_food_pays_and_decays():
     )
     _join_ok(gdict["replaydata"], records)
     rets = rewards.compute_returns(gdict, 0, records)
-    # Sole gatherer: full 0.1 on the gathering row, 0.1*GAMMA walked back.
-    assert rets[1] == pytest.approx(0.1 + 0.0, **APPROX)
-    assert rets[0] == pytest.approx(0.1 * 0.97 + 0.0, **APPROX)
+    # Gathered and drawn: food pays nothing now, terminal pays nothing.
+    assert rets[1] == pytest.approx(0.0, **APPROX)
+    assert rets[0] == pytest.approx(0.0, **APPROX)
 
 
 # --------------------------------------------------------------------------
@@ -432,7 +452,7 @@ def _play_flee():
     return game
 
 
-def test_live_defend_kills_attacker_and_hill_stands():
+def test_live_defend_pays_nothing_without_raze():
     game = _play_defend()
     hills = {(h[0], h[1]): (h[2], h[3]) for h in game.get_replay()["hills"]}
     assert hills[(6, 6)][1] > 2, "H0 still stands: no hill award at all"
@@ -451,10 +471,10 @@ def test_live_defend_kills_attacker_and_hill_stands():
     kinds = {kind for _, _, _, kind in awards}
     assert "hill" not in kinds
     rets = rewards.compute_returns(gdict, 0, records)
-    # Draw gates the approach pay (marching happened but pays 0); the
-    # interception kill splits 0.05/0.05 on the T1 rows.
-    assert rets[0] == pytest.approx(0.05 + 0.0 + 0.0, **APPROX)
-    assert rets[1] == pytest.approx(0.05 + 0.0 + 0.0, **APPROX)
+    rets = rewards.compute_returns(gdict, 0, records)
+    # No raze, no terminal: the interception kill pays 0, approach 0.
+    assert rets[0] == pytest.approx(0.0 + 0.0 + 0.0, **APPROX)
+    assert rets[1] == pytest.approx(0.0 + 0.0 + 0.0, **APPROX)
     assert rets[2] == pytest.approx(0.0, **APPROX)
     assert rets[3] == pytest.approx(0.0, **APPROX)
 
@@ -478,12 +498,11 @@ def test_live_flee_lets_hill_burn_and_loss_follows():
     # Fleeing marches AWAY from the enemy hill: approach 0 everywhere.
     # The raze still reaches back at the FULL flat -10 (distance no
     # longer shrinks it), walked back at GAMMA to the fleeing rows.
-    # Plus the loss. Fleeing now pays -15 on the raze rows: strictly
-    # worse than standing and fighting.
-    assert rets[0] == pytest.approx(-10 * 0.97 - 5, **APPROX)
-    assert rets[1] == pytest.approx(-10 * 0.97 - 5, **APPROX)
-    assert rets[2] == pytest.approx(-10.0 - 5, **APPROX)
-    assert rets[3] == pytest.approx(-10.0 - 5, **APPROX)
+    # Terminal is gone: fleeing now pays -10 on the raze rows.
+    assert rets[0] == pytest.approx(-10 * 0.97 + 0, **APPROX)
+    assert rets[1] == pytest.approx(-10 * 0.97 + 0, **APPROX)
+    assert rets[2] == pytest.approx(-10.0 + 0, **APPROX)
+    assert rets[3] == pytest.approx(-10.0 + 0, **APPROX)
 
 
 # --------------------------------------------------------------------------

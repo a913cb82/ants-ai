@@ -249,6 +249,25 @@ def _game(**kw):
     return base
 
 
+def _classic_table():
+    """Pre-zero diet: mechanism tests run on explicit amounts.
+
+    The live table zeroes everything but hills, which would vacate
+    coverage of splits, gating, walk-back, and terminal interpolation.
+    Mechanism tests take this table; the live zeros are pinned by the
+    diet test (challenger scales) and the live-engine zero tests."""
+    return {
+        "FOOD": 0.1,
+        "KILL": 0.1,
+        "DEATH": -0.2,
+        "HILL_RAZE": 10.0,
+        "HILL_LOST": -10.0,
+        "WIN": 5.0,
+        "LOSS": -5.0,
+        "HILL_APPROACH": 0.25,
+    }
+
+
 def _hill_game(score):
     game = _game()
     game["score"] = score
@@ -295,9 +314,9 @@ def test_kill_credit_splits_among_nearby_attackers():
         {"turn": 3, "loc": [5, 4], "dest": [5, 4], "action": "stay"},
         {"turn": 3, "loc": [0, 0], "dest": [0, 0], "action": "stay"},
     ]
-    rets = rewards.compute_returns(game, 0, records)
-    assert rets[0] == rewards.KILL + rewards.WIN
-    assert rets[1] == rewards.WIN
+    rets = rewards.compute_returns(game, 0, records, _classic_table())
+    assert rets[0] == 0.1 + 5.0
+    assert rets[1] == 5.0
 
 
 def test_one_for_one_trade_nets_negative():
@@ -318,8 +337,8 @@ def test_one_for_one_trade_nets_negative():
         # death tile is start walked by all orders: (5,4) + s = (6,4).
         {"turn": 3, "loc": [5, 4], "dest": [6, 4], "action": "s"},
     ]
-    rets = rewards.compute_returns(game, 0, records)
-    assert rets[0] == rewards.KILL + rewards.DEATH + rewards.WIN
+    rets = rewards.compute_returns(game, 0, records, _classic_table())
+    assert rets[0] == 0.1 + -0.2 + 5.0
 
 
 def test_hill_approach_pays_for_closing():
@@ -334,10 +353,10 @@ def test_hill_approach_pays_for_closing():
     records = [
         {"turn": 1, "loc": [5, 5], "dest": [5, 6], "action": "e"},
     ]
-    rets = rewards.compute_returns(game, 0, records)
+    rets = rewards.compute_returns(game, 0, records, _classic_table())
     before = math.sqrt(dist2((5, 5), (5, 9), 10, 10))
     after = math.sqrt(dist2((5, 6), (5, 9), 10, 10))
-    assert rets[0] == rewards.WIN + rewards.HILL_APPROACH * (before - after)
+    assert rets[0] == 5.0 + 0.25 * (before - after)
 
 
 def test_hill_approach_ignores_opening_and_staying():
@@ -351,10 +370,10 @@ def test_hill_approach_ignores_opening_and_staying():
         {"turn": 2, "loc": [5, 6], "dest": [5, 5], "action": "w"},
         {"turn": 3, "loc": [5, 5], "dest": [5, 5], "action": "stay"},
     ]
-    rets = rewards.compute_returns(game, 0, records)
-    assert rets[0] > rewards.WIN  # closed one tile: HA + terminal
-    assert rets[1] == rewards.WIN  # opened it back: terminal only
-    assert rets[2] == rewards.WIN  # stayed: terminal only
+    rets = rewards.compute_returns(game, 0, records, _classic_table())
+    assert rets[0] > 5.0  # closed one tile: HA + terminal
+    assert rets[1] == 5.0  # opened it back: terminal only
+    assert rets[2] == 5.0  # stayed: terminal only
 
 
 def test_hill_approach_stays_same_turn_only():
@@ -367,10 +386,10 @@ def test_hill_approach_stays_same_turn_only():
         {"turn": 1, "loc": [5, 5], "dest": [5, 4], "action": "w"},
         {"turn": 2, "loc": [5, 4], "dest": [5, 5], "action": "e"},
     ]
-    rets = rewards.compute_returns(game, 0, records)
-    assert rets[0] == rewards.WIN  # opened: terminal only, no walk-back
+    rets = rewards.compute_returns(game, 0, records, _classic_table())
+    assert rets[0] == 5.0  # opened: terminal only, no walk-back
     # closed one full tile (d 5 -> 4): same-turn credit + terminal.
-    assert rets[1] == rewards.WIN + rewards.HILL_APPROACH * 1.0
+    assert rets[1] == 5.0 + 0.25 * 1.0
 
 
 def test_hill_approach_targets_first_hill_only():
@@ -386,9 +405,9 @@ def test_hill_approach_targets_first_hill_only():
     records = [
         {"turn": 1, "loc": [5, 4], "dest": [5, 5], "action": "e"},
     ]
-    rets = rewards.compute_returns(game, 0, records)
+    rets = rewards.compute_returns(game, 0, records, _classic_table())
     # closes to second, opens to first: no approach, terminal only.
-    assert rets[0] == rewards.WIN
+    assert rets[0] == 5.0
 
 
 def test_hill_raze_scales_by_distance():
@@ -470,15 +489,17 @@ def test_outcome_win_belongs_to_every_move_equally():
 
     game = _game(score=[10, 4])
     records = [{"turn": 9, "loc": [1, 1], "dest": [1, 1], "action": "stay"}]
-    rets = rewards.compute_returns(game, 0, records)
-    assert rets[0] == rewards.WIN
+    rets = rewards.compute_returns(game, 0, records, _classic_table())
+    assert rets[0] == 5.0
 
 
 def test_outcome_loss_and_draw():
     import rewards
 
-    assert rewards.outcome(_game(score=[3, 9]), 0) == rewards.LOSS
-    assert rewards.outcome(_game(score=[5, 5]), 0) == rewards.DRAW
+    table = {"WIN": 5.0, "LOSS": -5.0}
+    assert rewards.outcome(_game(score=[3, 9]), 0, table) == -5.0
+    assert rewards.outcome(_game(score=[5, 5]), 0, table) == rewards.DRAW
+    assert rewards.outcome(_game(score=[3, 9]), 0) == 0.0  # live: no terminal
 
 
 def test_bot_records_turn_rows_when_env_set(tmp_path, monkeypatch):
@@ -1783,8 +1804,8 @@ def test_gated_shaping_zeroes_march_on_loss():
     game = _hill_game([0, 1])  # loss
     records = [{"turn": 1, "loc": [5, 5], "dest": [6, 6], "action": "s"}]
     rets = rewards.compute_returns(game, 0, records)
-    # marching paid nothing: only the terminal loss remains.
-    assert rets[0] == rewards.LOSS
+    # marching pays nothing (amount zero, gate moot): no terminal remains.
+    assert rets[0] == 0.0
 
 
 def test_gated_shaping_zeroes_march_on_draw():
@@ -1804,9 +1825,9 @@ def test_wins_pay_march_and_kills():
 
     game = _hill_game([1, 0])  # win
     records = [{"turn": 1, "loc": [5, 5], "dest": [6, 6], "action": "s"}]
-    rets = rewards.compute_returns(game, 0, records)
+    rets = rewards.compute_returns(game, 0, records, _classic_table())
     closed = math.sqrt(32) - math.sqrt(18)
-    assert rets[0] == rewards.WIN + rewards.HILL_APPROACH * closed
+    assert rets[0] == 5.0 + 0.25 * closed
 
 
 def test_third_seat_gets_own_outcome():
@@ -1818,11 +1839,11 @@ def test_third_seat_gets_own_outcome():
     records = [
         {"turn": 3, "loc": [4, 5], "dest": [5, 5], "action": "s"},
     ]
-    assert rewards.compute_returns(game, 2, records)[0] == rewards.WIN
-    assert rewards.compute_returns(game, 0, records)[0] == rewards.LOSS
+    assert rewards.compute_returns(game, 2, records, _classic_table())[0] == 5.0
+    assert rewards.compute_returns(game, 0, records, _classic_table())[0] == -5.0
 
 
-def test_main_kills_paid_on_loss():
+def test_main_kills_unpaid_on_loss():
     import rewards
 
     game = _game()
@@ -1832,10 +1853,10 @@ def test_main_kills_paid_on_loss():
         {"turn": 3, "loc": [5, 4], "dest": [5, 4], "action": "stay"},
     ]
     main = rewards.compute_returns(game, 0, records)
-    assert main[0] == rewards.KILL + rewards.LOSS  # kills always pay now
+    assert main[0] == 0.0  # kills pay nothing now (split covered live)
 
 
-def test_death_still_hurts_on_loss():
+def test_death_unpaid_on_loss():
     import rewards
 
     game = _game()
@@ -1845,7 +1866,7 @@ def test_death_still_hurts_on_loss():
         {"turn": 2, "loc": [4, 4], "dest": [5, 4], "action": "s"},
     ]
     rets = rewards.compute_returns(game, 0, records)
-    assert rets[0] == rewards.DEATH + rewards.LOSS
+    assert rets[0] == 0.0
 
 
 # --- idea 3: draw-penalty training games (turtle tax) ---
@@ -2025,7 +2046,7 @@ def test_play_one_learns_from_every_seat(tmp_path, monkeypatch):
     monkeypatch.setattr(game_if, "play", fake_play)
     out = train._play_one(cfg, base, {}, _tmp_3p_map(tmp_path))
     assert len(out["rows"]) == 3  # one decision row per seat
-    assert out["rets"][0] > 0 > out["rets"][2]  # winner up, loser down
+    assert out["rets"] == [0, 0, 0]  # nothing pays in a hill-less game
     (row,) = __import__("archive").list_games(base)
     assert row["seats"] == ["main", "main", "main"]
     assert row["scores"] == [3, 1, 0]
@@ -2255,17 +2276,19 @@ def test_play_one_keeps_small_games_whole(tmp_path, monkeypatch):
 def test_outcome_linear_over_placements():
     import rewards
 
-    assert rewards.outcome(_game(score=[7, 4, 2, 0]), 0) == rewards.WIN
-    assert rewards.outcome(_game(score=[7, 4, 2, 0]), 1) == pytest.approx(5 - 10 / 3)
-    assert rewards.outcome(_game(score=[7, 4, 2, 0]), 2) == pytest.approx(-(5 - 10 / 3))
-    assert rewards.outcome(_game(score=[7, 4, 2, 0]), 3) == rewards.LOSS
+    table = {"WIN": 5.0, "LOSS": -5.0}
+    assert rewards.outcome(_game(score=[7, 4, 2, 0]), 0, table) == 5.0
+    assert rewards.outcome(_game(score=[7, 4, 2, 0]), 1, table) == pytest.approx(5 - 10 / 3)
+    assert rewards.outcome(_game(score=[7, 4, 2, 0]), 2, table) == pytest.approx(-(5 - 10 / 3))
+    assert rewards.outcome(_game(score=[7, 4, 2, 0]), 3, table) == -5.0
     for me in (1, 2):  # tied middle shares the middle value
-        assert rewards.outcome(_game(score=[7, 4, 4, 0]), me) == 0.0
-    assert rewards.outcome(_game(score=[10, 10, 0, 0]), 0) == rewards.WIN
-    assert rewards.outcome(_game(score=[10, 10, 0, 0]), 2) == rewards.LOSS
-    assert rewards.outcome(_game(score=[3, 3, 3]), 1) == rewards.DRAW
-    assert rewards.outcome(_game(score=[5, 3]), 0) == rewards.WIN  # 2p unchanged
-    assert rewards.outcome(_game(score=[5, 3]), 1) == rewards.LOSS
+        assert rewards.outcome(_game(score=[7, 4, 4, 0]), me, table) == 0.0
+    assert rewards.outcome(_game(score=[10, 10, 0, 0]), 0, table) == 5.0
+    assert rewards.outcome(_game(score=[10, 10, 0, 0]), 2, table) == -5.0
+    assert rewards.outcome(_game(score=[3, 3, 3]), 1, table) == rewards.DRAW
+    assert rewards.outcome(_game(score=[5, 3]), 0, table) == 5.0  # 2p unchanged
+    assert rewards.outcome(_game(score=[5, 3]), 1, table) == -5.0
+    assert rewards.outcome(_game(score=[7, 4, 2, 0]), 0) == 0.0  # live: no terminal
 
 
 def test_second_place_terminal_graduated_not_snapped():
@@ -2273,8 +2296,10 @@ def test_second_place_terminal_graduated_not_snapped():
 
     game = _game(score=[0, 1, 2, 3])
     records = [{"turn": 3, "loc": [1, 1], "dest": [1, 1], "action": "stay"}]
-    assert rewards.compute_returns(game, 2, records)[0] == pytest.approx(5 - 10 / 3)
-    assert rewards.compute_returns(game, 1, records)[0] == pytest.approx(-(5 - 10 / 3))
+    classic = _classic_table()
+    assert rewards.compute_returns(game, 2, records, classic)[0] == pytest.approx(5 - 10 / 3)
+    assert rewards.compute_returns(game, 1, records, classic)[0] == pytest.approx(-(5 - 10 / 3))
+    assert rewards.compute_returns(game, 2, records)[0] == 0.0  # live: no terminal
 
 
 def test_refresh_water_grows_with_vision():
