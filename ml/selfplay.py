@@ -333,6 +333,16 @@ def _finish_tick(cfg: dict, base: Path, live: dict, result: dict) -> dict:
     here and nowhere else."""
     tick = result["tick"]
     played = result["played"]
+    if played.get("scoreless", False):
+        # Hills-only diet: all-zero returns teach nothing, so the game
+        # banks no rows and the cadence counts scoring games only. The
+        # game stays logged (draws are board history), the tick still
+        # advances, and a finished update still lands.
+        _bg_swap(cfg, base, live, block=False)
+        state = archive.load_state(base)
+        state["tick"] = max(state.get("tick", 0), tick + 1)
+        archive.save_state(base, state)
+        return {"tick": tick, "scores": played["scores"], "update": False}
     batch = algorithm.collect(live["policy"], played["rows"], played["rets"])
     live["pending"].extend(batch)
     bank_pending(base, batch, cfg.get("arch", "base"), tick)

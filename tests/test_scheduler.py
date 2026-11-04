@@ -36,7 +36,7 @@ def _cfg(tmp_path, **over):
     return cfg
 
 
-def _setup(tmp_path, monkeypatch, scores=(3, 1), **cfg_over):
+def _setup(tmp_path, monkeypatch, scores=(3, 1), rets=(1.0, 1.0), scoreless=False, **cfg_over):
     """Trainer ready to tick with a stubbed game (no engine)."""
     base = tmp_path / "archive"
     cfg = _cfg(tmp_path, **cfg_over)
@@ -57,9 +57,10 @@ def _setup(tmp_path, monkeypatch, scores=(3, 1), **cfg_over):
                 {"window": [[[0.0] * 9] * 9] * 13, "action": "stay"},
                 {"window": [[[0.0] * 9] * 9] * 13, "action": "stay"},
             ],
-            "rets": [1.0, 1.0],
+            "rets": list(rets),
             "scores": [scores[0], scores[1]],
             "game": {"score": [scores[0], scores[1]]},
+            "scoreless": scoreless,
         }
 
     monkeypatch.setattr(train, "_play_one", fake_play_one)
@@ -79,6 +80,29 @@ def test_tick_plays_mirror_and_banks_batch(tmp_path, monkeypatch):
     assert len(live["pending"]) == 2  # both seats train
     bank = selfplay.load_pending(base, "base")
     assert len(bank) == 2  # banked for a restart
+
+
+def test_scoreless_tick_logs_history_but_banks_nothing(tmp_path, monkeypatch):
+    base, cfg, live = _setup(
+        tmp_path, monkeypatch, rets=[0.0, 0.0], scoreless=True
+    )
+    rep = selfplay.run_tick(cfg, base, live)
+    assert rep["tick"] == 0 and not rep["update"]
+    assert len(archive.list_games(base)) == 1  # draws stay visible
+    assert live["pending"] == []  # nothing to train
+    assert selfplay.load_pending(base, "base") == []  # nothing banked
+    state = archive.load_state(base)
+    assert state["tick"] == 1 and state["micro"] == 0  # cadence untouched
+
+
+def test_cadence_counts_scoring_games_only(tmp_path, monkeypatch):
+    base, cfg, live = _setup(
+        tmp_path, monkeypatch, rets=[0.0, 0.0], scoreless=True
+    )
+    for _ in range(15):
+        assert not selfplay.run_tick(cfg, base, live)["update"]
+    assert archive.load_state(base)["micro"] == 0
+    assert len(archive.list_games(base)) == 15
 
 
 def test_update_fires_every_sixteenth_game(tmp_path, monkeypatch):

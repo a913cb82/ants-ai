@@ -16,6 +16,10 @@ right way, PPO stays healthy.
    (`games/main/tick{tick}`, `player_seed = seed + tick`,
    `engine_seed = 1000 + tick`).
 2. **Cadence.** Micro-batch PPO every 16 completions (`MICRO_BATCH=16`).
+   Completions are scoring games only: a game whose every return is
+   exactly 0.0 (no hill event under the hills-only diet) is logged
+   to history but banks no rows and does not advance the cadence —
+   training on it would teach nothing.
    Serial by default; `--concurrency N` plays N games in flight while
    the update still fires every 16 completions. The update trains in a
    background thread on a weights snapshot taken at the boundary, so

@@ -131,7 +131,7 @@ def _play_one(cfg: dict, base: Path, weights: dict, map_path: str) -> dict:
         game=gid,
         **kw,
     )
-    return {"rows": rows, "rets": rets, "scores": list(scores)}
+    return {"rows": rows, "rets": rets, "scores": list(scores), "scoreless": all(r == 0.0 for r in rets)}
 
 
 def ppo_update(policy, opt, batch: list, cfg: dict) -> dict:

@@ -2002,6 +2002,58 @@ def _tmp_3p_map(tmp_path, name="e3.map"):
     return str(p)
 
 
+def test_play_one_marks_scoreless_and_hill_games(tmp_path, monkeypatch):
+    import game_if
+    import train
+
+    base = tmp_path / "archive"
+    cfg = {"seed": 0, "turns": 5, "temperature": 0.0, "tick": 7}
+
+    def fake_play(hills):
+        def go(*a, **k):
+            game = {
+                "game_length": 10,
+                "score": [3, 1, 0],
+                "replaydata": {
+                    "map": {
+                        "rows": 10,
+                        "cols": 10,
+                        "data": [".........." for _ in range(10)],
+                    },
+                    "viewradius2": 77,
+                    "attackradius2": 5,
+                    "food": [],
+                    "ants": [
+                        [4, 4, 1, 10, 0, "--"],
+                        [6, 6, 1, 10, 1, "--"],
+                        [5, 5, 1, 3, 2, "--"],
+                    ],
+                    "hills": hills,
+                },
+            }
+            recs = [
+                [{"turn": 3, "loc": [4, 4], "dest": [4, 4], "action": "stay",
+                  "window": [[[0.0]]] }],
+                [{"turn": 3, "loc": [6, 6], "dest": [6, 6], "action": "stay",
+                  "window": [[[0.0]]] }],
+                [{"turn": 3, "loc": [5, 5], "dest": [5, 5], "action": "stay",
+                  "window": [[[0.0]]] }],
+            ]
+            return {"game": game, "records": recs}
+        return go
+
+    monkeypatch.setattr(game_if, "play", fake_play([]))
+    out = train._play_one(cfg, base, {}, _tmp_3p_map(tmp_path))
+    assert out["rets"] == [0.0, 0.0, 0.0]
+    assert out["scoreless"] is True  # kill-only: nothing pays now
+    assert len(out["rows"]) == 3  # rows still flow to the log path
+
+    monkeypatch.setattr(game_if, "play", fake_play([[5, 5, 1, 3]]))
+    out = train._play_one(cfg, base, {}, _tmp_3p_map(tmp_path))
+    assert out["scoreless"] is False  # razed hill pays someone
+    assert any(r != 0.0 for r in out["rets"])
+
+
 def test_play_one_learns_from_every_seat(tmp_path, monkeypatch):
     import game_if
     import train
