@@ -7,7 +7,7 @@ The engine runs a match and records a replay.
 
 ## Layout
 
-- `tools/` holds the upstream engine. Do not change its behavior. The engine must match `main`.
+- `tools/` holds the upstream engine. Do not change its behavior. The engine files (`engine.py`, `game.py`, `ants.py`, `playgame.py`, `sandbox.py`) must match `main`. `tools/mapgen/` is a documented fork (py3/Java fixes, seedable CLIs, perf): see `tools/mapgen/FORK.md`.
 - `bots/` holds one dir per bot. Each bot dir runs stand-alone. The engine runs each bot from its own dir.
 - `vendor/` holds the source archives.
 

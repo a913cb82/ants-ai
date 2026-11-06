@@ -1,11 +1,18 @@
 """Symmetric map generator + pool validation.
 
-Supplements the upstream pool with generated 180-degree symmetric,
-guaranteed-connected grids for rotation variety. Deterministic per seed;
-generated maps live in tools/maps/generated/. The training pool is any
-map in the four upstream dirs (cell_maze, maze, multi_hill_maze,
-random_walk): every tick plays one map, so map size is the
-player-count curriculum.
+Standalone in-process generator (imports nothing but stdlib): noise on
+one half, 180-degree rotational mirror, symmetric hill pair,
+flood-fill connectivity check. Deterministic per seed, microseconds
+per map — see FORK note below for why it does not import
+tools/mapgen (subprocess/CLI scripts with their own import
+conventions; usable in-process, but heavier and stdout-based).
+
+The training pool is any map in the four upstream dirs (cell_maze,
+maze, multi_hill_maze, random_walk): every tick plays one map, so map
+size is the player-count curriculum. generate()/write() are currently
+test/utility-only (tests/test_pool.py pins determinism); the pool
+does not include generated maps since tools/maps/generated/ was
+removed (2a4031d).
 """
 
 from __future__ import annotations
