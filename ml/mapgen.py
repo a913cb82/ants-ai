@@ -1,151 +1,92 @@
-"""Symmetric map generator + pool validation.
+"""Map pool validation + one delegated generator.
 
-Standalone in-process generator (imports nothing but stdlib): noise on
-one half, 180-degree rotational mirror, symmetric hill pair,
-flood-fill connectivity check. Deterministic per seed, microseconds
-per map — see FORK note below for why it does not import
-tools/mapgen (subprocess/CLI scripts with their own import
-conventions; usable in-process, but heavier and stdout-based).
-
-The training pool is any map in the four upstream dirs (cell_maze,
-maze, multi_hill_maze, random_walk): every tick plays one map, so map
-size is the player-count curriculum. generate()/write() are currently
-test/utility-only (tests/test_pool.py pins determinism); the pool
-does not include generated maps since tools/maps/generated/ was
-removed (2a4031d).
+Validation (`_read_grid` / `is_playable` / `is_playable_2p` /
+`parse_text` / `default_pool`) is ours: comment-tolerant headers,
+digit and A/B hills, hill-only maps, any seat count. Generation
+delegates to tools/mapgen via gen_mixed (in-process import, no
+subprocess, no sys.path pollution): `generate()` is one 2p symmetric
+map, deterministic in seed, validated before return.
 """
 
 from __future__ import annotations
 
 import random
 
-SIZES = [(40, 40), (50, 50), (60, 54), (72, 72), (60, 96)]
+_GEN_MIXED = None
+
+
+def _gen_mixed():
+    """Load tools/mapgen/gen_mixed.py by path (imported once, cached).
+
+    importlib file-location load: the host's sys.path is untouched, so
+    the generic top-level names under tools/mapgen (map, mapgen,
+    cavemap) never shadow anything. gen_mixed handles its own
+    submodule keys the same way (_load_genmods snapshots sys.modules).
+    """
+    global _GEN_MIXED
+    if _GEN_MIXED is None:
+        import importlib.util
+        from pathlib import Path
+
+        path = (
+            Path(__file__).resolve().parents[1]
+            / "tools"
+            / "mapgen"
+            / "gen_mixed.py"
+        )
+        spec = importlib.util.spec_from_file_location("gen_mixed", path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        _GEN_MIXED = mod
+    return _GEN_MIXED
 
 
 def generate(seed: int) -> list[str]:
-    """Full map file text (without trailing newline) for seed."""
-    rnd = random.Random(seed)
-    rows, cols = SIZES[seed % len(SIZES)]
-    for attempt in range(100):
-        grid = _try_grid(rnd, rows, cols)
-        if grid is not None:
-            break
-    else:
-        raise RuntimeError(f"no connected map in 100 attempts (seed {seed})")
-    lines = [f"rows {rows}", f"cols {cols}", "players 2", ""]
-    lines += ["m " + "".join(row) for row in grid]
+    """One 2p symmetric map as file-text lines (no trailing newline).
+
+    Deterministic in seed: same seed, same map. Built in-process by
+    the tools symmetric generator (digit hills, walk-carved,
+    connectivity enforced by the generator's own validity loop, hills
+    re-checked here). Global RNG is saved/restored around the build,
+    so training/test streams never shift.
+    """
+    gm = _gen_mixed()
+    rng = random.Random(seed)
+    with gm.seeded(rng.randrange(1 << 30)):
+        text, _argv, _cwd = gm.generate_one("symmetric", 2, rng)
+    lines = text.splitlines()
+    if not is_playable_2p_lines(lines):
+        raise RuntimeError(f"tools output failed validation (seed {seed})")
     return lines
 
 
-def _try_grid(rnd: random.Random, rows: int, cols: int) -> list[list[str]] | None:
-    water_frac = rnd.uniform(0.12, 0.25)
-    # Noise on one half; 180-degree rotation mirrors it (symmetric by
-    # construction, so hills/food placed as rotated pairs stay fair).
-    land = [[True] * cols for _ in range(rows)]
-    for r in range(rows):
-        for c in range(cols):
-            r2, c2 = rows - 1 - r, cols - 1 - c
-            if (r, c) > (r2, c2):
-                continue
-            water = rnd.random() < water_frac
-            land[r][c] = land[r2][c2] = not water
-    # Hills: symmetric pair, margined from edges and each other.
-    hills = _hill_pair(rnd, rows, cols, land)
-    if hills is None:
-        return None
-    (ar, ac), (br, bc) = hills
-    if not _connected(land, (ar, ac)):
-        return None
-    grid = [["." if cell else "%" for cell in row] for row in land]
-    grid[ar][ac] = "A"
-    grid[br][bc] = "B"
-    _sprinkle(rnd, grid, land, rows, cols, hills, fraction=0.03)
-    return grid
+def parse_text(text: str) -> tuple[int, int, int, list[str]]:
+    """(rows, cols, players, grid) from map text.
 
-
-def _hill_pair(
-    rnd: random.Random, rows: int, cols: int, land: list[list[bool]]
-) -> tuple[tuple[int, int], tuple[int, int]] | None:
-    margin = 4
-    for _ in range(200):
-        ar = rnd.randrange(margin, rows - margin)
-        ac = rnd.randrange(margin, cols - margin)
-        br, bc = rows - 1 - ar, cols - 1 - ac
-        if (ar, ac) == (br, bc):
+    Skips blank lines and `#` comments (upstream maps carry comment
+    headers above the rows/cols/players lines); `m `-prefixed lines
+    are grid rows. Headers default to 0 when absent — callers validate.
+    """
+    rows = cols = players = 0
+    grid: list[str] = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
             continue
-        if not land[ar][ac]:
-            continue
-        dist = abs(ar - br) + abs(ac - bc)
-        if dist >= (rows + cols) // 2:
-            return (ar, ac), (br, bc)
-    return None
-
-
-def _connected(land: list[list[bool]], start: tuple[int, int]) -> bool:
-    """Every land cell reachable from start (4-neighbourhood)."""
-    rows, cols = len(land), len(land[0])
-    seen = {start}
-    stack = [start]
-    while stack:
-        r, c = stack.pop()
-        for dr, dc in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-            nxt = (r + dr, c + dc)
-            if (
-                0 <= nxt[0] < rows
-                and 0 <= nxt[1] < cols
-                and land[nxt[0]][nxt[1]]
-                and nxt not in seen
-            ):
-                seen.add(nxt)
-                stack.append(nxt)
-    return sum(sum(row) for row in land) == len(seen)
-
-
-def _sprinkle(
-    rnd: random.Random,
-    grid: list[list[str]],
-    land: list[list[bool]],
-    rows: int,
-    cols: int,
-    hills: tuple[tuple[int, int], tuple[int, int]],
-    fraction: float,
-) -> None:
-    cells = [
-        (r, c)
-        for r in range(rows)
-        for c in range(cols)
-        if land[r][c] and (r, c) not in hills
-    ]
-    for r, c in cells:
-        r2, c2 = rows - 1 - r, cols - 1 - c
-        if (r, c) > (r2, c2):
-            continue
-        if rnd.random() < fraction:
-            grid[r][c] = grid[r2][c2] = "*"
-
-
-def write(path: str, seed: int) -> None:
-    with open(path, "w") as f:
-        f.write("\n".join(generate(seed)) + "\n")
+        if line.startswith("rows "):
+            rows = int(line.split()[1])
+        elif line.startswith("cols "):
+            cols = int(line.split()[1])
+        elif line.startswith("players "):
+            players = int(line.split()[1])
+        elif line.startswith("m "):
+            grid.append(line[2:])
+    return rows, cols, players, grid
 
 
 def _read_grid(path: str):
     """(rows, cols, players, grid) or None when unparseable."""
-    rows = cols = players = 0
-    grid: list[str] = []
-    with open(path) as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            if line.startswith("rows "):
-                rows = int(line.split()[1])
-            elif line.startswith("cols "):
-                cols = int(line.split()[1])
-            elif line.startswith("players "):
-                players = int(line.split()[1])
-            elif line.startswith("m "):
-                grid.append(line[2:])
+    rows, cols, players, grid = parse_text(open(path).read())
     if len(grid) != rows or rows == 0:
         return None
     if any(len(r) != cols for r in grid):
@@ -182,6 +123,22 @@ digits (0/1/...) or ant+hills (A/B), and hill-only maps are fine — hills
     return all(_seat_has_hill(flat, s) for s in range(players))
 
 
+def is_playable_lines(lines: list[str], players: int) -> bool:
+    """is_playable over in-memory lines (no file): header parses, full
+    grid, a hill per seat."""
+    rows, cols, players_got, grid = parse_text("\n".join(lines))
+    if players_got != players or len(grid) != rows or rows == 0:
+        return False
+    if any(len(r) != cols for r in grid):
+        return False
+    flat = "".join(grid)
+    if set(flat) - set(
+        ".%*abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    ):
+        return False
+    return all(_seat_has_hill(flat, s) for s in range(players))
+
+
 def is_playable_2p(path: str) -> bool:
     """A real 2-player grid: parseable header, full grid, a hill each.
 
@@ -196,6 +153,22 @@ def is_playable_2p(path: str) -> bool:
         return False
     _rows, _cols, players, flat = parsed
     return players == 2 and _seat_has_hill(flat, 0) and _seat_has_hill(flat, 1)
+
+
+def is_playable_2p_lines(lines: list[str]) -> bool:
+    """is_playable_2p over in-memory lines (no file)."""
+    rows, cols, players, grid = parse_text("\n".join(lines))
+    if players != 2 or len(grid) != rows or rows == 0:
+        return False
+    if any(len(r) != cols for r in grid):
+        return False
+    flat = "".join(grid)
+    return _seat_has_hill(flat, 0) and _seat_has_hill(flat, 1)
+
+
+def write(path: str, seed: int) -> None:
+    with open(path, "w") as f:
+        f.write("\n".join(generate(seed)) + "\n")
 
 
 def default_pool() -> list[str]:

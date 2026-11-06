@@ -16,6 +16,7 @@ Usage: gen_mixed.py [--players 2|3|4] [--seed S] [--generator NAME]
 """
 
 import argparse
+import contextlib
 import random
 import sys
 from pathlib import Path
@@ -30,6 +31,24 @@ TOL = 0.25  # tile budget tolerance around 250*N
 TRIES = 50
 
 _GENMODS = {}
+
+
+@contextlib.contextmanager
+def seeded(seed):
+    """Pin global RNG for one in-process build; restore state after.
+
+    The generators seed global random themselves (upstream convention:
+    every main() calls random.seed), so an importing host (trainer,
+    pytest) would otherwise inherit a perturbed stream. Wrap any
+    in-process generation; sampling RNGs (random.Random instances)
+    stay untouched.
+    """
+    state = random.getstate()
+    random.seed(seed)
+    try:
+        yield
+    finally:
+        random.setstate(state)
 
 
 def _load_genmods():

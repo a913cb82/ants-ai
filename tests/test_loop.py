@@ -64,6 +64,108 @@ class FakeAnts:
 
 
 @pytest.mark.slow
+def _tmp_2p_map(tmp_path, name="e.map"):
+    p = tmp_path / name
+    p.write_text("rows 16\ncols 24\nplayers 2\n" + "m " + "." * 24 + "\n")
+    return str(p)
+
+
+
+def _tmp_3p_map(tmp_path, name="e3.map"):
+    p = tmp_path / name
+    p.write_text("rows 16\ncols 24\nplayers 3\n" + "m " + "." * 24 + "\n")
+    return str(p)
+
+
+
+def _big_game(monkeypatch, tmp_path, n_rows=5000):
+    """Stub engine game: n_rows priced rows, returns stay attached."""
+    import game_if
+    import rewards as _rewards
+    import train as _train
+
+    rec = {
+        "turn": 2,
+        "loc": [1, 1],
+        "dest": [1, 1],
+        "action": "stay",
+        "window": [[[0.0] * 9] * 9] * 10,
+    }
+    land = ["." * 8 for _ in range(8)]
+    game = {
+        "score": [1, 2],
+        "game_length": 10,
+        "replaydata": {
+            "map": {"rows": 8, "cols": 8, "data": land},
+            "viewradius2": 77,
+            "attackradius2": 5,
+            "food": [],
+            "ants": [[1, 1, 1, 10, 0, "-" * 9], [2, 2, 1, 10, 1, "-" * 9]],
+            "hills": [],
+        },
+    }
+    mapp = tmp_path / "m.map"
+    mapp.write_text("rows 8\ncols 8\nplayers 2\n" + "m " + "." * 8 + "\n")
+
+    def fake_play(*a, **k):
+        return {"game": game, "records": [[dict(rec) for _ in range(n_rows)]] * 2}
+
+    monkeypatch.setattr(game_if, "play", fake_play)
+    monkeypatch.setattr(
+        _rewards, "compute_returns", lambda g, s, r, sc: [float(i) for i in range(len(r))]
+    )
+    cfg = {"tick": 4, "turns": 10, "temperature": 1.0, "seed": 7}
+    return _train._play_one(cfg, tmp_path, {}, str(mapp))
+
+
+
+def _trace_game():
+    import rewards  # noqa: F401  (keeps the one-diet import idiom)
+
+    game = _game()
+    rows = [".........." for _ in range(10)]
+    rows[5] = "......%..."
+    game["replaydata"]["map"] = {"rows": 10, "cols": 10, "data": rows}
+    game["replaydata"]["ants"] = [[5, 5, 1, 6, 0, "----"]]
+    game["playerturns"] = [3, 3]
+    return game
+
+
+
+def _trace_game_status(status):
+    game = _trace_game()
+    game["status"] = status
+    return game
+
+
+
+def _timeout_game():
+    game = _trace_game()
+    game["status"] = ["timeout", "timeout"]
+    return game
+
+
+
+def _game(**kw):
+    """Minimal 0.replay-shaped game: 10x10, 2 players, 10 turns."""
+    base = {
+        "score": [0, 0],
+        "status": ["survived", "survived"],
+        "length": 10,
+        "replaydata": {
+            "map": {"rows": 10, "cols": 10},
+            "viewradius2": 77,
+            "attackradius2": 5,
+            "food": [],
+            "ants": [],
+            "hills": [],
+        },
+    }
+    base.update(kw)
+    return base
+
+
+
 def test_game_if_mirror_plays_and_prices(tmp_path):
     import game_if
     import rewards

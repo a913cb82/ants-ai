@@ -61,6 +61,35 @@ class FakeAnts:
 
 
 
+def _cnn_window(water_dests=(), radius=4):
+    import torch
+    from features import CHANNELS
+
+    w = torch.zeros(_C, 2 * radius + 1, 2 * radius + 1)
+    w[CHANNELS.index("own_ant")][radius][radius] = 1.0
+    for action in water_dests:
+        dr, dc = {"n": (-1, 0), "e": (0, 1), "s": (1, 0), "w": (0, -1), "stay": (0, 0)}[
+            action
+        ]
+        w[CHANNELS.index("water")][radius + dr][radius + dc] = 1.0
+    return w
+
+
+
+def _probs(policy, w):
+    import torch
+
+    policy.eval()
+    with torch.no_grad():
+        return torch.softmax(policy(w), dim=1)
+
+
+
+def _count_params(policy) -> int:
+    return sum(t.numel() for t in policy.parameters())
+
+
+
 def test_bot_samples_with_temperature(tmp_path, monkeypatch):
     import AlphaAnt
     import torch

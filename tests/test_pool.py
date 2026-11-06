@@ -15,6 +15,20 @@ import pytest
 
 
 
+def _parse_grid(lines: list[str]) -> tuple[int, int, list[str]]:
+    rows = cols = 0
+    grid: list[str] = []
+    for line in lines:
+        if line.startswith("rows "):
+            rows = int(line.split()[1])
+        elif line.startswith("cols "):
+            cols = int(line.split()[1])
+        elif line.startswith("m "):
+            grid.append(line[2:])
+    return rows, cols, grid
+
+
+
 def test_default_pool_covers_any_player_count():
     import game_if
     import mapgen
@@ -88,26 +102,28 @@ def test_mapgen_deterministic_and_valid():
         rows, cols, grid = _parse_grid(lines)
         assert len(grid) == rows and all(len(r) == cols for r in grid)
         flat = "".join(grid)
-        assert set(flat) <= set(".%*AB")
-        assert flat.count("A") == 1 and flat.count("B") == 1
+        # tools symmetric output: walk-carved land, digit hills.
+        assert set(flat) <= set(".%0123456789")
+        assert flat.count("0") == 1 and flat.count("1") == 1
 
 
 
 
-def test_mapgen_symmetric_and_connected():
+def test_mapgen_tools_backed_and_valid(tmp_path):
+    """generate() delegates to tools/mapgen (in-process): deterministic,
+    playable 2p, hills exactly 0+1. Connectivity is enforced by the
+    generator's own validity loop (is_valid until connected)."""
     import mapgen
 
+    assert mapgen.generate(3) == mapgen.generate(3)
     for seed in range(6):
-        rows, cols, grid = _parse_grid(mapgen.generate(seed))
-        swap = {"A": "B", "B": "A", ".": ".", "%": "%", "*": "*"}
-        for r in range(rows):
-            for c in range(cols):
-                assert swap[grid[r][c]] == grid[rows - 1 - r][cols - 1 - c]
-        land = [[cell != "%" for cell in row] for row in grid]
-        start = next(
-            (r, c) for r in range(rows) for c in range(cols) if grid[r][c] == "A"
+        p = tmp_path / f"g{seed}.map"
+        p.write_text("\n".join(mapgen.generate(seed)) + "\n")
+        assert mapgen.is_playable_2p(str(p)), f"seed {seed} not playable 2p"
+        flat = "".join(
+            line[2:] for line in p.read_text().splitlines() if line.startswith("m ")
         )
-        assert mapgen._connected(land, start)
+        assert flat.count("0") == 1 and flat.count("1") == 1
 
 
 

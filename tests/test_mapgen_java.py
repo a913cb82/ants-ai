@@ -31,7 +31,7 @@ sys.path.insert(0, str(ROOT / "ml"))
 sys.path.insert(0, str(ROOT / "tools"))
 
 from ants import Ants  # noqa: E402
-from mapgen import is_playable_2p  # noqa: E402
+from mapgen import is_playable_2p, parse_text  # noqa: E402
 
 MAPGEN = ROOT / "tools" / "mapgen"
 
@@ -48,21 +48,6 @@ ENGINE_OPTS = {
 def _engine_loads(path: Path) -> None:
     """Raise unless the engine parses the map (headers + grid consistent)."""
     Ants({"map": path.read_text(), **ENGINE_OPTS})
-
-
-def _parse(text: str):
-    headers: dict[str, int] = {}
-    grid: list[str] = []
-    for line in text.splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        if line.startswith("m "):
-            grid.append(line[2:])
-        else:
-            key, _, value = line.partition(" ")
-            headers[key] = int(value)
-    return headers, grid
 
 
 @pytest.fixture(scope="module")
@@ -105,8 +90,8 @@ def _emit(classes, tmp_path: Path, name: str, *args: str) -> Path:
 def test_test_driver_default_runnable(classes, tmp_path):
     """java Test (no args): exit 0 + parseable map the engine loads."""
     path = _emit(classes, tmp_path, "t8.map", "Test", "8")
-    headers, grid = _parse(path.read_text())
-    assert len(grid) == headers["rows"] and all(len(r) == headers["cols"] for r in grid)
+    rows, cols, _players, grid = parse_text(path.read_text())
+    assert len(grid) == rows and all(len(r) == cols for r in grid)
     _engine_loads(path)
 
 
@@ -145,8 +130,8 @@ def test_mapgenerator_4p_engine_valid(classes, tmp_path):
     path = _emit(
         classes, tmp_path, "mg4.map", "MapGenerator", "--players", "4", "--seed", "7"
     )
-    headers, grid = _parse(path.read_text())
-    assert headers["players"] == 4
+    _rows, _cols, players, grid = parse_text(path.read_text())
+    assert players == 4
     flat = "".join(grid)
     assert all(str(i) in flat for i in range(4)), "each of 4 players needs a hill"
     _engine_loads(path)
@@ -162,14 +147,13 @@ def test_mapwalker_demo_2p(classes, tmp_path):
 def test_symmetric_parseable_engine_valid(classes, tmp_path):
     """SymmetricMapgen: parseable, connected, every player owns a hill."""
     path = _emit(classes, tmp_path, "sym.map", "SymmetricMapgen", "--seed", "7")
-    headers, grid = _parse(path.read_text())
-    rows, cols = headers["rows"], headers["cols"]
+    rows, cols, players, grid = parse_text(path.read_text())
     assert len(grid) == rows and all(len(r) == cols for r in grid)
-    assert 4 <= headers["players"] <= 10
+    assert 4 <= players <= 10
     flat = "".join(grid)
     assert set(flat) <= set(".%ABCDEFGHIJ"), f"bad chars: {set(flat)}"
     # Every player owns an ant+hill (uppercase is ant+hill to the engine).
-    assert all(chr(65 + i) in flat for i in range(headers["players"]))
+    assert all(chr(65 + i) in flat for i in range(players))
     # Fully connected over non-water (torus moves, like the generator).
     start = next((r, c) for r in range(rows) for c in range(cols) if grid[r][c] != "%")
     seen = {start}

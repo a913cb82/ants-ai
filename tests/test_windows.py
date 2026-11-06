@@ -63,6 +63,69 @@ class FakeAnts:
 
 
 
+def _trace_game():
+    import rewards  # noqa: F401  (keeps the one-diet import idiom)
+
+    game = _game()
+    rows = [".........." for _ in range(10)]
+    rows[5] = "......%..."
+    game["replaydata"]["map"] = {"rows": 10, "cols": 10, "data": rows}
+    game["replaydata"]["ants"] = [[5, 5, 1, 6, 0, "----"]]
+    game["playerturns"] = [3, 3]
+    return game
+
+
+
+def _game(**kw):
+    """Minimal 0.replay-shaped game: 10x10, 2 players, 10 turns."""
+    base = {
+        "score": [0, 0],
+        "status": ["survived", "survived"],
+        "length": 10,
+        "replaydata": {
+            "map": {"rows": 10, "cols": 10},
+            "viewradius2": 77,
+            "attackradius2": 5,
+            "food": [],
+            "ants": [],
+            "hills": [],
+        },
+    }
+    base.update(kw)
+    return base
+
+
+
+def _classic_table():
+    """Pre-zero diet: mechanism tests run on explicit amounts.
+
+    The live table zeroes everything but hills, which would vacate
+    coverage of splits, gating, walk-back, and terminal interpolation.
+    Mechanism tests take this table; the live zeros are pinned by the
+    diet test (reward scales) and the live-engine zero tests."""
+    return {
+        "FOOD": 0.1,
+        "KILL": 0.1,
+        "DEATH": -0.2,
+        "HILL_RAZE": 10.0,
+        "HILL_LOST": -10.0,
+        "WIN": 5.0,
+        "LOSS": -5.0,
+        "HILL_APPROACH": 0.25,
+    }
+
+
+
+def _hill_game(score):
+    game = _game()
+    game["score"] = score
+    game["length"] = 10
+    # surviving enemy hill: approach credit without raze credit.
+    game["replaydata"]["hills"] = [[9, 9, 1, 999]]
+    return game
+
+
+
 def test_window_shape_channels_dtype():
     import features
 

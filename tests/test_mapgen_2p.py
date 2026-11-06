@@ -54,31 +54,12 @@ def _run(cmd, cwd, out):
     return out
 
 
-def _grid(out):
-    rows = cols = players = 0
-    grid = []
-    with open(out) as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            if line.startswith("rows "):
-                rows = int(line.split()[1])
-            elif line.startswith("cols "):
-                cols = int(line.split()[1])
-            elif line.startswith("players "):
-                players = int(line.split()[1])
-            elif line.startswith("m "):
-                grid.append(line[2:])
-    return rows, cols, players, grid
-
-
 def _check_small_2p(out):
     """Bar: exit 0 (done by _run) + playable 2p + small + 1 hill each."""
     import mapgen as ml_mapgen
 
     assert ml_mapgen.is_playable_2p(str(out)), f"{out} not playable 2p"
-    rows, cols, players, grid = _grid(out)
+    rows, cols, players, grid = ml_mapgen.parse_text(Path(out).read_text())
     assert players == 2, f"players={players}"
     assert 20 <= rows <= 50, f"rows={rows}"
     assert 20 <= cols <= 50, f"cols={cols}"

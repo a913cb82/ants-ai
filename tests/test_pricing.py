@@ -20,6 +20,56 @@ _S = 2 * features.DEFAULT_RADIUS + 1
 
 
 
+def _game(**kw):
+    """Minimal 0.replay-shaped game: 10x10, 2 players, 10 turns."""
+    base = {
+        "score": [0, 0],
+        "status": ["survived", "survived"],
+        "length": 10,
+        "replaydata": {
+            "map": {"rows": 10, "cols": 10},
+            "viewradius2": 77,
+            "attackradius2": 5,
+            "food": [],
+            "ants": [],
+            "hills": [],
+        },
+    }
+    base.update(kw)
+    return base
+
+
+
+def _classic_table():
+    """Pre-zero diet: mechanism tests run on explicit amounts.
+
+    The live table zeroes everything but hills, which would vacate
+    coverage of splits, gating, walk-back, and terminal interpolation.
+    Mechanism tests take this table; the live zeros are pinned by the
+    diet test (challenger scales) and the live-engine zero tests."""
+    return {
+        "FOOD": 0.1,
+        "KILL": 0.1,
+        "DEATH": -0.2,
+        "HILL_RAZE": 10.0,
+        "HILL_LOST": -10.0,
+        "WIN": 5.0,
+        "LOSS": -5.0,
+        "HILL_APPROACH": 0.25,
+    }
+
+
+
+def _hill_game(score):
+    game = _game()
+    game["score"] = score
+    game["length"] = 10
+    # surviving enemy hill: approach credit without raze credit.
+    game["replaydata"]["hills"] = [[9, 9, 1, 999]]
+    return game
+
+
+
 def test_food_credit_goes_to_gatherer_dest():
     import rewards
 

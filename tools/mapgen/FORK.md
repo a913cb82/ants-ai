@@ -41,6 +41,17 @@ never the game itself) and is kept deliberately:
   `2a4031d`) to `tools/mapgen/` with in-process generation.
   Not upstream code — ours, kept here.
 
+- `gen_mixed.py`: `seeded()` context manager pins global RNG for one
+  in-process build and restores host state after. The generators seed
+  global random themselves (upstream convention), so importers
+  (`ml/mapgen.generate`, pytest) wrap generation in `seeded()` instead
+  of touching 100+ call sites. Sampling RNGs (`random.Random`
+  instances) stay untouched.
+- `gen_mixed.py`: `generate_one()` / `_generate_deterministic()` are
+  the in-process single-map path `ml/mapgen.generate()` delegates
+  to (symmetric 2p, validated before return). Same code path as the
+  batch/pool builders — one tested route, not two.
+
 ## Rule
 
 Engine files must match `main`. Generator fixes above stay, and new

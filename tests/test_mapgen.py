@@ -24,7 +24,7 @@ MAPGEN = ROOT / "tools" / "mapgen"
 
 sys.path.insert(0, str(ROOT / "ml"))
 
-from mapgen import is_playable_2p  # noqa: E402
+from mapgen import is_playable_2p, parse_text  # noqa: E402
 
 
 def _run(argv, cwd=MAPGEN, timeout=300):
@@ -37,26 +37,8 @@ def _run(argv, cwd=MAPGEN, timeout=300):
     )
 
 
-def _parse(text):
-    rows = cols = players = 0
-    grid = []
-    for line in text.splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        if line.startswith("rows "):
-            rows = int(line.split()[1])
-        elif line.startswith("cols "):
-            cols = int(line.split()[1])
-        elif line.startswith("players "):
-            players = int(line.split()[1])
-        elif line.startswith("m "):
-            grid.append(line[2:])
-    return rows, cols, players, grid
-
-
 def _assert_parseable(text):
-    rows, cols, players, grid = _parse(text)
+    rows, cols, players, grid = parse_text(text)
     assert rows > 0 and cols > 0 and players >= 0, f"bad header in:\n{text[:500]}"
     assert len(grid) == rows, f"want {rows} rows, got {len(grid)}"
     assert all(len(r) == cols for r in grid), "ragged grid"

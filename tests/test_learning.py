@@ -19,6 +19,39 @@ _S = 2 * features.DEFAULT_RADIUS + 1
 
 
 
+def _train_batch(returns=(1.0, 2.0, 3.0), logps=None):
+    import torch
+
+    windows = torch.zeros(len(returns), _C, _S, _S)
+    windows[:, 1, 4, 4] = 1.0
+    if logps is None:
+        logps = [0.0] * len(returns)
+    return [
+        (windows[i], i % 5, float(r), [True] * 5, float(o))
+        for i, (r, o) in enumerate(zip(returns, logps))
+    ]
+
+
+
+def _tmp_2p_map(tmp_path, name="e.map"):
+    p = tmp_path / name
+    p.write_text("rows 16\ncols 24\nplayers 2\n" + "m " + "." * 24 + "\n")
+    return str(p)
+
+
+
+def _fake_game_out(names, scores, outdir):
+    (outdir / "logs").mkdir(parents=True, exist_ok=True)
+    (outdir / "logs" / "0.replay").write_text(
+        json.dumps({"game_length": 10, "score": list(scores), "replaydata": {}})
+    )
+    return {
+        "game": {"game_length": 10, "score": list(scores), "replaydata": {}},
+        "records": [[] for _ in names],
+    }
+
+
+
 def test_opt_state_drops_reshaped_params():
     import algorithm
     import model
