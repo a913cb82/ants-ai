@@ -23,7 +23,7 @@ from pathlib import Path
 
 import torch
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "bots" / "alphaant"))
 
 import model
@@ -42,7 +42,7 @@ ROT_MASK = (1, 2, 3, 0, 4)
 def new_policy(weights: dict | None = None, arch: str | None = None) -> model.CNNPolicy:
     """Construct a policy, optionally from stored weight lists.
 
-    The one place ml/ names the bot's network shape: train.py talks to
+    The one place train/ names the bot's network shape: train.py talks to
     new_policy/policy_weights and never imports model directly.
     arch defaults to whatever the weights say (infer_arch), so an
     explicit flag is only needed for fresh random nets.

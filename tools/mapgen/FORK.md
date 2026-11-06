@@ -53,11 +53,11 @@ never the game itself) and is kept deliberately:
 - `gen_mixed.py`: `seeded()` context manager pins global RNG for one
   in-process build and restores host state after. The generators seed
   global random themselves (upstream convention), so importers
-  (`ml/mapgen.generate`, pytest) wrap generation in `seeded()` instead
+  (`train/mapgen.generate`, pytest) wrap generation in `seeded()` instead
   of touching 100+ call sites. Sampling RNGs (`random.Random`
   instances) stay untouched.
 - `gen_mixed.py`: `generate_one()` / `_generate_deterministic()` are
-  the in-process single-map path `ml/mapgen.generate()` delegates
+  the in-process single-map path `train/mapgen.generate()` delegates
   to (symmetric 2p, validated before return). Same code path as the
   batch/pool builders — one tested route, not two.
 
@@ -65,5 +65,5 @@ never the game itself) and is kept deliberately:
 
 Engine files must match `main`. Generator fixes above stay, and new
 generator changes land here with a line in this file. The training
-pool itself lives in `ml/mapgen.py` (`default_pool`); `tools/mapgen`
+pool itself lives in `bots/alphaant/train/mapgen.py` (`default_pool`); `tools/mapgen`
 scripts are validated by `tests/test_mapgen*.py`.

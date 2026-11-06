@@ -29,7 +29,7 @@ def _gen_mixed():
         from pathlib import Path
 
         path = (
-            Path(__file__).resolve().parents[1]
+            Path(__file__).resolve().parents[3]
             / "tools"
             / "mapgen"
             / "gen_mixed.py"

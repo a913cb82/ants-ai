@@ -34,7 +34,7 @@ select = ["E4", "E7", "E9", "F", "W", "I", "UP", "B", "SIM", "C4", "T10"]
 
 [tool.mypy]
 python_version = "3.10"
-files = ["league", "autoresearch", "tests", "conftest.py", "tools", "bots", "ml"]
+files = ["league", "autoresearch", "tests", "conftest.py", "tools", "bots", "bots/alphaant/train"]
 explicit_package_bases = true
 mypy_path = "."
 check_untyped_defs = true

@@ -2,7 +2,7 @@
 
 Each test runs one generator with a DOCUMENTED command that produces a
 small 2-player map (1 hill each) and checks the output passes
-ml.mapgen.is_playable_2p. Scratch output goes to tmp_path (the real
+train mapgen.is_playable_2p (bots/alphaant/train/mapgen.py). Scratch output goes to tmp_path (the real
 archive under tools/maps is never written).
 
 Breakage recorded while shaping (defaults observed before the fix):
@@ -37,7 +37,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PY = sys.executable
 
-sys.path.insert(0, str(ROOT / "ml"))
+sys.path.insert(0, str(ROOT / "bots" / "alphaant" / "train"))
 
 
 def _run(cmd, cwd, out):

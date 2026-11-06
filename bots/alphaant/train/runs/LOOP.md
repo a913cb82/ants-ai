@@ -9,7 +9,7 @@ and go.
 - Branch: `ml/alphastarzero`. Repo: `/home/acbraith/projects/ants-ai`.
   Venv: `.venv/bin/python` (Python 3.12, torch CPU). Run all
   commands from the repo root.
-- Archive: `ml/archive/`. `live/weights.json` (the live policy) +
+- Archive: `bots/alphaant/archive/`. `live/weights.json` (the live policy) +
   `live/opt.json` (its Adam state) + `live/pending/` (unapplied bank,
   one shard per tick). `state.json` holds `{tick, next_tick, micro}`
   and the tick counter never reuses numbers.
@@ -17,7 +17,7 @@ and go.
   everything else 0); dashboard = pure-AZ board
   (`h0/training/behavior/games/alerts/mtime`).
 - Base command (single-threaded first, no `--concurrency`):
-  `.venv/bin/python ml/selfplay.py --archive ml/archive
+  `.venv/bin/python bots/alphaant/train/selfplay.py --archive bots/alphaant/archive
   --maps <map...> --turns 250 --temperature 1.0 --entropy-beta 0.01
   --seed <n> --ticks <n>`
 
@@ -28,8 +28,8 @@ and go.
    the old numbers).
 2. Run the base command. Ctrl-C finishes the current tick, then
    stops; rerunning resumes (tick counter never reuses numbers).
-3. Watch the board (`ml/dashboard.py --port 8090
-   --archive ml/archive`): decisive rate, behavior means,
+3. Watch the board (`bots/alphaant/train/dashboard.py --port 8090
+   --archive bots/alphaant/archive`): decisive rate, behavior means,
    training vitals. Doctrine + falsifiers: LEAGUE.md.
 
 ## Pause (how this file got written)

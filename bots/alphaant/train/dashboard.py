@@ -5,15 +5,15 @@ browser against WSL (open http://localhost:PORT; WSL2 forwards
 localhost automatically). Polls the archive; no restart needed as
 training runs.
 
-  .venv/bin/python ml/dashboard.py [--port 8080] [--archive ml/archive]
+  .venv/bin/python bots/alphaant/train/dashboard.py [--port 8080] [--archive bots/alphaant/archive]
 
 Routes: / (page), /api/snapshot (everything as JSON),
 /api/games?limit=&offset= (game index slice + total),
 /replay?f=<archive-relative replay> (visualizer page, new tab per link),
 /static/v/<path> (visualizer js/data/img).
 
-Thin server (routes + main). Data lives in ml/dashdata.py, first-paint
-HTML in ml/dashpage.py; names are re-exported here so
+Thin server (routes + main). Data lives in train/dashdata.py, first-paint
+HTML in train/dashpage.py; names are re-exported here so
 ``import dashboard`` keeps working.
 """
 
@@ -26,8 +26,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "ml"))
+ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from dashdata import (
     PAGE_SIZE,
@@ -199,7 +199,7 @@ def make_handler(base: Path):
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Serve the training dashboard.")
     p.add_argument("--port", type=int, default=8080)
-    p.add_argument("--archive", default="ml/archive")
+    p.add_argument("--archive", default="bots/alphaant/archive")
     args = p.parse_args(argv)
     base = (
         (ROOT / args.archive).resolve()

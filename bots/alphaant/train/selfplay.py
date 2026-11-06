@@ -24,8 +24,8 @@ import time
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "ml"))
+ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(ROOT / "bots" / "alphaant"))
 
 import algorithm
@@ -105,7 +105,7 @@ def default_config() -> dict:
         "seed": 0,
         "concurrency": 1,
         "ticks": -1,
-        "archive": "ml/archive",
+        "archive": "bots/alphaant/archive",
     }
 
 

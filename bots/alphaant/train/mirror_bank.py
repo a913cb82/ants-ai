@@ -2,7 +2,7 @@
 
 Where ticks live on disk (live weights + Adam, per-tick pending shards,
 claimed tick numbers) and when a new tick may dispatch (seat budget,
-backlog cap). No games, no training math — imported by ml/selfplay.py.
+backlog cap). No games, no training math — imported by train/selfplay.py.
 """
 
 from __future__ import annotations
@@ -13,8 +13,8 @@ import sys
 import threading
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "ml"))
+ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(ROOT / "bots" / "alphaant"))
 
 import algorithm

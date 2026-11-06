@@ -14,7 +14,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-BOT_DIR = Path(__file__).resolve().parents[1] / "bots" / "alphaant"
+BOT_DIR = Path(__file__).resolve().parents[1]
 MAIN_BOT = "AlphaAnt.py"
 
 

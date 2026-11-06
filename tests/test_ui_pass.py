@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "ml"))
+sys.path.insert(0, str(ROOT / "bots" / "alphaant" / "train"))
 
 NEW_KEYS = {"h0", "training", "behavior", "games", "game_total", "alerts", "mtime", "trace_miss", "pending_gb"}
 LEGACY_KEYS = {

@@ -22,7 +22,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MAPGEN = ROOT / "tools" / "mapgen"
 
-sys.path.insert(0, str(ROOT / "ml"))
+sys.path.insert(0, str(ROOT / "bots" / "alphaant" / "train"))
 
 from mapgen import is_playable_2p, parse_text  # noqa: E402
 

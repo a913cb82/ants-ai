@@ -3,7 +3,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "bots" / "alphaant"))
-sys.path.insert(0, str(ROOT / "ml"))
+sys.path.insert(0, str(ROOT / "bots" / "alphaant" / "train"))
 
 import archive
 import selfplay

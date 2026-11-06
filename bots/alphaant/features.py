@@ -254,10 +254,10 @@ def local_window(
     enemy_ants = view.enemy_ants
     enemy_hills, foods = view.enemy_hills, view.foods
     water = view.water
-    # getattr: ml/bc.py rebuilds pre-force-ratio view-likes (a plain
+    # getattr: train/bc.py rebuilds pre-force-ratio view-likes (a plain
     # namespace) to replay archived windows; they carry no attack2.
     attack2 = getattr(view, "attack2", 5) or 5
-    # getattr: ml/bc.py rebuilds pre-force-ratio view-likes (a plain
+    # getattr: train/bc.py rebuilds pre-force-ratio view-likes (a plain
     # namespace) to replay archived windows; they carry no team_seen,
     # so they keep the old own-circle mask.
     team_seen = getattr(view, "team_seen", None)

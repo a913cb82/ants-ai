@@ -6,7 +6,7 @@ import features
 import torch
 from features import ACTIONS
 
-# Dihedral action permutations (mirror ml/algorithm.py ROT_PERM, which
+# Dihedral action permutations (mirror train/algorithm.py ROT_PERM, which
 # maps a CCW-rotated frame back: n->w->s->e). UNROT[k] gathers logits
 # from the k-turns-CCW frame into the canonical frame. UNFLIP mirrors
 # a left-right flip (e<->w) back. Both are their own bookkeeping:

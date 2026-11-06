@@ -1,7 +1,7 @@
 # LEAGUE.md — AlphaAnt pure-mirror doctrine (steady state)
 
 Replaces the old league machinery (roles, PFSP, admissions, snapshots,
-anchors — frozen as record in ml/runs/archive/). One learner, latest-vs-latest
+anchors — frozen as record in git history (git log -- bots/alphaant/train)). One learner, latest-vs-latest
 mirror, no yardstick. The only absolute the board shows is behavior and
 training vitals against the game's fixed substrate (food, kills,
 army share, length): mirror draws stay decisive-free, curves slope the

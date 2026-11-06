@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "ml"))
+sys.path.insert(0, str(ROOT / "bots" / "alphaant" / "train"))
 
 
 def _league_base(base, games=8, behavior=True):

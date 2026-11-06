@@ -11,6 +11,6 @@ replays/
 autoresearch/runs/
 *.replay
 bots/greentea/build/
-ml/archive/
-ml/archive_*/
+bots/alphaant/archive/
+bots/alphaant/archive_*/
 *.class

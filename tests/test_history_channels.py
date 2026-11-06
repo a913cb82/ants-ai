@@ -23,7 +23,7 @@ import torch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "bots" / "alphaant"))
-sys.path.insert(0, str(ROOT / "ml"))
+sys.path.insert(0, str(ROOT / "bots" / "alphaant" / "train"))
 
 import features
 import model
@@ -210,7 +210,7 @@ def test_live_weights_load_strict_and_run_real_rows():
     this pins the weights stay loadable and the pipeline fed."""
     import algorithm
 
-    live = json.loads((ROOT / "ml" / "archive" / "live" / "weights.json").read_text())
+    live = json.loads((ROOT / "bots" / "alphaant" / "archive" / "live" / "weights.json").read_text())
     old_sd = model.lists_to_state_dict(live)
     assert old_sd["conv1.weight"].shape[1] == 13
     net = model.CNNPolicy(arch=model.infer_arch(old_sd))
@@ -220,7 +220,7 @@ def test_live_weights_load_strict_and_run_real_rows():
 
     seen = 0
     with torch.no_grad():
-        for sh in sorted(selfplay._pending_shards(ROOT / "ml" / "archive"))[:3]:
+        for sh in sorted(selfplay._pending_shards(ROOT / "bots" / "alphaant" / "archive"))[:3]:
             for it in algorithm.read_pending(sh, "base"):
                 w = it[0]
                 assert tuple(w.shape) == (13, 15, 15)

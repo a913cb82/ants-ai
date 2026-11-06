@@ -1,7 +1,7 @@
 """Dashboard data layer: archive reads, snapshot, panels, alerts.
 
-Pure data (no HTML, no HTTP). Imported by ml/dashboard.py (server) and
-ml/dashpage.py (first-paint render).
+Pure data (no HTML, no HTTP). Imported by train/dashboard.py (server) and
+train/dashpage.py (first-paint render).
 """
 
 from __future__ import annotations
@@ -9,8 +9,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "ml"))
+ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import html
 import json

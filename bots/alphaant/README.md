@@ -1,7 +1,9 @@
 # AlphaAnt bot (runtime)
 
 Engine-playable student. One shared CNN policy, per ant, greedy in
-rated play and temperature-sampled in self-play.
+rated play and temperature-sampled in self-play. The training school
+that grows these weights lives in `train/` (mirror loop, PPO,
+rewards, dashboard); this file covers game day only.
 
 ## Files
 

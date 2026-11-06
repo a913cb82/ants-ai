@@ -1,7 +1,7 @@
 """Java map generators under tools/mapgen (TDD: written before the fixes).
 
 Working commands (all run from the repo root; each exits 0 and emits a
-parseable map; 2p ones additionally pass ml.mapgen.is_playable_2p):
+parseable map; 2p ones additionally pass train mapgen.is_playable_2p):
 
 - MapGenerator (full random symmetric map, 2/4/8 players):
     javac -d /tmp/mjclasses tools/mapgen/*.java
@@ -27,7 +27,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "ml"))
+sys.path.insert(0, str(ROOT / "bots" / "alphaant" / "train"))
 sys.path.insert(0, str(ROOT / "tools"))
 
 from ants import Ants  # noqa: E402
@@ -81,7 +81,7 @@ def _emit(classes, tmp_path: Path, name: str, *args: str) -> Path:
     )
     path = tmp_path / name
     path.write_text(proc.stdout)
-    assert "scratch" not in str(ROOT / "ml" / "archive"), (
+    assert "scratch" not in str(ROOT / "bots" / "alphaant" / "archive"), (
         "guard: never touch the real archive"
     )
     return path
