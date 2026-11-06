@@ -41,6 +41,15 @@ never the game itself) and is kept deliberately:
   `2a4031d`) to `tools/mapgen/` with in-process generation.
   Not upstream code — ours, kept here.
 
+- Seed-roulette + silent-failure fixes (`mapgen.py` walk/Grid,
+  `4ca8eed`): unset `--symmetry` no longer spends one
+  `random.randint(0, 5)` to pick rotational-vs-tile (rotational
+  supports only 2/4/8 players, so 6p crashed on 5/6 seeds). Now
+  tries rotational-then-tile deterministically with the hill count
+  rolled once (RNG stream identical on explicit runs), and failures
+  go to stderr with nonzero exit instead of stdout with exit 0.
+  Pinned by `test_walk_unset_symmetry_6p_all_seeds`,
+  `test_walk_failure_protocol`, `test_walk_stays_fast`.
 - `gen_mixed.py`: `seeded()` context manager pins global RNG for one
   in-process build and restores host state after. The generators seed
   global random themselves (upstream convention), so importers
