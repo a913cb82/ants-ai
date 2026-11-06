@@ -9,27 +9,29 @@ rated play and temperature-sampled in self-play.
 |---|---|
 | `AlphaAnt.bot` | manifest: `python AlphaAnt.py` (league rebinds `python` to `.venv/bin/python`) |
 | `AlphaAnt.py` | engine loop: `AlphaAnt.py [weights]` override, `AA_TEMPERATURE` sampling, `AA_RECORD_DIR` logging |
-| `features.py` | actions/offsets, `local_window` (6-channel relative 1-hot, LoS-masked) |
-| `model.py` | `CNNPolicy` (6ch window → 5 logits, ~6k params), water/food masking, act/sample, save/load |
-| `weights.json` | champion parameters (rated phenotype; rewritten only on promotion) |
+| `features.py` | actions/offsets, `local_window` (10-channel current + 3-channel T-1 memory, LoS-masked) |
+| `model.py` | `CNNPolicy` (13ch window → 5 logits + 1 value, base ~6k params), water/food masking, act/sample, save/load |
+| `weights.json` | rated snapshot of the live policy (copied from `ml/archive/live/weights.json`, not trained here) |
 | `ants.py` | protocol wrapper, copied from `bots/py3_starter` |
 
 ## Decision path (per ant, per turn)
 
-1. Encode the 6-channel window (water, own ant/hill, enemy ant/hill,
-   food), masked to the ant's sight circle.
+1. Encode the 10-channel current window (water, own ant/hill, enemy
+   ant/hill, food, own-sight team flag, force-ratio, enemy-dist,
+   stall), masked to the team's sight circles, plus 3 T-1 memory
+   channels (prev own ant, prev enemy ant, prev self marker).
 2. Mask water and visible-food destinations (the engine ignores moves
    into both) plus tiles reserved by earlier ants this turn.
-3. Greedy argmax (rated) or softmax sample (self-play). Reservations
-   make collisions impossible by construction; the engine resolves
-   anything left.
+3. Greedy argmax (rated) or softmax sample (self-play). Swap/cycle
+   resolution + reservation make collisions impossible by
+   construction; the engine resolves anything left.
 
 ## Record rows (self-play only)
 
-`{turn, loc, dest, action, window, legal}` — everything the trainer
+`{turn, loc, dest, action, intent, blocked, window, legal}` — everything the trainer
 needs and nothing else. `legal` is the exact mask acted with, so the
-learner scores decisions under the behavior distribution. No cues,
-no history, no reuse across turns.
+learner scores decisions under the behavior distribution. `window` is
+the full 13-channel frame (10 current + 3 history).
 
 ## Turn budget
 

@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 """AlphaAnt: per-ant CNN policy bot (self-play student).
 
-Inference runs the torch CNNPolicy from model.py over the 9-channel
-local window, one ant at a time. Water and visible food are hard-masked
+Inference runs the torch CNNPolicy from model.py over the 13-channel
+local window (10 current + 3 T-1 memory), one ant at a time. Water and visible food are hard-masked
 from the window (the engine ignores moves into both); the live
 reservation set blocks already-claimed tiles so two ants never take the
-same square. weights.json holds the champion parameters; the trainer
-rewrites it only on promotion. `AlphaAnt.py [weights]` points the bot at
+same square. weights.json holds the rated snapshot of the live training
+policy; the trainer refreshes it by copying live/weights.json. `AlphaAnt.py [weights]` points the bot at
 another file for self-play games.
 """
 

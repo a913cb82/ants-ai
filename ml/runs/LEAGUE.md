@@ -1,7 +1,7 @@
-# AZ.md — AlphaAnt pure-mirror doctrine (steady state)
+# LEAGUE.md — AlphaAnt pure-mirror doctrine (steady state)
 
-Replaces LEAGUE.md's league machinery (roles, PFSP, admissions, snapshots,
-anchors — frozen as record in ml/runs/). One learner, latest-vs-latest
+Replaces the old league machinery (roles, PFSP, admissions, snapshots,
+anchors — frozen as record in ml/runs/archive/). One learner, latest-vs-latest
 mirror, no yardstick. The only absolute the board shows is behavior and
 training vitals against the game's fixed substrate (food, kills,
 army share, length): mirror draws stay decisive-free, curves slope the
@@ -35,7 +35,10 @@ right way, PPO stays healthy.
    tick (a rewrite-free append, never a whole-list re-save). There is
    no recovery and no repair — just rerun.
 4. **Fresh starts.** Every net is drawn fresh (`CNNPolicy.reset_parameters`,
-   CleanRL init); nothing resumes from g000 or any snapshot.
+   CleanRL init); nothing resumes from g000 or any snapshot — except
+   surgical width ports (`port_weights`: old weights verbatim, new
+   memory channels grown tiny), which open within a whisper of the
+   original.
 5. **The one diet.** `rewards.scales()`: hills pay in full (raze +10 /
    lost −10), food pays a 0.01 trickle so gathering games still teach;
    kills, deaths, approach, and terminal are zero. Scoreless means no
@@ -78,9 +81,9 @@ right way, PPO stays healthy.
    seats in flight are capped at 16 (~3.8GB worst case instead of
    4 x 10 x 240MB) — over budget the tick waits unclaimed. Each
    background update trains the oldest whole games up to 65536
-   rows (~1.5GB transient); the remainder stays banked for later
+   rows (~0.6GB transient); the remainder stays banked for later
    boundaries, so nothing is ever shed and no update can grow with
-   the backlog. Resting backlog is capped too: past 150k unlanded
+   the backlog. Resting backlog is capped too: past 250k unlanded
    rows the dispatcher stalls (timing, not shedding) while the stall
    force-starts a drain update, so resting memory is bounded however
    far behind the learner falls. A backlog over 1GB raises a board
@@ -103,7 +106,7 @@ right way, PPO stays healthy.
 
 - Mirror draws a majority over any 40-game window → shaping lets the
   policy turtle; change the diet, not the loop.
-- Two consecutive 8-game updates with explained variance ≤ 0 → the
+- Two consecutive 16-game updates with explained variance ≤ 0 → the
   critic learned nothing; change capacity/features, not cadence.
 - Entropy hits ~0 while decisive rate < 50% → premature convergence;
   raise temperature or entropy beta.
