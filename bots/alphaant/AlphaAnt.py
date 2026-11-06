@@ -105,7 +105,7 @@ class AlphaAntBot:
         self.policy = model.CNNPolicy(arch=model.infer_arch(raw))
         self.policy.load_state_dict(
             model.pad_in_channels(model.lists_to_state_dict(raw), self.policy),
-            strict=False,  # pre-value-head champions lack the value keys
+            strict=False,  # pre-value-head checkpoints lack the value keys
         )
         self.policy.eval()
         temperature = os.environ.get(TEMPERATURE_ENV)

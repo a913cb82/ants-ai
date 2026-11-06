@@ -4,6 +4,7 @@ __pycache__/
 .venv/
 .ruff_cache/
 .mypy_cache/
+league/games.jsonl
 league/ratings.json
 game_logs/
 replays/

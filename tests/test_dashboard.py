@@ -1,10 +1,8 @@
-"""League dashboard contracts (build/dashboard2): new snapshot shape.
+"""Mirror dashboard contracts: snapshot shape and panels.
 
-Backend logging (tick/food/kills/army/length on games.jsonl rows, tick
-on anchor rows) plus the board facts the page reads: H0, anchors,
-standings, bars, pairs, behavior, games, alerts. Pure-math tests that
-survived the rework (interval bucketing, anchor panel, window records)
-are unchanged; everything pinning retired keys is rewritten.
+Backend logging (tick/food/kills/army/length on games.jsonl rows) plus
+the board facts the page reads: h0, training, behavior, games,
+alerts. One row is one mirror game; unknown stats read as None.
 """
 
 import sys

@@ -36,7 +36,7 @@ class CNNPolicy(torch.nn.Module):
     only as pooled smear.
     arch="deep": 4 narrow conv layers (8/12/16/16ch), 9x9 receptive
     field covering the whole window, 3x3 pool -> 144 dims, ~6.3k
-    params. Same budget, strictly more expressive; the A/B challenger.
+    params. Same budget, strictly more expressive; the A/B candidate.
 
     Adaptive pooling keeps both radius-agnostic: any odd-sized window
     in, 5 logits out. The critic owns a SEPARATE conv stack (same tiny
@@ -168,11 +168,11 @@ CRITIC_PREFIXES = ("value.", "vconv")
 def is_critic_key(key: str) -> bool:
     """True for value-trunk/head keys (training apparatus, not the agent).
 
-    The critic persists across generations (archive/critic.json) while
-    the actor restarts from the champion. After the trunk split the
+    The critic trains alongside the actor in live (weights + Adam persist in
+    live/opt.json). After the trunk split the
     critic owns vconv* as well as value.* — banking must include both,
     or continuity silently degrades to head-only (random trunk, v ~1.0
-    every gen start)."""
+    every restart)."""
     return key.startswith(CRITIC_PREFIXES)
 
 

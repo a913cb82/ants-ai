@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parents[1]
 # NOTE: never `import ants` here: test_mapgen_java binds that name to the
 # ENGINE ants at collection time, and module-level binding to the bot
 # interface would poison its import. Both ants modules load by file path
-# under unique names instead (same pattern as test_alphastarzero).
+# under unique names instead (same pattern as the bot-behavior splits).
 sys.path.insert(0, str(ROOT / "bots" / "alphaant"))
 sys.path.insert(0, str(ROOT / "ml"))
 sys.path.insert(0, str(ROOT / "tools"))
